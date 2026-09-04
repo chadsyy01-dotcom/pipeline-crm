@@ -60,6 +60,15 @@ export const api = {
     update: (id, body) => request(`/tasks/${id}`, { method: 'PUT', body }),
     remove: (id) => request(`/tasks/${id}`, { method: 'DELETE' }),
   },
+
+  dashboard: {
+    summary: () => request('/dashboard/summary'),
+    queue: () => request('/dashboard/queue'),
+    activity: () => request('/dashboard/activity'),
+    slaAlerts: () => request('/dashboard/sla-alerts'),
+    charts: () => request('/dashboard/charts'),
+    teamStatus: () => request('/dashboard/team-status'),
+  },
 };
 
 export function setToken(token) {

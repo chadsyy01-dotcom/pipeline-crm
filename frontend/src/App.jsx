@@ -9,6 +9,7 @@ import Companies from './pages/Companies.jsx';
 import Deals from './pages/Deals.jsx';
 import DealDetail from './pages/DealDetail.jsx';
 import Tasks from './pages/Tasks.jsx';
+import CsrDashboard from './pages/CsrDashboard.jsx';
 
 function Protected({ children }) {
   if (!isLoggedIn()) return <Navigate to="/login" replace />;
@@ -28,13 +29,14 @@ export default function App() {
           </Protected>
         }
       >
-        <Route index element={<Navigate to="/deals" replace />} />
+        <Route index element={<CsrDashboard />} />
         <Route path="deals" element={<Deals />} />
         <Route path="deals/:id" element={<DealDetail />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="contacts/:id" element={<ContactDetail />} />
         <Route path="companies" element={<Companies />} />
         <Route path="tasks" element={<Tasks />} />
+        <Route path="csr-dashboard" element={<CsrDashboard />} />
       </Route>
     </Routes>
   );
