@@ -23,7 +23,10 @@ export default function Login() {
   return (
     <div className="auth-screen">
       <div>
-        <div className="brand">Pipeline</div>
+        <div className="brand">
+          <span>Customer Service</span>
+          <span>Representative CRM</span>
+        </div>
         <form className="form-card" onSubmit={handleSubmit}>
           <div className="field">
             <label>Email</label>

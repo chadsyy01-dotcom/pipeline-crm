@@ -12,7 +12,10 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand">Pipeline</div>
+        <div className="brand">
+          <span>Customer Service</span>
+          <span>Representative CRM</span>
+        </div>
         <nav>
           <NavLink to="/deals" className={({ isActive }) => (isActive ? 'active' : '')}>
             Deals

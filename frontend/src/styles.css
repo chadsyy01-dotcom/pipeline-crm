@@ -82,11 +82,13 @@ button {
 
 .sidebar .brand {
   font-family: var(--font-display);
-  font-size: 21px;
+  font-size: 16.5px;
   font-weight: 600;
+  line-height: 1.3;
   margin-bottom: 30px;
   color: #fff;
 }
+.sidebar .brand span { display: block; }
 
 .sidebar nav {
   display: flex;
@@ -323,10 +325,12 @@ tbody tr:hover { background: rgba(33,37,43,0.035); }
 .auth-screen .brand {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 27px;
+  font-size: 22px;
+  line-height: 1.3;
   margin-bottom: 24px;
   text-align: center;
 }
+.auth-screen .brand span { display: block; }
 
 .error-text {
   color: var(--danger);
