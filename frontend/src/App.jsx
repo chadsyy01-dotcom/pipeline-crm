@@ -25,18 +25,31 @@ export default function App() {
         path="/"
         element={
           <Protected>
+            <CsrDashboard />
+          </Protected>
+        }
+      />
+      <Route
+        path="csr-dashboard"
+        element={
+          <Protected>
+            <CsrDashboard />
+          </Protected>
+        }
+      />
+      <Route
+        element={
+          <Protected>
             <Layout />
           </Protected>
         }
       >
-        <Route index element={<CsrDashboard />} />
         <Route path="deals" element={<Deals />} />
         <Route path="deals/:id" element={<DealDetail />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="contacts/:id" element={<ContactDetail />} />
         <Route path="companies" element={<Companies />} />
         <Route path="tasks" element={<Tasks />} />
-        <Route path="csr-dashboard" element={<CsrDashboard />} />
       </Route>
     </Routes>
   );
