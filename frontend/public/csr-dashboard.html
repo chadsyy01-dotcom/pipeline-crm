@@ -60,6 +60,9 @@
   .nav-item:hover{background:#151E30;color:#fff;}
   .nav-item.active{background:var(--primary);color:#fff;}
   .nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;}
+  .nav-item.soon{opacity:.45;cursor:default;pointer-events:none;position:relative;}
+  .nav-item.soon:hover{background:transparent;color:#AEBBD1;}
+  .nav-item.soon .soon-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.02em;background:#1C273B;color:#748199;padding:2px 6px;border-radius:6px;}
 
   .sidebar-status{
     margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;
@@ -196,6 +199,33 @@
 </style>
 </head>
 <body>
+<script>
+  // ---- Auth check: uses the same pipeline_token + Railway API as the React app ----
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) {
+      window.location.href = LOGIN_PATH;
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Invalid session");
+      const user = await res.json();
+      const nameEl = document.querySelector(".profile-name");
+      if (nameEl && user && user.name) {
+        nameEl.childNodes[0].nodeValue = user.name;
+      }
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
 <div class="app">
 
   <!-- SIDEBAR -->
@@ -206,41 +236,41 @@
     </div>
 
     <div class="nav-group">
-      <div class="nav-item active">
+      <a href="/csr-dashboard.html" class="nav-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
         Dashboard
-      </div>
-      <div class="nav-item">
+      </a>
+      <div class="nav-item soon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
-        Tickets
+        Tickets <span class="soon-tag">Soon</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item soon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        Live Chat <span class="nav-badge">12</span>
+        Live Chat <span class="soon-tag">Soon</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item soon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        Customers
+        Customers <span class="soon-tag">Soon</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item soon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-        Reports
+        Reports <span class="soon-tag">Soon</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item soon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-        CSAT
+        CSAT <span class="soon-tag">Soon</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item soon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        Agents
+        Agents <span class="soon-tag">Soon</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item soon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-        Knowledge Base
+        Knowledge Base <span class="soon-tag">Soon</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item soon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-        Settings
+        Settings <span class="soon-tag">Soon</span>
       </div>
     </div>
 
