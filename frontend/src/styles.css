@@ -1,17 +1,32 @@
 :root {
-  --paper: #F6F4EF;
+  /* Base */
+  --paper: #EFEEE9;
   --paper-raised: #FFFFFF;
-  --ink: #1B211F;
-  --ink-soft: #5B635F;
-  --pine: #3E6659;
-  --pine-dark: #2C4A40;
-  --ochre: #B8863B;
-  --rule: #D9D4C7;
-  --rule-strong: #BFB9A9;
-  --danger: #9C4437;
+  --ink: #21252B;
+  --ink-soft: #676E76;
+  --ink-faint: #9A9FA4;
+  --brass: #A8763A;
+  --brass-dark: #7F5A28;
+  --rule: #DCDAD3;
+  --rule-strong: #C3C0B6;
+  --danger: #8B4A45;
+  --danger-bg: #F5E9E7;
 
-  --font-display: "Source Serif 4", Georgia, serif;
-  --font-body: "Inter", -apple-system, sans-serif;
+  /* Pipeline stage colors — one fixed hue per stage, used consistently
+     across column header, card accent and pills. This is the app's
+     one real accent system; --brass is reserved for actions only. */
+  --stage-1: #6B7178; /* New */
+  --stage-2: #3B6E8F; /* Qualified */
+  --stage-3: #A8763A; /* Proposal */
+  --stage-4: #B0562E; /* Negotiation */
+  --stage-5: #3E6B4F; /* Won */
+  --stage-6: #8B4A45; /* Lost */
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "IBM Plex Sans", -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius: 3px;
 }
 
 * { box-sizing: border-box; }
@@ -27,95 +42,128 @@ body {
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3 {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 550;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
-a { color: var(--pine-dark); }
+a { color: var(--stage-2); }
 
 button {
   font-family: var(--font-body);
   cursor: pointer;
 }
 
+:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+/* ---------- Shell ---------- */
+
 .app-shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 216px 1fr;
   min-height: 100vh;
 }
 
 .sidebar {
   background: var(--ink);
   color: var(--paper);
-  padding: 24px 20px;
+  padding: 28px 18px;
   display: flex;
   flex-direction: column;
 }
 
 .sidebar .brand {
   font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 32px;
-  letter-spacing: 0.2px;
+  font-size: 21px;
+  font-weight: 600;
+  margin-bottom: 30px;
+  color: #fff;
 }
 
 .sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .sidebar nav a {
-  color: #C9CFC9;
+  color: #ABB0B6;
   text-decoration: none;
-  padding: 9px 10px;
-  border-radius: 3px;
+  padding: 9px 12px;
+  border-left: 2px solid transparent;
   font-size: 13.5px;
+  transition: border-color 120ms ease, color 120ms ease;
 }
 
-.sidebar nav a:hover { background: rgba(255,255,255,0.06); color: var(--paper); }
-.sidebar nav a.active { background: var(--pine); color: #fff; }
+.sidebar nav a:hover {
+  color: #fff;
+  border-left-color: var(--rule-strong);
+}
+
+.sidebar nav a.active {
+  color: #fff;
+  border-left-color: var(--brass);
+  font-weight: 500;
+}
 
 .sidebar .sidebar-foot {
   margin-top: auto;
   font-size: 12px;
-  color: #8B948E;
-  border-top: 1px solid rgba(255,255,255,0.12);
-  padding-top: 14px;
+  color: #7E848B;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 16px;
+}
+
+.sidebar .sidebar-foot .btn-outline {
+  border-color: rgba(255,255,255,0.22);
+  color: #C8CCD1;
+  background: transparent;
+}
+.sidebar .sidebar-foot .btn-outline:hover {
+  border-color: #fff;
+  color: #fff;
 }
 
 .main {
-  padding: 32px 40px;
+  padding: 34px 42px;
   overflow-y: auto;
 }
+
+/* ---------- Page header ---------- */
 
 .page-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 26px;
   border-bottom: 1px solid var(--rule);
-  padding-bottom: 16px;
+  padding-bottom: 18px;
 }
 
-.page-header h1 { font-size: 24px; }
-.page-header .sub { color: var(--ink-soft); font-size: 13px; margin-top: 4px; }
+.page-header h1 { font-size: 25px; }
+.page-header .sub { color: var(--ink-soft); font-size: 13px; margin-top: 5px; }
+
+/* ---------- Buttons ---------- */
 
 .btn {
   border: 1px solid var(--ink);
   background: var(--ink);
-  color: var(--paper);
+  color: #fff;
   padding: 8px 16px;
-  border-radius: 3px;
+  border-radius: var(--radius);
   font-size: 13px;
   font-weight: 500;
+  transition: background 120ms ease, border-color 120ms ease;
 }
-.btn:hover { background: var(--pine-dark); border-color: var(--pine-dark); }
+.btn:hover { background: var(--brass-dark); border-color: var(--brass-dark); }
 
 .btn-outline {
   background: transparent;
@@ -125,6 +173,9 @@ button {
 .btn-outline:hover { border-color: var(--ink); }
 
 .btn-danger { background: var(--danger); border-color: var(--danger); }
+.btn-danger:hover { background: #743B37; border-color: #743B37; }
+
+/* ---------- Tables ---------- */
 
 table {
   width: 100%;
@@ -134,32 +185,36 @@ table {
 thead th {
   text-align: left;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--ink-soft);
-  padding: 8px 10px;
+  padding: 9px 10px;
   border-bottom: 1px solid var(--rule-strong);
 }
 
 tbody td {
-  padding: 11px 10px;
+  padding: 12px 10px;
   border-bottom: 1px solid var(--rule);
   font-size: 13.5px;
 }
 
-tbody tr:hover { background: rgba(62,102,89,0.05); }
+tbody tr:hover { background: rgba(33,37,43,0.035); }
+
+/* ---------- Status pills ---------- */
 
 .pill {
   display: inline-block;
-  padding: 2px 9px;
+  padding: 2px 10px;
   border-radius: 100px;
   font-size: 11.5px;
   font-weight: 500;
   border: 1px solid var(--rule-strong);
 }
-.pill-lead { color: var(--ochre); border-color: var(--ochre); }
-.pill-active { color: var(--pine-dark); border-color: var(--pine); }
-.pill-customer { background: var(--pine); color: #fff; border-color: var(--pine); }
+.pill-lead { color: var(--stage-3); border-color: var(--stage-3); }
+.pill-active { color: var(--stage-2); border-color: var(--stage-2); }
+.pill-customer { background: var(--stage-5); color: #fff; border-color: var(--stage-5); }
 .pill-inactive { color: var(--ink-soft); }
+
+/* ---------- Pipeline board ---------- */
 
 .board {
   display: flex;
@@ -169,19 +224,26 @@ tbody tr:hover { background: rgba(62,102,89,0.05); }
 }
 
 .board-column {
-  min-width: 260px;
+  min-width: 264px;
   background: var(--paper-raised);
   border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: 12px;
+  border-top: 3px solid var(--stage-1);
+  border-radius: var(--radius);
+  padding: 13px;
 }
+.board-column:nth-child(1) { border-top-color: var(--stage-1); }
+.board-column:nth-child(2) { border-top-color: var(--stage-2); }
+.board-column:nth-child(3) { border-top-color: var(--stage-3); }
+.board-column:nth-child(4) { border-top-color: var(--stage-4); }
+.board-column:nth-child(5) { border-top-color: var(--stage-5); }
+.board-column:nth-child(6) { border-top-color: var(--stage-6); }
 
 .board-column h3 {
-  font-size: 13px;
+  font-size: 12.5px;
   font-family: var(--font-body);
   font-weight: 600;
   color: var(--ink-soft);
-  margin-bottom: 10px;
+  margin-bottom: 11px;
   display: flex;
   justify-content: space-between;
 }
@@ -189,42 +251,66 @@ tbody tr:hover { background: rgba(62,102,89,0.05); }
 .deal-card {
   background: var(--paper);
   border: 1px solid var(--rule);
-  border-left: 3px solid var(--pine);
-  border-radius: 3px;
-  padding: 10px 12px;
+  border-left: 3px solid var(--stage-1);
+  border-radius: var(--radius);
+  padding: 11px 12px;
   margin-bottom: 8px;
   cursor: grab;
+  transition: border-color 120ms ease;
 }
+.board-column:nth-child(1) .deal-card { border-left-color: var(--stage-1); }
+.board-column:nth-child(2) .deal-card { border-left-color: var(--stage-2); }
+.board-column:nth-child(3) .deal-card { border-left-color: var(--stage-3); }
+.board-column:nth-child(4) .deal-card { border-left-color: var(--stage-4); }
+.board-column:nth-child(5) .deal-card { border-left-color: var(--stage-5); }
+.board-column:nth-child(6) .deal-card { border-left-color: var(--stage-6); }
 
-.deal-card .value { font-weight: 600; color: var(--pine-dark); font-size: 13px; }
-.deal-card .title { font-size: 13.5px; margin: 3px 0; }
+.deal-card:hover { border-color: var(--rule-strong); }
+
+.deal-card .value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  font-size: 13px;
+}
+.deal-card .title { font-size: 13.5px; margin: 4px 0; }
 .deal-card .meta { font-size: 11.5px; color: var(--ink-soft); }
+
+/* ---------- Forms ---------- */
 
 .form-card {
   background: var(--paper-raised);
   border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: 24px;
+  border-radius: var(--radius);
+  padding: 26px;
   max-width: 420px;
 }
 
-.field { margin-bottom: 14px; }
+.field { margin-bottom: 15px; }
 .field label {
   display: block;
   font-size: 12px;
   color: var(--ink-soft);
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 .field input, .field select, .field textarea {
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 11px;
   border: 1px solid var(--rule-strong);
-  border-radius: 3px;
+  border-radius: var(--radius);
   font-family: var(--font-body);
   font-size: 13.5px;
   background: #fff;
+  color: var(--ink);
 }
-.field textarea { resize: vertical; min-height: 70px; }
+.field input:focus, .field select:focus, .field textarea:focus {
+  border-color: var(--brass);
+  outline: none;
+}
+.field textarea { resize: vertical; min-height: 72px; }
+
+/* ---------- Auth screens ---------- */
 
 .auth-screen {
   min-height: 100vh;
@@ -236,17 +322,40 @@ tbody tr:hover { background: rgba(62,102,89,0.05); }
 
 .auth-screen .brand {
   font-family: var(--font-display);
-  font-size: 26px;
-  margin-bottom: 22px;
+  font-weight: 600;
+  font-size: 27px;
+  margin-bottom: 24px;
   text-align: center;
 }
 
-.error-text { color: var(--danger); font-size: 12.5px; margin-top: 8px; }
+.error-text {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-radius: var(--radius);
+  padding: 8px 11px;
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+
+/* ---------- Empty state ---------- */
 
 .empty-state {
   border: 1px dashed var(--rule-strong);
-  border-radius: 4px;
-  padding: 40px;
+  border-radius: var(--radius);
+  padding: 42px;
   text-align: center;
   color: var(--ink-soft);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 720px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { flex-direction: row; align-items: center; padding: 14px 16px; }
+  .sidebar .brand { margin-bottom: 0; margin-right: 20px; font-size: 17px; }
+  .sidebar nav { flex-direction: row; overflow-x: auto; }
+  .sidebar nav a { border-left: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .sidebar nav a.active { border-left: none; border-bottom-color: var(--brass); }
+  .sidebar .sidebar-foot { display: none; }
+  .main { padding: 22px 18px; }
 }
