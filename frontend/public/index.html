@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSR Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --primary:#2563EB;
+    --primary-dark:#1D4ED8;
+    --primary-tint:#EFF4FF;
+    --success:#22C55E;
+    --success-tint:#EAFBF1;
+    --warning:#F59E0B;
+    --warning-tint:#FEF6E7;
+    --danger:#EF4444;
+    --danger-tint:#FDECEC;
+    --purple:#8B5CF6;
+    --purple-tint:#F3EEFE;
+    --teal:#14B8A6;
+    --teal-tint:#E9FAF8;
+    --bg:#F8FAFC;
+    --card:#FFFFFF;
+    --ink:#0F172A;
+    --ink-soft:#475569;
+    --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-sm:10px;
+    --radius-md:14px;
+    --radius-lg:18px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;}
+
+  .app{display:flex;min-height:100vh;}
+
+  /* SIDEBAR */
+  .sidebar{
+    width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;
+    display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--primary),#60A5FA);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+
+  .nav-group{margin-bottom:6px;}
+  .nav-item{
+    display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
+    font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;
+    margin-bottom:2px;position:relative;
+  }
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;}
+  .nav-item.soon{opacity:.45;cursor:default;pointer-events:none;position:relative;}
+  .nav-item.soon:hover{background:transparent;color:#AEBBD1;}
+  .nav-item.soon .soon-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.02em;background:#1C273B;color:#748199;padding:2px 6px;border-radius:6px;}
+
+  .sidebar-status{
+    margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;
+    display:flex;align-items:center;gap:8px;color:#AEBBD1;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+  .quick-links{background:#151E30;border-radius:12px;padding:14px;margin-top:12px;}
+  .quick-links h4{margin:0 0 8px;font-size:11px;letter-spacing:.02em;color:#748199;font-weight:600;}
+  .ql-item{display:flex;align-items:center;gap:9px;padding:7px 4px;font-size:12.5px;color:#C4D0E2;cursor:pointer;border-radius:8px;}
+  .ql-item:hover{color:#fff;background:#1C273B;}
+  .ql-item svg{width:15px;height:15px;color:var(--primary);}
+
+  /* MAIN */
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .search{
+    display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);
+    padding:9px 14px;border-radius:10px;min-width:260px;color:var(--ink-faint);font-size:13px;box-shadow:var(--shadow);
+  }
+  .search svg{width:16px;height:16px;flex-shrink:0;}
+  .icon-btn{position:relative;width:38px;height:38px;border-radius:10px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer;}
+  .icon-btn svg{width:17px;height:17px;color:var(--ink-soft);}
+  .icon-btn .badge{position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:20px;}
+  .profile{display:flex;align-items:center;gap:9px;cursor:pointer;}
+  .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#EC4899);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;}
+  .profile-name{font-size:13px;font-weight:700;line-height:1.3;}
+  .profile-name span{display:block;font-size:11px;color:var(--ink-faint);font-weight:500;}
+
+  /* KPI CARDS */
+  .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px;}
+  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px 16px 15px;box-shadow:var(--shadow);}
+  .kpi-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .kpi-icon svg{width:18px;height:18px;}
+  .kpi-label{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .kpi-value{font-size:22px;font-weight:800;margin-bottom:5px;letter-spacing:-.01em;}
+  .kpi-delta{font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:4px;}
+  .up{color:var(--success);} .down{color:var(--danger);}
+
+  /* GRID PANELS */
+  .grid-4{display:grid;grid-template-columns:1.05fr 1.4fr 1.05fr 1.15fr;gap:14px;margin-bottom:14px;align-items:start;}
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
+  .panel-head{display:flex;align-items:center;justify-content:between;justify-content:space-between;margin-bottom:14px;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+  .panel-head .view-all{font-size:12px;color:var(--primary);font-weight:600;}
+
+  .queue-item{display:flex;align-items:center;gap:11px;padding:12px 10px;border-radius:10px;margin-bottom:6px;transition:background .15s;cursor:pointer;}
+  .queue-item:hover{background:#F8FAFC;}
+  .queue-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .queue-ico svg{width:16px;height:16px;}
+  .queue-name{font-size:13px;font-weight:600;flex:1;}
+  .queue-count{font-size:13px;font-weight:700;margin-right:6px;}
+  .queue-item svg.chev{width:15px;height:15px;color:var(--ink-faint);}
+  .view-link{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--primary);margin-top:8px;}
+
+  .activity-item{display:flex;align-items:center;gap:11px;padding:10px 6px;border-bottom:1px solid var(--line);}
+  .activity-item:last-child{border-bottom:none;}
+  .av-sm{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;}
+  .act-name{font-size:13px;font-weight:700;}
+  .act-issue{font-size:12px;color:var(--ink-soft);}
+  .act-right{margin-left:auto;text-align:right;}
+  .pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;margin-bottom:4px;}
+  .pill.high{background:var(--danger-tint);color:var(--danger);}
+  .pill.medium{background:var(--warning-tint);color:var(--warning);}
+  .pill.low{background:var(--success-tint);color:var(--success);}
+  .act-time{font-size:11px;color:var(--ink-faint);display:block;}
+
+  .perf-ring-wrap{display:flex;justify-content:center;margin:6px 0 14px;position:relative;}
+  .perf-ring-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+  .perf-ring-label .num{font-size:26px;font-weight:800;}
+  .perf-ring-label .tag{font-size:11px;color:var(--success);font-weight:700;}
+  .perf-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);}
+  .perf-row:last-of-type{border-bottom:none;}
+  .perf-row .l{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .perf-row .r{font-size:14px;font-weight:800;text-align:right;}
+  .perf-row .r small{display:block;font-size:10.5px;font-weight:700;}
+
+  .alert-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .alert-item:last-child{border-bottom:none;}
+  .alert-ico{width:30px;height:30px;border-radius:9px;background:var(--danger-tint);color:var(--danger);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .alert-ico svg{width:15px;height:15px;}
+  .alert-title{font-size:12.5px;font-weight:700;line-height:1.35;}
+  .alert-sub{font-size:11.5px;color:var(--ink-faint);}
+  .alert-time{margin-left:auto;font-size:12px;font-weight:800;color:var(--danger);white-space:nowrap;}
+
+  /* CHARTS ROW */
+  .grid-4b{display:grid;grid-template-columns:1fr 1.3fr 1fr 1.3fr;gap:14px;margin-bottom:14px;}
+  .chart-total{text-align:center;font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:6px;}
+  .chart-legend{display:flex;flex-direction:column;gap:7px;margin-top:10px;}
+  .legend-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);}
+  .legend-row .sw{width:9px;height:9px;border-radius:3px;flex-shrink:0;}
+  .legend-row b{margin-left:auto;color:var(--ink);}
+  .tabs{display:flex;gap:4px;background:#F1F5F9;border-radius:8px;padding:3px;}
+  .tab{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:6px;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;}
+  .tab.active{background:var(--card);color:var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+  .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+  .donut-center .num{font-size:22px;font-weight:800;color:var(--success);}
+  .donut-center .lab{font-size:11px;color:var(--ink-soft);font-weight:600;}
+  .donut-wrap{position:relative;display:flex;justify-content:center;}
+
+  /* QUICK ACTIONS + TEAM */
+  .grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;}
+  .qa-grid{display:flex;gap:12px;flex-wrap:wrap;}
+  .qa-btn{
+    display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;min-width:96px;
+    background:#F8FAFC;border:1px solid var(--line);border-radius:12px;padding:16px 10px;cursor:pointer;transition:transform .15s, box-shadow .15s;
+  }
+  .qa-btn:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
+  .qa-ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;}
+  .qa-ico svg{width:18px;height:18px;}
+  .qa-label{font-size:12px;font-weight:700;text-align:center;}
+  .team-strip{display:flex;flex-wrap:wrap;gap:10px;}
+  .team-av{position:relative;width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;}
+  .team-av .st{position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;border:2px solid var(--card);}
+  .team-more{width:42px;height:42px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink-soft);}
+
+  @media (max-width:1200px){
+    .kpi-row{grid-template-columns:repeat(3,1fr);}
+    .grid-4{grid-template-columns:1fr 1fr;}
+    .grid-4b{grid-template-columns:1fr 1fr;}
+    .grid-2{grid-template-columns:1fr;}
+  }
+  @media (max-width:860px){
+    .sidebar{display:none;}
+    .kpi-row{grid-template-columns:1fr 1fr;}
+    .grid-4{grid-template-columns:1fr;}
+    .grid-4b{grid-template-columns:1fr;}
+    .main{padding:20px 16px 32px;}
+    .search{min-width:0;flex:1;}
+  }
+</style>
+</head>
+<body>
+<script>
+  // ---- Auth check: uses the same pipeline_token + Railway API as the React app ----
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) {
+      window.location.href = LOGIN_PATH;
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Invalid session");
+      const user = await res.json();
+      const nameEl = document.querySelector(".profile-name");
+      if (nameEl && user && user.name) {
+        nameEl.childNodes[0].nodeValue = user.name;
+      }
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CS</div>
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+
+    <div class="nav-group">
+      <a href="/csr-dashboard.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+        Tickets <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Live Chat <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Customers <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Reports <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+        CSAT <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Agents <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Knowledge Base <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings <span class="soon-tag">Soon</span>
+      </div>
+    </div>
+
+    <div class="quick-links">
+      <h4>QUICK LINKS</h4>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Create Ticket</div>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Customer Lookup</div>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Generate Report</div>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg>Broadcast Notice</div>
+    </div>
+
+    <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="greeting">
+        <h1>Good morning, Maria 👋</h1>
+        <p>Here's what's happening with your support today.</p>
+      </div>
+      <div class="topbar-right">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          Search ticket, customer or ID...
+        </div>
+        <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="badge">8</span></div>
+        <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <div class="profile">
+          <div class="avatar">MS</div>
+          <div class="profile-name">Maria Santos<span>CSR Agent</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></div><div class="kpi-label">Total Tickets Today</div></div>
+        <div class="kpi-value">1,245</div>
+        <div class="kpi-delta up">↑ 12% vs yesterday</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></div><div class="kpi-label">Open Tickets</div></div>
+        <div class="kpi-value">187</div>
+        <div class="kpi-delta down">↓ 8% vs yesterday</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div><div class="kpi-label">Resolved Today</div></div>
+        <div class="kpi-value">1,058</div>
+        <div class="kpi-delta up">↑ 15% vs yesterday</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">Avg Response Time</div></div>
+        <div class="kpi-value">2m 15s</div>
+        <div class="kpi-delta down">↓ 5% vs yesterday</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></div><div class="kpi-label">CSAT Score</div></div>
+        <div class="kpi-value">94%</div>
+        <div class="kpi-delta up">↑ 3% vs yesterday</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="kpi-label">Active Agents</div></div>
+        <div class="kpi-value">32</div>
+        <div class="kpi-delta up" style="color:var(--success);"><span class="dot" style="display:inline-block;width:6px;height:6px;"></span> Online now</div>
+      </div>
+    </div>
+
+    <!-- QUEUE / ACTIVITY / PERFORMANCE / ALERTS -->
+    <div class="grid-4">
+      <div class="panel">
+        <div class="panel-head"><h3>Ticket Queue</h3></div>
+        <div class="queue-item"><div class="queue-ico" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M8 8h8M8 16h5"/></svg></div><div class="queue-name">New Tickets</div><div class="queue-count">25</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+        <div class="queue-item"><div class="queue-ico" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="queue-name">In Progress</div><div class="queue-count">78</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+        <div class="queue-item"><div class="queue-ico" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h1"/><path d="M19 16v6M22 19h-6"/></svg></div><div class="queue-name">Waiting for Customer</div><div class="queue-count">45</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+        <div class="queue-item"><div class="queue-ico" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div><div class="queue-name">Escalated</div><div class="queue-count">12</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+        <a href="#" class="view-link">View all queues →</a>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Live Activity</h3><a href="#" class="view-all">View all</a></div>
+        <div class="activity-item"><div class="av-sm" style="background:#3B82F6;">JD</div><div><div class="act-name">Juan Dela Cruz</div><div class="act-issue">Payment Failed</div></div><div class="act-right"><span class="pill high">High</span><span class="act-time">15 mins</span></div></div>
+        <div class="activity-item"><div class="av-sm" style="background:#F59E0B;">AS</div><div><div class="act-name">Anna Santos</div><div class="act-issue">Can't login to account</div></div><div class="act-right"><span class="pill medium">Medium</span><span class="act-time">8 mins</span></div></div>
+        <div class="activity-item"><div class="av-sm" style="background:#22C55E;">MC</div><div><div class="act-name">Mark Co</div><div class="act-issue">Refund not received</div></div><div class="act-right"><span class="pill low">Low</span><span class="act-time">5 mins</span></div></div>
+        <div class="activity-item"><div class="av-sm" style="background:#8B5CF6;">PP</div><div><div class="act-name">Patricia Perez</div><div class="act-issue">Game not loading</div></div><div class="act-right"><span class="pill medium">Medium</span><span class="act-time">12 mins</span></div></div>
+        <div class="activity-item"><div class="av-sm" style="background:#14B8A6;">LR</div><div><div class="act-name">Luis Reyes</div><div class="act-issue">Promo code not working</div></div><div class="act-right"><span class="pill high">High</span><span class="act-time">20 mins</span></div></div>
+        <a href="#" class="view-link">View all live activity →</a>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>My Performance (Today)</h3></div>
+        <div class="perf-ring-wrap"><canvas id="perfRing" width="140" height="140"></canvas>
+          <div class="perf-ring-label"><div class="num">85%</div><div class="tag">Great Job!</div></div>
+        </div>
+        <div class="perf-row"><div class="l">Tickets Resolved</div><div class="r">48<small class="up">↑ 18%</small></div></div>
+        <div class="perf-row"><div class="l">Average Handle Time</div><div class="r">6m 32s<small class="up">↑ 5%</small></div></div>
+        <div class="perf-row"><div class="l">CSAT Score</div><div class="r">4.7<small class="up">↑ 0.3</small></div></div>
+        <div class="perf-row"><div class="l">Attendance</div><div class="r" style="color:var(--success);">Present<small style="color:var(--ink-faint);font-weight:600;">Since 8:00 AM</small></div></div>
+        <a href="#" class="view-link">View detailed performance →</a>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>SLA Alerts</h3><a href="#" class="view-all">View all</a></div>
+        <div class="alert-item"><div class="alert-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div><div><div class="alert-title">High priority ticket</div><div class="alert-sub">Waiting for 20+ mins</div></div><div class="alert-time">20m</div></div>
+        <div class="alert-item"><div class="alert-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div><div><div class="alert-title">Escalated ticket</div><div class="alert-sub">Waiting for 30+ mins</div></div><div class="alert-time">32m</div></div>
+        <div class="alert-item"><div class="alert-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div><div><div class="alert-title">Medium priority ticket</div><div class="alert-sub">Waiting for 15+ mins</div></div><div class="alert-time">16m</div></div>
+        <div class="alert-item"><div class="alert-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div><div><div class="alert-title">Response due soon</div><div class="alert-sub">SLA in 10 mins</div></div><div class="alert-time">10m</div></div>
+        <div class="alert-item"><div class="alert-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div><div><div class="alert-title">High priority ticket</div><div class="alert-sub">Waiting for 25+ mins</div></div><div class="alert-time">25m</div></div>
+        <a href="#" class="view-link">View all alerts →</a>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="grid-4b">
+      <div class="panel">
+        <div class="panel-head"><h3>Tickets by Channel</h3></div>
+        <div class="donut-wrap" style="height:150px;"><canvas id="channelDonut"></canvas></div>
+        <div class="chart-legend">
+          <div class="legend-row"><span class="sw" style="background:#3B82F6;"></span>Chat<b>45% (560)</b></div>
+          <div class="legend-row"><span class="sw" style="background:#22C55E;"></span>Email<b>25% (311)</b></div>
+          <div class="legend-row"><span class="sw" style="background:#8B5CF6;"></span>Facebook<b>15% (187)</b></div>
+          <div class="legend-row"><span class="sw" style="background:#F59E0B;"></span>Phone<b>10% (124)</b></div>
+          <div class="legend-row"><span class="sw" style="background:#14B8A6;"></span>WhatsApp<b>5% (63)</b></div>
+        </div>
+        <div class="chart-total">Total: 1,245</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Daily Ticket Trend</h3><div class="tabs"><button class="tab active">7D</button><button class="tab">30D</button></div></div>
+        <div style="height:190px;"><canvas id="trendLine"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Resolution Rate</h3></div>
+        <div class="donut-wrap" style="height:160px;"><canvas id="resDonut"></canvas>
+          <div class="donut-center"><div class="num">92%</div><div class="lab">Resolved</div></div>
+        </div>
+        <div class="chart-legend">
+          <div class="legend-row"><span class="sw" style="background:#22C55E;"></span>Resolved<b>1,145 (92%)</b></div>
+          <div class="legend-row"><span class="sw" style="background:#E2E8F0;"></span>Unresolved<b>100 (8%)</b></div>
+        </div>
+        <div class="chart-total">Total: 1,245</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Customer Satisfaction Trend</h3><div class="tabs"><button class="tab active">7D</button><button class="tab">30D</button></div></div>
+        <div style="height:190px;"><canvas id="csatArea"></canvas></div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS + TEAM -->
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h3>Quick Actions</h3></div>
+        <div class="qa-grid">
+          <div class="qa-btn"><div class="qa-ico" style="background:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></div><div class="qa-label">Create Ticket</div></div>
+          <div class="qa-btn"><div class="qa-ico" style="background:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="qa-label">Customer Lookup</div></div>
+          <div class="qa-btn"><div class="qa-ico" style="background:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div><div class="qa-label">Knowledge Base</div></div>
+          <div class="qa-btn"><div class="qa-ico" style="background:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div><div class="qa-label">Generate Report</div></div>
+          <div class="qa-btn"><div class="qa-ico" style="background:#0EA5E9;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg></div><div class="qa-label">Broadcast Notice</div></div>
+          <div class="qa-btn"><div class="qa-ico" style="background:#64748B;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div><div class="qa-label">Settings</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Team Status</h3><a href="#" class="view-all">View all</a></div>
+        <div class="team-strip" id="teamStrip"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
+
+// Performance ring
+new Chart(document.getElementById('perfRing'), {
+  type: 'doughnut',
+  data: { datasets: [{ data: [85, 15], backgroundColor: ['#2563EB', '#EEF1F6'], borderWidth: 0 }] },
+  options: { cutout: '78%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+});
+
+// Channel donut
+new Chart(document.getElementById('channelDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Chat','Email','Facebook','Phone','WhatsApp'],
+    datasets: [{ data: [45,25,15,10,5], backgroundColor:['#3B82F6','#22C55E','#8B5CF6','#F59E0B','#14B8A6'], borderWidth:0 }]
+  },
+  options: { cutout:'62%', plugins:{ legend:{display:false} } }
+});
+
+// Resolution donut
+new Chart(document.getElementById('resDonut'), {
+  type: 'doughnut',
+  data: { datasets: [{ data: [92,8], backgroundColor: ['#22C55E','#E2E8F0'], borderWidth:0 }] },
+  options: { cutout:'72%', plugins:{ legend:{display:false}, tooltip:{enabled:false} } }
+});
+
+// Daily ticket trend line
+new Chart(document.getElementById('trendLine'), {
+  type: 'line',
+  data: {
+    labels: ['May 14','May 15','May 16','May 17','May 18','May 19','May 20'],
+    datasets: [{
+      data: [900,1050,780,1180,950,1300,1245],
+      borderColor: '#2563EB', backgroundColor:'rgba(37,99,235,.08)', fill:true, tension:.35,
+      pointRadius:3, pointBackgroundColor:'#2563EB', borderWidth:2
+    }]
+  },
+  options: {
+    plugins:{ legend:{display:false} },
+    scales:{ y:{ grid:{color:'#F1F5F9'}, ticks:{color:'#94A3B8', font:{size:11} } }, x:{ grid:{display:false}, ticks:{color:'#94A3B8', font:{size:11} } } }
+  }
+});
+
+// CSAT area chart
+new Chart(document.getElementById('csatArea'), {
+  type: 'line',
+  data: {
+    labels: ['May 14','May 15','May 16','May 17','May 18','May 19','May 20'],
+    datasets: [{
+      data: [82,88,84,91,89,93,95],
+      borderColor:'#14B8A6', backgroundColor:'rgba(20,184,166,.15)', fill:true, tension:.4,
+      pointRadius:3, pointBackgroundColor:'#14B8A6', borderWidth:2
+    }]
+  },
+  options: {
+    plugins:{ legend:{display:false} },
+    scales:{ y:{ min:0, max:100, grid:{color:'#F1F5F9'}, ticks:{color:'#94A3B8', font:{size:11}, callback:v=>v+'%'} }, x:{ grid:{display:false}, ticks:{color:'#94A3B8', font:{size:11} } } }
+  }
+});
+
+// Team status avatars (placeholder initials)
+const team = [
+  {n:'JD',c:'#3B82F6',s:'#22C55E'},{n:'AS',c:'#F59E0B',s:'#22C55E'},{n:'MC',c:'#22C55E',s:'#94A3B8'},
+  {n:'PP',c:'#8B5CF6',s:'#22C55E'},{n:'LR',c:'#14B8A6',s:'#22C55E'},{n:'RT',c:'#EC4899',s:'#F59E0B'},
+  {n:'KV',c:'#64748B',s:'#22C55E'}
+];
+const strip = document.getElementById('teamStrip');
+team.forEach(t=>{
+  strip.innerHTML += `<div class="team-av" style="background:${t.c}">${t.n}<span class="st" style="background:${t.s}"></span></div>`;
+});
+strip.innerHTML += `<div class="team-more">+26</div>`;
+</script>
+</body>
+</html>
