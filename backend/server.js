@@ -1,0 +1,41 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { sequelize, DealStage } = require('./models');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/companies', require('./routes/companies'));
+app.use('/api/contacts', require('./routes/contacts'));
+app.use('/api/deal-stages', require('./routes/dealStages'));
+app.use('/api/deals', require('./routes/deals'));
+app.use('/api/tasks', require('./routes/tasks'));
+
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+const PORT = process.env.PORT || 4000;
+
+async function start() {
+  await sequelize.sync(); // use migrations instead of sync() in production
+
+  // Seed default pipeline stages on first run
+  const stageCount = await DealStage.count();
+  if (stageCount === 0) {
+    await DealStage.bulkCreate([
+      { name: 'New', order: 0 },
+      { name: 'Qualified', order: 1 },
+      { name: 'Proposal', order: 2 },
+      { name: 'Negotiation', order: 3 },
+      { name: 'Won', order: 4, isWon: true },
+      { name: 'Lost', order: 5, isLost: true },
+    ]);
+    console.log('Seeded default pipeline stages');
+  }
+
+  app.listen(PORT, () => console.log(`Pipeline CRM API running on port ${PORT}`));
+}
+
+start();
