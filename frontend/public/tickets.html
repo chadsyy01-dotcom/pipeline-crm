@@ -6,6 +6,7 @@
 <title>Tickets · CSR Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -132,6 +133,16 @@
   .status.waiting::before{background:var(--purple);}
   .status.escalated{background:var(--danger-tint);color:var(--danger);}
   .status.escalated::before{background:var(--danger);}
+  .status.pending{background:var(--primary-tint);color:var(--primary);}
+  .status.pending::before{background:var(--primary);}
+  .status.checking{background:var(--warning-tint);color:var(--warning);}
+  .status.checking::before{background:var(--warning);}
+  .status.done{background:var(--success-tint);color:var(--success);}
+  .status.done::before{background:var(--success);}
+  .status.rejected{background:var(--danger-tint);color:var(--danger);}
+  .status.rejected::before{background:var(--danger);}
+  .status.unknown{background:#F1F5F9;color:var(--ink-faint);}
+  .status.unknown::before{background:var(--ink-faint);}
   .t-channel{color:var(--ink-soft);font-size:12.5px;}
   .t-time{color:var(--ink-faint);font-size:12px;white-space:nowrap;}
   .t-actions{display:flex;gap:6px;}
@@ -264,11 +275,11 @@
       <div class="panel-head">
         <h3>All Tickets</h3>
         <div class="filter-tabs">
-          <div class="ftab active">All <span class="count">1,245</span></div>
-          <div class="ftab">New <span class="count">25</span></div>
-          <div class="ftab">In Progress <span class="count">78</span></div>
-          <div class="ftab">Waiting <span class="count">45</span></div>
-          <div class="ftab">Escalated <span class="count">12</span></div>
+          <div class="ftab active" data-status="all">All <span class="count">0</span></div>
+          <div class="ftab" data-status="pending">New <span class="count">0</span></div>
+          <div class="ftab" data-status="checking">In Progress <span class="count">0</span></div>
+          <div class="ftab" data-status="done">Done <span class="count">0</span></div>
+          <div class="ftab" data-status="rejected">Rejected <span class="count">0</span></div>
         </div>
       </div>
 
@@ -291,14 +302,8 @@
       </div>
 
       <div class="t-foot">
-        <div>Showing 1–10 of 1,245 tickets</div>
-        <div class="pager">
-          <div class="pg-btn">‹</div>
-          <div class="pg-btn active">1</div>
-          <div class="pg-btn">2</div>
-          <div class="pg-btn">3</div>
-          <div class="pg-btn">›</div>
-        </div>
+        <div>Loading tickets…</div>
+        <div class="pager"></div>
       </div>
     </div>
 
@@ -306,53 +311,239 @@
 </div>
 
 <script>
-  const tickets = [
-    {id:'#TK-8231', name:'Juan Dela Cruz', init:'JD', color:'#3B82F6', issue:'Payment Failed', channel:'Chat', priority:'high', status:'new', time:'15 mins ago'},
-    {id:'#TK-8230', name:'Anna Santos', init:'AS', color:'#F59E0B', issue:"Can't login to account", channel:'Email', priority:'medium', status:'progress', time:'8 mins ago'},
-    {id:'#TK-8229', name:'Mark Co', init:'MC', color:'#22C55E', issue:'Refund not received', channel:'Facebook', priority:'low', status:'waiting', time:'5 mins ago'},
-    {id:'#TK-8228', name:'Patricia Perez', init:'PP', color:'#8B5CF6', issue:'Game not loading', channel:'Chat', priority:'medium', status:'progress', time:'12 mins ago'},
-    {id:'#TK-8227', name:'Luis Reyes', init:'LR', color:'#14B8A6', issue:'Promo code not working', channel:'WhatsApp', priority:'high', status:'escalated', time:'20 mins ago'},
-    {id:'#TK-8226', name:'Kristine Villar', init:'KV', color:'#64748B', issue:'Duplicate charge on card', channel:'Phone', priority:'high', status:'escalated', time:'25 mins ago'},
-    {id:'#TK-8225', name:'Ramon Torres', init:'RT', color:'#EC4899', issue:'Account verification stuck', channel:'Email', priority:'medium', status:'waiting', time:'31 mins ago'},
-    {id:'#TK-8224', name:'Bea Fernandez', init:'BF', color:'#3B82F6', issue:'App crashes on checkout', channel:'Chat', priority:'high', status:'new', time:'34 mins ago'},
-    {id:'#TK-8223', name:'Carlo Aquino', init:'CA', color:'#F59E0B', issue:'Wrong item delivered', channel:'Facebook', priority:'low', status:'progress', time:'40 mins ago'},
-    {id:'#TK-8222', name:'Diane Mercado', init:'DM', color:'#22C55E', issue:'Password reset not sending', channel:'Email', priority:'medium', status:'new', time:'48 mins ago'}
-  ];
+  // ---- Live data source: published Google Sheet (CSV export) ----
+  const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv";
 
-  const statusLabel = {new:'New', progress:'In Progress', waiting:'Waiting', escalated:'Escalated'};
+  const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
+
+  const STATUS_MAP = {
+    pending:  { label: 'New',         cls: 'pending'  },
+    checking: { label: 'In Progress', cls: 'checking' },
+    done:     { label: 'Done',        cls: 'done'     },
+    rejected: { label: 'Rejected',    cls: 'rejected' }
+  };
+
+  const PAGE_SIZE = 10;
+  let allTickets = [];
+  let filteredTickets = [];
+  let currentFilter = 'all';
+  let currentSearch = '';
+  let currentPage = 1;
 
   const body = document.getElementById('ticketBody');
-  tickets.forEach(t => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="t-id">${t.id}</td>
-      <td>
-        <div class="t-customer">
-          <div class="t-av" style="background:${t.color};">${t.init}</div>
-          <div><div class="t-cname">${t.name}</div><div class="t-csub">Customer</div></div>
-        </div>
-      </td>
-      <td>${t.issue}</td>
-      <td class="t-channel">${t.channel}</td>
-      <td><span class="pill ${t.priority}">${t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}</span></td>
-      <td><span class="status ${t.status}">${statusLabel[t.status]}</span></td>
-      <td class="t-time">${t.time}</td>
-      <td>
-        <div class="t-actions">
-          <div class="t-btn" title="Open ticket"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
-      </td>
-    `;
-    body.appendChild(tr);
+
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function colorForName(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  }
+
+  function initialsForName(name) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '??';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  function priorityBucket(raw) {
+    const p = (raw || '').toUpperCase();
+    if (p.includes('HIGH') || p.includes('URGENT') || p.includes('CRITICAL')) return 'high';
+    if (p.includes('LOW')) return 'low';
+    return 'medium';
+  }
+
+  function statusInfo(raw) {
+    const key = (raw || '').trim().toLowerCase();
+    return STATUS_MAP[key] || { label: raw || 'Unknown', cls: 'unknown' };
+  }
+
+  function relativeTime(dateStr) {
+    const then = new Date(dateStr);
+    if (isNaN(then.getTime())) return dateStr || '—';
+    const diffMs = Date.now() - then.getTime();
+    const mins = Math.round(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
+    const days = Math.round(hrs / 24);
+    if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+    const months = Math.round(days / 30);
+    return `${months} month${months === 1 ? '' : 's'} ago`;
+  }
+
+  function showMessage(text) {
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:36px;color:var(--ink-faint);">${escapeHtml(text)}</td></tr>`;
+  }
+
+  showMessage('Loading tickets from Google Sheet…');
+
+  Papa.parse(SHEET_CSV_URL, {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      allTickets = results.data
+        .filter(row => row['Ticket ID'])
+        .map(row => {
+          const name = row['Username'] || row['Full Name'] || 'Unknown';
+          const category = (row['Category'] || '').trim();
+          const subcategory = (row['Subcategory'] || '').trim();
+          return {
+            id: row['Ticket ID'],
+            name,
+            init: initialsForName(name),
+            color: colorForName(name),
+            issue: subcategory || category || '—',
+            channel: row['Source'] || '—',
+            priority: priorityBucket(row['Priority']),
+            priorityLabel: row['Priority'] || 'NORMAL',
+            statusRaw: row['Status'],
+            submitted: row['Submitted At']
+          };
+        })
+        .sort((a, b) => new Date(b.submitted) - new Date(a.submitted));
+      renderFilterCounts();
+      applyFilters();
+    },
+    error: (err) => {
+      console.error(err);
+      showMessage('Could not load tickets from the Google Sheet. Please check the sheet link and try again.');
+    }
   });
+
+  function applyFilters() {
+    filteredTickets = allTickets.filter(t => {
+      if (currentFilter !== 'all' && statusInfo(t.statusRaw).cls !== currentFilter) return false;
+      if (currentSearch) {
+        const q = currentSearch.toLowerCase();
+        return t.id.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.issue.toLowerCase().includes(q);
+      }
+      return true;
+    });
+    currentPage = 1;
+    renderPage();
+  }
+
+  function renderPage() {
+    if (filteredTickets.length === 0) {
+      showMessage('No tickets found.');
+      renderFooter();
+      return;
+    }
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = filteredTickets.slice(start, start + PAGE_SIZE);
+    body.innerHTML = '';
+    pageItems.forEach(t => {
+      const si = statusInfo(t.statusRaw);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="t-id">${escapeHtml(t.id)}</td>
+        <td>
+          <div class="t-customer">
+            <div class="t-av" style="background:${t.color};">${escapeHtml(t.init)}</div>
+            <div><div class="t-cname">${escapeHtml(t.name)}</div><div class="t-csub">Customer</div></div>
+          </div>
+        </td>
+        <td>${escapeHtml(t.issue)}</td>
+        <td class="t-channel">${escapeHtml(t.channel)}</td>
+        <td><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span></td>
+        <td><span class="status ${si.cls}">${escapeHtml(si.label)}</span></td>
+        <td class="t-time">${relativeTime(t.submitted)}</td>
+        <td>
+          <div class="t-actions">
+            <div class="t-btn" title="Open ticket"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+          </div>
+        </td>
+      `;
+      body.appendChild(tr);
+    });
+    renderFooter();
+  }
+
+  function renderFooter() {
+    const total = filteredTickets.length;
+    const start = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+    const end = Math.min(currentPage * PAGE_SIZE, total);
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+    const footText = document.querySelector('.t-foot > div:first-child');
+    if (footText) footText.textContent = `Showing ${start}–${end} of ${total.toLocaleString()} tickets`;
+
+    const pager = document.querySelector('.pager');
+    if (!pager) return;
+    pager.innerHTML = '';
+
+    const prev = document.createElement('div');
+    prev.className = 'pg-btn';
+    prev.textContent = '‹';
+    prev.onclick = () => { if (currentPage > 1) { currentPage--; renderPage(); } };
+    pager.appendChild(prev);
+
+    const maxButtons = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+    startPage = Math.max(1, endPage - maxButtons + 1);
+
+    for (let p = startPage; p <= endPage; p++) {
+      const btn = document.createElement('div');
+      btn.className = 'pg-btn' + (p === currentPage ? ' active' : '');
+      btn.textContent = p;
+      btn.onclick = () => { currentPage = p; renderPage(); };
+      pager.appendChild(btn);
+    }
+
+    const next = document.createElement('div');
+    next.className = 'pg-btn';
+    next.textContent = '›';
+    next.onclick = () => { if (currentPage < totalPages) { currentPage++; renderPage(); } };
+    pager.appendChild(next);
+  }
+
+  function renderFilterCounts() {
+    const counts = { all: allTickets.length, pending: 0, checking: 0, done: 0, rejected: 0 };
+    allTickets.forEach(t => {
+      const cls = statusInfo(t.statusRaw).cls;
+      if (counts[cls] !== undefined) counts[cls]++;
+    });
+    document.querySelectorAll('.ftab').forEach(tab => {
+      const key = tab.dataset.status;
+      const countEl = tab.querySelector('.count');
+      if (countEl && counts[key] !== undefined) countEl.textContent = counts[key].toLocaleString();
+    });
+  }
 
   // Filter tab interaction
   document.querySelectorAll('.ftab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
+      currentFilter = tab.dataset.status;
+      applyFilters();
     });
   });
+
+  // Wire up the search box for live filtering by ticket ID, customer, or issue
+  (function setupSearch() {
+    const wrapper = document.querySelector('.topbar-right .search');
+    if (!wrapper) return;
+    const icon = wrapper.querySelector('svg');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Search ticket, customer or ID...';
+    input.style.cssText = 'border:none;outline:none;background:transparent;font:inherit;color:inherit;width:100%;';
+    wrapper.innerHTML = '';
+    wrapper.appendChild(icon);
+    wrapper.appendChild(input);
+    input.addEventListener('input', (e) => {
+      currentSearch = e.target.value.trim();
+      applyFilters();
+    });
+  })();
 </script>
 </body>
 </html>
