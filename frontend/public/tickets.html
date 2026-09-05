@@ -287,9 +287,19 @@
 
       <div class="panel-head" style="margin-top:-8px;">
         <div class="filter-tabs" id="brandTabs"></div>
-        <select id="issueFilter" class="issue-select">
-          <option value="all">All Issues</option>
-        </select>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <select id="dateFilter" class="issue-select">
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="month">This Month</option>
+          </select>
+          <select id="issueFilter" class="issue-select">
+            <option value="all">All Issues</option>
+          </select>
+        </div>
       </div>
 
       <div class="table-wrap">
@@ -327,6 +337,7 @@
   let currentFilter = 'all';
   let currentBrand = 'all';
   let currentIssue = 'all';
+  let currentDateFilter = 'all';
   let currentSearch = '';
   let currentPage = 1;
 
@@ -352,11 +363,34 @@
       showMessage('Could not load tickets from the Google Sheet. Please check the sheet link and try again.');
     });
 
+  function matchesDateFilter(t) {
+    if (currentDateFilter === 'all') return true;
+    const now = new Date();
+    if (currentDateFilter === 'today') return TicketData.isSameLocalDay(t.submitted, now);
+    if (currentDateFilter === 'yesterday') {
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      return TicketData.isSameLocalDay(t.submitted, y);
+    }
+    if (currentDateFilter === '7d') {
+      const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7); cutoff.setHours(0, 0, 0, 0);
+      return t.submitted >= cutoff;
+    }
+    if (currentDateFilter === '30d') {
+      const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 30); cutoff.setHours(0, 0, 0, 0);
+      return t.submitted >= cutoff;
+    }
+    if (currentDateFilter === 'month') {
+      return t.submitted.getFullYear() === now.getFullYear() && t.submitted.getMonth() === now.getMonth();
+    }
+    return true;
+  }
+
   function applyFilters() {
     filteredTickets = allTickets.filter(t => {
       if (currentFilter !== 'all' && t.statusCls !== currentFilter) return false;
       if (currentBrand !== 'all' && t.brandCode !== currentBrand) return false;
       if (currentIssue !== 'all' && t.issue !== currentIssue) return false;
+      if (!matchesDateFilter(t)) return false;
       if (currentSearch) {
         const q = currentSearch.toLowerCase();
         return t.id.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.issue.toLowerCase().includes(q);
@@ -482,6 +516,12 @@
       });
     });
   }
+
+  // Date range filter
+  document.getElementById('dateFilter').addEventListener('change', (e) => {
+    currentDateFilter = e.target.value;
+    applyFilters();
+  });
 
   // Issue filter dropdown — built dynamically from distinct issue/subcategory values
   function renderIssueFilter() {
