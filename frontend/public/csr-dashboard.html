@@ -293,7 +293,7 @@
   <main class="main">
     <div class="topbar">
       <div class="greeting">
-        <h1>Good morning, Maria 👋</h1>
+        <h1>Good morning, Chad 👋</h1>
         <p>Here's what's happening with your support today.</p>
       </div>
       <div class="topbar-right">
@@ -304,8 +304,8 @@
         <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="badge">8</span></div>
         <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <div class="profile">
-          <div class="avatar">MS</div>
-          <div class="profile-name">Maria Santos<span>CSR Agent</span></div>
+          <div class="avatar">CS</div>
+          <div class="profile-name">Chad Syy<span>Assistant Operation Manager</span></div>
         </div>
       </div>
     </div>
@@ -427,7 +427,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Team Status (Today)</h3><a href="#" class="view-all">View all</a></div>
+        <div class="panel-head"><h3>Team Status (Today)</h3><a href="#" class="view-all" id="teamViewAllBtn">View all</a></div>
         <div class="team-strip" id="teamStrip"></div>
       </div>
     </div>
@@ -443,6 +443,8 @@ const CHART_PALETTE = ['#3B82F6','#22C55E','#8B5CF6','#F59E0B','#14B8A6','#EC489
 
 let allTickets = [];
 let trendChart, resTimeChart, channelChart, resChart, perfRingChart;
+let teamStripExpanded = false;
+let teamToggleWired = false;
 
 function deltaEl(el, current, previous) {
   if (!el) return;
@@ -489,6 +491,7 @@ function renderAll() {
   renderResTimeChart(7);
   renderTeamStrip(now);
   setupTabs();
+  setupTeamViewAllToggle();
 }
 
 // ---------- KPI cards ----------
@@ -749,6 +752,7 @@ function setupTabs() {
 // ---------- Team status strip: real agents seen acting on tickets in the sheet ----------
 function renderTeamStrip(now) {
   const strip = document.getElementById('teamStrip');
+  const toggleBtn = document.getElementById('teamViewAllBtn');
   const agentsMap = new Map(); // name -> last active Date (today only)
 
   allTickets.forEach(t => {
@@ -766,10 +770,11 @@ function renderTeamStrip(now) {
 
   if (agents.length === 0) {
     strip.innerHTML = '<div style="color:var(--ink-faint);font-size:12.5px;">No agent activity yet today.</div>';
+    if (toggleBtn) toggleBtn.style.display = 'none';
     return;
   }
 
-  const visible = agents.slice(0, 10);
+  const visible = teamStripExpanded ? agents : agents.slice(0, 10);
   const extra = agents.length - visible.length;
 
   strip.innerHTML = visible.map(([name, lastActive]) => {
@@ -778,6 +783,27 @@ function renderTeamStrip(now) {
     return `<div class="team-av" style="background:${colorForName(name)}" title="${escapeHtml(name)} — active ${relativeTime(lastActive)}">${escapeHtml(initialsForName(name))}<span class="st" style="background:${statusColor}"></span></div>`;
   }).join('');
   if (extra > 0) strip.innerHTML += `<div class="team-more">+${extra}</div>`;
+
+  if (toggleBtn) {
+    if (agents.length <= 10) {
+      toggleBtn.style.display = 'none';
+    } else {
+      toggleBtn.style.display = '';
+      toggleBtn.textContent = teamStripExpanded ? 'Show less' : 'View all';
+    }
+  }
+}
+
+function setupTeamViewAllToggle() {
+  if (teamToggleWired) return;
+  const toggleBtn = document.getElementById('teamViewAllBtn');
+  if (!toggleBtn) return;
+  toggleBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    teamStripExpanded = !teamStripExpanded;
+    renderTeamStrip(new Date());
+  });
+  teamToggleWired = true;
 }
 </script>
 </body>
