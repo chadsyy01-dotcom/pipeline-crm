@@ -117,6 +117,7 @@
   .queue-item{display:flex;align-items:center;gap:11px;padding:12px 10px;border-radius:10px;margin-bottom:6px;transition:background .15s;cursor:pointer;text-decoration:none;color:inherit;}
   .queue-item:hover{background:#F8FAFC;}
   .queue-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .rank-badge{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:800;font-size:14px;}
   .queue-ico svg{width:16px;height:16px;}
   .queue-name{font-size:13px;font-weight:600;flex:1;}
   .queue-count{font-size:13px;font-weight:700;margin-right:6px;}
@@ -344,6 +345,14 @@
       </div>
     </div>
 
+    <!-- TOP TICKET CONCERNS -->
+    <div class="panel" style="margin-bottom:14px;">
+      <div class="panel-head"><h3>Top 5 Ticket Concerns (Today)</h3></div>
+      <div id="topConcerns">
+        <div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">Loading…</div></div>
+      </div>
+    </div>
+
     <!-- QUEUE / ACTIVITY / PERFORMANCE / ALERTS -->
     <div class="grid-4">
       <div class="panel">
@@ -494,6 +503,7 @@ function renderAll() {
   const yesterdayTickets = allTickets.filter(t => isSameLocalDay(t.submitted, yesterday));
 
   renderKPIs(todayTickets, yesterdayTickets);
+  renderTopConcerns(todayTickets);
   renderQueueBreakdown();
   renderLiveActivity();
   renderPerformance(todayTickets, yesterdayTickets);
@@ -546,6 +556,36 @@ function renderKPIs(todayTickets, yesterdayTickets) {
     if (t.resolvedBy && t.resolvedAt && isSameLocalDay(t.resolvedAt, now)) agentsToday.add(t.resolvedBy);
   });
   document.getElementById('kpiAgentsValue').textContent = agentsToday.size.toLocaleString();
+}
+
+// ---------- Top 5 ticket concerns (issues) for today ----------
+function renderTopConcerns(todayTickets) {
+  const counts = {};
+  todayTickets.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
+  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const el = document.getElementById('topConcerns');
+
+  if (ranked.length === 0) {
+    el.innerHTML = '<div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">No tickets submitted today yet.</div></div>';
+    return;
+  }
+
+  const rankColors = ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'];
+  const maxCount = ranked[0][1];
+
+  el.innerHTML = ranked.map(([issue, count], i) => {
+    const pct = Math.round((count / maxCount) * 100);
+    return `
+    <a class="queue-item" href="tickets.html?issue=${encodeURIComponent(issue)}&date=today">
+      <div class="rank-badge" style="background:${rankColors[i]}22;color:${rankColors[i]};">#${i + 1}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="queue-name" style="margin-bottom:4px;">${escapeHtml(issue)}</div>
+        <div style="height:5px;background:#F1F5F9;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${rankColors[i]};"></div></div>
+      </div>
+      <div class="queue-count" style="margin-left:12px;">${count.toLocaleString()}</div>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </a>`;
+  }).join('');
 }
 
 // ---------- Ticket status breakdown (replaces the old fixed "Ticket Queue") ----------
