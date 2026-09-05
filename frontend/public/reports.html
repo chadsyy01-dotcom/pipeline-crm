@@ -289,9 +289,10 @@
     <div class="grid-3">
       <div class="panel">
         <div class="panel-head"><h3>Tickets by Brand</h3></div>
+        <div class="compare-note" id="brandFairnessNote" style="margin:-8px 0 12px;"></div>
         <div class="table-wrap">
           <table class="report-table">
-            <thead><tr><th>Brand</th><th class="num">This Month</th><th class="num">Last Month</th><th class="num">Change</th></tr></thead>
+            <thead><tr><th>Brand</th><th class="num">This Month</th><th class="num">Last Month</th><th class="num">Daily Avg (This)</th><th class="num">Daily Avg (Last)</th><th class="num">Change</th></tr></thead>
             <tbody id="brandTableBody"></tbody>
           </table>
         </div>
@@ -397,6 +398,11 @@ function populateMonthSelect() {
   select.addEventListener('change', () => renderAll(select.value));
 }
 
+function daysElapsedInMonth(key) {
+  const now = new Date();
+  return monthKeyOf(now) === key ? now.getDate() : daysInMonth(key);
+}
+
 // ---- Main render ----
 function renderAll(key) {
   const prevKey = prevMonthKey(key);
@@ -409,9 +415,16 @@ function renderAll(key) {
   const thisMonthResolvedEvents = ticketsResolvedIn(allTickets, key);
   const lastMonthResolvedEvents = ticketsResolvedIn(allTickets, prevKey);
 
+  const thisDays = daysElapsedInMonth(key);
+  const lastDays = daysInMonth(prevKey);
+  const fairnessNote = document.getElementById('brandFairnessNote');
+  fairnessNote.textContent = thisDays < daysInMonth(key)
+    ? `⚠️ ${monthLabel(key)} is still in progress (day ${thisDays} of ${daysInMonth(key)}) — raw totals aren't complete yet. Compare the Daily Avg columns for a fairer read.`
+    : '';
+
   renderKpis(thisMonthSubmitted, lastMonthSubmitted, thisMonthResolvedEvents, lastMonthResolvedEvents);
   renderTrendChart(key, prevKey);
-  renderBrandTable(thisMonthSubmitted, lastMonthSubmitted);
+  renderBrandTable(thisMonthSubmitted, lastMonthSubmitted, thisDays, lastDays);
   renderConcernsTable(thisMonthSubmitted);
   renderChannelDonut(thisMonthSubmitted);
   renderAgentTable(thisMonthResolvedEvents);
@@ -513,28 +526,33 @@ function renderTrendChart(key, prevKey) {
   });
 }
 
-function renderBrandTable(thisSubmitted, lastSubmitted) {
+function renderBrandTable(thisSubmitted, lastSubmitted, thisDays, lastDays) {
   const thisCounts = {};
   const lastCounts = {};
   thisSubmitted.forEach(t => { thisCounts[t.brandLabel] = (thisCounts[t.brandLabel] || 0) + 1; });
   lastSubmitted.forEach(t => { lastCounts[t.brandLabel] = (lastCounts[t.brandLabel] || 0) + 1; });
-  const brands = Object.keys(thisCounts).sort((a, b) => thisCounts[b] - thisCounts[a]);
+  const allBrands = new Set([...Object.keys(thisCounts), ...Object.keys(lastCounts)]);
+  const brands = Array.from(allBrands).sort((a, b) => (thisCounts[b] || 0) - (thisCounts[a] || 0));
 
   const tbody = document.getElementById('brandTableBody');
   if (brands.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-note">No tickets this month</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-note">No tickets this month</div></td></tr>';
     return;
   }
   tbody.innerHTML = brands.map(brand => {
     const cur = thisCounts[brand] || 0;
     const prev = lastCounts[brand] || 0;
-    const pct = TicketData.pctChange(cur, prev);
-    const changeText = pct === null ? '—' : `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%`;
-    const changeColor = pct === null ? 'var(--ink-faint)' : (pct >= 0 ? 'var(--success)' : 'var(--danger)');
+    const curDaily = thisDays > 0 ? (cur / thisDays) : 0;
+    const prevDaily = lastDays > 0 ? (prev / lastDays) : 0;
+    const dailyPct = TicketData.pctChange(curDaily, prevDaily);
+    const changeText = dailyPct === null ? '—' : `${dailyPct >= 0 ? '↑' : '↓'} ${Math.abs(dailyPct)}%`;
+    const changeColor = dailyPct === null ? 'var(--ink-faint)' : (dailyPct >= 0 ? 'var(--success)' : 'var(--danger)');
     return `<tr>
       <td>${TicketData.escapeHtml(brand)}</td>
       <td class="num">${cur.toLocaleString()}</td>
       <td class="num">${prev.toLocaleString()}</td>
+      <td class="num">${curDaily.toFixed(1)}/day</td>
+      <td class="num">${prevDaily.toFixed(1)}/day</td>
       <td class="num" style="color:${changeColor};">${changeText}</td>
     </tr>`;
   }).join('');
