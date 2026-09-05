@@ -13,6 +13,9 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv" }, // Buenas PH — Deposit
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyi3716uR8070u3tMdSgcDB9QmtJb6SkJ_3DHAyHfQkl0tgwNr9f5pBZxXrv0gxQOy3zb4QxXoyYgp/pub?gid=0&single=true&output=csv" }, // Buenas PH — Withdrawal
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=0&single=true&output=csv" }, // Buenas PH — Account
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=906571162&single=true&output=csv" }, // Buenas PH — Error/Bug
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=2007332310&single=true&output=csv" }, // Buenas PH — Bonus/Reward
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=1356077885&single=true&output=csv" }, // Buenas PH — Callback Request (uses standard Ticket ID schema)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=0&single=true&output=csv" }, // TMTCash
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJjSjsokoykFPem4oIurq1-ex1Yho3IsHplupTHPiSs6wueznpFyx2OL2hdYHkXUPePZH1KnJKeiO0/pub?gid=0&single=true&output=csv" }, // Mobile Casino Play (MCP)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=0&single=true&output=csv" }, // ManilaPlay (MNP)
