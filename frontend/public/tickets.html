@@ -339,6 +339,7 @@
   let currentBrand = 'all';
   let currentIssue = 'all';
   let currentDateFilter = 'all';
+  let pendingIssueParam = null;
   let currentSearch = '';
   let currentPage = 1;
 
@@ -356,6 +357,14 @@
       allTickets = tickets;
       renderBrandTabs();
       renderIssueFilter();
+      if (pendingIssueParam) {
+        const select = document.getElementById('issueFilter');
+        const matchExists = Array.from(select.options).some(opt => opt.value === pendingIssueParam);
+        if (matchExists) {
+          select.value = pendingIssueParam;
+          currentIssue = pendingIssueParam;
+        }
+      }
       applyFilters();
     })
     .catch(err => {
@@ -518,13 +527,14 @@
     });
   });
 
-  // Deep-linking: read ?status=, ?date=, and ?search= from the URL (used by links
-  // from the dashboard, e.g. "tickets.html?status=pending&date=today").
+  // Deep-linking: read ?status=, ?date=, ?issue=, and ?search= from the URL (used by
+  // links from the dashboard, e.g. "tickets.html?issue=Cash%20In%20Delay&date=today").
   (function applyQueryParams() {
     const params = new URLSearchParams(window.location.search);
     const statusParam = params.get('status');
     const dateParam = params.get('date');
     const searchParam = params.get('search');
+    pendingIssueParam = params.get('issue');
     if (statusParam) {
       currentFilter = statusParam;
       document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
