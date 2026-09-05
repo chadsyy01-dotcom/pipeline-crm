@@ -19,6 +19,11 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=0&single=true&output=csv" }, // TMTCash
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJjSjsokoykFPem4oIurq1-ex1Yho3IsHplupTHPiSs6wueznpFyx2OL2hdYHkXUPePZH1KnJKeiO0/pub?gid=0&single=true&output=csv" }, // Mobile Casino Play (MCP)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=0&single=true&output=csv" }, // ManilaPlay (MNP)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=1958931723&single=true&output=csv", kind: 'followup' }, // ManilaPlay — Follow Up
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=1198722654&single=true&output=csv", kind: 'callback' }, // ManilaPlay — Callback
+    // NOTE: ManilaPlay also has an OTP Log tab (gid=793559768) containing live customer
+    // OTP codes. Deliberately excluded — publishing it would expose real one-time
+    // passwords via an unauthenticated public CSV link. Same call made for TMTCash.
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkYplUz2eq5TzFEYmvHlXDltCZe6RnoYTak5xEtrXZxEb2EvfDTz5LUOZ0AaouuOGcNWJRDQGYGZB4/pub?gid=0&single=true&output=csv" }, // HypePlay PH (HPP)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbB_0D7eB9mxUQUoeBlP8fPRgLcrPhwzmuUpIUl1wyT5NUS4B45YC_yuVvfMFfEVA9tqPqedGSMQSb/pub?gid=0&single=true&output=csv" }, // MasterGoldKey (MGK)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0Sbf9dckRTWoYtJJnXD6uaxrqSn8-wnCHGJk-R8ZU34VvlttKyThhLknBcmm_vQgfERoIAXSRFHth/pub?gid=0&single=true&output=csv" }, // LuckyStacks PH (LSP)
