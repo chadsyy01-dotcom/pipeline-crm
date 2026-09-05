@@ -3,7 +3,13 @@
 // normalizes them into a consistent shape both pages can use.
 // Requires PapaParse to be loaded before this file.
 (function (global) {
-  const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv";
+  // Multiple sheets feed the same brand's ticket pipeline (split by category).
+  // Add more URLs here as new category sheets or brands come online.
+  const SHEET_CSV_URLS = [
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv", // Buenas PH — Deposit
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyi3716uR8070u3tMdSgcDB9QmtJb6SkJ_3DHAyHfQkl0tgwNr9f5pBZxXrv0gxQOy3zb4QxXoyYgp/pub?gid=0&single=true&output=csv", // Buenas PH — Withdrawal
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=0&single=true&output=csv" // Buenas PH — Account
+  ];
 
   const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
 
@@ -116,65 +122,72 @@
     return Math.round(((current - previous) / previous) * 100);
   }
 
-  let cachedPromise = null;
-  function fetchTickets(forceRefresh) {
-    if (cachedPromise && !forceRefresh) return cachedPromise;
-    // Append a timestamp so browsers/proxies don't serve a stale cached CSV.
-    const bustUrl = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + '_cb=' + Date.now();
-    cachedPromise = new Promise((resolve, reject) => {
+  function parseSheetCsv(url) {
+    return new Promise((resolve, reject) => {
       if (typeof Papa === 'undefined') {
         reject(new Error('PapaParse is required but was not found on the page.'));
         return;
       }
+      const bustUrl = url + (url.includes('?') ? '&' : '?') + '_cb=' + Date.now();
       Papa.parse(bustUrl, {
         download: true,
         header: true,
         skipEmptyLines: true,
-        complete: (results) => {
-          const tickets = results.data
-            .filter(row => row['Ticket ID'])
-            .map(row => {
-              const name = row['Username'] || row['Full Name'] || 'Unknown';
-              const category = (row['Category'] || '').trim();
-              const subcategory = (row['Subcategory'] || '').trim();
-              const submitted = new Date(row['Submitted At']);
-              const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
-              const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
-              const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
-              const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
-              const si = statusInfo(row['Status']);
-              const brand = brandFromTicketId(row['Ticket ID']);
-              return {
-                id: row['Ticket ID'],
-                name,
-                init: initialsForName(name),
-                color: colorForName(name),
-                category,
-                issue: subcategory || category || '—',
-                channel: row['Source'] || '—',
-                brandCode: brand.code,
-                brandLabel: brand.label,
-                priority: priorityBucket(row['Priority']),
-                priorityLabel: row['Priority'] || 'NORMAL',
-                statusRaw: row['Status'],
-                statusCls: si.cls,
-                statusLabel: si.label,
-                submitted,
-                acknowledgedBy: row['Acknowledged By'] || null,
-                acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
-                resolvedBy: row['Resolved By'] || null,
-                resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
-                ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
-                resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
-              };
-            })
-            .filter(t => !isNaN(t.submitted.getTime()))
-            .sort((a, b) => b.submitted - a.submitted);
-          resolve(tickets);
-        },
+        complete: (results) => resolve(results.data || []),
         error: (err) => reject(err)
       });
     });
+  }
+
+  let cachedPromise = null;
+  function fetchTickets(forceRefresh) {
+    if (cachedPromise && !forceRefresh) return cachedPromise;
+    cachedPromise = Promise.all(SHEET_CSV_URLS.map(parseSheetCsv))
+      .then(resultsPerSheet => {
+        const rows = [].concat(...resultsPerSheet);
+        const seen = new Map();
+        rows
+          .filter(row => row['Ticket ID'])
+          .forEach(row => {
+            const name = row['Username'] || row['Full Name'] || 'Unknown';
+            const category = (row['Category'] || '').trim();
+            const subcategory = (row['Subcategory'] || '').trim();
+            const submitted = new Date(row['Submitted At']);
+            if (isNaN(submitted.getTime())) return;
+            const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
+            const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
+            const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
+            const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
+            const si = statusInfo(row['Status']);
+            const brand = brandFromTicketId(row['Ticket ID']);
+            const ticket = {
+              id: row['Ticket ID'],
+              name,
+              init: initialsForName(name),
+              color: colorForName(name),
+              category,
+              issue: subcategory || category || '—',
+              channel: row['Source'] || '—',
+              brandCode: brand.code,
+              brandLabel: brand.label,
+              priority: priorityBucket(row['Priority']),
+              priorityLabel: row['Priority'] || 'NORMAL',
+              statusRaw: row['Status'],
+              statusCls: si.cls,
+              statusLabel: si.label,
+              submitted,
+              acknowledgedBy: row['Acknowledged By'] || null,
+              acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
+              resolvedBy: row['Resolved By'] || null,
+              resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
+              ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
+              resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
+            };
+            // De-dupe by Ticket ID in case the same ticket ever appears in more than one sheet.
+            seen.set(ticket.id, ticket);
+          });
+        return Array.from(seen.values()).sort((a, b) => b.submitted - a.submitted);
+      });
     return cachedPromise;
   }
 
