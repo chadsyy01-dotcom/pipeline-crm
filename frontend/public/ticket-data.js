@@ -15,6 +15,24 @@
     rejected: { label: 'Rejected',    cls: 'rejected' }
   };
 
+  // Brand is encoded as the prefix of the Ticket ID (e.g. "BPH-20260830-66448" -> "BPH").
+  const BRAND_MAP = {
+    BPH: 'Buenas PH',
+    TMT: 'TMTCash',
+    MCP: 'Mobile Casino Play',
+    MNP: 'ManilaPlay',
+    HPP: 'HypePlay PH',
+    CSY: 'Casinyeam',
+    MGK: 'MasterGoldKey',
+    LSP: 'LuckyStacks PH',
+    SSP: 'SuperScatter PH'
+  };
+
+  function brandFromTicketId(ticketId) {
+    const code = (ticketId || '').split('-')[0].toUpperCase();
+    return { code, label: BRAND_MAP[code] || code || 'Unknown' };
+  }
+
   function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -101,12 +119,14 @@
   let cachedPromise = null;
   function fetchTickets(forceRefresh) {
     if (cachedPromise && !forceRefresh) return cachedPromise;
+    // Append a timestamp so browsers/proxies don't serve a stale cached CSV.
+    const bustUrl = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + '_cb=' + Date.now();
     cachedPromise = new Promise((resolve, reject) => {
       if (typeof Papa === 'undefined') {
         reject(new Error('PapaParse is required but was not found on the page.'));
         return;
       }
-      Papa.parse(SHEET_CSV_URL, {
+      Papa.parse(bustUrl, {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -123,6 +143,7 @@
               const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
               const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
               const si = statusInfo(row['Status']);
+              const brand = brandFromTicketId(row['Ticket ID']);
               return {
                 id: row['Ticket ID'],
                 name,
@@ -131,6 +152,8 @@
                 category,
                 issue: subcategory || category || '—',
                 channel: row['Source'] || '—',
+                brandCode: brand.code,
+                brandLabel: brand.label,
                 priority: priorityBucket(row['Priority']),
                 priorityLabel: row['Priority'] || 'NORMAL',
                 statusRaw: row['Status'],
@@ -162,12 +185,14 @@
     initialsForName,
     priorityBucket,
     statusInfo,
+    brandFromTicketId,
     relativeTime,
     compactElapsed,
     formatDuration,
     isSameLocalDay,
     dayKey,
     pctChange,
-    STATUS_MAP
+    STATUS_MAP,
+    BRAND_MAP
   };
 })(window);
