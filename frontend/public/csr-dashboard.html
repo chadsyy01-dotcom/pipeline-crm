@@ -293,7 +293,7 @@
   <main class="main">
     <div class="topbar">
       <div class="greeting">
-        <h1>Good morning, Chad 👋</h1>
+        <h1 id="greetingText">Good morning, Chad 👋</h1>
         <p>Here's what's happening with your support today.</p>
       </div>
       <div class="topbar-right">
@@ -437,6 +437,19 @@
 
 <script>
 Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
+
+// Greeting is based on Philippine time (Asia/Manila) regardless of the
+// visitor's own device timezone, since the whole team operates on PH time.
+(function setGreetingByPHTime() {
+  const el = document.getElementById('greetingText');
+  if (!el) return;
+  const phHour = Number(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', hour12: false }));
+  let greeting = 'Good evening';
+  if (phHour >= 5 && phHour < 12) greeting = 'Good morning';
+  else if (phHour >= 12 && phHour < 18) greeting = 'Good afternoon';
+  const name = el.textContent.split(',')[1] ? el.textContent.split(',')[1].trim() : 'Chad 👋';
+  el.textContent = `${greeting}, ${name}`;
+})();
 
 const { escapeHtml, relativeTime, compactElapsed, formatDuration, isSameLocalDay, dayKey, colorForName, initialsForName } = TicketData;
 const CHART_PALETTE = ['#3B82F6','#22C55E','#8B5CF6','#F59E0B','#14B8A6','#EC4899','#0EA5E9','#F97316','#A855F7','#64748B'];
