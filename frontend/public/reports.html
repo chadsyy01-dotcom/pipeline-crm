@@ -262,12 +262,12 @@
         <div class="kpi-delta" id="kpiRateDelta"></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">Avg Response Time</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">Median Response Time</div></div>
         <div class="kpi-value" id="kpiAckValue">—</div>
         <div class="kpi-delta" id="kpiAckDelta"></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M12 14v3l2 1"/></svg></div><div class="kpi-label">Avg Resolution Time</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M12 14v3l2 1"/></svg></div><div class="kpi-label">Median Resolution Time</div></div>
         <div class="kpi-value" id="kpiResolveTimeValue">—</div>
         <div class="kpi-delta" id="kpiResolveTimeDelta"></div>
       </div>
@@ -326,7 +326,7 @@
       </div>
       <div class="table-wrap">
         <table class="report-table">
-          <thead><tr><th>Agent</th><th class="num">Handled</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Resolution Rate</th><th class="num">Avg Handle Time</th></tr></thead>
+          <thead><tr><th>Agent</th><th class="num">Handled</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Resolution Rate</th><th class="num">Median Handle Time</th></tr></thead>
           <tbody id="agentTableBody"></tbody>
         </table>
       </div>
@@ -353,6 +353,13 @@ function ticketsSubmittedIn(tickets, key) {
 }
 function ticketsResolvedIn(tickets, key) {
   return tickets.filter(t => t.resolvedAt && monthKeyOf(t.resolvedAt) === key);
+}
+
+function median(arr) {
+  if (!arr.length) return null;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function deltaEl(el, current, previous, suffix) {
@@ -443,8 +450,8 @@ function renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolv
 
   const thisAckVals = thisSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
   const lastAckVals = lastSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
-  const thisAckAvg = thisAckVals.length ? thisAckVals.reduce((a, b) => a + b, 0) / thisAckVals.length : null;
-  const lastAckAvg = lastAckVals.length ? lastAckVals.reduce((a, b) => a + b, 0) / lastAckVals.length : null;
+  const thisAckAvg = median(thisAckVals);
+  const lastAckAvg = median(lastAckVals);
   document.getElementById('kpiAckValue').textContent = thisAckAvg !== null ? TicketData.formatDuration(thisAckAvg) : '—';
   if (thisAckAvg !== null && lastAckAvg !== null) {
     const pct = TicketData.pctChange(thisAckAvg, lastAckAvg);
@@ -461,8 +468,8 @@ function renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolv
 
   const thisResolveVals = thisDone.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec);
   const lastResolveVals = lastDone.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec);
-  const thisResolveAvg = thisResolveVals.length ? thisResolveVals.reduce((a, b) => a + b, 0) / thisResolveVals.length : null;
-  const lastResolveAvg = lastResolveVals.length ? lastResolveVals.reduce((a, b) => a + b, 0) / lastResolveVals.length : null;
+  const thisResolveAvg = median(thisResolveVals);
+  const lastResolveAvg = median(lastResolveVals);
   document.getElementById('kpiResolveTimeValue').textContent = thisResolveAvg !== null ? TicketData.formatDuration(thisResolveAvg) : '—';
   if (thisResolveAvg !== null && lastResolveAvg !== null) {
     const pct = TicketData.pctChange(thisResolveAvg, lastResolveAvg);
@@ -641,7 +648,7 @@ function renderAgentTable(thisResolvedEvents) {
     const a = agents[name];
     const handled = a.done + a.rejected;
     const rate = handled > 0 ? Math.round((a.done / handled) * 100) : 0;
-    const avgHandle = a.resolveDurations.length ? a.resolveDurations.reduce((x, y) => x + y, 0) / a.resolveDurations.length : null;
+    const avgHandle = median(a.resolveDurations);
     return `<tr>
       <td>
         <div class="agent-cell">
