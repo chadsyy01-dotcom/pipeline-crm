@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports — CSR Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js?v=3"></script>
+<style>
+  :root{
+    --primary:#2563EB;
+    --primary-dark:#1D4ED8;
+    --primary-tint:#EFF4FF;
+    --success:#22C55E;
+    --success-tint:#EAFBF1;
+    --warning:#F59E0B;
+    --warning-tint:#FEF6E7;
+    --danger:#EF4444;
+    --danger-tint:#FDECEC;
+    --purple:#8B5CF6;
+    --purple-tint:#F3EEFE;
+    --teal:#14B8A6;
+    --teal-tint:#E9FAF8;
+    --bg:#F8FAFC;
+    --card:#FFFFFF;
+    --ink:#0F172A;
+    --ink-soft:#475569;
+    --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-sm:10px;
+    --radius-md:14px;
+    --radius-lg:18px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;}
+
+  .app{display:flex;min-height:100vh;}
+
+  /* SIDEBAR */
+  .sidebar{
+    width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;
+    display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--primary),#60A5FA);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+
+  .nav-group{margin-bottom:6px;}
+  .nav-item{
+    display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
+    font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;
+    margin-bottom:2px;position:relative;
+  }
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .nav-item.soon{opacity:.45;cursor:default;pointer-events:none;position:relative;}
+  .nav-item.soon:hover{background:transparent;color:#AEBBD1;}
+  .nav-item.soon .soon-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.02em;background:#1C273B;color:#748199;padding:2px 6px;border-radius:6px;}
+
+  .sidebar-status{
+    margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;
+    display:flex;align-items:center;gap:8px;color:#AEBBD1;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+  .quick-links{background:#151E30;border-radius:12px;padding:14px;margin-top:12px;}
+  .quick-links h4{margin:0 0 8px;font-size:11px;letter-spacing:.02em;color:#748199;font-weight:600;}
+  .ql-item{display:flex;align-items:center;gap:9px;padding:7px 4px;font-size:12.5px;color:#C4D0E2;cursor:pointer;border-radius:8px;}
+  .ql-item:hover{color:#fff;background:#1C273B;}
+  .ql-item svg{width:15px;height:15px;color:var(--primary);}
+
+  /* MAIN */
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .topbar-right{display:flex;align-items:center;gap:12px;}
+  .month-select{font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;color:var(--ink);cursor:pointer;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);}
+  .compare-note{font-size:12px;color:var(--ink-faint);font-weight:600;}
+
+  /* KPI CARDS */
+  .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px;}
+  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px 16px 15px;box-shadow:var(--shadow);}
+  .kpi-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .kpi-icon svg{width:18px;height:18px;}
+  .kpi-label{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .kpi-value{font-size:22px;font-weight:800;margin-bottom:5px;letter-spacing:-.01em;}
+  .kpi-delta{font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:4px;}
+  .up{color:var(--success);} .down{color:var(--danger);}
+
+  /* PANELS */
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+  .chart-legend{display:flex;gap:16px;}
+  .legend-row{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .legend-row .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+
+  .grid-3{display:grid;grid-template-columns:1.2fr 1.2fr 1fr;gap:14px;margin-bottom:14px;align-items:start;}
+
+  /* TABLES */
+  .report-table{width:100%;border-collapse:collapse;}
+  .report-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);font-weight:700;padding:0 8px 10px;border-bottom:1px solid var(--line);}
+  .report-table td{padding:10px 8px;font-size:13px;border-bottom:1px solid var(--line);}
+  .report-table tr:last-child td{border-bottom:none;}
+  .report-table td.num{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+  .report-table th.num{text-align:right;}
+  .table-wrap{max-height:380px;overflow-y:auto;}
+  .agent-cell{display:flex;align-items:center;gap:9px;}
+  .av-xs{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
+  .rate-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-block;}
+  .rate-pill.good{background:var(--success-tint);color:var(--success);}
+  .rate-pill.mid{background:var(--warning-tint);color:var(--warning);}
+  .rate-pill.low{background:var(--danger-tint);color:var(--ink-soft);}
+  .empty-note{color:var(--ink-faint);font-size:13px;padding:20px 4px;text-align:center;}
+
+  .donut-wrap{position:relative;display:flex;justify-content:center;}
+  .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+  .donut-center .num{font-size:20px;font-weight:800;}
+  .donut-center .lab{font-size:10.5px;color:var(--ink-soft);font-weight:600;}
+
+  @media (max-width:1200px){
+    .kpi-row{grid-template-columns:repeat(3,1fr);}
+    .grid-3{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:860px){
+    .sidebar{display:none;}
+    .kpi-row{grid-template-columns:1fr 1fr;}
+    .grid-3{grid-template-columns:1fr;}
+    .main{padding:20px 16px 32px;}
+  }
+</style>
+</head>
+<body>
+<script>
+  // ---- Auth check: uses the same pipeline_token + Railway API as the React app ----
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) {
+      window.location.href = LOGIN_PATH;
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Invalid session");
+      const user = await res.json();
+      const nameEl = document.querySelector(".profile-name");
+      if (nameEl && user && user.name) {
+        nameEl.childNodes[0].nodeValue = user.name;
+      }
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CS</div>
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+
+    <div class="nav-group">
+      <a href="csr-dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="tickets.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+        Tickets
+      </a>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Live Chat <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Customers <span class="soon-tag">Soon</span>
+      </div>
+      <a href="reports.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Reports
+      </a>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+        CSAT <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Agents <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Knowledge Base <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings <span class="soon-tag">Soon</span>
+      </div>
+    </div>
+
+    <div class="quick-links">
+      <h4>QUICK LINKS</h4>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Create Ticket</div>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Customer Lookup</div>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Generate Report</div>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg>Broadcast Notice</div>
+    </div>
+
+    <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="greeting">
+        <h1>Reports</h1>
+        <p>Monthly summary of your support operations, with comparisons to the previous month.</p>
+      </div>
+      <div class="topbar-right">
+        <span class="compare-note" id="compareNote"></span>
+        <select class="month-select" id="monthSelect"></select>
+      </div>
+    </div>
+
+    <!-- KPI ROW -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></div><div class="kpi-label">Total Tickets</div></div>
+        <div class="kpi-value" id="kpiTotalValue">—</div>
+        <div class="kpi-delta" id="kpiTotalDelta"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div><div class="kpi-label">Resolved</div></div>
+        <div class="kpi-value" id="kpiResolvedValue">—</div>
+        <div class="kpi-delta" id="kpiResolvedDelta"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="kpi-label">Rejected</div></div>
+        <div class="kpi-value" id="kpiRejectedValue">—</div>
+        <div class="kpi-delta" id="kpiRejectedDelta"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="kpi-label">Resolution Rate</div></div>
+        <div class="kpi-value" id="kpiRateValue">—</div>
+        <div class="kpi-delta" id="kpiRateDelta"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">Avg Response Time</div></div>
+        <div class="kpi-value" id="kpiAckValue">—</div>
+        <div class="kpi-delta" id="kpiAckDelta"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M12 14v3l2 1"/></svg></div><div class="kpi-label">Avg Resolution Time</div></div>
+        <div class="kpi-value" id="kpiResolveTimeValue">—</div>
+        <div class="kpi-delta" id="kpiResolveTimeDelta"></div>
+      </div>
+    </div>
+
+    <!-- TREND CHART -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Daily Ticket Volume</h3>
+        <div class="chart-legend">
+          <div class="legend-row"><span class="sw" style="background:var(--primary);"></span><span id="legendThisMonth">This Month</span></div>
+          <div class="legend-row"><span class="sw" style="background:var(--ink-faint);"></span><span id="legendLastMonth">Last Month</span></div>
+        </div>
+      </div>
+      <canvas id="trendChart" height="80"></canvas>
+    </div>
+
+    <!-- BRAND / CONCERNS / CHANNEL -->
+    <div class="grid-3">
+      <div class="panel">
+        <div class="panel-head"><h3>Tickets by Brand</h3></div>
+        <div class="table-wrap">
+          <table class="report-table">
+            <thead><tr><th>Brand</th><th class="num">This Month</th><th class="num">Last Month</th><th class="num">Change</th></tr></thead>
+            <tbody id="brandTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Top Concerns</h3></div>
+        <div class="table-wrap">
+          <table class="report-table">
+            <thead><tr><th>Issue</th><th class="num">Count</th><th class="num">% of Total</th></tr></thead>
+            <tbody id="concernsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>By Channel</h3></div>
+        <div class="donut-wrap">
+          <canvas id="channelDonut" width="180" height="180"></canvas>
+          <div class="donut-center"><div class="num" id="channelTotal">0</div><div class="lab">total</div></div>
+        </div>
+        <div class="chart-legend" id="channelLegend" style="flex-direction:column;gap:7px;margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <!-- AGENT PERFORMANCE -->
+    <div class="panel">
+      <div class="panel-head"><h3>Agent Performance</h3></div>
+      <div style="margin-bottom:18px;">
+        <div style="font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;">Tickets Processed by Agent</div>
+        <canvas id="agentBarChart"></canvas>
+      </div>
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead><tr><th>Agent</th><th class="num">Handled</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Resolution Rate</th><th class="num">Avg Handle Time</th></tr></thead>
+          <tbody id="agentTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+let allTickets = [];
+let trendChart = null;
+let channelChart = null;
+let agentBarChart = null;
+
+// ---- Month utilities ----
+function monthKeyOf(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+function monthKeyToDate(key) { const [y, m] = key.split('-').map(Number); return new Date(y, m - 1, 1); }
+function monthLabel(key) { return monthKeyToDate(key).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
+function prevMonthKey(key) { const d = monthKeyToDate(key); d.setMonth(d.getMonth() - 1); return monthKeyOf(d); }
+function daysInMonth(key) { const d = monthKeyToDate(key); return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+
+function ticketsSubmittedIn(tickets, key) {
+  return tickets.filter(t => monthKeyOf(t.submitted) === key);
+}
+function ticketsResolvedIn(tickets, key) {
+  return tickets.filter(t => t.resolvedAt && monthKeyOf(t.resolvedAt) === key);
+}
+
+function deltaEl(el, current, previous, suffix) {
+  if (!el) return;
+  const pct = TicketData.pctChange(current, previous);
+  if (pct === null) {
+    el.textContent = 'No data last month';
+    el.className = 'kpi-delta';
+    el.style.color = 'var(--ink-faint)';
+    return;
+  }
+  const arrow = pct >= 0 ? '↑' : '↓';
+  el.textContent = `${arrow} ${Math.abs(pct)}% ${suffix || 'vs last month'}`;
+  el.className = 'kpi-delta ' + (pct >= 0 ? 'up' : 'down');
+  el.style.color = '';
+}
+
+function ratePillClass(rate) {
+  if (rate >= 70) return 'good';
+  if (rate >= 40) return 'mid';
+  return 'low';
+}
+
+// ---- Populate month dropdown (last 6 calendar months, most recent first) ----
+function populateMonthSelect() {
+  const select = document.getElementById('monthSelect');
+  const now = new Date();
+  const options = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    options.push(monthKeyOf(d));
+  }
+  select.innerHTML = options.map(key => `<option value="${key}">${monthLabel(key)}</option>`).join('');
+  select.value = options[0];
+  select.addEventListener('change', () => renderAll(select.value));
+}
+
+// ---- Main render ----
+function renderAll(key) {
+  const prevKey = prevMonthKey(key);
+  document.getElementById('compareNote').textContent = `Compared to ${monthLabel(prevKey)}`;
+  document.getElementById('legendThisMonth').textContent = monthLabel(key);
+  document.getElementById('legendLastMonth').textContent = monthLabel(prevKey);
+
+  const thisMonthSubmitted = ticketsSubmittedIn(allTickets, key);
+  const lastMonthSubmitted = ticketsSubmittedIn(allTickets, prevKey);
+  const thisMonthResolvedEvents = ticketsResolvedIn(allTickets, key);
+  const lastMonthResolvedEvents = ticketsResolvedIn(allTickets, prevKey);
+
+  renderKpis(thisMonthSubmitted, lastMonthSubmitted, thisMonthResolvedEvents, lastMonthResolvedEvents);
+  renderTrendChart(key, prevKey);
+  renderBrandTable(thisMonthSubmitted, lastMonthSubmitted);
+  renderConcernsTable(thisMonthSubmitted);
+  renderChannelDonut(thisMonthSubmitted);
+  renderAgentTable(thisMonthResolvedEvents);
+}
+
+function renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolvedEvents) {
+  document.getElementById('kpiTotalValue').textContent = thisSubmitted.length.toLocaleString();
+  deltaEl(document.getElementById('kpiTotalDelta'), thisSubmitted.length, lastSubmitted.length);
+
+  const thisDone = thisResolvedEvents.filter(t => t.statusCls === 'done');
+  const lastDone = lastResolvedEvents.filter(t => t.statusCls === 'done');
+  document.getElementById('kpiResolvedValue').textContent = thisDone.length.toLocaleString();
+  deltaEl(document.getElementById('kpiResolvedDelta'), thisDone.length, lastDone.length);
+
+  const thisRejected = thisResolvedEvents.filter(t => t.statusCls === 'rejected');
+  const lastRejected = lastResolvedEvents.filter(t => t.statusCls === 'rejected');
+  document.getElementById('kpiRejectedValue').textContent = thisRejected.length.toLocaleString();
+  deltaEl(document.getElementById('kpiRejectedDelta'), thisRejected.length, lastRejected.length);
+
+  const thisHandled = thisDone.length + thisRejected.length;
+  const lastHandled = lastDone.length + lastRejected.length;
+  const thisRate = thisHandled > 0 ? Math.round((thisDone.length / thisHandled) * 100) : null;
+  const lastRate = lastHandled > 0 ? Math.round((lastDone.length / lastHandled) * 100) : null;
+  document.getElementById('kpiRateValue').textContent = thisRate !== null ? `${thisRate}%` : '—';
+  if (thisRate !== null && lastRate !== null) {
+    const diff = thisRate - lastRate;
+    const el = document.getElementById('kpiRateDelta');
+    el.textContent = `${diff >= 0 ? '↑' : '↓'} ${Math.abs(diff)} pts vs last month`;
+    el.className = 'kpi-delta ' + (diff >= 0 ? 'up' : 'down');
+  } else {
+    const el = document.getElementById('kpiRateDelta');
+    el.textContent = 'No data last month';
+    el.className = 'kpi-delta';
+    el.style.color = 'var(--ink-faint)';
+  }
+
+  const thisAckVals = thisSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
+  const lastAckVals = lastSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
+  const thisAckAvg = thisAckVals.length ? thisAckVals.reduce((a, b) => a + b, 0) / thisAckVals.length : null;
+  const lastAckAvg = lastAckVals.length ? lastAckVals.reduce((a, b) => a + b, 0) / lastAckVals.length : null;
+  document.getElementById('kpiAckValue').textContent = thisAckAvg !== null ? TicketData.formatDuration(thisAckAvg) : '—';
+  if (thisAckAvg !== null && lastAckAvg !== null) {
+    const pct = TicketData.pctChange(thisAckAvg, lastAckAvg);
+    const el = document.getElementById('kpiAckDelta');
+    // For time metrics, lower is better — flip the up/down color logic.
+    el.textContent = `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}% vs last month`;
+    el.className = 'kpi-delta ' + (pct <= 0 ? 'up' : 'down');
+  } else {
+    const el = document.getElementById('kpiAckDelta');
+    el.textContent = 'No data last month';
+    el.className = 'kpi-delta';
+    el.style.color = 'var(--ink-faint)';
+  }
+
+  const thisResolveVals = thisDone.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec);
+  const lastResolveVals = lastDone.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec);
+  const thisResolveAvg = thisResolveVals.length ? thisResolveVals.reduce((a, b) => a + b, 0) / thisResolveVals.length : null;
+  const lastResolveAvg = lastResolveVals.length ? lastResolveVals.reduce((a, b) => a + b, 0) / lastResolveVals.length : null;
+  document.getElementById('kpiResolveTimeValue').textContent = thisResolveAvg !== null ? TicketData.formatDuration(thisResolveAvg) : '—';
+  if (thisResolveAvg !== null && lastResolveAvg !== null) {
+    const pct = TicketData.pctChange(thisResolveAvg, lastResolveAvg);
+    const el = document.getElementById('kpiResolveTimeDelta');
+    el.textContent = `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}% vs last month`;
+    el.className = 'kpi-delta ' + (pct <= 0 ? 'up' : 'down');
+  } else {
+    const el = document.getElementById('kpiResolveTimeDelta');
+    el.textContent = 'No data last month';
+    el.className = 'kpi-delta';
+    el.style.color = 'var(--ink-faint)';
+  }
+}
+
+function renderTrendChart(key, prevKey) {
+  const days = Math.max(daysInMonth(key), daysInMonth(prevKey));
+  const thisCounts = new Array(days).fill(0);
+  const lastCounts = new Array(days).fill(0);
+  ticketsSubmittedIn(allTickets, key).forEach(t => { thisCounts[t.submitted.getDate() - 1]++; });
+  ticketsSubmittedIn(allTickets, prevKey).forEach(t => { lastCounts[t.submitted.getDate() - 1]++; });
+  const labels = Array.from({ length: days }, (_, i) => i + 1);
+
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: monthLabel(key), data: thisCounts, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,.08)', fill: true, tension: .35, pointRadius: 0, borderWidth: 2.5 },
+        { label: monthLabel(prevKey), data: lastCounts, borderColor: '#CBD5E1', backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0, borderWidth: 2, borderDash: [5, 4] }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Day of month' }, grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: '#EEF1F6' } }
+      }
+    }
+  });
+}
+
+function renderBrandTable(thisSubmitted, lastSubmitted) {
+  const thisCounts = {};
+  const lastCounts = {};
+  thisSubmitted.forEach(t => { thisCounts[t.brandLabel] = (thisCounts[t.brandLabel] || 0) + 1; });
+  lastSubmitted.forEach(t => { lastCounts[t.brandLabel] = (lastCounts[t.brandLabel] || 0) + 1; });
+  const brands = Object.keys(thisCounts).sort((a, b) => thisCounts[b] - thisCounts[a]);
+
+  const tbody = document.getElementById('brandTableBody');
+  if (brands.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-note">No tickets this month</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = brands.map(brand => {
+    const cur = thisCounts[brand] || 0;
+    const prev = lastCounts[brand] || 0;
+    const pct = TicketData.pctChange(cur, prev);
+    const changeText = pct === null ? '—' : `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%`;
+    const changeColor = pct === null ? 'var(--ink-faint)' : (pct >= 0 ? 'var(--success)' : 'var(--danger)');
+    return `<tr>
+      <td>${TicketData.escapeHtml(brand)}</td>
+      <td class="num">${cur.toLocaleString()}</td>
+      <td class="num">${prev.toLocaleString()}</td>
+      <td class="num" style="color:${changeColor};">${changeText}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderConcernsTable(thisSubmitted) {
+  const counts = {};
+  thisSubmitted.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
+  const total = thisSubmitted.length;
+  const issues = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 10);
+
+  const tbody = document.getElementById('concernsTableBody');
+  if (issues.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3"><div class="empty-note">No tickets this month</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = issues.map(issue => {
+    const count = counts[issue];
+    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    return `<tr>
+      <td>${TicketData.escapeHtml(issue)}</td>
+      <td class="num">${count.toLocaleString()}</td>
+      <td class="num">${pct}%</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderChannelDonut(thisSubmitted) {
+  const counts = {};
+  thisSubmitted.forEach(t => { counts[t.channel] = (counts[t.channel] || 0) + 1; });
+  const labels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  const values = labels.map(l => counts[l]);
+  const total = values.reduce((a, b) => a + b, 0);
+  const palette = ['#2563EB', '#F59E0B', '#22C55E', '#8B5CF6', '#14B8A6', '#EC4899', '#64748B'];
+
+  document.getElementById('channelTotal').textContent = total.toLocaleString();
+
+  if (channelChart) channelChart.destroy();
+  channelChart = new Chart(document.getElementById('channelDonut'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: palette, borderWidth: 0 }] },
+    options: { responsive: false, cutout: '70%', plugins: { legend: { display: false } } }
+  });
+
+  const legend = document.getElementById('channelLegend');
+  if (labels.length === 0) {
+    legend.innerHTML = '<div class="empty-note">No tickets this month</div>';
+    return;
+  }
+  legend.innerHTML = labels.map((label, i) => `
+    <div class="legend-row">
+      <span class="sw" style="background:${palette[i % palette.length]};"></span>
+      <span>${TicketData.escapeHtml(label)}</span>
+      <b style="margin-left:auto;color:var(--ink);">${counts[label].toLocaleString()}</b>
+    </div>
+  `).join('');
+}
+
+function renderAgentTable(thisResolvedEvents) {
+  const agents = {};
+  thisResolvedEvents.forEach(t => {
+    const name = t.resolvedBy || 'Unassigned';
+    if (!agents[name]) agents[name] = { done: 0, rejected: 0, resolveDurations: [] };
+    if (t.statusCls === 'done') agents[name].done++;
+    if (t.statusCls === 'rejected') agents[name].rejected++;
+    if (t.resolveDurationSec != null) agents[name].resolveDurations.push(t.resolveDurationSec);
+  });
+  const names = Object.keys(agents).sort((a, b) => (agents[b].done + agents[b].rejected) - (agents[a].done + agents[a].rejected));
+
+  // Bar chart: total tickets processed (handled) per agent, ranked.
+  const chartCanvas = document.getElementById('agentBarChart');
+  if (agentBarChart) agentBarChart.destroy();
+  if (names.length === 0) {
+    chartCanvas.style.display = 'none';
+  } else {
+    chartCanvas.style.display = '';
+    const handledCounts = names.map(n => agents[n].done + agents[n].rejected);
+    const barHeight = Math.max(180, names.length * 34);
+    chartCanvas.parentElement.style.height = `${barHeight}px`;
+    agentBarChart = new Chart(chartCanvas, {
+      type: 'bar',
+      data: {
+        labels: names,
+        datasets: [{
+          label: 'Tickets Processed',
+          data: handledCounts,
+          backgroundColor: '#2563EB',
+          borderRadius: 6,
+          maxBarThickness: 22
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, grid: { color: '#EEF1F6' } },
+          y: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  const tbody = document.getElementById('agentTableBody');
+  if (names.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-note">No resolved tickets this month</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = names.map(name => {
+    const a = agents[name];
+    const handled = a.done + a.rejected;
+    const rate = handled > 0 ? Math.round((a.done / handled) * 100) : 0;
+    const avgHandle = a.resolveDurations.length ? a.resolveDurations.reduce((x, y) => x + y, 0) / a.resolveDurations.length : null;
+    return `<tr>
+      <td>
+        <div class="agent-cell">
+          <div class="av-xs" style="background:${TicketData.colorForName(name)};">${TicketData.initialsForName(name)}</div>
+          <span>${TicketData.escapeHtml(name)}</span>
+        </div>
+      </td>
+      <td class="num">${handled.toLocaleString()}</td>
+      <td class="num">${a.done.toLocaleString()}</td>
+      <td class="num">${a.rejected.toLocaleString()}</td>
+      <td class="num"><span class="rate-pill ${ratePillClass(rate)}">${rate}%</span></td>
+      <td class="num">${avgHandle !== null ? TicketData.formatDuration(avgHandle) : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ---- Boot ----
+populateMonthSelect();
+TicketData.fetchTickets()
+  .then(tickets => {
+    allTickets = tickets;
+    renderAll(document.getElementById('monthSelect').value);
+    TicketData.startAutoRefresh(tickets2 => {
+      allTickets = tickets2;
+      renderAll(document.getElementById('monthSelect').value);
+    }, 120000);
+  })
+  .catch(err => {
+    console.error(err);
+    document.getElementById('kpiTotalValue').textContent = 'Error';
+  });
+</script>
+</body>
+</html>
