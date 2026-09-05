@@ -403,6 +403,23 @@ function daysElapsedInMonth(key) {
   return monthKeyOf(now) === key ? now.getDate() : daysInMonth(key);
 }
 
+function earliestSubmittedDate(tickets) {
+  let min = null;
+  tickets.forEach(t => { if (!min || t.submitted < min) min = t.submitted; });
+  return min;
+}
+
+// Days actually covered by data within a given month: accounts for the
+// current in-progress month AND for the very first month tracking began
+// (which may only be partially covered, e.g. if the system launched mid-month).
+function effectiveDaysInMonth(key, earliest) {
+  const elapsed = daysElapsedInMonth(key);
+  if (!earliest) return elapsed;
+  if (monthKeyOf(earliest) === key) return Math.max(0, elapsed - earliest.getDate() + 1);
+  const monthStart = monthKeyToDate(key);
+  return earliest > monthStart ? 0 : elapsed;
+}
+
 // ---- Main render ----
 function renderAll(key) {
   const prevKey = prevMonthKey(key);
@@ -415,11 +432,23 @@ function renderAll(key) {
   const thisMonthResolvedEvents = ticketsResolvedIn(allTickets, key);
   const lastMonthResolvedEvents = ticketsResolvedIn(allTickets, prevKey);
 
-  const thisDays = daysElapsedInMonth(key);
-  const lastDays = daysInMonth(prevKey);
-  const fairnessNote = document.getElementById('brandFairnessNote');
-  fairnessNote.textContent = thisDays < daysInMonth(key)
-    ? `⚠️ ${monthLabel(key)} is still in progress (day ${thisDays} of ${daysInMonth(key)}) — raw totals aren't complete yet. Compare the Daily Avg columns for a fairer read.`
+  const earliest = earliestSubmittedDate(allTickets);
+  const thisDays = effectiveDaysInMonth(key, earliest);
+  const lastDays = effectiveDaysInMonth(prevKey, earliest);
+
+  const notes = [];
+  if (monthKeyOf(new Date()) === key && thisDays < daysInMonth(key)) {
+    notes.push(`${monthLabel(key)} is still in progress (day ${thisDays} of ${daysInMonth(key)})`);
+  }
+  if (earliest && monthKeyOf(earliest) === prevKey) {
+    const startLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    notes.push(`ticket tracking only began ${startLabel}, so ${monthLabel(prevKey)} only has ${lastDays} day${lastDays === 1 ? '' : 's'} of real data`);
+  } else if (earliest && monthKeyOf(earliest) === key) {
+    const startLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    notes.push(`ticket tracking only began ${startLabel}, so ${monthLabel(key)} only has ${thisDays} day${thisDays === 1 ? '' : 's'} of real data`);
+  }
+  document.getElementById('brandFairnessNote').textContent = notes.length
+    ? `⚠️ ${notes.join('; ')} — raw totals aren't a full-month comparison yet. Use the Daily Avg columns for a fairer read.`
     : '';
 
   renderKpis(thisMonthSubmitted, lastMonthSubmitted, thisMonthResolvedEvents, lastMonthResolvedEvents);
