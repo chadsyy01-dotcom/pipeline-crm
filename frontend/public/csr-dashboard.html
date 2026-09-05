@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js?v=2"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -237,11 +238,11 @@
     </div>
 
     <div class="nav-group">
-      <a href="/csr-dashboard.html" class="nav-item active">
+      <a href="csr-dashboard.html" class="nav-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
         Dashboard
       </a>
-      <a href="/tickets.html" class="nav-item">
+      <a href="tickets.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
         Tickets
       </a>
@@ -312,69 +313,71 @@
       <div class="kpi-card">
         <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></div><div class="kpi-label">Total Tickets Today</div></div>
         <div class="kpi-value" id="kpiTotalValue">—</div>
-        <div class="kpi-delta" id="kpiTotalDelta">Loading…</div>
+        <div class="kpi-delta" id="kpiTotalDelta">—</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></div><div class="kpi-label">Open Tickets</div></div>
         <div class="kpi-value" id="kpiOpenValue">—</div>
-        <div class="kpi-delta" id="kpiOpenDelta">Loading…</div>
+        <div class="kpi-delta" id="kpiOpenDelta" style="color:var(--ink-faint);">Currently unresolved</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div><div class="kpi-label">Resolved Today</div></div>
         <div class="kpi-value" id="kpiResolvedValue">—</div>
-        <div class="kpi-delta" id="kpiResolvedDelta">Loading…</div>
+        <div class="kpi-delta" id="kpiResolvedDelta">—</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">Avg Response Time</div></div>
-        <div class="kpi-value" id="kpiAvgRespValue">—</div>
-        <div class="kpi-delta" id="kpiAvgRespDelta">Loading…</div>
+        <div class="kpi-value" id="kpiAvgResponseValue">—</div>
+        <div class="kpi-delta" id="kpiAvgResponseDelta">—</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></div><div class="kpi-label">CSAT Score</div></div>
-        <div class="kpi-value" id="kpiCsatValue">—</div>
-        <div class="kpi-delta" id="kpiCsatDelta" style="color:var(--ink-faint);">Not tracked in sheet</div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="kpi-label">Rejected Today</div></div>
+        <div class="kpi-value" id="kpiRejectedValue">—</div>
+        <div class="kpi-delta" id="kpiRejectedDelta">—</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="kpi-label">Active Agents</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="kpi-label">Active Agents Today</div></div>
         <div class="kpi-value" id="kpiAgentsValue">—</div>
-        <div class="kpi-delta" id="kpiAgentsDelta">Loading…</div>
+        <div class="kpi-delta" id="kpiAgentsDelta" style="color:var(--ink-faint);">Handled tickets today</div>
       </div>
     </div>
 
     <!-- QUEUE / ACTIVITY / PERFORMANCE / ALERTS -->
     <div class="grid-4">
       <div class="panel">
-        <div class="panel-head"><h3>Ticket Queue</h3></div>
-        <div class="queue-item"><div class="queue-ico" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M8 8h8M8 16h5"/></svg></div><div class="queue-name">New Tickets</div><div class="queue-count" id="qCountNew">—</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
-        <div class="queue-item"><div class="queue-ico" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="queue-name">In Progress</div><div class="queue-count" id="qCountProgress">—</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
-        <div class="queue-item"><div class="queue-ico" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h1"/><path d="M19 16v6M22 19h-6"/></svg></div><div class="queue-name">Waiting for Customer</div><div class="queue-count" id="qCountWaiting">—</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
-        <div class="queue-item"><div class="queue-ico" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div><div class="queue-name">Escalated (High Priority, Open)</div><div class="queue-count" id="qCountEscalated">—</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
-        <a href="/tickets.html" class="view-link">View all queues →</a>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><h3>Live Activity</h3><a href="/tickets.html" class="view-all">View all</a></div>
-        <div id="liveActivityItems"><div class="activity-item"><div class="act-issue">Loading…</div></div></div>
-        <a href="/tickets.html" class="view-link">View all live activity →</a>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><h3>My Performance (Today)</h3></div>
-        <div class="perf-ring-wrap"><canvas id="perfRing" width="140" height="140"></canvas>
-          <div class="perf-ring-label"><div class="num">85%</div><div class="tag">Great Job!</div></div>
+        <div class="panel-head"><h3>Ticket Status Breakdown</h3></div>
+        <div id="ticketQueue">
+          <div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">Loading…</div></div>
         </div>
-        <div class="perf-row"><div class="l">Tickets Resolved</div><div class="r">48<small class="up">↑ 18%</small></div></div>
-        <div class="perf-row"><div class="l">Average Handle Time</div><div class="r">6m 32s<small class="up">↑ 5%</small></div></div>
-        <div class="perf-row"><div class="l">CSAT Score</div><div class="r">4.7<small class="up">↑ 0.3</small></div></div>
-        <div class="perf-row"><div class="l">Attendance</div><div class="r" style="color:var(--success);">Present<small style="color:var(--ink-faint);font-weight:600;">Since 8:00 AM</small></div></div>
-        <a href="#" class="view-link">View detailed performance →</a>
+        <a href="tickets.html" class="view-link">View all tickets →</a>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>SLA Alerts</h3><a href="/tickets.html" class="view-all">View all</a></div>
-        <div id="slaAlertsItems"><div class="alert-item"><div class="alert-title">Loading…</div></div></div>
-        <a href="/tickets.html" class="view-link">View all alerts →</a>
+        <div class="panel-head"><h3>Live Activity</h3><a href="tickets.html" class="view-all">View all</a></div>
+        <div id="liveActivity">
+          <div class="activity-item"><div class="act-name" style="color:var(--ink-faint);">Loading…</div></div>
+        </div>
+        <a href="tickets.html" class="view-link">View all live activity →</a>
       </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Team Performance (Today)</h3></div>
+        <div class="perf-ring-wrap"><canvas id="perfRing" width="140" height="140"></canvas>
+          <div class="perf-ring-label"><div class="num" id="perfRingValue">—</div><div class="tag" id="perfRingTag">Loading…</div></div>
+        </div>
+        <div class="perf-row"><div class="l">Tickets Resolved</div><div class="r" id="perfResolved">—</div></div>
+        <div class="perf-row"><div class="l">Average Handle Time</div><div class="r" id="perfHandleTime">—</div></div>
+        <div class="perf-row"><div class="l">Rejection Rate</div><div class="r" id="perfRejectionRate">—</div></div>
+        <div class="perf-row"><div class="l">Total Handled Today</div><div class="r" id="perfTotalHandled">—</div></div>
+        <a href="tickets.html" class="view-link">View detailed performance →</a>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Open Tickets — Longest Waiting</h3><a href="tickets.html" class="view-all">View all</a></div>
+        <div id="slaAlerts">
+          <div class="alert-item"><div class="alert-title" style="color:var(--ink-faint);">Loading…</div></div>
+        </div>
+        <a href="tickets.html" class="view-link">View all open tickets →</a>
       </div>
     </div>
 
@@ -384,26 +387,26 @@
         <div class="panel-head"><h3>Tickets by Channel</h3></div>
         <div class="donut-wrap" style="height:150px;"><canvas id="channelDonut"></canvas></div>
         <div class="chart-legend" id="channelLegend"></div>
-        <div class="chart-total" id="channelChartTotal">Total: —</div>
+        <div class="chart-total" id="channelTotal">Total: —</div>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Daily Ticket Trend</h3><div class="tabs"><button class="tab active">7D</button><button class="tab">30D</button></div></div>
+        <div class="panel-head"><h3>Daily Ticket Trend</h3><div class="tabs" id="trendTabs"><button class="tab active" data-range="7">7D</button><button class="tab" data-range="30">30D</button></div></div>
         <div style="height:190px;"><canvas id="trendLine"></canvas></div>
       </div>
 
       <div class="panel">
         <div class="panel-head"><h3>Resolution Rate</h3></div>
         <div class="donut-wrap" style="height:160px;"><canvas id="resDonut"></canvas>
-          <div class="donut-center"><div class="num" id="resDonutCenterNum">—</div><div class="lab">Resolved</div></div>
+          <div class="donut-center"><div class="num" id="resCenterNum">—</div><div class="lab">Resolved</div></div>
         </div>
         <div class="chart-legend" id="resLegend"></div>
-        <div class="chart-total" id="resChartTotal">Total: —</div>
+        <div class="chart-total" id="resTotal">Total: —</div>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Avg Response Time Trend</h3><div class="tabs"><button class="tab active">7D</button><button class="tab">30D</button></div></div>
-        <div style="height:190px;"><canvas id="csatArea"></canvas></div>
+        <div class="panel-head"><h3>Avg Resolution Time Trend</h3><div class="tabs" id="restimeTabs"><button class="tab active" data-range="7">7D</button><button class="tab" data-range="30">30D</button></div></div>
+        <div style="height:190px;"><canvas id="resTimeArea"></canvas></div>
       </div>
     </div>
 
@@ -433,392 +436,338 @@
 <script>
 Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
 
-// Performance ring (per-agent — not wired to the sheet; see note in chat)
-new Chart(document.getElementById('perfRing'), {
-  type: 'doughnut',
-  data: { datasets: [{ data: [85, 15], backgroundColor: ['#2563EB', '#EEF1F6'], borderWidth: 0 }] },
-  options: { cutout: '78%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
-});
+const { escapeHtml, relativeTime, compactElapsed, formatDuration, isSameLocalDay, dayKey, colorForName, initialsForName } = TicketData;
+const CHART_PALETTE = ['#3B82F6','#22C55E','#8B5CF6','#F59E0B','#14B8A6','#EC4899','#0EA5E9','#F97316','#A855F7','#64748B'];
 
-// ---- Live data source: same published Google Sheet used by tickets.html ----
-const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv";
+let allTickets = [];
+let trendChart, resTimeChart, channelChart, resChart, perfRingChart;
 
-const PALETTE = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
-
-function escapeHtml(str) {
-  return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function colorForName(name) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return PALETTE[Math.abs(hash) % PALETTE.length];
-}
-
-function initialsForName(name) {
-  const parts = String(name).trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '??';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
-function priorityBucketFn(raw) {
-  const p = (raw || '').toUpperCase();
-  if (p.includes('HIGH') || p.includes('URGENT') || p.includes('CRITICAL')) return 'high';
-  if (p.includes('LOW')) return 'low';
-  return 'medium';
-}
-
-function statusClsFn(raw) {
-  const key = (raw || '').trim().toLowerCase();
-  return ['pending','checking','done','rejected'].includes(key) ? key : 'unknown';
-}
-
-// Handles both timestamp formats found in the sheet:
-//  "8/26/2026, 1:54:06 AM"           (Submitted At)
-//  "08-26-2026 02:00:31:460 AM"      (Acknowledged At / Resolved At)
-function parseSheetDate(str) {
-  if (!str) return null;
-  const m = String(str).trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2}):(\d{1,3})\s*(AM|PM)$/i);
-  if (m) {
-    let [, mm, dd, yyyy, hh, min, ss, ms, ampm] = m;
-    hh = parseInt(hh, 10) % 12;
-    if (ampm.toUpperCase() === 'PM') hh += 12;
-    return new Date(+yyyy, +mm - 1, +dd, hh, +min, +ss, +ms);
-  }
-  const d = new Date(str);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function dateKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function relativeTime(then) {
-  const diffMs = Date.now() - then.getTime();
-  const mins = Math.round(diffMs / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
-  const days = Math.round(hrs / 24);
-  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
-  const months = Math.round(days / 30);
-  return `${months} month${months === 1 ? '' : 's'} ago`;
-}
-
-function average(arr) {
-  const nums = arr.filter(n => typeof n === 'number' && !isNaN(n));
-  if (!nums.length) return null;
-  return nums.reduce((a,b) => a+b, 0) / nums.length;
-}
-
-function formatDuration(sec) {
-  if (sec == null || isNaN(sec)) return '—';
-  sec = Math.round(sec);
-  const m = Math.floor(sec/60), s = sec%60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
-}
-
-function pctChangeLabel(curr, prev, goodDirection) {
-  if (prev === 0 && curr === 0) return { text: 'No change vs yesterday', cls: '' };
-  if (prev === 0) return { text: 'New activity today', cls: 'up' };
-  const pct = ((curr - prev) / prev) * 100;
-  const rounded = Math.round(Math.abs(pct));
-  const increased = pct > 0;
-  const arrow = pct === 0 ? '→' : (increased ? '↑' : '↓');
-  let cls = '';
-  if (pct !== 0) cls = (goodDirection === 'up') ? (increased ? 'up' : 'down') : (increased ? 'down' : 'up');
-  return { text: `${arrow} ${rounded}% vs yesterday`, cls };
-}
-
-function setDelta(id, text, cls) {
-  const el = document.getElementById(id);
+function deltaEl(el, current, previous) {
   if (!el) return;
-  el.textContent = text;
-  el.className = 'kpi-delta' + (cls ? ' ' + cls : '');
-}
-
-function buildLast7Days() {
-  const days = [];
-  const now = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    days.push({ key: dateKey(d), label: d.toLocaleDateString('en-US', { month:'short', day:'numeric' }) });
-  }
-  return days;
-}
-
-function mapRow(row) {
-  const name = (row['Username'] || row['Full Name'] || 'Unknown').toString();
-  const category = (row['Category'] || '').trim();
-  const subcategory = (row['Subcategory'] || '').trim();
-  const ackDurRaw = row['Acknowledgement Duration'];
-  return {
-    id: row['Ticket ID'],
-    name,
-    init: initialsForName(name),
-    color: colorForName(name),
-    issue: subcategory || category || '—',
-    channel: (row['Source'] || 'Unknown').trim() || 'Unknown',
-    priorityRaw: row['Priority'] || 'NORMAL',
-    priorityBucket: priorityBucketFn(row['Priority']),
-    statusRaw: row['Status'],
-    statusCls: statusClsFn(row['Status']),
-    submitted: parseSheetDate(row['Submitted At']),
-    ackBy: (row['Acknowledged By'] || '').trim(),
-    ackAt: parseSheetDate(row['Acknowledged At']),
-    resolvedBy: (row['Resolved By'] || '').trim(),
-    resolvedAt: parseSheetDate(row['Resolved At']),
-    ackDurationSec: (ackDurRaw !== undefined && ackDurRaw !== '' && !isNaN(parseFloat(ackDurRaw))) ? parseFloat(ackDurRaw) : null,
-    otpStatus: (row['OTP Status'] || '').trim()
-  };
-}
-
-function renderKpis(tickets) {
-  const todayKey = dateKey(new Date());
-  const yesterdayKey = dateKey(new Date(Date.now() - 86400000));
-
-  // Total tickets
-  const totalToday = tickets.filter(t => dateKey(t.submitted) === todayKey).length;
-  const totalYesterday = tickets.filter(t => dateKey(t.submitted) === yesterdayKey).length;
-  if (totalToday === 0 && totalYesterday === 0) {
-    document.getElementById('kpiTotalValue').textContent = tickets.length.toLocaleString();
-    setDelta('kpiTotalDelta', 'All-time total (no tickets today yet)', '');
-  } else {
-    document.getElementById('kpiTotalValue').textContent = totalToday.toLocaleString();
-    const d = pctChangeLabel(totalToday, totalYesterday, 'up');
-    setDelta('kpiTotalDelta', d.text, d.cls);
-  }
-
-  // Open tickets (live snapshot)
-  const openCount = tickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
-  document.getElementById('kpiOpenValue').textContent = openCount.toLocaleString();
-  setDelta('kpiOpenDelta', 'Currently open (live)', '');
-
-  // Resolved
-  const resolvedToday = tickets.filter(t => t.resolvedAt && dateKey(t.resolvedAt) === todayKey && (t.statusCls === 'done' || t.statusCls === 'rejected')).length;
-  const resolvedYesterday = tickets.filter(t => t.resolvedAt && dateKey(t.resolvedAt) === yesterdayKey && (t.statusCls === 'done' || t.statusCls === 'rejected')).length;
-  if (resolvedToday === 0 && resolvedYesterday === 0) {
-    const allResolved = tickets.filter(t => t.statusCls === 'done' || t.statusCls === 'rejected').length;
-    document.getElementById('kpiResolvedValue').textContent = allResolved.toLocaleString();
-    setDelta('kpiResolvedDelta', 'All-time total (none resolved today yet)', '');
-  } else {
-    document.getElementById('kpiResolvedValue').textContent = resolvedToday.toLocaleString();
-    const d = pctChangeLabel(resolvedToday, resolvedYesterday, 'up');
-    setDelta('kpiResolvedDelta', d.text, d.cls);
-  }
-
-  // Avg response time (based on Acknowledgement Duration)
-  const ackToday = tickets.filter(t => t.ackAt && dateKey(t.ackAt) === todayKey && t.ackDurationSec != null).map(t => t.ackDurationSec);
-  const ackYesterday = tickets.filter(t => t.ackAt && dateKey(t.ackAt) === yesterdayKey && t.ackDurationSec != null).map(t => t.ackDurationSec);
-  let avgToday = average(ackToday);
-  const avgYesterday = average(ackYesterday);
-  if (avgToday == null) {
-    avgToday = average(tickets.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec));
-    document.getElementById('kpiAvgRespValue').textContent = formatDuration(avgToday);
-    setDelta('kpiAvgRespDelta', 'All-time average', '');
-  } else {
-    document.getElementById('kpiAvgRespValue').textContent = formatDuration(avgToday);
-    if (avgYesterday != null) {
-      const d = pctChangeLabel(avgToday, avgYesterday, 'down'); // lower = better
-      setDelta('kpiAvgRespDelta', d.text, d.cls);
-    } else {
-      setDelta('kpiAvgRespDelta', 'No comparison data for yesterday', '');
-    }
-  }
-
-  // Active agents
-  function agentSet(list) {
-    const s = new Set();
-    list.forEach(t => { if (t.ackBy) s.add(t.ackBy); if (t.resolvedBy) s.add(t.resolvedBy); });
-    return s;
-  }
-  const todayTickets = tickets.filter(t => (t.ackAt && dateKey(t.ackAt) === todayKey) || (t.resolvedAt && dateKey(t.resolvedAt) === todayKey));
-  let agentsToday = agentSet(todayTickets).size;
-  if (agentsToday === 0) {
-    document.getElementById('kpiAgentsValue').textContent = agentSet(tickets).size.toLocaleString();
-    setDelta('kpiAgentsDelta', 'Active in sheet (all time)', '');
-  } else {
-    document.getElementById('kpiAgentsValue').textContent = agentsToday.toLocaleString();
-    setDelta('kpiAgentsDelta', 'Active today', '');
-  }
-}
-
-function renderQueue(tickets) {
-  const pendingCount = tickets.filter(t => t.statusCls === 'pending').length;
-  const checkingCount = tickets.filter(t => t.statusCls === 'checking').length;
-  const waitingCount = tickets.filter(t => (t.statusCls === 'pending' || t.statusCls === 'checking') && t.otpStatus.toLowerCase() === 'waiting').length;
-  const escalatedCount = tickets.filter(t => (t.statusCls === 'pending' || t.statusCls === 'checking') && t.priorityBucket === 'high').length;
-  document.getElementById('qCountNew').textContent = pendingCount.toLocaleString();
-  document.getElementById('qCountProgress').textContent = checkingCount.toLocaleString();
-  document.getElementById('qCountWaiting').textContent = waitingCount.toLocaleString();
-  document.getElementById('qCountEscalated').textContent = escalatedCount.toLocaleString();
-}
-
-function renderLiveActivity(tickets) {
-  const latest = [...tickets].sort((a,b) => b.submitted - a.submitted).slice(0, 5);
-  const container = document.getElementById('liveActivityItems');
-  if (latest.length === 0) {
-    container.innerHTML = '<div class="activity-item"><div class="act-issue">No tickets found.</div></div>';
+  const pct = TicketData.pctChange(current, previous);
+  if (pct === null) {
+    el.textContent = 'No data yesterday';
+    el.className = 'kpi-delta';
+    el.style.color = 'var(--ink-faint)';
     return;
   }
-  container.innerHTML = latest.map(t => `
+  const arrow = pct >= 0 ? '↑' : '↓';
+  el.textContent = `${arrow} ${Math.abs(pct)}% vs yesterday`;
+  el.className = 'kpi-delta ' + (pct >= 0 ? 'up' : 'down');
+  el.style.color = '';
+}
+
+TicketData.fetchTickets()
+  .then(tickets => {
+    allTickets = tickets;
+    renderAll();
+  })
+  .catch(err => {
+    console.error(err);
+    const v = document.getElementById('kpiTotalValue');
+    if (v) v.textContent = 'Error';
+    const q = document.getElementById('ticketQueue');
+    if (q) q.innerHTML = '<div class="queue-item"><div class="queue-name" style="color:var(--danger);">Could not load data from the Google Sheet.</div></div>';
+  });
+
+function renderAll() {
+  const now = new Date();
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  const todayTickets = allTickets.filter(t => isSameLocalDay(t.submitted, now));
+  const yesterdayTickets = allTickets.filter(t => isSameLocalDay(t.submitted, yesterday));
+
+  renderKPIs(todayTickets, yesterdayTickets);
+  renderQueueBreakdown();
+  renderLiveActivity();
+  renderPerformance(todayTickets, yesterdayTickets);
+  renderSlaAlerts(now);
+  renderChannelDonut();
+  renderResolutionDonut();
+  renderTrendChart(7);
+  renderResTimeChart(7);
+  renderTeamStrip(now);
+  setupTabs();
+}
+
+// ---------- KPI cards ----------
+function renderKPIs(todayTickets, yesterdayTickets) {
+  document.getElementById('kpiTotalValue').textContent = todayTickets.length.toLocaleString();
+  deltaEl(document.getElementById('kpiTotalDelta'), todayTickets.length, yesterdayTickets.length);
+
+  const openCount = allTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
+  document.getElementById('kpiOpenValue').textContent = openCount.toLocaleString();
+
+  const now = new Date(), yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const resolvedToday = allTickets.filter(t => t.statusCls === 'done' && t.resolvedAt && isSameLocalDay(t.resolvedAt, now));
+  const resolvedYesterday = allTickets.filter(t => t.statusCls === 'done' && t.resolvedAt && isSameLocalDay(t.resolvedAt, yesterday));
+  document.getElementById('kpiResolvedValue').textContent = resolvedToday.length.toLocaleString();
+  deltaEl(document.getElementById('kpiResolvedDelta'), resolvedToday.length, resolvedYesterday.length);
+
+  const rejectedToday = allTickets.filter(t => t.statusCls === 'rejected' && t.resolvedAt && isSameLocalDay(t.resolvedAt, now));
+  const rejectedYesterday = allTickets.filter(t => t.statusCls === 'rejected' && t.resolvedAt && isSameLocalDay(t.resolvedAt, yesterday));
+  document.getElementById('kpiRejectedValue').textContent = rejectedToday.length.toLocaleString();
+  deltaEl(document.getElementById('kpiRejectedDelta'), rejectedToday.length, rejectedYesterday.length);
+
+  const ackToday = todayTickets.filter(t => t.ackDurationSec != null);
+  const ackYesterday = yesterdayTickets.filter(t => t.ackDurationSec != null);
+  const avgAckToday = ackToday.length ? ackToday.reduce((s, t) => s + t.ackDurationSec, 0) / ackToday.length : null;
+  const avgAckYesterday = ackYesterday.length ? ackYesterday.reduce((s, t) => s + t.ackDurationSec, 0) / ackYesterday.length : null;
+  document.getElementById('kpiAvgResponseValue').textContent = avgAckToday != null ? formatDuration(avgAckToday) : '—';
+  if (avgAckToday != null && avgAckYesterday != null) {
+    deltaEl(document.getElementById('kpiAvgResponseDelta'), avgAckToday, avgAckYesterday);
+  } else {
+    const el = document.getElementById('kpiAvgResponseDelta');
+    el.textContent = 'No data yesterday';
+    el.className = 'kpi-delta';
+    el.style.color = 'var(--ink-faint)';
+  }
+
+  const agentsToday = new Set();
+  todayTickets.forEach(t => { if (t.acknowledgedBy) agentsToday.add(t.acknowledgedBy); if (t.resolvedBy) agentsToday.add(t.resolvedBy); });
+  document.getElementById('kpiAgentsValue').textContent = agentsToday.size.toLocaleString();
+}
+
+// ---------- Ticket status breakdown (replaces the old fixed "Ticket Queue") ----------
+function renderQueueBreakdown() {
+  const counts = { pending: 0, checking: 0, done: 0, rejected: 0 };
+  allTickets.forEach(t => { if (counts[t.statusCls] !== undefined) counts[t.statusCls]++; });
+  const rows = [
+    { key: 'pending', label: 'New', bg: 'var(--primary-tint)', fg: 'var(--primary)', icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M8 8h8M8 16h5"/>' },
+    { key: 'checking', label: 'In Progress', bg: 'var(--warning-tint)', fg: 'var(--warning)', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>' },
+    { key: 'done', label: 'Done', bg: 'var(--success-tint)', fg: 'var(--success)', icon: '<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>' },
+    { key: 'rejected', label: 'Rejected', bg: 'var(--danger-tint)', fg: 'var(--danger)', icon: '<circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/>' }
+  ];
+  document.getElementById('ticketQueue').innerHTML = rows.map(r => `
+    <div class="queue-item">
+      <div class="queue-ico" style="background:${r.bg};color:${r.fg};"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${r.icon}</svg></div>
+      <div class="queue-name">${r.label}</div>
+      <div class="queue-count">${counts[r.key].toLocaleString()}</div>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>`).join('');
+}
+
+// ---------- Live activity ----------
+function renderLiveActivity() {
+  const items = allTickets.slice(0, 5);
+  const el = document.getElementById('liveActivity');
+  if (items.length === 0) {
+    el.innerHTML = '<div class="activity-item"><div class="act-name" style="color:var(--ink-faint);">No tickets yet.</div></div>';
+    return;
+  }
+  el.innerHTML = items.map(t => `
     <div class="activity-item">
       <div class="av-sm" style="background:${t.color};">${escapeHtml(t.init)}</div>
       <div><div class="act-name">${escapeHtml(t.name)}</div><div class="act-issue">${escapeHtml(t.issue)}</div></div>
-      <div class="act-right"><span class="pill ${t.priorityBucket}">${escapeHtml(t.priorityRaw)}</span><span class="act-time">${relativeTime(t.submitted)}</span></div>
-    </div>
-  `).join('');
+      <div class="act-right"><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span><span class="act-time">${relativeTime(t.submitted)}</span></div>
+    </div>`).join('');
 }
 
-function renderSlaAlerts(tickets) {
-  const open = tickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking');
-  const withElapsed = open.map(t => ({ ...t, elapsedMin: Math.max(0, Math.round((Date.now() - t.submitted.getTime()) / 60000)) }));
-  withElapsed.sort((a,b) => b.elapsedMin - a.elapsedMin);
-  const top = withElapsed.slice(0, 5);
-  const container = document.getElementById('slaAlertsItems');
-  if (top.length === 0) {
-    container.innerHTML = '<div class="alert-item"><div class="alert-title">No open tickets waiting — all caught up.</div></div>';
+// ---------- Team performance (aggregate across agents, since there's no reliable
+// mapping yet between the logged-in profile and the sheet's agent usernames) ----------
+function renderPerformance(todayTickets, yesterdayTickets) {
+  const doneToday = todayTickets.filter(t => t.statusCls === 'done');
+  const rejectedToday = todayTickets.filter(t => t.statusCls === 'rejected');
+  const totalHandledToday = doneToday.length + rejectedToday.length;
+
+  const resolutionRate = totalHandledToday > 0 ? Math.round((doneToday.length / totalHandledToday) * 100) : null;
+
+  document.getElementById('perfRingValue').textContent = resolutionRate !== null ? `${resolutionRate}%` : '—';
+  document.getElementById('perfRingTag').textContent = totalHandledToday === 0
+    ? 'No tickets handled yet'
+    : (resolutionRate >= 80 ? 'Great job!' : resolutionRate >= 50 ? 'Keep going' : 'Needs attention');
+
+  if (perfRingChart) perfRingChart.destroy();
+  perfRingChart = new Chart(document.getElementById('perfRing'), {
+    type: 'doughnut',
+    data: { datasets: [{ data: [resolutionRate || 0, 100 - (resolutionRate || 0)], backgroundColor: ['#2563EB', '#EEF1F6'], borderWidth: 0 }] },
+    options: { cutout: '78%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+  });
+
+  document.getElementById('perfResolved').textContent = doneToday.length.toLocaleString();
+
+  const withHandle = doneToday.filter(t => t.resolveDurationSec != null);
+  const avgHandle = withHandle.length ? withHandle.reduce((s, t) => s + t.resolveDurationSec, 0) / withHandle.length : null;
+  document.getElementById('perfHandleTime').textContent = avgHandle != null ? formatDuration(avgHandle) : '—';
+
+  document.getElementById('perfRejectionRate').textContent = totalHandledToday > 0
+    ? `${Math.round((rejectedToday.length / totalHandledToday) * 100)}%`
+    : '—';
+
+  document.getElementById('perfTotalHandled').textContent = totalHandledToday.toLocaleString();
+}
+
+// ---------- Open tickets waiting longest (replaces the old fixed "SLA Alerts") ----------
+function renderSlaAlerts(now) {
+  const open = allTickets
+    .filter(t => t.statusCls === 'pending' || t.statusCls === 'checking')
+    .slice()
+    .sort((a, b) => a.submitted - b.submitted)
+    .slice(0, 5);
+
+  const el = document.getElementById('slaAlerts');
+  if (open.length === 0) {
+    el.innerHTML = '<div class="alert-item"><div class="alert-title" style="color:var(--success);">No open tickets waiting — nice!</div></div>';
     return;
   }
-  container.innerHTML = top.map(t => {
-    const title = t.priorityBucket === 'high' ? 'High priority ticket' : (t.priorityBucket === 'low' ? 'Standard priority ticket' : 'Medium priority ticket');
+
+  el.innerHTML = open.map(t => {
+    const label = t.priority === 'high' ? 'High' : t.priority === 'low' ? 'Low' : 'Normal';
     return `
     <div class="alert-item">
       <div class="alert-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
-      <div><div class="alert-title">${escapeHtml(title)}</div><div class="alert-sub">${escapeHtml(t.id)} · Waiting ${t.elapsedMin}+ mins</div></div>
-      <div class="alert-time">${t.elapsedMin}m</div>
+      <div><div class="alert-title">${label} priority · ${escapeHtml(t.id)}</div><div class="alert-sub">${escapeHtml(t.name)} — ${escapeHtml(t.issue)}</div></div>
+      <div class="alert-time">${compactElapsed(t.submitted, now)}</div>
     </div>`;
   }).join('');
 }
 
-function renderChannelDonut(tickets) {
+// ---------- Charts ----------
+function renderChannelDonut() {
   const counts = {};
-  tickets.forEach(t => { counts[t.channel] = (counts[t.channel] || 0) + 1; });
-  let entries = Object.entries(counts).sort((a,b) => b[1] - a[1]);
-  let top = entries.slice(0, 5);
-  const restSum = entries.slice(5).reduce((s,[,v]) => s + v, 0);
-  if (restSum > 0) top.push(['Other', restSum]);
-  const total = tickets.length;
-  const colors = top.map((_,i) => PALETTE[i % PALETTE.length]);
+  allTickets.forEach(t => { counts[t.channel] = (counts[t.channel] || 0) + 1; });
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const total = allTickets.length;
+  const labels = entries.map(e => e[0]);
+  const data = entries.map(e => e[1]);
+  const colors = labels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]);
 
-  new Chart(document.getElementById('channelDonut'), {
+  if (channelChart) channelChart.destroy();
+  channelChart = new Chart(document.getElementById('channelDonut'), {
     type: 'doughnut',
-    data: { labels: top.map(([l]) => l), datasets: [{ data: top.map(([,v]) => v), backgroundColor: colors, borderWidth: 0 }] },
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
     options: { cutout: '62%', plugins: { legend: { display: false } } }
   });
 
-  document.getElementById('channelLegend').innerHTML = top.map(([label,count], i) => {
-    const pct = total ? Math.round((count/total)*100) : 0;
-    return `<div class="legend-row"><span class="sw" style="background:${colors[i]};"></span>${escapeHtml(label)}<b>${pct}% (${count.toLocaleString()})</b></div>`;
+  document.getElementById('channelLegend').innerHTML = entries.map((e, i) => {
+    const pct = total ? Math.round((e[1] / total) * 100) : 0;
+    return `<div class="legend-row"><span class="sw" style="background:${colors[i]};"></span>${escapeHtml(e[0])}<b>${pct}% (${e[1].toLocaleString()})</b></div>`;
   }).join('');
-  document.getElementById('channelChartTotal').textContent = `Total: ${total.toLocaleString()}`;
+  document.getElementById('channelTotal').textContent = `Total: ${total.toLocaleString()}`;
 }
 
-function renderResolutionDonut(tickets) {
-  const total = tickets.length;
-  const doneCount = tickets.filter(t => t.statusCls === 'done').length;
-  const unresolvedCount = total - doneCount;
-  const pct = total ? Math.round((doneCount/total)*100) : 0;
+function renderResolutionDonut() {
+  const total = allTickets.length;
+  const resolved = allTickets.filter(t => t.statusCls === 'done').length;
+  const unresolved = total - resolved;
+  const pct = total ? Math.round((resolved / total) * 100) : 0;
 
-  new Chart(document.getElementById('resDonut'), {
+  if (resChart) resChart.destroy();
+  resChart = new Chart(document.getElementById('resDonut'), {
     type: 'doughnut',
-    data: { datasets: [{ data: [doneCount, unresolvedCount], backgroundColor: ['#22C55E','#E2E8F0'], borderWidth: 0 }] },
+    data: { datasets: [{ data: [resolved, unresolved], backgroundColor: ['#22C55E', '#E2E8F0'], borderWidth: 0 }] },
     options: { cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
   });
 
-  document.getElementById('resDonutCenterNum').textContent = `${pct}%`;
+  document.getElementById('resCenterNum').textContent = `${pct}%`;
   document.getElementById('resLegend').innerHTML = `
-    <div class="legend-row"><span class="sw" style="background:#22C55E;"></span>Resolved (Done)<b>${doneCount.toLocaleString()} (${pct}%)</b></div>
-    <div class="legend-row"><span class="sw" style="background:#E2E8F0;"></span>Rejected / Open<b>${unresolvedCount.toLocaleString()} (${100-pct}%)</b></div>
+    <div class="legend-row"><span class="sw" style="background:#22C55E;"></span>Resolved<b>${resolved.toLocaleString()} (${pct}%)</b></div>
+    <div class="legend-row"><span class="sw" style="background:#E2E8F0;"></span>Other (open/rejected)<b>${unresolved.toLocaleString()} (${100 - pct}%)</b></div>
   `;
-  document.getElementById('resChartTotal').textContent = `Total: ${total.toLocaleString()}`;
+  document.getElementById('resTotal').textContent = `Total: ${total.toLocaleString()}`;
 }
 
-function renderTrendLine(tickets) {
-  const days = buildLast7Days();
-  const counts = days.map(d => tickets.filter(t => dateKey(t.submitted) === d.key).length);
-  new Chart(document.getElementById('trendLine'), {
-    type: 'line',
-    data: { labels: days.map(d => d.label), datasets: [{ data: counts, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,.08)', fill: true, tension: .35, pointRadius: 3, pointBackgroundColor: '#2563EB', borderWidth: 2 }] },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#F1F5F9' }, ticks: { color: '#94A3B8', font: { size: 11 } } }, x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 } } } } }
-  });
+function lastNDaysData(days, dateSelector, filterFn) {
+  const labels = [];
+  const buckets = [];
+  const today = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    labels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+    const key = dayKey(d);
+    const dayTickets = allTickets.filter(t => {
+      const dt = dateSelector(t);
+      return dt && dayKey(dt) === key && (!filterFn || filterFn(t));
+    });
+    buckets.push(dayTickets);
+  }
+  return { labels, buckets };
 }
 
-function renderResponseTimeTrend(tickets) {
-  const days = buildLast7Days();
-  const data = days.map(d => {
-    const durs = tickets.filter(t => t.ackAt && dateKey(t.ackAt) === d.key && t.ackDurationSec != null).map(t => t.ackDurationSec);
-    const avg = average(durs);
-    return avg != null ? Math.round((avg/60)*10)/10 : null;
-  });
-  new Chart(document.getElementById('csatArea'), {
+function renderTrendChart(days) {
+  const { labels, buckets } = lastNDaysData(days, t => t.submitted);
+  const data = buckets.map(b => b.length);
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('trendLine'), {
     type: 'line',
-    data: { labels: days.map(d => d.label), datasets: [{ data, borderColor: '#14B8A6', backgroundColor: 'rgba(20,184,166,.15)', fill: true, tension: .4, pointRadius: 3, pointBackgroundColor: '#14B8A6', borderWidth: 2, spanGaps: true }] },
+    data: { labels, datasets: [{ data, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,.08)', fill: true, tension: .35, pointRadius: days > 7 ? 0 : 3, pointBackgroundColor: '#2563EB', borderWidth: 2 }] },
     options: {
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.parsed.y ?? 0}m avg response` } } },
-      scales: { y: { beginAtZero: true, grid: { color: '#F1F5F9' }, ticks: { color: '#94A3B8', font: { size: 11 }, callback: v => v + 'm' } }, x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 } } } }
+      plugins: { legend: { display: false } },
+      scales: { y: { grid: { color: '#F1F5F9' }, ticks: { color: '#94A3B8', font: { size: 11 } } }, x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 }, maxTicksLimit: 8 } } }
     }
   });
 }
 
-function renderTeamStatus(tickets) {
-  const agentMap = new Map();
-  tickets.forEach(t => {
-    [[t.ackBy, t.ackAt], [t.resolvedBy, t.resolvedAt]].forEach(([code, at]) => {
-      if (!code) return;
-      const existing = agentMap.get(code) || { count: 0, lastActive: null };
-      existing.count += 1;
-      if (at && (!existing.lastActive || at > existing.lastActive)) existing.lastActive = at;
-      agentMap.set(code, existing);
-    });
+function renderResTimeChart(days) {
+  const { labels, buckets } = lastNDaysData(days, t => t.resolvedAt, t => t.resolveDurationSec != null);
+  const data = buckets.map(dayTickets => {
+    if (!dayTickets.length) return null;
+    const avgSec = dayTickets.reduce((s, t) => s + t.resolveDurationSec, 0) / dayTickets.length;
+    return Math.round((avgSec / 60) * 10) / 10; // minutes, 1 decimal
   });
-  const agents = [...agentMap.entries()].sort((a,b) => (b[1].lastActive || 0) - (a[1].lastActive || 0));
-  const visible = agents.slice(0, 10);
-  const extra = agents.length - visible.length;
-  const strip = document.getElementById('teamStrip');
-  strip.innerHTML = visible.map(([code, info]) => {
-    const init = initialsForName(code.replace(/^csr[_]?/i, ''));
-    const color = colorForName(code);
-    const title = info.lastActive ? `${code} · last active ${relativeTime(info.lastActive)}` : code;
-    return `<div class="team-av" style="background:${color}" title="${escapeHtml(title)}">${escapeHtml(init)}<span class="st" style="background:#94A3B8"></span></div>`;
-  }).join('') + (extra > 0 ? `<div class="team-more">+${extra}</div>` : '');
+  if (resTimeChart) resTimeChart.destroy();
+  resTimeChart = new Chart(document.getElementById('resTimeArea'), {
+    type: 'line',
+    data: { labels, datasets: [{ data, borderColor: '#14B8A6', backgroundColor: 'rgba(20,184,166,.15)', fill: true, tension: .4, pointRadius: days > 7 ? 0 : 3, pointBackgroundColor: '#14B8A6', borderWidth: 2, spanGaps: true }] },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { grid: { color: '#F1F5F9' }, ticks: { color: '#94A3B8', font: { size: 11 }, callback: v => v + 'm' } }, x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 }, maxTicksLimit: 8 } } }
+    }
+  });
 }
 
-Papa.parse(SHEET_CSV_URL, {
-  download: true,
-  header: true,
-  skipEmptyLines: true,
-  complete: (results) => {
-    const tickets = results.data
-      .filter(row => row['Ticket ID'])
-      .map(mapRow)
-      .filter(t => t.submitted);
-
-    renderKpis(tickets);
-    renderQueue(tickets);
-    renderLiveActivity(tickets);
-    renderSlaAlerts(tickets);
-    renderChannelDonut(tickets);
-    renderResolutionDonut(tickets);
-    renderTrendLine(tickets);
-    renderResponseTimeTrend(tickets);
-    renderTeamStatus(tickets);
-  },
-  error: (err) => {
-    console.error(err);
-    ['kpiTotalValue','kpiOpenValue','kpiResolvedValue','kpiAvgRespValue','kpiAgentsValue'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = '—';
+function setupTabs() {
+  document.querySelectorAll('#trendTabs .tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#trendTabs .tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTrendChart(Number(btn.dataset.range));
     });
-    ['kpiTotalDelta','kpiOpenDelta','kpiResolvedDelta','kpiAvgRespDelta','kpiAgentsDelta'].forEach(id => setDelta(id, 'Could not load sheet', ''));
-    const msg = 'Could not load data from the Google Sheet.';
-    document.getElementById('liveActivityItems').innerHTML = `<div class="activity-item"><div class="act-issue">${msg}</div></div>`;
-    document.getElementById('slaAlertsItems').innerHTML = `<div class="alert-item"><div class="alert-title">${msg}</div></div>`;
+  });
+  document.querySelectorAll('#restimeTabs .tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#restimeTabs .tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderResTimeChart(Number(btn.dataset.range));
+    });
+  });
+}
+
+// ---------- Team status strip: real agents seen acting on tickets in the sheet ----------
+function renderTeamStrip(now) {
+  const strip = document.getElementById('teamStrip');
+  const agentsMap = new Map(); // name -> last active Date
+
+  allTickets.forEach(t => {
+    if (t.acknowledgedBy) {
+      const when = t.acknowledgedAt || t.submitted;
+      const prev = agentsMap.get(t.acknowledgedBy);
+      if (!prev || when > prev) agentsMap.set(t.acknowledgedBy, when);
+    }
+    if (t.resolvedBy) {
+      const when = t.resolvedAt || t.submitted;
+      const prev = agentsMap.get(t.resolvedBy);
+      if (!prev || when > prev) agentsMap.set(t.resolvedBy, when);
+    }
+  });
+
+  const agents = Array.from(agentsMap.entries()).sort((a, b) => b[1] - a[1]);
+
+  if (agents.length === 0) {
+    strip.innerHTML = '<div style="color:var(--ink-faint);font-size:12.5px;">No agent activity found in the sheet.</div>';
+    return;
   }
-});
+
+  const visible = agents.slice(0, 10);
+  const extra = agents.length - visible.length;
+
+  strip.innerHTML = visible.map(([name, lastActive]) => {
+    const minsAgo = (now - lastActive) / 60000;
+    const statusColor = minsAgo <= 60 ? '#22C55E' : '#94A3B8';
+    return `<div class="team-av" style="background:${colorForName(name)}" title="${escapeHtml(name)} — active ${relativeTime(lastActive)}">${escapeHtml(initialsForName(name))}<span class="st" style="background:${statusColor}"></span></div>`;
+  }).join('');
+  if (extra > 0) strip.innerHTML += `<div class="team-more">+${extra}</div>`;
+}
 </script>
 </body>
 </html>
