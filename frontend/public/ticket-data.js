@@ -194,8 +194,21 @@
     return cachedPromise;
   }
 
+  // Periodically re-fetches fresh data (bypassing the cache) and hands it to
+  // the given callback. Returns an interval id so the caller can stop it via
+  // clearInterval if needed. Both tickets.html and csr-dashboard.html use this
+  // so the page keeps itself current without requiring a manual browser refresh.
+  function startAutoRefresh(callback, intervalMs) {
+    return setInterval(() => {
+      fetchTickets(true)
+        .then(callback)
+        .catch(err => console.error('Auto-refresh failed:', err));
+    }, intervalMs || 60000);
+  }
+
   global.TicketData = {
     fetchTickets,
+    startAutoRefresh,
     escapeHtml,
     colorForName,
     initialsForName,
