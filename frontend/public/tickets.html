@@ -518,17 +518,23 @@
     });
   });
 
-  // Deep-linking: read ?status= and ?search= from the URL (used by links from
-  // the dashboard, e.g. "tickets.html?status=backlog" or "tickets.html?search=BPH-...").
+  // Deep-linking: read ?status=, ?date=, and ?search= from the URL (used by links
+  // from the dashboard, e.g. "tickets.html?status=pending&date=today").
   (function applyQueryParams() {
     const params = new URLSearchParams(window.location.search);
     const statusParam = params.get('status');
+    const dateParam = params.get('date');
     const searchParam = params.get('search');
     if (statusParam) {
       currentFilter = statusParam;
       document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.status === statusParam);
       });
+    }
+    if (dateParam) {
+      currentDateFilter = dateParam;
+      const dateSelect = document.getElementById('dateFilter');
+      if (dateSelect) dateSelect.value = dateParam;
     }
     if (searchParam) {
       currentSearch = searchParam;
