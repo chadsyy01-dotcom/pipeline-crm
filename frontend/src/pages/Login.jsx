@@ -14,7 +14,7 @@ export default function Login() {
     try {
       const { token } = await api.login({ email, password });
       setToken(token);
-      navigate('/deals');
+      navigate('/');
     } catch (err) {
       setError(err.message);
     }
