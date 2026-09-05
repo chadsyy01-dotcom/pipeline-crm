@@ -275,7 +275,7 @@
     <!-- TICKETS PANEL -->
     <div class="panel">
       <div class="panel-head">
-        <h3>All Tickets</h3>
+        <h3>All Tickets <span id="liveIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;">● Live</span></h3>
         <div class="filter-tabs" id="statusTabs">
           <div class="ftab active" data-status="all">All <span class="count">0</span></div>
           <div class="ftab" data-status="pending">New <span class="count">0</span></div>
@@ -366,11 +366,36 @@
         }
       }
       applyFilters();
+      markLiveUpdated();
+      TicketData.startAutoRefresh(handleAutoRefresh, 60000);
     })
     .catch(err => {
       console.error(err);
       showMessage('Could not load tickets from the Google Sheet. Please check the sheet link and try again.');
     });
+
+  // Refreshes the underlying data in the background every ~60s without
+  // resetting the page/filters the agent currently has open.
+  function handleAutoRefresh(tickets) {
+    allTickets = tickets;
+    renderFilterCounts();
+    renderBrandTabCounts();
+    renderIssueFilterCounts();
+    filteredTickets = allTickets.filter(t => ticketMatchesFilters(t));
+    const totalPages = Math.max(1, Math.ceil(filteredTickets.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    renderPage();
+    markLiveUpdated();
+  }
+
+  function markLiveUpdated() {
+    const el = document.getElementById('liveIndicator');
+    if (!el) return;
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    el.textContent = `● Updated ${time}`;
+    el.style.color = 'var(--success)';
+    setTimeout(() => { el.style.color = 'var(--ink-faint)'; }, 3000);
+  }
 
   function matchesDateFilter(t) {
     if (currentDateFilter === 'all') return true;
