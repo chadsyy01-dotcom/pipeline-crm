@@ -709,7 +709,7 @@ function renderPerformance(todayTickets, yesterdayTickets) {
   document.getElementById('perfRingValue').textContent = resolutionRate !== null ? `${resolutionRate}%` : '—';
   document.getElementById('perfRingTag').textContent = totalHandledToday === 0
     ? 'No tickets handled yet'
-    : (resolutionRate >= 80 ? 'Great job!' : resolutionRate >= 50 ? 'Keep going' : 'Needs attention');
+    : `${doneToday.length.toLocaleString()} of ${totalHandledToday.toLocaleString()} resolved`;
 
   if (perfRingChart) perfRingChart.destroy();
   perfRingChart = new Chart(document.getElementById('perfRing'), {
