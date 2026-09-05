@@ -20,7 +20,9 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbB_0D7eB9mxUQUoeBlP8fPRgLcrPhwzmuUpIUl1wyT5NUS4B45YC_yuVvfMFfEVA9tqPqedGSMQSb/pub?gid=0&single=true&output=csv" }, // MasterGoldKey (MGK)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0Sbf9dckRTWoYtJJnXD6uaxrqSn8-wnCHGJk-R8ZU34VvlttKyThhLknBcmm_vQgfERoIAXSRFHth/pub?gid=0&single=true&output=csv" }, // LuckyStacks PH (LSP)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=0&single=true&output=csv" }, // Casinyeam (CSY)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBUDcdD5qJtw1GjRwHkWKKaIgcvMQUcYlMIq61H8JV-6piChgqQIn-8K0RyyU6KnrCcvkfhxkp1VWd/pub?gid=0&single=true&output=csv", brandOverride: { code: 'HPP_BD', label: 'HypePlay BD' } } // HypePlay BD — shares the "HPP" ticket-ID prefix with HypePlay PH, disambiguated by source sheet
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBUDcdD5qJtw1GjRwHkWKKaIgcvMQUcYlMIq61H8JV-6piChgqQIn-8K0RyyU6KnrCcvkfhxkp1VWd/pub?gid=0&single=true&output=csv", brandOverride: { code: 'HPP_BD', label: 'HypePlay BD' } }, // HypePlay BD — shares the "HPP" ticket-ID prefix with HypePlay PH, disambiguated by source sheet
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup' }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback' } // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
   ];
 
   const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
@@ -30,6 +32,7 @@
     pending:  { label: 'New',         cls: 'pending'  },
     checking: { label: 'In Progress', cls: 'checking' },
     'otp pending verification': { label: 'OTP Pending', cls: 'checking' },
+    'line up': { label: 'Line Up',    cls: 'checking' },
     done:     { label: 'Done',        cls: 'done'     },
     rejected: { label: 'Rejected',    cls: 'rejected' }
   };
@@ -146,10 +149,127 @@
         download: true,
         header: true,
         skipEmptyLines: true,
-        complete: (results) => resolve({ rows: results.data || [], brandOverride: source.brandOverride || null }),
+        complete: (results) => resolve({ rows: results.data || [], brandOverride: source.brandOverride || null, kind: source.kind || 'ticket' }),
         error: (err) => reject(err)
       });
     });
+  }
+
+  // Maps a normal ticket-sheet row (Ticket ID / Username / Category / ...) to our common shape.
+  function mapTicketRow(row, brandOverride) {
+    if (!row['Ticket ID']) return null;
+    const submitted = new Date(row['Submitted At']);
+    if (isNaN(submitted.getTime())) return null;
+    const name = row['Username'] || row['Full Name'] || 'Unknown';
+    const category = (row['Category'] || '').trim();
+    const subcategory = (row['Subcategory'] || '').trim();
+    const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
+    const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
+    const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
+    const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
+    const si = statusInfo(row['Status']);
+    const brand = brandOverride || brandFromTicketId(row['Ticket ID']);
+    return {
+      id: row['Ticket ID'],
+      name,
+      init: initialsForName(name),
+      color: colorForName(name),
+      category,
+      issue: subcategory || category || '—',
+      channel: row['Source'] || '—',
+      brandCode: brand.code,
+      brandLabel: brand.label,
+      priority: priorityBucket(row['Priority']),
+      priorityLabel: row['Priority'] || 'NORMAL',
+      statusRaw: row['Status'],
+      statusCls: si.cls,
+      statusLabel: si.label,
+      submitted,
+      acknowledgedBy: row['Acknowledged By'] || null,
+      acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
+      resolvedBy: row['Resolved By'] || null,
+      resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
+      ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
+      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
+    };
+  }
+
+  // Maps a "Follow Up" sheet row (Reference ID / Query / Query Type / ...) to the
+  // same common shape, so it flows through every KPI/chart/list alongside real tickets.
+  function mapFollowupRow(row) {
+    if (!row['Reference ID']) return null;
+    const submitted = new Date(row['Submitted At']);
+    if (isNaN(submitted.getTime())) return null;
+    const query = row['Query'] || 'Unknown';
+    const queryType = row['Query Type'] || 'General';
+    const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
+    const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
+    const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
+    const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
+    const si = statusInfo(row['Status']);
+    const brand = brandFromTicketId(row['Reference ID']);
+    return {
+      id: row['Reference ID'],
+      name: query,
+      init: initialsForName(query),
+      color: colorForName(query),
+      category: 'Follow Up',
+      issue: `Follow-up (${queryType})`,
+      channel: 'Follow Up',
+      brandCode: brand.code,
+      brandLabel: brand.label,
+      priority: 'medium',
+      priorityLabel: 'NORMAL',
+      statusRaw: row['Status'],
+      statusCls: si.cls,
+      statusLabel: si.label,
+      submitted,
+      acknowledgedBy: row['Acknowledged By'] || null,
+      acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
+      resolvedBy: row['Resolved By'] || null,
+      resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
+      ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
+      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
+    };
+  }
+
+  // Maps a "Callback" sheet row (Reference ID / Username / Mobile / Concern / ...) to the
+  // same common shape.
+  function mapCallbackRow(row) {
+    if (!row['Reference ID']) return null;
+    const submitted = new Date(row['Submitted At']);
+    if (isNaN(submitted.getTime())) return null;
+    const name = row['Username'] || row['Full Name'] || row['Mobile'] || 'Unknown';
+    const concernCategory = (row['Concern Category'] || '').trim();
+    const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
+    const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
+    const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
+    const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
+    const si = statusInfo(row['Status']);
+    const brand = brandFromTicketId(row['Reference ID']);
+    return {
+      id: row['Reference ID'],
+      name,
+      init: initialsForName(name),
+      color: colorForName(name),
+      category: 'Callback',
+      issue: concernCategory ? `Callback: ${concernCategory}` : 'Callback Request',
+      channel: 'Callback',
+      brandCode: brand.code,
+      brandLabel: brand.label,
+      priority: 'medium',
+      priorityLabel: 'NORMAL',
+      statusRaw: row['Status'],
+      statusCls: si.cls,
+      statusLabel: si.label,
+      submitted,
+      acknowledgedBy: row['Acknowledged By'] || null,
+      acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
+      resolvedBy: row['Resolved By'] || null,
+      resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
+      ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
+      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
+    };
   }
 
   let cachedPromise = null;
@@ -158,50 +278,18 @@
     cachedPromise = Promise.all(SHEET_SOURCES.map(parseSheetCsv))
       .then(sheetResults => {
         const seen = new Map();
-        sheetResults.forEach(({ rows, brandOverride }) => {
-          rows
-            .filter(row => row['Ticket ID'])
-            .forEach(row => {
-              const name = row['Username'] || row['Full Name'] || 'Unknown';
-              const category = (row['Category'] || '').trim();
-              const subcategory = (row['Subcategory'] || '').trim();
-              const submitted = new Date(row['Submitted At']);
-              if (isNaN(submitted.getTime())) return;
-              const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
-              const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
-              const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
-              const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
-              const si = statusInfo(row['Status']);
-              const brand = brandOverride || brandFromTicketId(row['Ticket ID']);
-              const ticket = {
-                id: row['Ticket ID'],
-                name,
-                init: initialsForName(name),
-                color: colorForName(name),
-                category,
-                issue: subcategory || category || '—',
-                channel: row['Source'] || '—',
-                brandCode: brand.code,
-                brandLabel: brand.label,
-                priority: priorityBucket(row['Priority']),
-                priorityLabel: row['Priority'] || 'NORMAL',
-                statusRaw: row['Status'],
-                statusCls: si.cls,
-                statusLabel: si.label,
-                submitted,
-                acknowledgedBy: row['Acknowledged By'] || null,
-                acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
-                resolvedBy: row['Resolved By'] || null,
-                resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
-                ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
-                resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
-              };
-              // De-dupe by brand+Ticket ID (scoped per brand so that two different
-              // brands sharing the same ID prefix/format can never collide with
-              // or overwrite each other, even in the rare case their generated
-              // IDs happen to match).
-              seen.set(`${brand.code}::${ticket.id}`, ticket);
-            });
+        sheetResults.forEach(({ rows, brandOverride, kind }) => {
+          rows.forEach(row => {
+            const ticket = kind === 'followup' ? mapFollowupRow(row)
+              : kind === 'callback' ? mapCallbackRow(row)
+              : mapTicketRow(row, brandOverride);
+            if (!ticket) return;
+            // De-dupe by brand+id (scoped per brand so that two different
+            // brands sharing the same ID prefix/format can never collide with
+            // or overwrite each other, even in the rare case their generated
+            // IDs happen to match).
+            seen.set(`${ticket.brandCode}::${ticket.id}`, ticket);
+          });
         });
         return Array.from(seen.values()).sort((a, b) => b.submitted - a.submitted);
       });
