@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Chat — CSR Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --primary:#2563EB; --primary-tint:#EFF4FF;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --danger:#EF4444; --danger-tint:#FDECEC;
+    --purple:#8B5CF6; --purple-tint:#F3EEFE;
+    --teal:#14B8A6; --teal-tint:#E9FAF8;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-md:14px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--primary),#60A5FA);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-group{margin-bottom:6px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;margin-bottom:2px;position:relative;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .nav-item.soon{opacity:.45;cursor:default;pointer-events:none;}
+  .nav-item.soon .soon-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.02em;background:#1C273B;color:#748199;padding:2px 6px;border-radius:6px;}
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+  .quick-links{background:#151E30;border-radius:12px;padding:14px;margin-top:12px;}
+  .quick-links h4{margin:0 0 8px;font-size:11px;letter-spacing:.02em;color:#748199;font-weight:600;}
+  .ql-item{display:flex;align-items:center;gap:9px;padding:7px 4px;font-size:12.5px;color:#C4D0E2;cursor:pointer;border-radius:8px;}
+  .ql-item:hover{color:#fff;background:#1C273B;}
+  .ql-item svg{width:15px;height:15px;color:var(--primary);}
+
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .tabs{display:flex;gap:4px;background:#F1F5F9;border-radius:8px;padding:3px;}
+  .tab{font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:6px;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;}
+  .tab.active{background:var(--card);color:var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px 16px 15px;box-shadow:var(--shadow);}
+  .kpi-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .kpi-icon svg{width:18px;height:18px;}
+  .kpi-label{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .kpi-value{font-size:26px;font-weight:800;letter-spacing:-.01em;}
+  .kpi-sub{font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-top:4px;}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+  .grid-2{display:grid;grid-template-columns:1fr 1.4fr;gap:14px;}
+
+  .concern-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .concern-row:last-child{border-bottom:none;}
+  .concern-word{font-size:13px;font-weight:700;text-transform:capitalize;flex:0 0 120px;}
+  .concern-bar-track{flex:1;height:8px;background:#F1F5F9;border-radius:6px;overflow:hidden;}
+  .concern-bar-fill{height:100%;background:var(--danger);border-radius:6px;}
+  .concern-count{font-size:12.5px;font-weight:700;color:var(--ink-soft);flex:0 0 32px;text-align:right;}
+
+  .empty-note{color:var(--ink-faint);font-size:13px;padding:24px 4px;text-align:center;}
+  .setup-note{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;margin-bottom:16px;line-height:1.5;}
+
+  @media (max-width:1200px){ .kpi-row{grid-template-columns:1fr 1fr;} .grid-2{grid-template-columns:1fr;} }
+  @media (max-width:860px){ .sidebar{display:none;} .kpi-row{grid-template-columns:1fr;} .main{padding:20px 16px 32px;} }
+</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Invalid session");
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CS</div>
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <div class="nav-group">
+      <a href="csr-dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="tickets.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+        Tickets
+      </a>
+      <a href="live-chat.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Live Chat
+      </a>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Customers <span class="soon-tag">Soon</span>
+      </div>
+      <a href="reports.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Reports
+      </a>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+        CSAT <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Agents <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Knowledge Base <span class="soon-tag">Soon</span>
+      </div>
+      <div class="nav-item soon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings <span class="soon-tag">Soon</span>
+      </div>
+    </div>
+    <div class="quick-links">
+      <h4>QUICK LINKS</h4>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Create Ticket</div>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Customer Lookup</div>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Generate Report</div>
+      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg>Broadcast Notice</div>
+    </div>
+    <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="greeting">
+        <h1>Live Chat</h1>
+        <p>Message volume, CSAT/DSAT, and agent vs bot chat handling.</p>
+      </div>
+      <div class="tabs" id="rangeTabs">
+        <button class="tab active" data-range="today">Today</button>
+        <button class="tab" data-range="7d">7 Days</button>
+        <button class="tab" data-range="month">Month</button>
+      </div>
+    </div>
+
+    <div id="setupNote" class="setup-note" style="display:none;"></div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div class="kpi-label">Messages Received</div></div>
+        <div class="kpi-value" id="kpiMessages">—</div>
+        <div class="kpi-sub" id="kpiMessagesSub"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div><div class="kpi-label">CSAT Rate</div></div>
+        <div class="kpi-value" id="kpiCsat">—</div>
+        <div class="kpi-sub" id="kpiCsatSub"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="kpi-label">DSAT Rate</div></div>
+        <div class="kpi-value" id="kpiDsat">—</div>
+        <div class="kpi-sub" id="kpiDsatSub"></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h3>Top DSAT Concerns</h3></div>
+        <div id="concernsList"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Chats Handled — Agent vs Bot</h3></div>
+        <canvas id="agentBotChart" height="220"></canvas>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let currentRange = 'today';
+let agentBotChart = null;
+
+document.querySelectorAll('#rangeTabs .tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#rangeTabs .tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentRange = btn.dataset.range;
+    loadOverview();
+  });
+});
+
+function showSetupNote(message) {
+  const el = document.getElementById('setupNote');
+  el.textContent = message;
+  el.style.display = message ? 'block' : 'none';
+}
+
+async function loadOverview() {
+  const token = localStorage.getItem('pipeline_token');
+  try {
+    const res = await fetch(`${API_BASE}/livechat/overview?range=${currentRange}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.status === 404) {
+      showSetupNote('⚠️ The /api/livechat/overview endpoint isn\'t live on the backend yet. Add the Chatwoot proxy route to your Railway API to activate this page.');
+      return;
+    }
+    if (!res.ok) throw new Error('Request failed');
+    const data = await res.json();
+    showSetupNote('');
+    renderOverview(data);
+  } catch (err) {
+    console.error(err);
+    showSetupNote('⚠️ Could not load Live Chat data. Check that the backend proxy and Chatwoot credentials are configured correctly.');
+  }
+}
+
+function renderOverview(data) {
+  document.getElementById('kpiMessages').textContent = (data.messagesReceived ?? 0).toLocaleString();
+  document.getElementById('kpiMessagesSub').textContent = rangeLabel(data.range);
+
+  document.getElementById('kpiCsat').textContent = data.csatRate !== null ? `${data.csatRate}%` : '—';
+  document.getElementById('kpiCsatSub').textContent = `${data.csatResponseCount || 0} survey response${data.csatResponseCount === 1 ? '' : 's'}`;
+
+  document.getElementById('kpiDsat').textContent = data.dsatRate !== null ? `${data.dsatRate}%` : '—';
+  document.getElementById('kpiDsatSub').textContent = `${data.csatResponseCount || 0} survey response${data.csatResponseCount === 1 ? '' : 's'}`;
+
+  const concernsList = document.getElementById('concernsList');
+  const concerns = data.topDsatConcerns || [];
+  if (concerns.length === 0) {
+    concernsList.innerHTML = '<div class="empty-note">No DSAT feedback in this period</div>';
+  } else {
+    const maxCount = Math.max(...concerns.map(c => c.count));
+    concernsList.innerHTML = concerns.map(c => `
+      <div class="concern-row">
+        <div class="concern-word">${c.word}</div>
+        <div class="concern-bar-track"><div class="concern-bar-fill" style="width:${(c.count / maxCount) * 100}%;"></div></div>
+        <div class="concern-count">${c.count}</div>
+      </div>
+    `).join('');
+  }
+
+  const byAgent = data.byAgent || [];
+  if (agentBotChart) agentBotChart.destroy();
+  if (byAgent.length === 0) {
+    document.getElementById('agentBotChart').style.display = 'none';
+  } else {
+    document.getElementById('agentBotChart').style.display = '';
+    agentBotChart = new Chart(document.getElementById('agentBotChart'), {
+      type: 'bar',
+      data: {
+        labels: byAgent.map(a => a.name),
+        datasets: [{
+          data: byAgent.map(a => a.count),
+          backgroundColor: byAgent.map(a => a.isBot ? '#8B5CF6' : '#2563EB'),
+          borderRadius: 6,
+          maxBarThickness: 28
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, grid: { color: '#EEF1F6' } }, y: { grid: { display: false } } }
+      }
+    });
+  }
+}
+
+function rangeLabel(range) {
+  return range === 'today' ? 'Today' : range === '7d' ? 'Last 7 days' : 'This month';
+}
+
+loadOverview();
+</script>
+</body>
+</html>
