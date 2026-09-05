@@ -296,7 +296,7 @@
     <div class="topbar">
       <div class="greeting">
         <h1 id="greetingText">Good morning, Chad 👋</h1>
-        <p>Here's what's happening with your support today.</p>
+        <p>Here's what's happening with your support today. <span id="liveIndicator" style="font-size:11.5px;font-weight:600;color:var(--ink-faint);">● Live</span></p>
       </div>
       <div class="topbar-right">
         <div class="search">
@@ -480,6 +480,7 @@ let teamStripExpanded = false;
 let teamToggleWired = false;
 let concernsRange = 'today';
 let concernsToggleWired = false;
+let chartTabsWired = false;
 
 function deltaEl(el, current, previous) {
   if (!el) return;
@@ -500,6 +501,12 @@ TicketData.fetchTickets()
   .then(tickets => {
     allTickets = tickets;
     renderAll();
+    markLiveUpdated();
+    TicketData.startAutoRefresh(tickets2 => {
+      allTickets = tickets2;
+      renderAll();
+      markLiveUpdated();
+    }, 60000);
   })
   .catch(err => {
     console.error(err);
@@ -508,6 +515,15 @@ TicketData.fetchTickets()
     const q = document.getElementById('ticketQueue');
     if (q) q.innerHTML = '<div class="queue-item"><div class="queue-name" style="color:var(--danger);">Could not load data from the Google Sheet.</div></div>';
   });
+
+function markLiveUpdated() {
+  const el = document.getElementById('liveIndicator');
+  if (!el) return;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  el.textContent = `● Updated ${time}`;
+  el.style.color = 'var(--success)';
+  setTimeout(() => { el.style.color = 'var(--ink-faint)'; }, 3000);
+}
 
 function renderAll() {
   const now = new Date();
@@ -836,6 +852,7 @@ function renderResTimeChart(days) {
 }
 
 function setupTabs() {
+  if (chartTabsWired) return;
   document.querySelectorAll('#trendTabs .tab').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#trendTabs .tab').forEach(b => b.classList.remove('active'));
@@ -850,6 +867,7 @@ function setupTabs() {
       renderResTimeChart(Number(btn.dataset.range));
     });
   });
+  chartTabsWired = true;
 }
 
 // ---------- Team status strip: real agents seen acting on tickets in the sheet ----------
