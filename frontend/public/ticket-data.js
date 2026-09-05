@@ -17,6 +17,7 @@
   const STATUS_MAP = {
     pending:  { label: 'New',         cls: 'pending'  },
     checking: { label: 'In Progress', cls: 'checking' },
+    'otp pending verification': { label: 'OTP Pending', cls: 'checking' },
     done:     { label: 'Done',        cls: 'done'     },
     rejected: { label: 'Rejected',    cls: 'rejected' }
   };
