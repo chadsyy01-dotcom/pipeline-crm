@@ -114,7 +114,7 @@
   .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
   .panel-head .view-all{font-size:12px;color:var(--primary);font-weight:600;}
 
-  .queue-item{display:flex;align-items:center;gap:11px;padding:12px 10px;border-radius:10px;margin-bottom:6px;transition:background .15s;cursor:pointer;}
+  .queue-item{display:flex;align-items:center;gap:11px;padding:12px 10px;border-radius:10px;margin-bottom:6px;transition:background .15s;cursor:pointer;text-decoration:none;color:inherit;}
   .queue-item:hover{background:#F8FAFC;}
   .queue-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .queue-ico svg{width:16px;height:16px;}
@@ -123,7 +123,8 @@
   .queue-item svg.chev{width:15px;height:15px;color:var(--ink-faint);}
   .view-link{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--primary);margin-top:8px;}
 
-  .activity-item{display:flex;align-items:center;gap:11px;padding:10px 6px;border-bottom:1px solid var(--line);}
+  .activity-item{display:flex;align-items:center;gap:11px;padding:10px 6px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;cursor:pointer;}
+  .activity-item:hover{background:#F8FAFC;}
   .activity-item:last-child{border-bottom:none;}
   .av-sm{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;}
   .act-name{font-size:13px;font-weight:700;}
@@ -145,7 +146,8 @@
   .perf-row .r{font-size:14px;font-weight:800;text-align:right;}
   .perf-row .r small{display:block;font-size:10.5px;font-weight:700;}
 
-  .alert-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .alert-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;cursor:pointer;}
+  .alert-item:hover{background:#F8FAFC;}
   .alert-item:last-child{border-bottom:none;}
   .alert-ico{width:30px;height:30px;border-radius:9px;background:var(--danger-tint);color:var(--danger);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .alert-ico svg{width:15px;height:15px;}
@@ -318,7 +320,7 @@
       <div class="kpi-card">
         <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></div><div class="kpi-label">Open Tickets</div></div>
         <div class="kpi-value" id="kpiOpenValue">—</div>
-        <div class="kpi-delta" id="kpiOpenDelta" style="color:var(--ink-faint);">Currently unresolved</div>
+        <div class="kpi-delta" id="kpiOpenDelta" style="color:var(--ink-faint);">Unresolved, submitted today</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div><div class="kpi-label">Resolved Today</div></div>
@@ -494,8 +496,8 @@ function renderKPIs(todayTickets, yesterdayTickets) {
   document.getElementById('kpiTotalValue').textContent = todayTickets.length.toLocaleString();
   deltaEl(document.getElementById('kpiTotalDelta'), todayTickets.length, yesterdayTickets.length);
 
-  const openCount = allTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
-  document.getElementById('kpiOpenValue').textContent = openCount.toLocaleString();
+  const openTodayCount = todayTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
+  document.getElementById('kpiOpenValue').textContent = openTodayCount.toLocaleString();
 
   const now = new Date(), yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
   const resolvedToday = allTickets.filter(t => t.statusCls === 'done' && t.resolvedAt && isSameLocalDay(t.resolvedAt, now));
@@ -529,21 +531,28 @@ function renderKPIs(todayTickets, yesterdayTickets) {
 
 // ---------- Ticket status breakdown (replaces the old fixed "Ticket Queue") ----------
 function renderQueueBreakdown() {
-  const counts = { pending: 0, checking: 0, done: 0, rejected: 0 };
-  allTickets.forEach(t => { if (counts[t.statusCls] !== undefined) counts[t.statusCls]++; });
+  const now = new Date();
+  const counts = { pending: 0, checking: 0, done: 0, rejected: 0, backlog: 0 };
+  allTickets.forEach(t => {
+    if (counts[t.statusCls] !== undefined) counts[t.statusCls]++;
+    if ((t.statusCls === 'pending' || t.statusCls === 'checking') && !isSameLocalDay(t.submitted, now)) {
+      counts.backlog++;
+    }
+  });
   const rows = [
     { key: 'pending', label: 'New', bg: 'var(--primary-tint)', fg: 'var(--primary)', icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M8 8h8M8 16h5"/>' },
     { key: 'checking', label: 'In Progress', bg: 'var(--warning-tint)', fg: 'var(--warning)', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>' },
+    { key: 'backlog', label: 'Unresolved from Previous', bg: 'var(--purple-tint)', fg: 'var(--purple)', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4l2.5 2.5"/><path d="M3 12a9 9 0 019-9"/>' },
     { key: 'done', label: 'Done', bg: 'var(--success-tint)', fg: 'var(--success)', icon: '<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>' },
     { key: 'rejected', label: 'Rejected', bg: 'var(--danger-tint)', fg: 'var(--danger)', icon: '<circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/>' }
   ];
   document.getElementById('ticketQueue').innerHTML = rows.map(r => `
-    <div class="queue-item">
+    <a class="queue-item" href="tickets.html?status=${r.key}">
       <div class="queue-ico" style="background:${r.bg};color:${r.fg};"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${r.icon}</svg></div>
       <div class="queue-name">${r.label}</div>
       <div class="queue-count">${counts[r.key].toLocaleString()}</div>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-    </div>`).join('');
+    </a>`).join('');
 }
 
 // ---------- Live activity ----------
@@ -555,11 +564,11 @@ function renderLiveActivity() {
     return;
   }
   el.innerHTML = items.map(t => `
-    <div class="activity-item">
+    <a class="activity-item" href="tickets.html?search=${encodeURIComponent(t.id)}">
       <div class="av-sm" style="background:${t.color};">${escapeHtml(t.init)}</div>
       <div><div class="act-name">${escapeHtml(t.name)}</div><div class="act-issue">${escapeHtml(t.issue)}</div></div>
       <div class="act-right"><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span><span class="act-time">${relativeTime(t.submitted)}</span></div>
-    </div>`).join('');
+    </a>`).join('');
 }
 
 // ---------- Team performance (aggregate across agents, since there's no reliable
@@ -613,11 +622,11 @@ function renderSlaAlerts(now) {
   el.innerHTML = open.map(t => {
     const label = t.priority === 'high' ? 'High' : t.priority === 'low' ? 'Low' : 'Normal';
     return `
-    <div class="alert-item">
+    <a class="alert-item" href="tickets.html?search=${encodeURIComponent(t.id)}">
       <div class="alert-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
       <div><div class="alert-title">${label} priority · ${escapeHtml(t.id)}</div><div class="alert-sub">${escapeHtml(t.name)} — ${escapeHtml(t.issue)}</div></div>
       <div class="alert-time">${compactElapsed(t.submitted, now)}</div>
-    </div>`;
+    </a>`;
   }).join('');
 }
 
