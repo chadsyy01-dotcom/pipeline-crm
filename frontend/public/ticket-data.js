@@ -3,19 +3,24 @@
 // normalizes them into a consistent shape both pages can use.
 // Requires PapaParse to be loaded before this file.
 (function (global) {
-  // Multiple sheets feed the same brand's ticket pipeline (split by category).
-  // Add more URLs here as new category sheets or brands come online.
-  const SHEET_CSV_URLS = [
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv", // Buenas PH — Deposit
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyi3716uR8070u3tMdSgcDB9QmtJb6SkJ_3DHAyHfQkl0tgwNr9f5pBZxXrv0gxQOy3zb4QxXoyYgp/pub?gid=0&single=true&output=csv", // Buenas PH — Withdrawal
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=0&single=true&output=csv", // Buenas PH — Account
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=0&single=true&output=csv", // TMTCash
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJjSjsokoykFPem4oIurq1-ex1Yho3IsHplupTHPiSs6wueznpFyx2OL2hdYHkXUPePZH1KnJKeiO0/pub?gid=0&single=true&output=csv", // Mobile Casino Play (MCP)
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=0&single=true&output=csv", // ManilaPlay (MNP)
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkYplUz2eq5TzFEYmvHlXDltCZe6RnoYTak5xEtrXZxEb2EvfDTz5LUOZ0AaouuOGcNWJRDQGYGZB4/pub?gid=0&single=true&output=csv", // HypePlay PH (HPP)
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbB_0D7eB9mxUQUoeBlP8fPRgLcrPhwzmuUpIUl1wyT5NUS4B45YC_yuVvfMFfEVA9tqPqedGSMQSb/pub?gid=0&single=true&output=csv", // MasterGoldKey (MGK)
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0Sbf9dckRTWoYtJJnXD6uaxrqSn8-wnCHGJk-R8ZU34VvlttKyThhLknBcmm_vQgfERoIAXSRFHth/pub?gid=0&single=true&output=csv", // LuckyStacks PH (LSP)
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=0&single=true&output=csv" // Casinyeam (CSY)
+  // Multiple sheets feed the ticket pipeline (split by category and/or brand).
+  // Add more sources here as new category sheets or brands come online.
+  // Normally the brand is derived from the Ticket ID prefix (see brandFromTicketId).
+  // If two brands ever share the same prefix (e.g. "HPP" reused across countries),
+  // give the affected source an explicit `brandOverride` so it isn't misattributed
+  // to whichever brand that prefix normally maps to.
+  const SHEET_SOURCES = [
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv" }, // Buenas PH — Deposit
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyi3716uR8070u3tMdSgcDB9QmtJb6SkJ_3DHAyHfQkl0tgwNr9f5pBZxXrv0gxQOy3zb4QxXoyYgp/pub?gid=0&single=true&output=csv" }, // Buenas PH — Withdrawal
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=0&single=true&output=csv" }, // Buenas PH — Account
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=0&single=true&output=csv" }, // TMTCash
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJjSjsokoykFPem4oIurq1-ex1Yho3IsHplupTHPiSs6wueznpFyx2OL2hdYHkXUPePZH1KnJKeiO0/pub?gid=0&single=true&output=csv" }, // Mobile Casino Play (MCP)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=0&single=true&output=csv" }, // ManilaPlay (MNP)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkYplUz2eq5TzFEYmvHlXDltCZe6RnoYTak5xEtrXZxEb2EvfDTz5LUOZ0AaouuOGcNWJRDQGYGZB4/pub?gid=0&single=true&output=csv" }, // HypePlay PH (HPP)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbB_0D7eB9mxUQUoeBlP8fPRgLcrPhwzmuUpIUl1wyT5NUS4B45YC_yuVvfMFfEVA9tqPqedGSMQSb/pub?gid=0&single=true&output=csv" }, // MasterGoldKey (MGK)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0Sbf9dckRTWoYtJJnXD6uaxrqSn8-wnCHGJk-R8ZU34VvlttKyThhLknBcmm_vQgfERoIAXSRFHth/pub?gid=0&single=true&output=csv" }, // LuckyStacks PH (LSP)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=0&single=true&output=csv" }, // Casinyeam (CSY)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBUDcdD5qJtw1GjRwHkWKKaIgcvMQUcYlMIq61H8JV-6piChgqQIn-8K0RyyU6KnrCcvkfhxkp1VWd/pub?gid=0&single=true&output=csv", brandOverride: { code: 'HPP_BD', label: 'HypePlay BD' } } // HypePlay BD — shares the "HPP" ticket-ID prefix with HypePlay PH, disambiguated by source sheet
   ];
 
   const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
@@ -130,18 +135,18 @@
     return Math.round(((current - previous) / previous) * 100);
   }
 
-  function parseSheetCsv(url) {
+  function parseSheetCsv(source) {
     return new Promise((resolve, reject) => {
       if (typeof Papa === 'undefined') {
         reject(new Error('PapaParse is required but was not found on the page.'));
         return;
       }
-      const bustUrl = url + (url.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+      const bustUrl = source.url + (source.url.includes('?') ? '&' : '?') + '_cb=' + Date.now();
       Papa.parse(bustUrl, {
         download: true,
         header: true,
         skipEmptyLines: true,
-        complete: (results) => resolve(results.data || []),
+        complete: (results) => resolve({ rows: results.data || [], brandOverride: source.brandOverride || null }),
         error: (err) => reject(err)
       });
     });
@@ -150,50 +155,54 @@
   let cachedPromise = null;
   function fetchTickets(forceRefresh) {
     if (cachedPromise && !forceRefresh) return cachedPromise;
-    cachedPromise = Promise.all(SHEET_CSV_URLS.map(parseSheetCsv))
-      .then(resultsPerSheet => {
-        const rows = [].concat(...resultsPerSheet);
+    cachedPromise = Promise.all(SHEET_SOURCES.map(parseSheetCsv))
+      .then(sheetResults => {
         const seen = new Map();
-        rows
-          .filter(row => row['Ticket ID'])
-          .forEach(row => {
-            const name = row['Username'] || row['Full Name'] || 'Unknown';
-            const category = (row['Category'] || '').trim();
-            const subcategory = (row['Subcategory'] || '').trim();
-            const submitted = new Date(row['Submitted At']);
-            if (isNaN(submitted.getTime())) return;
-            const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
-            const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
-            const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
-            const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
-            const si = statusInfo(row['Status']);
-            const brand = brandFromTicketId(row['Ticket ID']);
-            const ticket = {
-              id: row['Ticket ID'],
-              name,
-              init: initialsForName(name),
-              color: colorForName(name),
-              category,
-              issue: subcategory || category || '—',
-              channel: row['Source'] || '—',
-              brandCode: brand.code,
-              brandLabel: brand.label,
-              priority: priorityBucket(row['Priority']),
-              priorityLabel: row['Priority'] || 'NORMAL',
-              statusRaw: row['Status'],
-              statusCls: si.cls,
-              statusLabel: si.label,
-              submitted,
-              acknowledgedBy: row['Acknowledged By'] || null,
-              acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
-              resolvedBy: row['Resolved By'] || null,
-              resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
-              ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
-              resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
-            };
-            // De-dupe by Ticket ID in case the same ticket ever appears in more than one sheet.
-            seen.set(ticket.id, ticket);
-          });
+        sheetResults.forEach(({ rows, brandOverride }) => {
+          rows
+            .filter(row => row['Ticket ID'])
+            .forEach(row => {
+              const name = row['Username'] || row['Full Name'] || 'Unknown';
+              const category = (row['Category'] || '').trim();
+              const subcategory = (row['Subcategory'] || '').trim();
+              const submitted = new Date(row['Submitted At']);
+              if (isNaN(submitted.getTime())) return;
+              const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
+              const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
+              const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
+              const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
+              const si = statusInfo(row['Status']);
+              const brand = brandOverride || brandFromTicketId(row['Ticket ID']);
+              const ticket = {
+                id: row['Ticket ID'],
+                name,
+                init: initialsForName(name),
+                color: colorForName(name),
+                category,
+                issue: subcategory || category || '—',
+                channel: row['Source'] || '—',
+                brandCode: brand.code,
+                brandLabel: brand.label,
+                priority: priorityBucket(row['Priority']),
+                priorityLabel: row['Priority'] || 'NORMAL',
+                statusRaw: row['Status'],
+                statusCls: si.cls,
+                statusLabel: si.label,
+                submitted,
+                acknowledgedBy: row['Acknowledged By'] || null,
+                acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
+                resolvedBy: row['Resolved By'] || null,
+                resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
+                ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
+                resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
+              };
+              // De-dupe by brand+Ticket ID (scoped per brand so that two different
+              // brands sharing the same ID prefix/format can never collide with
+              // or overwrite each other, even in the rare case their generated
+              // IDs happen to match).
+              seen.set(`${brand.code}::${ticket.id}`, ticket);
+            });
+        });
         return Array.from(seen.values()).sort((a, b) => b.submitted - a.submitted);
       });
     return cachedPromise;
