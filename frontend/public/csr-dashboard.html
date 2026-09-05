@@ -165,6 +165,7 @@
   .legend-row b{margin-left:auto;color:var(--ink);}
   .tabs{display:flex;gap:4px;background:#F1F5F9;border-radius:8px;padding:3px;}
   .tab{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:6px;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;}
+  .issue-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
   .tab.active{background:var(--card);color:var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.08);}
   .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
   .donut-center .num{font-size:22px;font-weight:800;color:var(--success);}
@@ -347,7 +348,17 @@
 
     <!-- TOP TICKET CONCERNS -->
     <div class="panel" style="margin-bottom:14px;">
-      <div class="panel-head"><h3>Top 5 Ticket Concerns (Today)</h3></div>
+      <div class="panel-head">
+        <h3>Top 5 Ticket Concerns</h3>
+        <select id="concernsRangeFilter" class="issue-select">
+          <option value="today" selected>Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+          <option value="month">This Month</option>
+          <option value="all">All Time</option>
+        </select>
+      </div>
       <div id="topConcerns">
         <div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">Loading…</div></div>
       </div>
@@ -467,6 +478,8 @@ let allTickets = [];
 let trendChart, resTimeChart, channelChart, resChart, perfRingChart;
 let teamStripExpanded = false;
 let teamToggleWired = false;
+let concernsRange = 'today';
+let concernsToggleWired = false;
 
 function deltaEl(el, current, previous) {
   if (!el) return;
@@ -503,7 +516,8 @@ function renderAll() {
   const yesterdayTickets = allTickets.filter(t => isSameLocalDay(t.submitted, yesterday));
 
   renderKPIs(todayTickets, yesterdayTickets);
-  renderTopConcerns(todayTickets);
+  renderTopConcerns();
+  setupConcernsRangeFilter();
   renderQueueBreakdown();
   renderLiveActivity();
   renderPerformance(todayTickets, yesterdayTickets);
@@ -558,25 +572,50 @@ function renderKPIs(todayTickets, yesterdayTickets) {
   document.getElementById('kpiAgentsValue').textContent = agentsToday.size.toLocaleString();
 }
 
-// ---------- Top 5 ticket concerns (issues) for today ----------
-function renderTopConcerns(todayTickets) {
+// ---------- Top 5 ticket concerns (issues), selectable time range ----------
+function ticketInDateRange(t, range) {
+  if (range === 'all') return true;
+  const now = new Date();
+  if (range === 'today') return isSameLocalDay(t.submitted, now);
+  if (range === 'yesterday') {
+    const y = new Date(now); y.setDate(y.getDate() - 1);
+    return isSameLocalDay(t.submitted, y);
+  }
+  if (range === '7d') {
+    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7); cutoff.setHours(0, 0, 0, 0);
+    return t.submitted >= cutoff;
+  }
+  if (range === '30d') {
+    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 30); cutoff.setHours(0, 0, 0, 0);
+    return t.submitted >= cutoff;
+  }
+  if (range === 'month') {
+    return t.submitted.getFullYear() === now.getFullYear() && t.submitted.getMonth() === now.getMonth();
+  }
+  return true;
+}
+
+function renderTopConcerns() {
+  const subset = allTickets.filter(t => ticketInDateRange(t, concernsRange));
   const counts = {};
-  todayTickets.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
+  subset.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
   const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const el = document.getElementById('topConcerns');
 
   if (ranked.length === 0) {
-    el.innerHTML = '<div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">No tickets submitted today yet.</div></div>';
+    el.innerHTML = '<div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">No tickets in this range.</div></div>';
     return;
   }
 
   const rankColors = ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'];
   const maxCount = ranked[0][1];
+  // 'all' maps to no date param at all, since tickets.html's own date filter already defaults to "All Time".
+  const dateParam = concernsRange === 'all' ? '' : `&date=${concernsRange}`;
 
   el.innerHTML = ranked.map(([issue, count], i) => {
     const pct = Math.round((count / maxCount) * 100);
     return `
-    <a class="queue-item" href="tickets.html?issue=${encodeURIComponent(issue)}&date=today">
+    <a class="queue-item" href="tickets.html?issue=${encodeURIComponent(issue)}${dateParam}">
       <div class="rank-badge" style="background:${rankColors[i]}22;color:${rankColors[i]};">#${i + 1}</div>
       <div style="flex:1;min-width:0;">
         <div class="queue-name" style="margin-bottom:4px;">${escapeHtml(issue)}</div>
@@ -586,6 +625,17 @@ function renderTopConcerns(todayTickets) {
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
     </a>`;
   }).join('');
+}
+
+function setupConcernsRangeFilter() {
+  if (concernsToggleWired) return;
+  const select = document.getElementById('concernsRangeFilter');
+  if (!select) return;
+  select.addEventListener('change', () => {
+    concernsRange = select.value;
+    renderTopConcerns();
+  });
+  concernsToggleWired = true;
 }
 
 // ---------- Ticket status breakdown (replaces the old fixed "Ticket Queue") ----------
