@@ -427,7 +427,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Team Status</h3><a href="#" class="view-all">View all</a></div>
+        <div class="panel-head"><h3>Team Status (Today)</h3><a href="#" class="view-all">View all</a></div>
         <div class="team-strip" id="teamStrip"></div>
       </div>
     </div>
@@ -525,7 +525,10 @@ function renderKPIs(todayTickets, yesterdayTickets) {
   }
 
   const agentsToday = new Set();
-  todayTickets.forEach(t => { if (t.acknowledgedBy) agentsToday.add(t.acknowledgedBy); if (t.resolvedBy) agentsToday.add(t.resolvedBy); });
+  allTickets.forEach(t => {
+    if (t.acknowledgedBy && t.acknowledgedAt && isSameLocalDay(t.acknowledgedAt, now)) agentsToday.add(t.acknowledgedBy);
+    if (t.resolvedBy && t.resolvedAt && isSameLocalDay(t.resolvedAt, now)) agentsToday.add(t.resolvedBy);
+  });
   document.getElementById('kpiAgentsValue').textContent = agentsToday.size.toLocaleString();
 }
 
@@ -746,25 +749,23 @@ function setupTabs() {
 // ---------- Team status strip: real agents seen acting on tickets in the sheet ----------
 function renderTeamStrip(now) {
   const strip = document.getElementById('teamStrip');
-  const agentsMap = new Map(); // name -> last active Date
+  const agentsMap = new Map(); // name -> last active Date (today only)
 
   allTickets.forEach(t => {
-    if (t.acknowledgedBy) {
-      const when = t.acknowledgedAt || t.submitted;
+    if (t.acknowledgedBy && t.acknowledgedAt && isSameLocalDay(t.acknowledgedAt, now)) {
       const prev = agentsMap.get(t.acknowledgedBy);
-      if (!prev || when > prev) agentsMap.set(t.acknowledgedBy, when);
+      if (!prev || t.acknowledgedAt > prev) agentsMap.set(t.acknowledgedBy, t.acknowledgedAt);
     }
-    if (t.resolvedBy) {
-      const when = t.resolvedAt || t.submitted;
+    if (t.resolvedBy && t.resolvedAt && isSameLocalDay(t.resolvedAt, now)) {
       const prev = agentsMap.get(t.resolvedBy);
-      if (!prev || when > prev) agentsMap.set(t.resolvedBy, when);
+      if (!prev || t.resolvedAt > prev) agentsMap.set(t.resolvedBy, t.resolvedAt);
     }
   });
 
   const agents = Array.from(agentsMap.entries()).sort((a, b) => b[1] - a[1]);
 
   if (agents.length === 0) {
-    strip.innerHTML = '<div style="color:var(--ink-faint);font-size:12.5px;">No agent activity found in the sheet.</div>';
+    strip.innerHTML = '<div style="color:var(--ink-faint);font-size:12.5px;">No agent activity yet today.</div>';
     return;
   }
 
