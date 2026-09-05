@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -103,6 +104,7 @@
   .ftab{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
   .ftab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
   .ftab .count{margin-left:6px;opacity:.75;}
+  .issue-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);max-width:240px;}
 
   /* TICKET TABLE */
   .t-table{width:100%;border-collapse:collapse;}
@@ -200,11 +202,11 @@
     </div>
 
     <div class="nav-group">
-      <a href="/csr-dashboard.html" class="nav-item">
+      <a href="csr-dashboard.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
         Dashboard
       </a>
-      <a href="/tickets.html" class="nav-item active">
+      <a href="tickets.html" class="nav-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
         Tickets
       </a>
@@ -274,13 +276,20 @@
     <div class="panel">
       <div class="panel-head">
         <h3>All Tickets</h3>
-        <div class="filter-tabs">
+        <div class="filter-tabs" id="statusTabs">
           <div class="ftab active" data-status="all">All <span class="count">0</span></div>
           <div class="ftab" data-status="pending">New <span class="count">0</span></div>
           <div class="ftab" data-status="checking">In Progress <span class="count">0</span></div>
           <div class="ftab" data-status="done">Done <span class="count">0</span></div>
           <div class="ftab" data-status="rejected">Rejected <span class="count">0</span></div>
         </div>
+      </div>
+
+      <div class="panel-head" style="margin-top:-8px;">
+        <div class="filter-tabs" id="brandTabs"></div>
+        <select id="issueFilter" class="issue-select">
+          <option value="all">All Issues</option>
+        </select>
       </div>
 
       <div class="table-wrap">
@@ -311,70 +320,18 @@
 </div>
 
 <script>
-  // ---- Live data source: published Google Sheet (CSV export) ----
-  const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv";
-
-  const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
-
-  const STATUS_MAP = {
-    pending:  { label: 'New',         cls: 'pending'  },
-    checking: { label: 'In Progress', cls: 'checking' },
-    done:     { label: 'Done',        cls: 'done'     },
-    rejected: { label: 'Rejected',    cls: 'rejected' }
-  };
-
+  // ---- Live data source: shared TicketData module (see /ticket-data.js) ----
   const PAGE_SIZE = 10;
   let allTickets = [];
   let filteredTickets = [];
   let currentFilter = 'all';
+  let currentBrand = 'all';
+  let currentIssue = 'all';
   let currentSearch = '';
   let currentPage = 1;
 
   const body = document.getElementById('ticketBody');
-
-  function escapeHtml(str) {
-    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-
-  function colorForName(name) {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-  }
-
-  function initialsForName(name) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return '??';
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-
-  function priorityBucket(raw) {
-    const p = (raw || '').toUpperCase();
-    if (p.includes('HIGH') || p.includes('URGENT') || p.includes('CRITICAL')) return 'high';
-    if (p.includes('LOW')) return 'low';
-    return 'medium';
-  }
-
-  function statusInfo(raw) {
-    const key = (raw || '').trim().toLowerCase();
-    return STATUS_MAP[key] || { label: raw || 'Unknown', cls: 'unknown' };
-  }
-
-  function relativeTime(dateStr) {
-    const then = new Date(dateStr);
-    if (isNaN(then.getTime())) return dateStr || '—';
-    const diffMs = Date.now() - then.getTime();
-    const mins = Math.round(diffMs / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
-    const hrs = Math.round(mins / 60);
-    if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
-    const days = Math.round(hrs / 24);
-    if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
-    const months = Math.round(days / 30);
-    return `${months} month${months === 1 ? '' : 's'} ago`;
-  }
+  const { escapeHtml, relativeTime } = TicketData;
 
   function showMessage(text) {
     body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:36px;color:var(--ink-faint);">${escapeHtml(text)}</td></tr>`;
@@ -382,43 +339,24 @@
 
   showMessage('Loading tickets from Google Sheet…');
 
-  Papa.parse(SHEET_CSV_URL, {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: (results) => {
-      allTickets = results.data
-        .filter(row => row['Ticket ID'])
-        .map(row => {
-          const name = row['Username'] || row['Full Name'] || 'Unknown';
-          const category = (row['Category'] || '').trim();
-          const subcategory = (row['Subcategory'] || '').trim();
-          return {
-            id: row['Ticket ID'],
-            name,
-            init: initialsForName(name),
-            color: colorForName(name),
-            issue: subcategory || category || '—',
-            channel: row['Source'] || '—',
-            priority: priorityBucket(row['Priority']),
-            priorityLabel: row['Priority'] || 'NORMAL',
-            statusRaw: row['Status'],
-            submitted: row['Submitted At']
-          };
-        })
-        .sort((a, b) => new Date(b.submitted) - new Date(a.submitted));
+  TicketData.fetchTickets()
+    .then(tickets => {
+      allTickets = tickets;
       renderFilterCounts();
+      renderBrandTabs();
+      renderIssueFilter();
       applyFilters();
-    },
-    error: (err) => {
+    })
+    .catch(err => {
       console.error(err);
       showMessage('Could not load tickets from the Google Sheet. Please check the sheet link and try again.');
-    }
-  });
+    });
 
   function applyFilters() {
     filteredTickets = allTickets.filter(t => {
-      if (currentFilter !== 'all' && statusInfo(t.statusRaw).cls !== currentFilter) return false;
+      if (currentFilter !== 'all' && t.statusCls !== currentFilter) return false;
+      if (currentBrand !== 'all' && t.brandCode !== currentBrand) return false;
+      if (currentIssue !== 'all' && t.issue !== currentIssue) return false;
       if (currentSearch) {
         const q = currentSearch.toLowerCase();
         return t.id.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.issue.toLowerCase().includes(q);
@@ -439,7 +377,6 @@
     const pageItems = filteredTickets.slice(start, start + PAGE_SIZE);
     body.innerHTML = '';
     pageItems.forEach(t => {
-      const si = statusInfo(t.statusRaw);
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="t-id">${escapeHtml(t.id)}</td>
@@ -452,7 +389,7 @@
         <td>${escapeHtml(t.issue)}</td>
         <td class="t-channel">${escapeHtml(t.channel)}</td>
         <td><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span></td>
-        <td><span class="status ${si.cls}">${escapeHtml(si.label)}</span></td>
+        <td><span class="status ${t.statusCls}">${escapeHtml(t.statusLabel)}</span></td>
         <td class="t-time">${relativeTime(t.submitted)}</td>
         <td>
           <div class="t-actions">
@@ -506,10 +443,7 @@
 
   function renderFilterCounts() {
     const counts = { all: allTickets.length, pending: 0, checking: 0, done: 0, rejected: 0 };
-    allTickets.forEach(t => {
-      const cls = statusInfo(t.statusRaw).cls;
-      if (counts[cls] !== undefined) counts[cls]++;
-    });
+    allTickets.forEach(t => { if (counts[t.statusCls] !== undefined) counts[t.statusCls]++; });
     document.querySelectorAll('.ftab').forEach(tab => {
       const key = tab.dataset.status;
       const countEl = tab.querySelector('.count');
@@ -517,15 +451,51 @@
     });
   }
 
-  // Filter tab interaction
-  document.querySelectorAll('.ftab').forEach(tab => {
+  // Status filter tab interaction
+  document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('#statusTabs .ftab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       currentFilter = tab.dataset.status;
       applyFilters();
     });
   });
+
+  // Brand filter tabs — built dynamically from whatever brand prefixes appear in the data
+  function renderBrandTabs() {
+    const counts = {};
+    allTickets.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || 0) + 1; });
+    const codes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const container = document.getElementById('brandTabs');
+    const allTab = `<div class="ftab active" data-brand="all">All Brands <span class="count">${allTickets.length.toLocaleString()}</span></div>`;
+    const brandTabsHtml = codes.map(code => {
+      const label = TicketData.BRAND_MAP[code] || code;
+      return `<div class="ftab" data-brand="${escapeHtml(code)}">${escapeHtml(label)} <span class="count">${counts[code].toLocaleString()}</span></div>`;
+    }).join('');
+    container.innerHTML = allTab + brandTabsHtml;
+    container.querySelectorAll('.ftab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        container.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentBrand = tab.dataset.brand;
+        applyFilters();
+      });
+    });
+  }
+
+  // Issue filter dropdown — built dynamically from distinct issue/subcategory values
+  function renderIssueFilter() {
+    const counts = {};
+    allTickets.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
+    const issues = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const select = document.getElementById('issueFilter');
+    select.innerHTML = `<option value="all">All Issues (${allTickets.length.toLocaleString()})</option>` +
+      issues.map(issue => `<option value="${escapeHtml(issue)}">${escapeHtml(issue)} (${counts[issue].toLocaleString()})</option>`).join('');
+    select.addEventListener('change', () => {
+      currentIssue = select.value;
+      applyFilters();
+    });
+  }
 
   // Wire up the search box for live filtering by ticket ID, customer, or issue
   (function setupSearch() {
