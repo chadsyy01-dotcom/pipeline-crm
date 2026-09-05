@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js"></script>
+<script src="ticket-data.js?v=2"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -353,7 +353,6 @@
   TicketData.fetchTickets()
     .then(tickets => {
       allTickets = tickets;
-      renderFilterCounts();
       renderBrandTabs();
       renderIssueFilter();
       applyFilters();
@@ -385,20 +384,28 @@
     return true;
   }
 
+  // Checks a ticket against all active filters. Pass e.g. {skipStatus:true} to
+  // check against every filter EXCEPT status — used to compute "what would this
+  // count be if I picked this tab" for each facet (status/brand/issue).
+  function ticketMatchesFilters(t, skip = {}) {
+    if (!skip.skipStatus && currentFilter !== 'all' && t.statusCls !== currentFilter) return false;
+    if (!skip.skipBrand && currentBrand !== 'all' && t.brandCode !== currentBrand) return false;
+    if (!skip.skipIssue && currentIssue !== 'all' && t.issue !== currentIssue) return false;
+    if (!skip.skipDate && !matchesDateFilter(t)) return false;
+    if (!skip.skipSearch && currentSearch) {
+      const q = currentSearch.toLowerCase();
+      if (!(t.id.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.issue.toLowerCase().includes(q))) return false;
+    }
+    return true;
+  }
+
   function applyFilters() {
-    filteredTickets = allTickets.filter(t => {
-      if (currentFilter !== 'all' && t.statusCls !== currentFilter) return false;
-      if (currentBrand !== 'all' && t.brandCode !== currentBrand) return false;
-      if (currentIssue !== 'all' && t.issue !== currentIssue) return false;
-      if (!matchesDateFilter(t)) return false;
-      if (currentSearch) {
-        const q = currentSearch.toLowerCase();
-        return t.id.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.issue.toLowerCase().includes(q);
-      }
-      return true;
-    });
+    filteredTickets = allTickets.filter(t => ticketMatchesFilters(t));
     currentPage = 1;
     renderPage();
+    renderFilterCounts();
+    renderBrandTabCounts();
+    renderIssueFilterCounts();
   }
 
   function renderPage() {
@@ -476,9 +483,10 @@
   }
 
   function renderFilterCounts() {
-    const counts = { all: allTickets.length, pending: 0, checking: 0, done: 0, rejected: 0 };
-    allTickets.forEach(t => { if (counts[t.statusCls] !== undefined) counts[t.statusCls]++; });
-    document.querySelectorAll('.ftab').forEach(tab => {
+    const subset = allTickets.filter(t => ticketMatchesFilters(t, { skipStatus: true }));
+    const counts = { all: subset.length, pending: 0, checking: 0, done: 0, rejected: 0 };
+    subset.forEach(t => { if (counts[t.statusCls] !== undefined) counts[t.statusCls]++; });
+    document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
       const key = tab.dataset.status;
       const countEl = tab.querySelector('.count');
       if (countEl && counts[key] !== undefined) countEl.textContent = counts[key].toLocaleString();
@@ -517,6 +525,20 @@
     });
   }
 
+  // Updates just the numbers on the brand tabs (based on the other active filters)
+  // without rebuilding the DOM or losing the click handlers set up above.
+  function renderBrandTabCounts() {
+    const subset = allTickets.filter(t => ticketMatchesFilters(t, { skipBrand: true }));
+    const counts = {};
+    subset.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || 0) + 1; });
+    document.querySelectorAll('#brandTabs .ftab').forEach(tab => {
+      const code = tab.dataset.brand;
+      const countEl = tab.querySelector('.count');
+      if (!countEl) return;
+      countEl.textContent = code === 'all' ? subset.length.toLocaleString() : (counts[code] || 0).toLocaleString();
+    });
+  }
+
   // Date range filter
   document.getElementById('dateFilter').addEventListener('change', (e) => {
     currentDateFilter = e.target.value;
@@ -534,6 +556,22 @@
     select.addEventListener('change', () => {
       currentIssue = select.value;
       applyFilters();
+    });
+  }
+
+  // Updates just the counts shown in each <option> label (based on the other
+  // active filters) without rebuilding the list or losing the current selection.
+  function renderIssueFilterCounts() {
+    const subset = allTickets.filter(t => ticketMatchesFilters(t, { skipIssue: true }));
+    const counts = {};
+    subset.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
+    const select = document.getElementById('issueFilter');
+    Array.from(select.options).forEach(opt => {
+      if (opt.value === 'all') {
+        opt.textContent = `All Issues (${subset.length.toLocaleString()})`;
+      } else {
+        opt.textContent = `${opt.value} (${(counts[opt.value] || 0).toLocaleString()})`;
+      }
     });
   }
 
