@@ -280,6 +280,7 @@
           <div class="ftab active" data-status="all">All <span class="count">0</span></div>
           <div class="ftab" data-status="pending">New <span class="count">0</span></div>
           <div class="ftab" data-status="checking">In Progress <span class="count">0</span></div>
+          <div class="ftab" data-status="backlog">Backlog <span class="count">0</span></div>
           <div class="ftab" data-status="done">Done <span class="count">0</span></div>
           <div class="ftab" data-status="rejected">Rejected <span class="count">0</span></div>
         </div>
@@ -388,7 +389,15 @@
   // check against every filter EXCEPT status — used to compute "what would this
   // count be if I picked this tab" for each facet (status/brand/issue).
   function ticketMatchesFilters(t, skip = {}) {
-    if (!skip.skipStatus && currentFilter !== 'all' && t.statusCls !== currentFilter) return false;
+    if (!skip.skipStatus) {
+      if (currentFilter === 'backlog') {
+        const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
+        const isToday = TicketData.isSameLocalDay(t.submitted, new Date());
+        if (!(isOpen && !isToday)) return false;
+      } else if (currentFilter !== 'all' && t.statusCls !== currentFilter) {
+        return false;
+      }
+    }
     if (!skip.skipBrand && currentBrand !== 'all' && t.brandCode !== currentBrand) return false;
     if (!skip.skipIssue && currentIssue !== 'all' && t.issue !== currentIssue) return false;
     if (!skip.skipDate && !matchesDateFilter(t)) return false;
@@ -484,8 +493,14 @@
 
   function renderFilterCounts() {
     const subset = allTickets.filter(t => ticketMatchesFilters(t, { skipStatus: true }));
-    const counts = { all: subset.length, pending: 0, checking: 0, done: 0, rejected: 0 };
-    subset.forEach(t => { if (counts[t.statusCls] !== undefined) counts[t.statusCls]++; });
+    const now = new Date();
+    const counts = { all: subset.length, pending: 0, checking: 0, done: 0, rejected: 0, backlog: 0 };
+    subset.forEach(t => {
+      if (counts[t.statusCls] !== undefined) counts[t.statusCls]++;
+      if ((t.statusCls === 'pending' || t.statusCls === 'checking') && !TicketData.isSameLocalDay(t.submitted, now)) {
+        counts.backlog++;
+      }
+    });
     document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
       const key = tab.dataset.status;
       const countEl = tab.querySelector('.count');
@@ -502,6 +517,23 @@
       applyFilters();
     });
   });
+
+  // Deep-linking: read ?status= and ?search= from the URL (used by links from
+  // the dashboard, e.g. "tickets.html?status=backlog" or "tickets.html?search=BPH-...").
+  (function applyQueryParams() {
+    const params = new URLSearchParams(window.location.search);
+    const statusParam = params.get('status');
+    const searchParam = params.get('search');
+    if (statusParam) {
+      currentFilter = statusParam;
+      document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.status === statusParam);
+      });
+    }
+    if (searchParam) {
+      currentSearch = searchParam;
+    }
+  })();
 
   // Brand filter tabs — built dynamically from whatever brand prefixes appear in the data
   function renderBrandTabs() {
@@ -584,6 +616,7 @@
     input.type = 'text';
     input.placeholder = 'Search ticket, customer or ID...';
     input.style.cssText = 'border:none;outline:none;background:transparent;font:inherit;color:inherit;width:100%;';
+    if (currentSearch) input.value = currentSearch;
     wrapper.innerHTML = '';
     wrapper.appendChild(icon);
     wrapper.appendChild(input);
