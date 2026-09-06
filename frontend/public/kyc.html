@@ -141,7 +141,7 @@
       <h4>QUICK LINKS</h4>
       <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Create Ticket</div>
       <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Customer Lookup</div>
-      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Generate Report</div>
+      <a href="reports.html" class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Generate Report</a>
       <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg>Broadcast Notice</div>
     </div>
     <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
@@ -186,10 +186,14 @@
     <div class="panel">
       <div class="panel-head">
         <h3>Individual Agent Status</h3>
-        <span class="live-indicator" id="asOfLabel"></span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="date" id="staffDateFilter" style="font-size:12.5px;font-weight:600;padding:7px 10px;border-radius:8px;border:1px solid var(--line);color:var(--ink);">
+          <span class="live-indicator" id="asOfLabel"></span>
+        </div>
       </div>
+      <div id="staffDateMismatch" class="empty-note" style="display:none;"></div>
       <div style="max-height:480px;overflow-y:auto;">
-        <table class="agent-table">
+        <table class="agent-table" id="staffTableWrap">
           <thead><tr><th>Staff Name</th><th class="num">Pending (now)</th><th class="num">Done Today</th></tr></thead>
           <tbody id="tblStaff"></tbody>
         </table>
