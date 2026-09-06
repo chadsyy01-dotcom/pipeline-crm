@@ -166,6 +166,7 @@
   .status.unknown{background:#F1F5F9;color:var(--ink-faint);}
   .status.unknown::before{background:var(--ink-faint);}
   .t-channel{color:var(--ink-soft);font-size:12.5px;}
+  .t-ack{color:var(--ink-soft);font-size:12.5px;font-weight:600;}
   .t-time{color:var(--ink-faint);font-size:12px;white-space:nowrap;}
   .t-actions{display:flex;gap:6px;}
   .t-btn{width:28px;height:28px;border-radius:8px;background:#F8FAFC;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;}
@@ -377,6 +378,7 @@
               <th>Channel</th>
               <th>Priority</th>
               <th>Status</th>
+              <th>Acknowledged By</th>
               <th>Updated</th>
               <th></th>
             </tr>
@@ -646,6 +648,7 @@
         <td class="t-channel">${escapeHtml(t.channel)}</td>
         <td><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span></td>
         <td><span class="status ${t.statusCls}">${escapeHtml(t.statusLabel)}</span></td>
+        <td class="t-ack">${t.acknowledgedBy ? escapeHtml(t.acknowledgedBy) : '<span style="color:var(--ink-faint);">—</span>'}</td>
         <td class="t-time">${relativeTime(t.submitted)}</td>
         <td>
           <div class="t-actions">
