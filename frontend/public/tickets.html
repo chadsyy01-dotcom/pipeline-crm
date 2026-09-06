@@ -93,6 +93,9 @@
   .notif-dropdown{position:absolute;top:calc(100% + 10px);right:0;background:var(--card);border-radius:12px;box-shadow:var(--shadow);width:320px;max-height:380px;overflow-y:auto;display:none;z-index:50;cursor:default;}
   .notif-dropdown.open{display:block;}
   .notif-dropdown .notif-head{padding:12px 14px;font-size:13px;font-weight:700;border-bottom:1px solid var(--line);}
+  .notif-tabs{display:flex;border-bottom:1px solid var(--line);}
+  .notif-tab{flex:1;text-align:center;padding:10px 8px;font-size:12px;font-weight:700;color:var(--ink-faint);cursor:pointer;border-bottom:2px solid transparent;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;}
+  .notif-tab.active{color:var(--primary);border-bottom-color:var(--primary);}
   .notif-item{display:block;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;}
   .notif-item:last-child{border-bottom:none;}
   .notif-item:hover{background:var(--bg);}
@@ -299,7 +302,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
           <span class="badge" id="notifBadge" style="display:none;">0</span>
           <div class="notif-dropdown" id="notifDropdown" onclick="event.stopPropagation()">
-            <div class="notif-head">New Tickets</div>
+            <div class="notif-tabs">
+              <button class="notif-tab active" id="notifTabNew" onclick="switchNotifTab('new')">New Tickets</button>
+              <button class="notif-tab" id="notifTabProgress" onclick="switchNotifTab('inprogress')">In Progress</button>
+            </div>
             <div id="notifList"></div>
           </div>
         </div>
@@ -422,7 +428,7 @@
       applyFilters();
       markLiveUpdated();
       renderNotifBadge();
-      TicketData.startAutoRefresh(handleAutoRefresh, 60000);
+      TicketData.startAutoRefresh(handleAutoRefresh, 20000);
     })
     .catch(err => {
       console.error(err);
@@ -444,10 +450,13 @@
     renderNotifBadge();
   }
 
-  // Only "New" (pending) tickets count as unread notifications — once an
-  // agent moves one to In Progress (or further), it drops off automatically.
+  let notifActiveTab = 'new';
+
+  // The bell badge always reflects "New" tickets specifically — the ones
+  // nobody has acknowledged yet. Once acked (In Progress or further), a
+  // ticket drops off the badge count automatically.
   function renderNotifBadge() {
-    const newTickets = allTickets.filter(t => t.statusCls === 'pending').sort((a, b) => b.submitted - a.submitted);
+    const newTickets = allTickets.filter(t => t.statusCls === 'pending');
     const badge = document.getElementById('notifBadge');
     if (badge) {
       if (newTickets.length > 0) {
@@ -457,13 +466,27 @@
         badge.style.display = 'none';
       }
     }
+    renderNotifList();
+  }
+
+  function switchNotifTab(tab) {
+    notifActiveTab = tab;
+    document.getElementById('notifTabNew').classList.toggle('active', tab === 'new');
+    document.getElementById('notifTabProgress').classList.toggle('active', tab === 'inprogress');
+    renderNotifList();
+  }
+
+  function renderNotifList() {
     const list = document.getElementById('notifList');
     if (!list) return;
-    if (newTickets.length === 0) {
-      list.innerHTML = '<div class="notif-empty">No new tickets right now</div>';
+    const statusCls = notifActiveTab === 'new' ? 'pending' : 'checking';
+    const emptyText = notifActiveTab === 'new' ? 'No new tickets right now' : 'No tickets in progress right now';
+    const tickets = allTickets.filter(t => t.statusCls === statusCls).sort((a, b) => b.submitted - a.submitted);
+    if (tickets.length === 0) {
+      list.innerHTML = `<div class="notif-empty">${emptyText}</div>`;
       return;
     }
-    list.innerHTML = newTickets.slice(0, 20).map(t => `
+    list.innerHTML = tickets.slice(0, 20).map(t => `
       <a class="notif-item" href="tickets.html?search=${encodeURIComponent(t.id)}">
         <div class="n-id">${TicketData.escapeHtml(t.id)}</div>
         <div class="n-name">${TicketData.escapeHtml(t.name)} — ${TicketData.escapeHtml(t.issue)}</div>
