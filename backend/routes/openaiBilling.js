@@ -1,10 +1,9 @@
 // backend/routes/openaiBilling.js
 //
-// OpenAI billing + usage proxy — holds OpenAI Admin API key(s) server-side.
+// OpenAI billing proxy — holds OpenAI Admin API key(s) server-side.
 // Supports multiple OpenAI organizations/accounts via the OPENAI_ACCOUNTS
-// env var, and exposes only the OFFICIAL, documented endpoints:
-//   - Costs API   (https://api.openai.com/v1/organization/costs)
-//   - Usage API   (https://api.openai.com/v1/organization/usage/completions)
+// env var, and exposes the OFFICIAL, documented Costs API
+// (https://api.openai.com/v1/organization/costs).
 //
 // NOTE: OpenAI does not currently offer a public API for "Billing history"
 // (invoice list) or live prepaid credit balance — those are only visible in
@@ -38,9 +37,12 @@ function rangeToStartTime(range) {
     start.setHours(0, 0, 0, 0);
   } else if (range === '7d') {
     start.setDate(start.getDate() - 7);
-  } else { // 'month'
+  } else if (range === 'month') {
     start.setDate(1);
     start.setHours(0, 0, 0, 0);
+  } else { // 'all' — since OpenAI accounts didn't exist before this, this
+    // safely covers any account's full lifetime.
+    return Math.floor(new Date('2020-01-01T00:00:00Z').getTime() / 1000);
   }
   return Math.floor(start.getTime() / 1000);
 }
@@ -48,7 +50,7 @@ function rangeToStartTime(range) {
 async function fetchAllPages(url, params, adminKey) {
   const results = [];
   let pageCursor = null;
-  for (let i = 0; i < 20; i++) { // hard safety cap on pagination loops
+  for (let i = 0; i < 100; i++) { // hard safety cap on pagination loops (raised to cover multi-year "all time" ranges)
     const query = new URLSearchParams(params);
     if (pageCursor) query.set('page', pageCursor);
     const res = await fetch(`${url}?${query.toString()}`, {
@@ -92,7 +94,7 @@ router.get('/summary', require('../middleware/auth').requireAuth, async (req, re
     // --- Costs API ---
     const costBuckets = await fetchAllPages(
       'https://api.openai.com/v1/organization/costs',
-      { start_time: startTime, bucket_width: '1d', limit: 31, 'group_by[]': 'line_item' },
+      { start_time: startTime, bucket_width: '1d', limit: 180, 'group_by[]': 'line_item' },
       account.key
     );
     let totalUsd = 0;
@@ -115,39 +117,13 @@ router.get('/summary', require('../middleware/auth').requireAuth, async (req, re
       .slice(0, 10)
       .map(([label, amount]) => ({ label, amount }));
 
-    // --- Usage API (official token counts) ---
-    const usageBuckets = await fetchAllPages(
-      'https://api.openai.com/v1/organization/usage/completions',
-      { start_time: startTime, bucket_width: '1d', limit: 31, 'group_by[]': 'model' },
-      account.key
-    );
-    let inputTokens = 0, outputTokens = 0, cachedTokens = 0, numRequests = 0;
-    const byModel = {};
-    usageBuckets.forEach(bucket => {
-      (bucket.results || []).forEach(r => {
-        inputTokens += r.input_tokens || 0;
-        outputTokens += r.output_tokens || 0;
-        cachedTokens += r.input_cached_tokens || 0;
-        numRequests += r.num_model_requests || 0;
-        const label = r.model || 'Unknown';
-        if (!byModel[label]) byModel[label] = { inputTokens: 0, outputTokens: 0, requests: 0 };
-        byModel[label].inputTokens += r.input_tokens || 0;
-        byModel[label].outputTokens += r.output_tokens || 0;
-        byModel[label].requests += r.num_model_requests || 0;
-      });
-    });
-    const byModelList = Object.entries(byModel)
-      .sort((a, b) => (b[1].inputTokens + b[1].outputTokens) - (a[1].inputTokens + a[1].outputTokens))
-      .map(([model, v]) => ({ model, ...v }));
-
     res.json({
       range,
       account: account.name || `Account ${accountIndex + 1}`,
       totalUsd,
       currency: 'usd',
       dailyTotals,
-      topLineItems,
-      tokenUsage: { inputTokens, outputTokens, cachedTokens, numRequests, byModel: byModelList }
+      topLineItems
     });
   } catch (err) {
     console.error('OpenAI billing summary error:', err);
