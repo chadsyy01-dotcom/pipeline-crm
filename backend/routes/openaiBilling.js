@@ -47,15 +47,33 @@ function rangeToStartTime(range) {
   return Math.floor(start.getTime() / 1000);
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function fetchAllPages(url, params, adminKey) {
   const results = [];
   let pageCursor = null;
   for (let i = 0; i < 100; i++) { // hard safety cap on pagination loops (raised to cover multi-year "all time" ranges)
     const query = new URLSearchParams(params);
     if (pageCursor) query.set('page', pageCursor);
-    const res = await fetch(`${url}?${query.toString()}`, {
+
+    // OpenAI's Costs API allows only 10 requests/minute. Space requests out
+    // (6.5s apart) so multi-page "All Time" pulls don't trip that limit —
+    // skipped before the very first request, since most ranges only need one.
+    if (i > 0) await sleep(6500);
+
+    let res = await fetch(`${url}?${query.toString()}`, {
       headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' }
     });
+    // If we still get rate-limited (e.g. another process is also calling the
+    // API), back off once and retry rather than failing the whole request.
+    if (res.status === 429) {
+      await sleep(15000);
+      res = await fetch(`${url}?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' }
+      });
+    }
     const bodyText = await res.text();
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} from ${url} — body starts with: ${bodyText.slice(0, 200)}`);
