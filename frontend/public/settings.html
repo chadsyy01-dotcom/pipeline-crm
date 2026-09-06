@@ -52,7 +52,6 @@
   .setting-label{font-size:13.5px;font-weight:700;}
   .setting-desc{font-size:12px;color:var(--ink-faint);margin-top:2px;}
   .setting-select{font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:var(--card);cursor:pointer;}
-  .setting-select.active{background:var(--primary);color:#fff;border-color:var(--primary);}
 
   .toggle{position:relative;width:42px;height:24px;flex-shrink:0;}
   .toggle input{opacity:0;width:0;height:0;}
@@ -111,6 +110,10 @@
     <a href="reports.html" class="nav-item">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
       Reports
+    </a>
+    <a href="openai.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      OpenAI
     </a>
     <a href="settings.html" class="nav-item active">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -171,22 +174,6 @@
     </div>
 
     <div class="panel">
-      <h3>OpenAI Billing Summary</h3>
-      <p class="panel-sub">Spend on your connected OpenAI organization.</p>
-      <div style="display:flex;gap:6px;margin-bottom:16px;">
-        <button class="setting-select" style="cursor:pointer;" id="obTabToday" onclick="loadOpenaiBilling('today')">Today</button>
-        <button class="setting-select" style="cursor:pointer;" id="obTab7d" onclick="loadOpenaiBilling('7d')">7 Days</button>
-        <button class="setting-select" style="cursor:pointer;" id="obTabMonth" onclick="loadOpenaiBilling('month')">Month</button>
-      </div>
-      <div id="obSetupNote" class="setup-note" style="display:none;background:#FEF6E7;color:#92620A;border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;margin-bottom:14px;line-height:1.5;"></div>
-      <div id="obContent">
-        <div style="font-size:26px;font-weight:800;margin-bottom:4px;" id="obTotal">—</div>
-        <div style="font-size:12px;color:var(--ink-faint);font-weight:600;margin-bottom:16px;" id="obTotalLabel"></div>
-        <div id="obLineItems"></div>
-      </div>
-    </div>
-
-    <div class="panel">
       <h3>Connected Data Sources</h3>
       <p class="panel-sub">Brands currently feeding this dashboard, read from live Google Sheets.</p>
       <div id="sourcesList"><div style="color:var(--ink-faint);font-size:13px;">Loading…</div></div>
@@ -240,62 +227,6 @@ function onDesktopNotifChange() {
     localStorage.setItem('csr_desktop_notif', checked ? 'true' : 'false');
   }
 }
-
-function rangeLabelText(range) {
-  return range === 'today' ? 'Today' : range === '7d' ? 'Last 7 days' : 'This month';
-}
-
-function loadOpenaiBilling(range) {
-  ['obTabToday', 'obTab7d', 'obTabMonth'].forEach(id => document.getElementById(id).classList.remove('active'));
-  const tabId = range === 'today' ? 'obTabToday' : range === '7d' ? 'obTab7d' : 'obTabMonth';
-  document.getElementById(tabId).classList.add('active');
-
-  const token = localStorage.getItem('pipeline_token');
-  fetch(`${API_BASE}/openai-billing/summary?range=${range}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(async res => {
-      if (res.status === 404) {
-        showObSetupNote("⚠️ The /api/openai-billing/summary endpoint isn't live on the backend yet. Add the OpenAI proxy route to your Railway API to activate this.");
-        return null;
-      }
-      const data = await res.json();
-      if (!res.ok) {
-        showObSetupNote(`⚠️ ${data.error || 'Could not load OpenAI billing data.'}`);
-        return null;
-      }
-      return data;
-    })
-    .then(data => {
-      if (!data) return;
-      showObSetupNote('');
-      document.getElementById('obTotal').textContent = `$${data.totalUsd.toFixed(2)}`;
-      document.getElementById('obTotalLabel').textContent = `Total spend — ${rangeLabelText(data.range)}`;
-      const list = document.getElementById('obLineItems');
-      if (!data.topLineItems || data.topLineItems.length === 0) {
-        list.innerHTML = '<div style="color:var(--ink-faint);font-size:13px;">No cost line items in this period.</div>';
-        return;
-      }
-      list.innerHTML = data.topLineItems.map(li => `
-        <div class="source-row">
-          <div class="source-name">${li.label}</div>
-          <div class="source-count" style="font-weight:700;color:var(--ink);">$${li.amount.toFixed(4)}</div>
-        </div>
-      `).join('');
-    })
-    .catch(err => {
-      console.error(err);
-      showObSetupNote('⚠️ Could not reach the billing endpoint. Check the backend proxy is deployed.');
-    });
-}
-
-function showObSetupNote(msg) {
-  const el = document.getElementById('obSetupNote');
-  el.textContent = msg;
-  el.style.display = msg ? 'block' : 'none';
-}
-
-loadOpenaiBilling('month');
 
 // ---- Connected Data Sources: derive from live ticket data (brand + count) ----
 TicketData.fetchTickets()
