@@ -21,6 +21,22 @@ function chatwootHeaders() {
   return { api_access_token: API_TOKEN, 'Content-Type': 'application/json' };
 }
 
+// Fetches a URL and safely parses JSON, throwing a descriptive error (with
+// status code + a snippet of the raw body) if the response isn't OK or isn't
+// actually JSON — e.g. Chatwoot returning an HTML 404/login page instead of API JSON.
+async function fetchChatwootJson(label, url) {
+  const res = await fetch(url, { headers: chatwootHeaders() });
+  const bodyText = await res.text();
+  if (!res.ok) {
+    throw new Error(`[${label}] HTTP ${res.status} from ${url} — body starts with: ${bodyText.slice(0, 200)}`);
+  }
+  try {
+    return JSON.parse(bodyText);
+  } catch (e) {
+    throw new Error(`[${label}] Non-JSON response from ${url} (status ${res.status}) — body starts with: ${bodyText.slice(0, 200)}`);
+  }
+}
+
 // Chatwoot's reports API takes Unix timestamps (seconds).
 function rangeToUnix(range) {
   const now = new Date();
@@ -50,18 +66,16 @@ router.get('/overview', require('../middleware/auth').requireAuth, async (req, r
     const base = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}`;
 
     // 1) Messages received in range (conversations report, incoming message count)
-    const convReportRes = await fetch(
-      `${base}/reports/conversations?metric=incoming_messages_count&type=account&since=${since}&until=${until}`,
-      { headers: chatwootHeaders() }
+    const convReport = await fetchChatwootJson(
+      'conversations report',
+      `${base}/reports/conversations?metric=incoming_messages_count&type=account&since=${since}&until=${until}`
     );
-    const convReport = await convReportRes.json();
     const messagesReceived = Array.isArray(convReport)
       ? convReport.reduce((sum, point) => sum + (point.value || 0), 0)
       : 0;
 
     // 2) CSAT survey responses in range
-    const csatRes = await fetch(`${base}/csat_survey_responses?page=1`, { headers: chatwootHeaders() });
-    const csatJson = await csatRes.json();
+    const csatJson = await fetchChatwootJson('csat responses', `${base}/csat_survey_responses?page=1`);
     const allResponses = (csatJson.payload || []).filter(r => {
       const t = new Date(r.created_at).getTime() / 1000;
       return t >= since && t <= until;
@@ -89,11 +103,10 @@ router.get('/overview', require('../middleware/auth').requireAuth, async (req, r
       .map(([word, count]) => ({ word, count }));
 
     // 4) Chats handled by agent (and bot, if it appears as an agent record)
-    const agentReportRes = await fetch(
-      `${base}/reports/agents?metric=conversations_count&since=${since}&until=${until}`,
-      { headers: chatwootHeaders() }
+    const agentReport = await fetchChatwootJson(
+      'agents report',
+      `${base}/reports/agents?metric=conversations_count&since=${since}&until=${until}`
     );
-    const agentReport = await agentReportRes.json();
     const byAgent = (agentReport || []).map(a => ({
       name: a.name || a.email || `Agent ${a.id}`,
       isBot: /bot/i.test(a.name || ''),
