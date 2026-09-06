@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile — CSR Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#2563EB; --primary-tint:#EFF4FF;
+    --danger:#EF4444; --danger-tint:#FDECEC;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-md:14px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--primary),#60A5FA);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;margin-bottom:2px;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
+  .dot{width:8px;height:8px;border-radius:50%;background:#22C55E;flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+
+  .main{flex:1;min-width:0;padding:26px 32px 40px;max-width:720px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0 0 24px;color:var(--ink-soft);font-size:13.5px;}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:22px;margin-bottom:16px;}
+  .panel h3{margin:0 0 18px;font-size:15px;font-weight:700;}
+  .profile-header{display:flex;align-items:center;gap:16px;margin-bottom:8px;}
+  .avatar-lg{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#EC4899);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:22px;flex-shrink:0;}
+  .field-row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--line);}
+  .field-row:last-child{border-bottom:none;}
+  .field-label{font-size:12.5px;color:var(--ink-faint);font-weight:600;}
+  .field-value{font-size:14px;font-weight:700;}
+  .role-pill{background:var(--primary-tint);color:var(--primary);font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:capitalize;}
+
+  .settings-note{background:#FEF6E7;color:#92620A;border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;line-height:1.5;margin-top:6px;}
+
+  .btn-danger{display:inline-flex;align-items:center;gap:8px;background:var(--danger-tint);color:var(--danger);border:none;font-size:13.5px;font-weight:700;padding:11px 18px;border-radius:10px;cursor:pointer;}
+  .btn-danger:hover{background:#FBDADA;}
+  .btn-danger svg{width:16px;height:16px;}
+
+  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  let currentUser = null;
+
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Invalid session");
+      const data = await res.json();
+      currentUser = data.user || data;
+      renderProfile(currentUser);
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+
+  function initials(name) {
+    if (!name) return '?';
+    return name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  }
+
+  function renderProfile(user) {
+    document.getElementById('avatarLg').textContent = initials(user.name);
+    document.getElementById('fieldName').textContent = user.name || '—';
+    document.getElementById('fieldEmail').textContent = user.email || '—';
+    document.getElementById('fieldRole').textContent = user.role || 'member';
+  }
+
+  function logout() {
+    localStorage.removeItem('pipeline_token');
+    window.location.href = LOGIN_PATH;
+  }
+</script>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CS</div>
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <a href="csr-dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a href="tickets.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+      Tickets
+    </a>
+    <div class="sidebar-status" style="margin-top:auto;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <main class="main">
+    <div class="greeting">
+      <h1>Profile &amp; Account</h1>
+      <p>Your account information for this dashboard.</p>
+    </div>
+
+    <div class="panel">
+      <div class="profile-header">
+        <div class="avatar-lg" id="avatarLg">—</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Name</div>
+        <div class="field-value" id="fieldName">—</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Email</div>
+        <div class="field-value" id="fieldEmail">—</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Role</div>
+        <div class="field-value"><span class="role-pill" id="fieldRole">—</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Account Settings</h3>
+      <div class="settings-note">⚠️ Password and profile editing aren't wired up yet — the backend doesn't have an update-account endpoint. Once one is added (e.g. PATCH /api/auth/me), this section can be made fully functional.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Session</h3>
+      <button class="btn-danger" onclick="logout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        Log Out
+      </button>
+    </div>
+  </main>
+</div>
+</body>
+</html>
