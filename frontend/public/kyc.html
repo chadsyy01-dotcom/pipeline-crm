@@ -183,16 +183,32 @@
         <table class="agent-table"><thead><tr><th>Agent</th><th class="num">Pending</th><th class="num">Done</th></tr></thead><tbody id="tblMassId"></tbody></table>
       </div>
     </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Individual Agent Status</h3>
+        <span class="live-indicator" id="asOfLabel"></span>
+      </div>
+      <div style="max-height:480px;overflow-y:auto;">
+        <table class="agent-table">
+          <thead><tr><th>Staff Name</th><th class="num">Pending (now)</th><th class="num">Done Today</th></tr></thead>
+          <tbody id="tblStaff"></tbody>
+        </table>
+      </div>
+    </div>
   </main>
 </div>
 
 <script>
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMIr9tw7hPBc2qm04VIOcH96mGNDkXmzKWvX_Um9oRo4Pd-R2GmsLlv6YR6lBpS48TMqWbxUtg5-J2/pub?output=csv";
+const STAFF_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSiMkVMVvQkzzKxi_BVqQ3IcOqcxUMrnH2ArVrKLy0Lk_LdKugfIJwZ6GWB8_9SZoUc8OxDQEoDN7vV/pub?gid=1813383915&single=true&output=csv";
 
-// Turns "3,889" -> 3889, "" -> 0, "506" -> 506
+// Turns "3,889" -> 3889, "`11" -> 11, "" -> 0 — strips anything that isn't a
+// digit, dot or minus sign, since these hand-maintained sheets sometimes have
+// stray characters from copy/paste.
 function num(v) {
   if (v === undefined || v === null || v === '') return 0;
-  const n = Number(String(v).replace(/,/g, '').trim());
+  const cleaned = String(v).replace(/[^\d.-]/g, '');
+  const n = Number(cleaned);
   return isNaN(n) ? 0 : n;
 }
 
@@ -269,6 +285,34 @@ function parseAndRender(rows) {
   }
 }
 
+function renderStaffTable(rows) {
+  // Row 0 is a date label (e.g. "September 6, 2026"), row 1 is the header
+  // (Staff Name, Pending (now), Done Today), data starts at row 2.
+  const dateLabel = (rows[0] && rows[0][0]) || '';
+  document.getElementById('asOfLabel').textContent = dateLabel ? `As of ${dateLabel}` : '';
+
+  const staffRows = rows.slice(2).filter(r => r && r[0] && r[0].trim() !== '');
+  const parsed = staffRows.map(r => ({
+    name: r[0].trim(),
+    pending: num(r[1]),
+    done: num(r[2])
+  }));
+  parsed.sort((a, b) => b.pending - a.pending);
+
+  const tbody = document.getElementById('tblStaff');
+  if (parsed.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3"><div class="empty-note">No staff data found</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = parsed.map(s => `
+    <tr>
+      <td>${s.name}</td>
+      <td class="num pending-val">${s.pending.toLocaleString()}</td>
+      <td class="num done-val">${s.done.toLocaleString()}</td>
+    </tr>
+  `).join('');
+}
+
 function loadKyc() {
   Papa.parse(SHEET_URL + '&_cb=' + Date.now(), {
     download: true,
@@ -276,6 +320,13 @@ function loadKyc() {
     skipEmptyLines: false,
     complete: (results) => parseAndRender(results.data || []),
     error: (err) => console.error('KYC fetch error:', err)
+  });
+  Papa.parse(STAFF_SHEET_URL + '&_cb=' + Date.now(), {
+    download: true,
+    header: false,
+    skipEmptyLines: false,
+    complete: (results) => renderStaffTable(results.data || []),
+    error: (err) => console.error('KYC staff fetch error:', err)
   });
 }
 
