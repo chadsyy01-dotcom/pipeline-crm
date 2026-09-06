@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
   :root{
     --primary:#2563EB; --primary-tint:#EFF4FF;
@@ -136,7 +137,12 @@
           <button class="tab" data-range="today">Today</button>
           <button class="tab" data-range="7d">7 Days</button>
           <button class="tab active" data-range="month">Month</button>
+          <button class="tab" data-range="all">All Time</button>
         </div>
+        <button onclick="exportBillingCsv()" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Export CSV
+        </button>
       </div>
     </div>
 
@@ -145,19 +151,6 @@
     <div class="kpi-card">
       <div class="kpi-label" id="kpiLabel">Total spend — this month</div>
       <div class="kpi-value" id="kpiTotal">—</div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><h3>Token Usage</h3></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
-        <div><div style="font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px;">Input Tokens</div><div style="font-size:20px;font-weight:800;" id="tuInput">—</div></div>
-        <div><div style="font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px;">Output Tokens</div><div style="font-size:20px;font-weight:800;" id="tuOutput">—</div></div>
-        <div><div style="font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px;">Requests</div><div style="font-size:20px;font-weight:800;" id="tuRequests">—</div></div>
-      </div>
-      <table class="li-table">
-        <thead><tr><th>Model</th><th class="num">Input</th><th class="num">Output</th><th class="num">Requests</th></tr></thead>
-        <tbody id="modelUsageBody"></tbody>
-      </table>
     </div>
 
     <div class="panel">
@@ -179,6 +172,7 @@
 let currentRange = 'month';
 let currentAccount = 0;
 let dailyChart = null;
+let lastBillingData = null;
 
 document.querySelectorAll('#rangeTabs .tab').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -212,7 +206,7 @@ function loadAccounts() {
 }
 
 function rangeLabelText(range) {
-  return range === 'today' ? 'Today' : range === '7d' ? 'Last 7 days' : 'This month';
+  return range === 'today' ? 'Today' : range === '7d' ? 'Last 7 days' : range === 'all' ? 'All time' : 'This month';
 }
 
 function showSetupNote(msg) {
@@ -251,26 +245,8 @@ function loadBilling() {
 }
 
 function renderBilling(data) {
+  lastBillingData = data;
   document.getElementById('kpiTotal').textContent = `$${data.totalUsd.toFixed(2)}`;
-
-  const usage = data.tokenUsage || {};
-  document.getElementById('tuInput').textContent = (usage.inputTokens || 0).toLocaleString();
-  document.getElementById('tuOutput').textContent = (usage.outputTokens || 0).toLocaleString();
-  document.getElementById('tuRequests').textContent = (usage.numRequests || 0).toLocaleString();
-  const modelBody = document.getElementById('modelUsageBody');
-  const models = usage.byModel || [];
-  if (models.length === 0) {
-    modelBody.innerHTML = '<tr><td colspan="4"><div class="empty-note">No token usage in this period</div></td></tr>';
-  } else {
-    modelBody.innerHTML = models.map(m => `
-      <tr>
-        <td>${m.model}</td>
-        <td class="num">${m.inputTokens.toLocaleString()}</td>
-        <td class="num">${m.outputTokens.toLocaleString()}</td>
-        <td class="num">${m.requests.toLocaleString()}</td>
-      </tr>
-    `).join('');
-  }
 
   const daily = data.dailyTotals || [];
   if (dailyChart) dailyChart.destroy();
@@ -311,6 +287,43 @@ function renderBilling(data) {
       </tr>
     `).join('');
   }
+}
+
+// Exports the cost/usage breakdown currently shown (daily spend, line items,
+// per-model token usage) as a CSV file. This is NOT an OpenAI invoice PDF —
+// OpenAI doesn't expose invoice history via API — it's the Costs/Usage data
+// this page already pulls, saved for your own records.
+function exportBillingCsv() {
+  if (!lastBillingData) {
+    alert('No billing data loaded yet.');
+    return;
+  }
+  const data = lastBillingData;
+  const sections = [];
+
+  sections.push(`Account,${data.account}`);
+  sections.push(`Range,${rangeLabelText(data.range)}`);
+  sections.push(`Total Spend (USD),${data.totalUsd.toFixed(4)}`);
+  sections.push('');
+
+  sections.push('Daily Spend');
+  sections.push(Papa.unparse((data.dailyTotals || []).map(d => ({ Date: d.date, 'Amount (USD)': d.amount.toFixed(4) }))));
+  sections.push('');
+
+  sections.push('Cost by Line Item');
+  sections.push(Papa.unparse((data.topLineItems || []).map(li => ({ 'Line Item': li.label, 'Amount (USD)': li.amount.toFixed(4) }))));
+
+  const csv = sections.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `openai-billing-${data.account.replace(/\s+/g, '-').toLowerCase()}-${data.range}-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 loadAccounts();
