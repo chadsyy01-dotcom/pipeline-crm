@@ -175,6 +175,14 @@
       <canvas id="dailyChart" height="90"></canvas>
     </div>
 
+    <div class="panel" id="byAccountPanel" style="display:none;">
+      <div class="panel-head"><h3>Spend by Account</h3></div>
+      <table class="li-table">
+        <thead><tr><th>Account</th><th class="num">Cost</th></tr></thead>
+        <tbody id="byAccountBody"></tbody>
+      </table>
+    </div>
+
     <div class="panel">
       <div class="panel-head"><h3>Cost by Line Item</h3></div>
       <table class="li-table">
@@ -215,7 +223,7 @@ document.getElementById('rangeSelect').addEventListener('change', (e) => {
 });
 
 document.getElementById('accountSelect').addEventListener('change', (e) => {
-  currentAccount = Number(e.target.value);
+  currentAccount = e.target.value === 'all' ? 'all' : Number(e.target.value);
   loadBilling();
 });
 
@@ -230,7 +238,11 @@ function loadAccounts() {
         select.innerHTML = '<option value="0">No accounts configured</option>';
         return;
       }
-      select.innerHTML = accounts.map(a => `<option value="${a.index}">${a.name}</option>`).join('');
+      const options = accounts.map(a => `<option value="${a.index}">${a.name}</option>`);
+      if (accounts.length > 1) {
+        options.unshift(`<option value="all">All Accounts (${accounts.length})</option>`);
+      }
+      select.innerHTML = options.join('');
       loadBilling();
     })
     .catch(() => loadBilling());
@@ -315,6 +327,19 @@ function renderBilling(data) {
       : `${arrow} ${Math.abs(diff)}% vs previous period ($${prev.toFixed(2)}${phpEquivalent(prev)})`;
   } else {
     compareEl.style.display = 'none';
+  }
+
+  const byAccountPanel = document.getElementById('byAccountPanel');
+  if (data.byAccount && data.byAccount.length > 0) {
+    byAccountPanel.style.display = 'block';
+    document.getElementById('byAccountBody').innerHTML = data.byAccount.map(a => `
+      <tr>
+        <td>${a.name}</td>
+        <td class="num">$${a.totalUsd.toFixed(2)}${phpEquivalent(a.totalUsd)}</td>
+      </tr>
+    `).join('');
+  } else {
+    byAccountPanel.style.display = 'none';
   }
 
   const daily = data.dailyTotals || [];
