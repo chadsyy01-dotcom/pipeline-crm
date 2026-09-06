@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — CSR Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js?v=3"></script>
+<style>
+  :root{
+    --primary:#2563EB; --primary-tint:#EFF4FF;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --danger:#EF4444; --danger-tint:#FDECEC;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-md:14px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--primary),#60A5FA);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;margin-bottom:2px;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .nav-item.soon{opacity:.45;cursor:default;pointer-events:none;position:relative;}
+  .nav-item.soon .soon-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.02em;background:#1C273B;color:#748199;padding:2px 6px;border-radius:6px;}
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+
+  .main{flex:1;min-width:0;padding:26px 32px 40px;max-width:760px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0 0 24px;color:var(--ink-soft);font-size:13.5px;}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:22px;margin-bottom:16px;}
+  .panel h3{margin:0 0 4px;font-size:15px;font-weight:700;}
+  .panel .panel-sub{margin:0 0 18px;font-size:12.5px;color:var(--ink-faint);}
+
+  .setting-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);gap:16px;}
+  .setting-row:last-child{border-bottom:none;}
+  .setting-label{font-size:13.5px;font-weight:700;}
+  .setting-desc{font-size:12px;color:var(--ink-faint);margin-top:2px;}
+  .setting-select{font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:var(--card);cursor:pointer;}
+
+  .toggle{position:relative;width:42px;height:24px;flex-shrink:0;}
+  .toggle input{opacity:0;width:0;height:0;}
+  .toggle-track{position:absolute;inset:0;background:#CBD5E1;border-radius:20px;cursor:pointer;transition:background .15s;}
+  .toggle-track:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .15s;}
+  .toggle input:checked + .toggle-track{background:var(--success);}
+  .toggle input:checked + .toggle-track:before{transform:translateX(18px);}
+
+  .source-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);}
+  .source-row:last-child{border-bottom:none;}
+  .source-name{font-size:13.5px;font-weight:600;}
+  .source-count{font-size:12px;color:var(--ink-faint);}
+  .source-status{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--success);}
+  .source-status .dot2{width:7px;height:7px;border-radius:50%;background:var(--success);}
+
+  .save-note{font-size:12px;color:var(--success);font-weight:600;display:none;margin-top:4px;}
+  .save-note.show{display:block;}
+
+  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Invalid session");
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CS</div>
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <a href="csr-dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a href="tickets.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+      Tickets
+    </a>
+    <a href="kyc.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M4 17c0-1.5 1.5-3 4.5-3s4.5 1.5 4.5 3"/><path d="M15 10h5M15 14h3"/></svg>
+      KYC
+    </a>
+    <a href="reports.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      Reports
+    </a>
+    <a href="settings.html" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </a>
+    <div class="sidebar-status" style="margin-top:auto;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <main class="main">
+    <div class="greeting">
+      <h1>Settings</h1>
+      <p>Preferences for this dashboard. These are saved to this browser only.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Notifications</h3>
+      <p class="panel-sub">Control how you're alerted about new tickets.</p>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Desktop notifications</div>
+          <div class="setting-desc">Get a popup alert when a new ticket arrives, even if this tab isn't focused.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="desktopNotifToggle" onchange="onDesktopNotifChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Display</h3>
+      <p class="panel-sub">How data refreshes and how many rows show per page.</p>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Auto-refresh interval</div>
+          <div class="setting-desc">How often Dashboard and Tickets pull fresh data.</div>
+        </div>
+        <select class="setting-select" id="refreshIntervalSelect" onchange="onRefreshIntervalChange()">
+          <option value="10000">Every 10 seconds</option>
+          <option value="20000">Every 20 seconds</option>
+          <option value="30000">Every 30 seconds</option>
+          <option value="60000">Every 60 seconds</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Tickets per page</div>
+          <div class="setting-desc">Number of rows shown per page on the Tickets list.</div>
+        </div>
+        <select class="setting-select" id="pageSizeSelect" onchange="onPageSizeChange()">
+          <option value="10">10 rows</option>
+          <option value="20">20 rows</option>
+          <option value="50">50 rows</option>
+          <option value="100">100 rows</option>
+        </select>
+      </div>
+      <div class="save-note show" id="displaySaveNote">✓ Saved — applies next time Dashboard or Tickets loads</div>
+    </div>
+
+    <div class="panel">
+      <h3>Connected Data Sources</h3>
+      <p class="panel-sub">Brands currently feeding this dashboard, read from live Google Sheets.</p>
+      <div id="sourcesList"><div style="color:var(--ink-faint);font-size:13px;">Loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <h3>Account</h3>
+      <p class="panel-sub">Manage your profile and log out.</p>
+      <a href="profile.html" style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--primary);">
+        Go to Profile &amp; Account →
+      </a>
+    </div>
+  </main>
+</div>
+
+<script>
+// ---- Load saved preferences into the UI ----
+document.getElementById('refreshIntervalSelect').value = localStorage.getItem('csr_refresh_interval') || '20000';
+document.getElementById('pageSizeSelect').value = localStorage.getItem('csr_page_size') || '10';
+document.getElementById('desktopNotifToggle').checked = localStorage.getItem('csr_desktop_notif') === 'true';
+
+function flashSaved() {
+  const note = document.getElementById('displaySaveNote');
+  note.classList.add('show');
+}
+
+function onRefreshIntervalChange() {
+  localStorage.setItem('csr_refresh_interval', document.getElementById('refreshIntervalSelect').value);
+  flashSaved();
+}
+
+function onPageSizeChange() {
+  localStorage.setItem('csr_page_size', document.getElementById('pageSizeSelect').value);
+  flashSaved();
+}
+
+function onDesktopNotifChange() {
+  const checked = document.getElementById('desktopNotifToggle').checked;
+  if (checked && Notification.permission !== 'granted') {
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') {
+        localStorage.setItem('csr_desktop_notif', 'true');
+        new Notification('CSR Dashboard', { body: 'Desktop notifications are now on.' });
+      } else {
+        localStorage.setItem('csr_desktop_notif', 'false');
+        document.getElementById('desktopNotifToggle').checked = false;
+        alert('Notification permission was blocked. Enable it in your browser\'s site settings to use this feature.');
+      }
+    });
+  } else {
+    localStorage.setItem('csr_desktop_notif', checked ? 'true' : 'false');
+  }
+}
+
+// ---- Connected Data Sources: derive from live ticket data (brand + count) ----
+TicketData.fetchTickets()
+  .then(tickets => {
+    const counts = {};
+    tickets.forEach(t => { counts[t.brandLabel] = (counts[t.brandLabel] || 0) + 1; });
+    const brands = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const list = document.getElementById('sourcesList');
+    if (brands.length === 0) {
+      list.innerHTML = '<div style="color:var(--ink-faint);font-size:13px;">No data sources responded.</div>';
+      return;
+    }
+    list.innerHTML = brands.map(b => `
+      <div class="source-row">
+        <div>
+          <div class="source-name">${TicketData.escapeHtml(b)}</div>
+          <div class="source-count">${counts[b].toLocaleString()} tickets on file</div>
+        </div>
+        <div class="source-status"><span class="dot2"></span>Connected</div>
+      </div>
+    `).join('');
+  })
+  .catch(() => {
+    document.getElementById('sourcesList').innerHTML = '<div style="color:var(--danger);font-size:13px;">Could not load source status.</div>';
+  });
+</script>
+</body>
+</html>
