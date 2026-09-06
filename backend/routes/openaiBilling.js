@@ -149,6 +149,33 @@ async function fetchCostSummary({ startTime, endTime }, adminKey) {
   return { totalUsd, dailyTotals, topLineItems };
 }
 
+// Merges multiple accounts' cost summaries into one aggregate view, and
+// keeps a per-account breakdown so the caller can see each one's share.
+function aggregateAccounts(perAccountResults, accounts) {
+  let totalUsd = 0;
+  const dailyMap = {};
+  const byLineItem = {};
+  const byAccount = [];
+
+  perAccountResults.forEach((result, i) => {
+    totalUsd += result.totalUsd;
+    byAccount.push({ name: accounts[i].name || `Account ${i + 1}`, totalUsd: result.totalUsd });
+    result.dailyTotals.forEach(d => { dailyMap[d.date] = (dailyMap[d.date] || 0) + d.amount; });
+    result.topLineItems.forEach(li => { byLineItem[li.label] = (byLineItem[li.label] || 0) + li.amount; });
+  });
+
+  const dailyTotals = Object.entries(dailyMap)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, amount]) => ({ date, amount }));
+  const topLineItems = Object.entries(byLineItem)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([label, amount]) => ({ label, amount }));
+  byAccount.sort((a, b) => b.totalUsd - a.totalUsd);
+
+  return { totalUsd, dailyTotals, topLineItems, byAccount };
+}
+
 // GET /api/openai-billing/accounts
 // Lists configured account names only — never exposes the keys.
 router.get('/accounts', require('../middleware/auth').requireAuth, (req, res) => {
@@ -156,7 +183,7 @@ router.get('/accounts', require('../middleware/auth').requireAuth, (req, res) =>
   res.json({ accounts: accounts.map((a, i) => ({ name: a.name || `Account ${i + 1}`, index: i })) });
 });
 
-// GET /api/openai-billing/summary?account=<index>&range=today|7d|month|prev_month|all|custom
+// GET /api/openai-billing/summary?account=<index>|all&range=today|7d|month|prev_month|all|custom
 //   &start=YYYY-MM-DD&end=YYYY-MM-DD (custom range only)
 //   &compare=true (also fetches the immediately preceding period of equal length)
 router.get('/summary', require('../middleware/auth').requireAuth, async (req, res) => {
@@ -165,30 +192,49 @@ router.get('/summary', require('../middleware/auth').requireAuth, async (req, re
     if (accounts.length === 0) {
       return res.status(500).json({ error: 'OPENAI_ACCOUNTS is not configured on this server yet.' });
     }
-    const accountIndex = Number(req.query.account) || 0;
-    const account = accounts[accountIndex];
-    if (!account || !account.key) {
-      return res.status(400).json({ error: 'Unknown account.' });
-    }
 
     const resolved = resolveRange(req);
-    const current = await fetchCostSummary(resolved, account.key);
+    const isAllAccounts = req.query.account === 'all';
+
+    let current, byAccount = null;
+    if (isAllAccounts) {
+      // Different accounts use different API keys, so each has its own
+      // independent OpenAI rate-limit budget — safe to fetch in parallel.
+      const perAccount = await Promise.all(accounts.map(a => fetchCostSummary(resolved, a.key)));
+      const aggregated = aggregateAccounts(perAccount, accounts);
+      current = aggregated;
+      byAccount = aggregated.byAccount;
+    } else {
+      const accountIndex = Number(req.query.account) || 0;
+      const account = accounts[accountIndex];
+      if (!account || !account.key) {
+        return res.status(400).json({ error: 'Unknown account.' });
+      }
+      current = await fetchCostSummary(resolved, account.key);
+    }
 
     let comparison = null;
     if (req.query.compare === 'true' && req.query.range !== 'all') {
       const prior = priorPeriod(resolved);
-      const priorSummary = await fetchCostSummary(prior, account.key);
-      comparison = { totalUsd: priorSummary.totalUsd };
+      if (isAllAccounts) {
+        const perAccountPrior = await Promise.all(accounts.map(a => fetchCostSummary(prior, a.key)));
+        comparison = { totalUsd: aggregateAccounts(perAccountPrior, accounts).totalUsd };
+      } else {
+        const accountIndex = Number(req.query.account) || 0;
+        const priorSummary = await fetchCostSummary(prior, accounts[accountIndex].key);
+        comparison = { totalUsd: priorSummary.totalUsd };
+      }
     }
 
     res.json({
       range: req.query.range || 'month',
       rangeLabel: resolved.label,
-      account: account.name || `Account ${accountIndex + 1}`,
+      account: isAllAccounts ? `All Accounts (${accounts.length})` : (accounts[Number(req.query.account) || 0].name || 'Account'),
       totalUsd: current.totalUsd,
       currency: 'usd',
       dailyTotals: current.dailyTotals,
       topLineItems: current.topLineItems,
+      byAccount,
       comparison
     });
   } catch (err) {
