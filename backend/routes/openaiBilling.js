@@ -30,21 +30,54 @@ function getAccounts() {
   }
 }
 
-function rangeToStartTime(range) {
+const ACCOUNT_HISTORY_START = new Date('2020-01-01T00:00:00Z');
+
+// Resolves a request's range into { startTime, endTime } (unix seconds).
+// endTime is null unless the range needs an explicit upper bound (previous
+// month, or a custom range) — the Costs API defaults to "now" when omitted.
+function resolveRange(req) {
+  const range = req.query.range || 'month';
   const now = new Date();
+
+  if (range === 'custom') {
+    const start = req.query.start ? new Date(req.query.start) : null;
+    const end = req.query.end ? new Date(req.query.end) : null;
+    if (!start || isNaN(start.getTime())) throw new Error('A valid "start" date is required for a custom range.');
+    // End is inclusive of that whole day.
+    const endTime = end && !isNaN(end.getTime())
+      ? Math.floor(new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1).getTime() / 1000)
+      : Math.floor(now.getTime() / 1000);
+    return { startTime: Math.floor(start.getTime() / 1000), endTime, label: 'Custom range' };
+  }
+
+  if (range === 'prev_month') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 1); // exclusive upper bound = first of this month
+    return { startTime: Math.floor(start.getTime() / 1000), endTime: Math.floor(end.getTime() / 1000), label: 'Previous month' };
+  }
+
+  if (range === 'all') {
+    return { startTime: Math.floor(ACCOUNT_HISTORY_START.getTime() / 1000), endTime: null, label: 'All time' };
+  }
+
   const start = new Date(now);
   if (range === 'today') {
     start.setHours(0, 0, 0, 0);
   } else if (range === '7d') {
     start.setDate(start.getDate() - 7);
-  } else if (range === 'month') {
+  } else { // 'month'
     start.setDate(1);
     start.setHours(0, 0, 0, 0);
-  } else { // 'all' — since OpenAI accounts didn't exist before this, this
-    // safely covers any account's full lifetime.
-    return Math.floor(new Date('2020-01-01T00:00:00Z').getTime() / 1000);
   }
-  return Math.floor(start.getTime() / 1000);
+  return { startTime: Math.floor(start.getTime() / 1000), endTime: null, label: null };
+}
+
+// Given a resolved { startTime, endTime }, returns the immediately preceding
+// period of the same length — used for "compare to previous period".
+function priorPeriod({ startTime, endTime }) {
+  const end = endTime || Math.floor(Date.now() / 1000);
+  const durationSec = end - startTime;
+  return { startTime: startTime - durationSec, endTime: startTime };
 }
 
 function sleep(ms) {
@@ -86,6 +119,36 @@ async function fetchAllPages(url, params, adminKey) {
   return results;
 }
 
+// Fetches total cost (and daily breakdown + line items) for one resolved
+// { startTime, endTime } window, for a given account key.
+async function fetchCostSummary({ startTime, endTime }, adminKey) {
+  const params = { start_time: startTime, bucket_width: '1d', limit: 180, 'group_by[]': 'line_item' };
+  if (endTime) params.end_time = endTime;
+  const buckets = await fetchAllPages('https://api.openai.com/v1/organization/costs', params, adminKey);
+
+  let totalUsd = 0;
+  const byLineItem = {};
+  const dailyTotals = [];
+  buckets.forEach(bucket => {
+    const dateLabel = new Date(bucket.start_time * 1000).toISOString().slice(0, 10);
+    let dayTotal = 0;
+    (bucket.results || []).forEach(r => {
+      const amt = (r.amount && r.amount.value) || 0;
+      totalUsd += amt;
+      dayTotal += amt;
+      const label = r.line_item || 'Other';
+      byLineItem[label] = (byLineItem[label] || 0) + amt;
+    });
+    dailyTotals.push({ date: dateLabel, amount: dayTotal });
+  });
+  const topLineItems = Object.entries(byLineItem)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([label, amount]) => ({ label, amount }));
+
+  return { totalUsd, dailyTotals, topLineItems };
+}
+
 // GET /api/openai-billing/accounts
 // Lists configured account names only — never exposes the keys.
 router.get('/accounts', require('../middleware/auth').requireAuth, (req, res) => {
@@ -93,7 +156,9 @@ router.get('/accounts', require('../middleware/auth').requireAuth, (req, res) =>
   res.json({ accounts: accounts.map((a, i) => ({ name: a.name || `Account ${i + 1}`, index: i })) });
 });
 
-// GET /api/openai-billing/summary?account=<index>&range=today|7d|month
+// GET /api/openai-billing/summary?account=<index>&range=today|7d|month|prev_month|all|custom
+//   &start=YYYY-MM-DD&end=YYYY-MM-DD (custom range only)
+//   &compare=true (also fetches the immediately preceding period of equal length)
 router.get('/summary', require('../middleware/auth').requireAuth, async (req, res) => {
   try {
     const accounts = getAccounts();
@@ -106,42 +171,25 @@ router.get('/summary', require('../middleware/auth').requireAuth, async (req, re
       return res.status(400).json({ error: 'Unknown account.' });
     }
 
-    const range = req.query.range || 'month';
-    const startTime = rangeToStartTime(range);
+    const resolved = resolveRange(req);
+    const current = await fetchCostSummary(resolved, account.key);
 
-    // --- Costs API ---
-    const costBuckets = await fetchAllPages(
-      'https://api.openai.com/v1/organization/costs',
-      { start_time: startTime, bucket_width: '1d', limit: 180, 'group_by[]': 'line_item' },
-      account.key
-    );
-    let totalUsd = 0;
-    const byLineItem = {};
-    const dailyTotals = [];
-    costBuckets.forEach(bucket => {
-      const dateLabel = new Date(bucket.start_time * 1000).toISOString().slice(0, 10);
-      let dayTotal = 0;
-      (bucket.results || []).forEach(r => {
-        const amt = (r.amount && r.amount.value) || 0;
-        totalUsd += amt;
-        dayTotal += amt;
-        const label = r.line_item || 'Other';
-        byLineItem[label] = (byLineItem[label] || 0) + amt;
-      });
-      dailyTotals.push({ date: dateLabel, amount: dayTotal });
-    });
-    const topLineItems = Object.entries(byLineItem)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([label, amount]) => ({ label, amount }));
+    let comparison = null;
+    if (req.query.compare === 'true' && req.query.range !== 'all') {
+      const prior = priorPeriod(resolved);
+      const priorSummary = await fetchCostSummary(prior, account.key);
+      comparison = { totalUsd: priorSummary.totalUsd };
+    }
 
     res.json({
-      range,
+      range: req.query.range || 'month',
+      rangeLabel: resolved.label,
       account: account.name || `Account ${accountIndex + 1}`,
-      totalUsd,
+      totalUsd: current.totalUsd,
       currency: 'usd',
-      dailyTotals,
-      topLineItems
+      dailyTotals: current.dailyTotals,
+      topLineItems: current.topLineItems,
+      comparison
     });
   } catch (err) {
     console.error('OpenAI billing summary error:', err);
