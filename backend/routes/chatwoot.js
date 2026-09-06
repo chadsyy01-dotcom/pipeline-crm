@@ -53,6 +53,23 @@ function rangeToUnix(range) {
   return { since: Math.floor(since.getTime() / 1000), until };
 }
 
+// GET /api/livechat/test-connection
+// Diagnostic-only route: confirms CHATWOOT_URL / ACCOUNT_ID / API_TOKEN actually
+// work against a simple, well-established v1 endpoint (listing agents), decoupled
+// from whatever auth quirks the /reports endpoints might have.
+router.get('/test-connection', require('../middleware/auth').requireAuth, async (req, res) => {
+  try {
+    if (!CHATWOOT_URL || !ACCOUNT_ID || !API_TOKEN) {
+      return res.status(500).json({ error: 'Missing CHATWOOT_URL / CHATWOOT_ACCOUNT_ID / CHATWOOT_API_TOKEN' });
+    }
+    const url = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/agents`;
+    const agents = await fetchChatwootJson('agents list (test)', url);
+    res.json({ ok: true, agentCount: Array.isArray(agents) ? agents.length : null, sample: agents });
+  } catch (err) {
+    res.status(502).json({ ok: false, error: err.message });
+  }
+});
+
 // GET /api/livechat/overview?range=today|7d|month
 // Returns: messages received, CSAT/DSAT rate, top DSAT concerns, chats by agent/bot.
 router.get('/overview', require('../middleware/auth').requireAuth, async (req, res) => {
