@@ -62,11 +62,25 @@ router.get('/test-connection', require('../middleware/auth').requireAuth, async 
     if (!CHATWOOT_URL || !ACCOUNT_ID || !API_TOKEN) {
       return res.status(500).json({ error: 'Missing CHATWOOT_URL / CHATWOOT_ACCOUNT_ID / CHATWOOT_API_TOKEN' });
     }
+    const tokenShape = {
+      length: API_TOKEN.length,
+      hasLeadingOrTrailingSpace: API_TOKEN !== API_TOKEN.trim(),
+      hasQuotes: API_TOKEN.startsWith('"') || API_TOKEN.startsWith("'"),
+      first4: API_TOKEN.slice(0, 4),
+      last4: API_TOKEN.slice(-4)
+    };
     const url = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/agents`;
     const agents = await fetchChatwootJson('agents list (test)', url);
-    res.json({ ok: true, agentCount: Array.isArray(agents) ? agents.length : null, sample: agents });
+    res.json({ ok: true, tokenShape, agentCount: Array.isArray(agents) ? agents.length : null, sample: agents });
   } catch (err) {
-    res.status(502).json({ ok: false, error: err.message });
+    const tokenShape = {
+      length: API_TOKEN ? API_TOKEN.length : 0,
+      hasLeadingOrTrailingSpace: API_TOKEN ? API_TOKEN !== API_TOKEN.trim() : null,
+      hasQuotes: API_TOKEN ? (API_TOKEN.startsWith('"') || API_TOKEN.startsWith("'")) : null,
+      first4: API_TOKEN ? API_TOKEN.slice(0, 4) : null,
+      last4: API_TOKEN ? API_TOKEN.slice(-4) : null
+    };
+    res.status(502).json({ ok: false, error: err.message, tokenShape, urlUsed: CHATWOOT_URL, accountIdUsed: ACCOUNT_ID });
   }
 });
 
