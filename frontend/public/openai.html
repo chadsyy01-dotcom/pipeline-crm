@@ -131,14 +131,8 @@
         <h1>OpenAI Billing</h1>
         <p>Spend on your connected OpenAI organization.</p>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;">
         <select id="accountSelect" style="font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:var(--card);cursor:pointer;"></select>
-        <div class="tabs" id="rangeTabs">
-          <button class="tab" data-range="today">Today</button>
-          <button class="tab" data-range="7d">7 Days</button>
-          <button class="tab active" data-range="month">Month</button>
-          <button class="tab" data-range="all">All Time</button>
-        </div>
         <button onclick="exportBillingCsv()" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
           Export CSV
@@ -146,11 +140,33 @@
       </div>
     </div>
 
+    <div class="panel" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <select id="rangeSelect" style="font-size:13px;font-weight:700;padding:9px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:var(--card);cursor:pointer;">
+        <option value="today">Today</option>
+        <option value="7d">7 Days</option>
+        <option value="month" selected>This Month</option>
+        <option value="prev_month">Previous Month</option>
+        <option value="all">All Time</option>
+        <option value="custom">Custom Range…</option>
+      </select>
+      <div id="customRangeRow" style="display:none;align-items:center;gap:8px;">
+        <input type="date" id="customStart" style="font-size:13px;font-weight:600;padding:8px 10px;border-radius:8px;border:1px solid var(--line);">
+        <span style="color:var(--ink-faint);font-size:13px;">to</span>
+        <input type="date" id="customEnd" style="font-size:13px;font-weight:600;padding:8px 10px;border-radius:8px;border:1px solid var(--line);">
+        <button onclick="loadBilling()" style="font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-family:inherit;">Apply</button>
+      </div>
+      <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;margin-left:auto;">
+        <input type="checkbox" id="compareToggle" onchange="loadBilling()">
+        Compare to previous period
+      </label>
+    </div>
+
     <div id="setupNote" class="setup-note" style="display:none;"></div>
 
     <div class="kpi-card">
       <div class="kpi-label" id="kpiLabel">Total spend — this month</div>
       <div class="kpi-value" id="kpiTotal">—</div>
+      <div id="kpiCompare" style="font-size:12.5px;font-weight:600;margin-top:8px;display:none;"></div>
     </div>
 
     <div class="panel">
@@ -174,13 +190,10 @@ let currentAccount = 0;
 let dailyChart = null;
 let lastBillingData = null;
 
-document.querySelectorAll('#rangeTabs .tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#rangeTabs .tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentRange = btn.dataset.range;
-    loadBilling();
-  });
+document.getElementById('rangeSelect').addEventListener('change', (e) => {
+  currentRange = e.target.value;
+  document.getElementById('customRangeRow').style.display = currentRange === 'custom' ? 'flex' : 'none';
+  if (currentRange !== 'custom') loadBilling();
 });
 
 document.getElementById('accountSelect').addEventListener('change', (e) => {
@@ -206,7 +219,16 @@ function loadAccounts() {
 }
 
 function rangeLabelText(range) {
-  return range === 'today' ? 'Today' : range === '7d' ? 'Last 7 days' : range === 'all' ? 'All time' : 'This month';
+  if (range === 'today') return 'Today';
+  if (range === '7d') return 'Last 7 days';
+  if (range === 'all') return 'All time';
+  if (range === 'prev_month') return 'Previous month';
+  if (range === 'custom') {
+    const s = document.getElementById('customStart').value;
+    const e = document.getElementById('customEnd').value;
+    return s ? `${s}${e ? ' to ' + e : ' onward'}` : 'Custom range';
+  }
+  return 'This month';
 }
 
 function showSetupNote(msg) {
@@ -216,11 +238,22 @@ function showSetupNote(msg) {
 }
 
 function loadBilling() {
+  if (currentRange === 'custom' && !document.getElementById('customStart').value) {
+    return; // wait for the user to pick a start date and click Apply
+  }
   document.getElementById('kpiLabel').textContent = `Total spend — ${rangeLabelText(currentRange)}`;
   const token = localStorage.getItem('pipeline_token');
-  fetch(`${API_BASE}/openai-billing/summary?range=${currentRange}&account=${currentAccount}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
+  const compare = document.getElementById('compareToggle').checked;
+
+  let url = `${API_BASE}/openai-billing/summary?range=${currentRange}&account=${currentAccount}&compare=${compare}`;
+  if (currentRange === 'custom') {
+    const start = document.getElementById('customStart').value;
+    const end = document.getElementById('customEnd').value;
+    url += `&start=${start}`;
+    if (end) url += `&end=${end}`;
+  }
+
+  fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     .then(async res => {
       if (res.status === 404) {
         showSetupNote("⚠️ The /api/openai-billing/summary endpoint isn't live on the backend yet. Add the OpenAI proxy route to your Railway API to activate this page.");
@@ -247,6 +280,21 @@ function loadBilling() {
 function renderBilling(data) {
   lastBillingData = data;
   document.getElementById('kpiTotal').textContent = `$${data.totalUsd.toFixed(2)}`;
+
+  const compareEl = document.getElementById('kpiCompare');
+  if (data.comparison) {
+    const prev = data.comparison.totalUsd;
+    const diff = prev > 0 ? Math.round(((data.totalUsd - prev) / prev) * 100) : null;
+    const arrow = diff === null ? '' : (diff >= 0 ? '↑' : '↓');
+    const color = diff === null ? 'var(--ink-faint)' : (diff >= 0 ? 'var(--danger)' : 'var(--success)');
+    compareEl.style.display = 'block';
+    compareEl.style.color = color;
+    compareEl.textContent = diff === null
+      ? `Previous period: $${prev.toFixed(2)} (no prior spend to compare)`
+      : `${arrow} ${Math.abs(diff)}% vs previous period ($${prev.toFixed(2)})`;
+  } else {
+    compareEl.style.display = 'none';
+  }
 
   const daily = data.dailyTotals || [];
   if (dailyChart) dailyChart.destroy();
