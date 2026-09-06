@@ -130,10 +130,13 @@
         <h1>OpenAI Billing</h1>
         <p>Spend on your connected OpenAI organization.</p>
       </div>
-      <div class="tabs" id="rangeTabs">
-        <button class="tab" data-range="today">Today</button>
-        <button class="tab" data-range="7d">7 Days</button>
-        <button class="tab active" data-range="month">Month</button>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <select id="accountSelect" style="font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:var(--card);cursor:pointer;"></select>
+        <div class="tabs" id="rangeTabs">
+          <button class="tab" data-range="today">Today</button>
+          <button class="tab" data-range="7d">7 Days</button>
+          <button class="tab active" data-range="month">Month</button>
+        </div>
       </div>
     </div>
 
@@ -142,6 +145,19 @@
     <div class="kpi-card">
       <div class="kpi-label" id="kpiLabel">Total spend — this month</div>
       <div class="kpi-value" id="kpiTotal">—</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Token Usage</h3></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
+        <div><div style="font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px;">Input Tokens</div><div style="font-size:20px;font-weight:800;" id="tuInput">—</div></div>
+        <div><div style="font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px;">Output Tokens</div><div style="font-size:20px;font-weight:800;" id="tuOutput">—</div></div>
+        <div><div style="font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px;">Requests</div><div style="font-size:20px;font-weight:800;" id="tuRequests">—</div></div>
+      </div>
+      <table class="li-table">
+        <thead><tr><th>Model</th><th class="num">Input</th><th class="num">Output</th><th class="num">Requests</th></tr></thead>
+        <tbody id="modelUsageBody"></tbody>
+      </table>
     </div>
 
     <div class="panel">
@@ -161,6 +177,7 @@
 
 <script>
 let currentRange = 'month';
+let currentAccount = 0;
 let dailyChart = null;
 
 document.querySelectorAll('#rangeTabs .tab').forEach(btn => {
@@ -171,6 +188,28 @@ document.querySelectorAll('#rangeTabs .tab').forEach(btn => {
     loadBilling();
   });
 });
+
+document.getElementById('accountSelect').addEventListener('change', (e) => {
+  currentAccount = Number(e.target.value);
+  loadBilling();
+});
+
+function loadAccounts() {
+  const token = localStorage.getItem('pipeline_token');
+  fetch(`${API_BASE}/openai-billing/accounts`, { headers: { Authorization: `Bearer ${token}` } })
+    .then(res => res.ok ? res.json() : { accounts: [] })
+    .then(data => {
+      const select = document.getElementById('accountSelect');
+      const accounts = data.accounts || [];
+      if (accounts.length === 0) {
+        select.innerHTML = '<option value="0">No accounts configured</option>';
+        return;
+      }
+      select.innerHTML = accounts.map(a => `<option value="${a.index}">${a.name}</option>`).join('');
+      loadBilling();
+    })
+    .catch(() => loadBilling());
+}
 
 function rangeLabelText(range) {
   return range === 'today' ? 'Today' : range === '7d' ? 'Last 7 days' : 'This month';
@@ -185,7 +224,7 @@ function showSetupNote(msg) {
 function loadBilling() {
   document.getElementById('kpiLabel').textContent = `Total spend — ${rangeLabelText(currentRange)}`;
   const token = localStorage.getItem('pipeline_token');
-  fetch(`${API_BASE}/openai-billing/summary?range=${currentRange}`, {
+  fetch(`${API_BASE}/openai-billing/summary?range=${currentRange}&account=${currentAccount}`, {
     headers: { Authorization: `Bearer ${token}` }
   })
     .then(async res => {
@@ -213,6 +252,25 @@ function loadBilling() {
 
 function renderBilling(data) {
   document.getElementById('kpiTotal').textContent = `$${data.totalUsd.toFixed(2)}`;
+
+  const usage = data.tokenUsage || {};
+  document.getElementById('tuInput').textContent = (usage.inputTokens || 0).toLocaleString();
+  document.getElementById('tuOutput').textContent = (usage.outputTokens || 0).toLocaleString();
+  document.getElementById('tuRequests').textContent = (usage.numRequests || 0).toLocaleString();
+  const modelBody = document.getElementById('modelUsageBody');
+  const models = usage.byModel || [];
+  if (models.length === 0) {
+    modelBody.innerHTML = '<tr><td colspan="4"><div class="empty-note">No token usage in this period</div></td></tr>';
+  } else {
+    modelBody.innerHTML = models.map(m => `
+      <tr>
+        <td>${m.model}</td>
+        <td class="num">${m.inputTokens.toLocaleString()}</td>
+        <td class="num">${m.outputTokens.toLocaleString()}</td>
+        <td class="num">${m.requests.toLocaleString()}</td>
+      </tr>
+    `).join('');
+  }
 
   const daily = data.dailyTotals || [];
   if (dailyChart) dailyChart.destroy();
@@ -245,17 +303,17 @@ function renderBilling(data) {
   const items = data.topLineItems || [];
   if (items.length === 0) {
     body.innerHTML = '<tr><td colspan="2"><div class="empty-note">No cost line items in this period</div></td></tr>';
-    return;
+  } else {
+    body.innerHTML = items.map(li => `
+      <tr>
+        <td>${li.label}</td>
+        <td class="num">$${li.amount.toFixed(4)}</td>
+      </tr>
+    `).join('');
   }
-  body.innerHTML = items.map(li => `
-    <tr>
-      <td>${li.label}</td>
-      <td class="num">$${li.amount.toFixed(4)}</td>
-    </tr>
-  `).join('');
 }
 
-loadBilling();
+loadAccounts();
 </script>
 </body>
 </html>
