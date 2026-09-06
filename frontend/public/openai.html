@@ -166,6 +166,7 @@
     <div class="kpi-card">
       <div class="kpi-label" id="kpiLabel">Total spend — this month</div>
       <div class="kpi-value" id="kpiTotal">—</div>
+      <div id="kpiPhp" style="font-size:14px;font-weight:600;color:var(--ink-soft);margin-top:2px;"></div>
       <div id="kpiCompare" style="font-size:12.5px;font-weight:600;margin-top:8px;display:none;"></div>
     </div>
 
@@ -187,6 +188,23 @@
 <script>
 let currentRange = 'month';
 let currentAccount = 0;
+let usdToPhpRate = null;
+
+// Free, no-API-key exchange rate service — fetched once per page load and
+// cached, since exchange rates don't meaningfully change minute-to-minute.
+function fetchPhpRate() {
+  return fetch('https://open.er-api.com/v6/latest/USD')
+    .then(res => res.json())
+    .then(data => {
+      usdToPhpRate = data && data.rates && data.rates.PHP ? data.rates.PHP : null;
+    })
+    .catch(() => { usdToPhpRate = null; });
+}
+
+function phpEquivalent(usd) {
+  if (!usdToPhpRate) return '';
+  return ` (₱${(usd * usdToPhpRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+}
 let dailyChart = null;
 let lastBillingData = null;
 
@@ -280,6 +298,9 @@ function loadBilling() {
 function renderBilling(data) {
   lastBillingData = data;
   document.getElementById('kpiTotal').textContent = `$${data.totalUsd.toFixed(2)}`;
+  document.getElementById('kpiPhp').textContent = usdToPhpRate
+    ? `≈ ₱${(data.totalUsd * usdToPhpRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : '';
 
   const compareEl = document.getElementById('kpiCompare');
   if (data.comparison) {
@@ -291,7 +312,7 @@ function renderBilling(data) {
     compareEl.style.color = color;
     compareEl.textContent = diff === null
       ? `Previous period: $${prev.toFixed(2)} (no prior spend to compare)`
-      : `${arrow} ${Math.abs(diff)}% vs previous period ($${prev.toFixed(2)})`;
+      : `${arrow} ${Math.abs(diff)}% vs previous period ($${prev.toFixed(2)}${phpEquivalent(prev)})`;
   } else {
     compareEl.style.display = 'none';
   }
@@ -374,6 +395,7 @@ function exportBillingCsv() {
   URL.revokeObjectURL(url);
 }
 
+fetchPhpRate().then(() => { if (lastBillingData) renderBilling(lastBillingData); });
 loadAccounts();
 </script>
 </body>
