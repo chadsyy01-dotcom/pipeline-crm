@@ -18,7 +18,15 @@ const ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID;
 const API_TOKEN = process.env.CHATWOOT_API_TOKEN;
 
 function chatwootHeaders() {
-  return { api_access_token: API_TOKEN, 'Content-Type': 'application/json' };
+  // Some Chatwoot versions also accept a standard "Authorization: Bearer" header
+  // as a fallback for api_access_token. Sending both costs nothing, and helps
+  // when a reverse proxy in front of Chatwoot strips underscored headers
+  // (api_access_token) but passes standard ones (Authorization) through fine.
+  return {
+    api_access_token: API_TOKEN,
+    'Authorization': `Bearer ${API_TOKEN}`,
+    'Content-Type': 'application/json'
+  };
 }
 
 // Fetches a URL and safely parses JSON, throwing a descriptive error (with
