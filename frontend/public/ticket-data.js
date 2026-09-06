@@ -283,8 +283,19 @@
   let cachedPromise = null;
   function fetchTickets(forceRefresh) {
     if (cachedPromise && !forceRefresh) return cachedPromise;
-    cachedPromise = Promise.all(SHEET_SOURCES.map(parseSheetCsv))
-      .then(sheetResults => {
+    cachedPromise = Promise.allSettled(SHEET_SOURCES.map(parseSheetCsv))
+      .then(settled => {
+        const sheetResults = [];
+        settled.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            sheetResults.push(result.value);
+          } else {
+            // One flaky/unreachable sheet (e.g. a transient CORS or network
+            // error from Google's CDN) shouldn't break every other brand's
+            // data — log it and continue with whatever did load successfully.
+            console.warn(`Skipping sheet source #${i} (${SHEET_SOURCES[i].url}) — failed to load:`, result.reason);
+          }
+        });
         const seen = new Map();
         sheetResults.forEach(({ rows, brandOverride, kind }) => {
           rows.forEach(row => {
