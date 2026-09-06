@@ -12,7 +12,7 @@ app.use('/api/companies', require('./routes/companies'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/deal-stages', require('./routes/dealStages'));
 app.use('/api/deals', require('./routes/deals'));
-app.use('/api/tasks', require('./routes/tasks'));
+app.use('/api/livechat', require('./routes/chatwoot'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
