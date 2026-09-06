@@ -360,6 +360,10 @@
           <select id="issueFilter" class="issue-select">
             <option value="all">All Issues</option>
           </select>
+          <button id="exportCsvBtn" onclick="exportTicketsToCsv()" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -395,6 +399,40 @@
   const PAGE_SIZE = 10;
   let allTickets = [];
   let filteredTickets = [];
+
+  // Exports whatever is currently shown (respects all active filters:
+  // status tab, brand, date range, issue, and search box).
+  function exportTicketsToCsv() {
+    if (filteredTickets.length === 0) {
+      alert('No tickets to export with the current filters.');
+      return;
+    }
+    const rows = filteredTickets.map(t => ({
+      'Ticket ID': t.id,
+      'Brand': t.brandLabel,
+      'Customer': t.name,
+      'Issue': t.issue,
+      'Channel': t.channel,
+      'Priority': t.priorityLabel,
+      'Status': t.statusLabel,
+      'Submitted At': t.submitted ? t.submitted.toLocaleString() : '',
+      'Acknowledged By': t.acknowledgedBy || '',
+      'Acknowledged At': t.acknowledgedAt ? t.acknowledgedAt.toLocaleString() : '',
+      'Resolved By': t.resolvedBy || '',
+      'Resolved At': t.resolvedAt ? t.resolvedAt.toLocaleString() : ''
+    }));
+    const csv = Papa.unparse(rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `tickets-export-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
   let currentFilter = 'all';
   let currentBrand = 'all';
   let currentIssue = 'all';
