@@ -64,11 +64,13 @@ router.get('/overview', require('../middleware/auth').requireAuth, async (req, r
     const range = req.query.range || 'today';
     const { since, until } = rangeToUnix(range);
     const base = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}`;
+    const baseV2 = `${CHATWOOT_URL}/api/v2/accounts/${ACCOUNT_ID}`;
 
     // 1) Messages received in range (conversations report, incoming message count)
+    //    NOTE: newer Chatwoot versions moved /reports/conversations to the v2 API.
     const convReport = await fetchChatwootJson(
       'conversations report',
-      `${base}/reports/conversations?metric=incoming_messages_count&type=account&since=${since}&until=${until}`
+      `${baseV2}/reports/conversations?metric=incoming_messages_count&type=account&since=${since}&until=${until}`
     );
     const messagesReceived = Array.isArray(convReport)
       ? convReport.reduce((sum, point) => sum + (point.value || 0), 0)
@@ -103,9 +105,10 @@ router.get('/overview', require('../middleware/auth').requireAuth, async (req, r
       .map(([word, count]) => ({ word, count }));
 
     // 4) Chats handled by agent (and bot, if it appears as an agent record)
+    //    NOTE: also on the v2 reports API in newer Chatwoot versions.
     const agentReport = await fetchChatwootJson(
       'agents report',
-      `${base}/reports/agents?metric=conversations_count&since=${since}&until=${until}`
+      `${baseV2}/reports/agents?metric=conversations_count&since=${since}&until=${until}`
     );
     const byAgent = (agentReport || []).map(a => ({
       name: a.name || a.email || `Agent ${a.id}`,
