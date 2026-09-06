@@ -91,6 +91,16 @@
   .icon-btn{position:relative;width:38px;height:38px;border-radius:10px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer;}
   .icon-btn svg{width:17px;height:17px;color:var(--ink-soft);}
   .icon-btn .badge{position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:20px;}
+  .notif-dropdown{position:absolute;top:calc(100% + 10px);right:0;background:var(--card);border-radius:12px;box-shadow:var(--shadow);width:320px;max-height:380px;overflow-y:auto;display:none;z-index:50;cursor:default;}
+  .notif-dropdown.open{display:block;}
+  .notif-dropdown .notif-head{padding:12px 14px;font-size:13px;font-weight:700;border-bottom:1px solid var(--line);}
+  .notif-item{display:block;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .notif-item:last-child{border-bottom:none;}
+  .notif-item:hover{background:var(--bg);}
+  .notif-item .n-id{font-size:12px;font-weight:700;color:var(--primary);}
+  .notif-item .n-name{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:2px;}
+  .notif-item .n-time{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .notif-empty{padding:24px 14px;text-align:center;color:var(--ink-faint);font-size:12.5px;}
   .profile{display:flex;align-items:center;gap:9px;cursor:pointer;position:relative;}
   .profile-dropdown{position:absolute;top:calc(100% + 10px);right:0;background:var(--card);border-radius:12px;box-shadow:var(--shadow);width:200px;padding:8px;display:none;z-index:50;}
   .profile-dropdown.open{display:block;}
@@ -325,7 +335,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           Search ticket, customer or ID...
         </div>
-        <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="badge" id="notifBadge" style="display:none;">0</span></div>
+        <div class="icon-btn" id="notifToggle" onclick="toggleNotifMenu(event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span class="badge" id="notifBadge" style="display:none;">0</span>
+          <div class="notif-dropdown" id="notifDropdown" onclick="event.stopPropagation()">
+            <div class="notif-head">New Tickets</div>
+            <div id="notifList"></div>
+          </div>
+        </div>
         <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <div class="profile" id="profileToggle" onclick="toggleProfileMenu(event)">
           <div class="avatar">CS</div>
@@ -565,16 +582,39 @@ function markLiveUpdated() {
 function renderNotifBadge() {
   // Only "New" (pending) tickets count as unread notifications — once an
   // agent moves one to In Progress (or further), it drops off automatically.
-  const newCount = allTickets.filter(t => t.statusCls === 'pending').length;
+  const newTickets = allTickets.filter(t => t.statusCls === 'pending').sort((a, b) => b.submitted - a.submitted);
   const badge = document.getElementById('notifBadge');
-  if (!badge) return;
-  if (newCount > 0) {
-    badge.textContent = newCount > 99 ? '99+' : newCount;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
+  if (badge) {
+    if (newTickets.length > 0) {
+      badge.textContent = newTickets.length > 99 ? '99+' : newTickets.length;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
   }
+  const list = document.getElementById('notifList');
+  if (!list) return;
+  if (newTickets.length === 0) {
+    list.innerHTML = '<div class="notif-empty">No new tickets right now</div>';
+    return;
+  }
+  list.innerHTML = newTickets.slice(0, 20).map(t => `
+    <a class="notif-item" href="tickets.html?search=${encodeURIComponent(t.id)}">
+      <div class="n-id">${TicketData.escapeHtml(t.id)}</div>
+      <div class="n-name">${TicketData.escapeHtml(t.name)} — ${TicketData.escapeHtml(t.issue)}</div>
+      <div class="n-time">${TicketData.relativeTime(t.submitted)}</div>
+    </a>
+  `).join('');
 }
+
+function toggleNotifMenu(e) {
+  e.stopPropagation();
+  document.getElementById('notifDropdown').classList.toggle('open');
+}
+document.addEventListener('click', () => {
+  const dd = document.getElementById('notifDropdown');
+  if (dd) dd.classList.remove('open');
+});
 
 function renderAll() {
   const now = new Date();
