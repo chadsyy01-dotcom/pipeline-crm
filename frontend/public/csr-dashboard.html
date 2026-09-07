@@ -243,9 +243,20 @@
       if (!res.ok) throw new Error("Invalid session");
       const data = await res.json();
       const user = data.user || data; // /api/auth/me returns { user: {...} }
-      const nameEl = document.querySelector(".profile-name");
-      if (nameEl && user && user.name) {
-        nameEl.childNodes[0].nodeValue = user.name;
+      if (user) {
+        const nameEl = document.querySelector(".profile-name");
+        if (nameEl && user.name) {
+          nameEl.childNodes[0].nodeValue = user.name;
+        }
+        const roleEl = document.querySelector(".profile-name span");
+        if (roleEl) {
+          const roleLabels = { admin: 'Administrator', member: 'Team Member' };
+          roleEl.textContent = roleLabels[user.role] || (user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Team Member');
+        }
+        const avatarEl = document.querySelector(".profile .avatar");
+        if (avatarEl && user.name) {
+          avatarEl.textContent = user.name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+        }
       }
     } catch (err) {
       localStorage.removeItem("pipeline_token");
