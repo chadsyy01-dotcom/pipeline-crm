@@ -129,6 +129,16 @@
   .ftab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
   .ftab .count{margin-left:6px;opacity:.75;}
   .issue-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);max-width:240px;}
+  .date-filter-wrap{position:relative;}
+  .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:60;width:210px;}
+  .custom-date-pop.open{display:block;}
+  .custom-date-pop label{display:block;font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;}
+  .custom-date-pop label:first-child{margin-top:0;}
+  .custom-date-pop input[type="date"]{width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--line);font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--bg);}
+  .custom-date-actions{display:flex;gap:8px;margin-top:14px;}
+  .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);}
+  #customDateCancel{background:var(--card);color:var(--ink-soft);}
+  #customDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
 
   /* TICKET TABLE */
   .t-table{width:100%;border-collapse:collapse;}
@@ -365,14 +375,27 @@
       <div class="panel-head" style="margin-top:-8px;">
         <div class="filter-tabs" id="brandTabs"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <select id="dateFilter" class="issue-select">
-            <option value="all">All Time</option>
-            <option value="today">Today</option>
-            <option value="yesterday">Yesterday</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
-            <option value="month">This Month</option>
-          </select>
+          <div class="date-filter-wrap" id="dateFilterWrap">
+            <select id="dateFilter" class="issue-select">
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="month">This Month</option>
+              <option value="custom" id="customDateOption">Custom Date</option>
+            </select>
+            <div class="custom-date-pop" id="customDatePop">
+              <label for="customDateFrom">From</label>
+              <input type="date" id="customDateFrom">
+              <label for="customDateTo">To</label>
+              <input type="date" id="customDateTo">
+              <div class="custom-date-actions">
+                <button type="button" id="customDateCancel">Cancel</button>
+                <button type="button" id="customDateApply">Apply</button>
+              </div>
+            </div>
+          </div>
           <select id="issueFilter" class="issue-select">
             <option value="all">All Issues</option>
           </select>
@@ -454,6 +477,8 @@
   let currentBrand = 'all';
   let currentIssue = 'all';
   let currentDateFilter = 'all';
+  let customDateFrom = null;
+  let customDateTo = null;
   let pendingIssueParam = null;
   let currentSearch = '';
   let currentPage = 1;
@@ -605,7 +630,19 @@
     if (currentDateFilter === 'month') {
       return t.submitted.getFullYear() === now.getFullYear() && t.submitted.getMonth() === now.getMonth();
     }
+    if (currentDateFilter === 'custom') {
+      if (!customDateFrom || !customDateTo) return true;
+      return t.submitted >= customDateFrom && t.submitted <= customDateTo;
+    }
     return true;
+  }
+
+  // Formats the "Custom Date" <option> label to show the picked range, e.g. "Sep 1 – Sep 7".
+  function updateCustomDateOptionLabel() {
+    const opt = document.getElementById('customDateOption');
+    if (!opt || !customDateFrom || !customDateTo) return;
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    opt.textContent = `${fmt(customDateFrom)} – ${fmt(customDateTo)}`;
   }
 
   // Checks a ticket against all active filters. Pass e.g. {skipStatus:true} to
@@ -748,6 +785,8 @@
     const params = new URLSearchParams(window.location.search);
     const statusParam = params.get('status');
     const dateParam = params.get('date');
+    const dateFromParam = params.get('dateFrom');
+    const dateToParam = params.get('dateTo');
     const searchParam = params.get('search');
     pendingIssueParam = params.get('issue');
     if (statusParam) {
@@ -756,7 +795,18 @@
         tab.classList.toggle('active', tab.dataset.status === statusParam);
       });
     }
-    if (dateParam) {
+    if (dateParam === 'custom' && dateFromParam && dateToParam) {
+      customDateFrom = new Date(dateFromParam + 'T00:00:00');
+      customDateTo = new Date(dateToParam + 'T23:59:59.999');
+      currentDateFilter = 'custom';
+      const dateSelect = document.getElementById('dateFilter');
+      if (dateSelect) dateSelect.value = 'custom';
+      const fromInput = document.getElementById('customDateFrom');
+      const toInput = document.getElementById('customDateTo');
+      if (fromInput) fromInput.value = dateFromParam;
+      if (toInput) toInput.value = dateToParam;
+      updateCustomDateOptionLabel();
+    } else if (dateParam) {
       currentDateFilter = dateParam;
       const dateSelect = document.getElementById('dateFilter');
       if (dateSelect) dateSelect.value = dateParam;
@@ -803,9 +853,54 @@
   }
 
   // Date range filter
-  document.getElementById('dateFilter').addEventListener('change', (e) => {
+  const dateFilterSelect = document.getElementById('dateFilter');
+  const customDatePop = document.getElementById('customDatePop');
+  const customDateFromInput = document.getElementById('customDateFrom');
+  const customDateToInput = document.getElementById('customDateTo');
+
+  dateFilterSelect.addEventListener('change', (e) => {
+    if (e.target.value === 'custom') {
+      // Don't apply yet — open the picker and wait for "Apply".
+      customDatePop.classList.add('open');
+      customDateFromInput.focus();
+      return;
+    }
+    customDatePop.classList.remove('open');
     currentDateFilter = e.target.value;
     applyFilters();
+  });
+
+  document.getElementById('customDateApply').addEventListener('click', () => {
+    const fromVal = customDateFromInput.value;
+    const toVal = customDateToInput.value;
+    if (!fromVal || !toVal) {
+      alert('Please pick both a start and end date.');
+      return;
+    }
+    if (fromVal > toVal) {
+      alert('Start date must be before the end date.');
+      return;
+    }
+    customDateFrom = new Date(fromVal + 'T00:00:00');
+    customDateTo = new Date(toVal + 'T23:59:59.999');
+    currentDateFilter = 'custom';
+    dateFilterSelect.value = 'custom';
+    updateCustomDateOptionLabel();
+    customDatePop.classList.remove('open');
+    applyFilters();
+  });
+
+  document.getElementById('customDateCancel').addEventListener('click', () => {
+    customDatePop.classList.remove('open');
+    dateFilterSelect.value = currentDateFilter; // revert to whatever was actually applied
+  });
+
+  // Close the popover on outside click without discarding an already-applied custom range.
+  document.addEventListener('click', (e) => {
+    if (!customDatePop.classList.contains('open')) return;
+    if (document.getElementById('dateFilterWrap').contains(e.target)) return;
+    customDatePop.classList.remove('open');
+    dateFilterSelect.value = currentDateFilter;
   });
 
   // Issue filter dropdown — built dynamically from distinct issue/subcategory values
