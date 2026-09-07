@@ -261,6 +261,16 @@
         if (avatarEl && user.name) {
           avatarEl.textContent = user.name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
         }
+        // Greeting name must match whoever is actually logged in, not a hardcoded placeholder.
+        const greetingEl = document.getElementById("greetingText");
+        if (greetingEl && user.name) {
+          const phHour = Number(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', hour12: false }));
+          let greeting = 'Good evening';
+          if (phHour >= 5 && phHour < 12) greeting = 'Good morning';
+          else if (phHour >= 12 && phHour < 18) greeting = 'Good afternoon';
+          const firstName = user.name.trim().split(/\s+/)[0];
+          greetingEl.textContent = `${greeting}, ${firstName} 👋`;
+        }
       }
     } catch (err) {
       localStorage.removeItem("pipeline_token");
@@ -345,7 +355,7 @@
   <main class="main">
     <div class="topbar">
       <div class="greeting">
-        <h1 id="greetingText">Good morning, Chad 👋</h1>
+        <h1 id="greetingText">Hello 👋</h1>
         <p>Here's what's happening with your support today. <span id="liveIndicator" style="font-size:11.5px;font-weight:600;color:var(--ink-faint);">● Live</span></p>
       </div>
       <div class="topbar-right">
@@ -535,6 +545,10 @@ Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // Greeting is based on Philippine time (Asia/Manila) regardless of the
 // visitor's own device timezone, since the whole team operates on PH time.
+// This runs first (before the auth check resolves) so only the time-of-day
+// greeting is set here — no name. checkAuth() overwrites this with the
+// actual logged-in user's first name once /api/auth/me responds, so the
+// greeting always matches the profile shown top-right, never a stale name.
 (function setGreetingByPHTime() {
   const el = document.getElementById('greetingText');
   if (!el) return;
@@ -542,8 +556,7 @@ Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
   let greeting = 'Good evening';
   if (phHour >= 5 && phHour < 12) greeting = 'Good morning';
   else if (phHour >= 12 && phHour < 18) greeting = 'Good afternoon';
-  const name = el.textContent.split(',')[1] ? el.textContent.split(',')[1].trim() : 'Chad 👋';
-  el.textContent = `${greeting}, ${name}`;
+  el.textContent = `${greeting}! 👋`;
 })();
 
 const { escapeHtml, relativeTime, compactElapsed, formatDuration, isSameLocalDay, dayKey, colorForName, initialsForName } = TicketData;
