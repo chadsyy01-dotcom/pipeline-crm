@@ -36,7 +36,8 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=0&single=true&output=csv", sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE" }, // Casinyeam (CSY)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBUDcdD5qJtw1GjRwHkWKKaIgcvMQUcYlMIq61H8JV-6piChgqQIn-8K0RyyU6KnrCcvkfhxkp1VWd/pub?gid=0&single=true&output=csv", brandOverride: { code: 'HPP_BD', label: 'HypePlay BD' }, sheetId: "1Tm444iBlAx2S79MbXIo3tlCkZeiHut21-Se8P1CXCIA" }, // HypePlay BD — shares the "HPP" ticket-ID prefix with HypePlay PH, disambiguated by source sheet
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" } // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2finxr4w7O8FK0KhhGQFB7s7Xs8arcLIZOk4vFS_DxpbJNUElnIN802VNzOYcy0HT-zJUIcGvDjso/pub?output=csv", brandOverride: { code: 'TMT_PLAY', label: 'TMTPLAY' }, sheetId: "12lRRNvsG_o-AOD6_FggRA87yvqxVwJPXDTgV79TcTpI" } // TMTPLAY — shares the "TMT" ticket-ID prefix with TMTCash, disambiguated by source sheet
   ];
 
   const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
@@ -61,7 +62,8 @@
     CSY: 'Casinyeam',
     MGK: 'MasterGoldKey',
     LSP: 'LuckyStacks PH',
-    SSP: 'SuperScatter PH'
+    SSP: 'SuperScatter PH',
+    TMT_PLAY: 'TMTPLAY'
   };
 
   function brandFromTicketId(ticketId) {
