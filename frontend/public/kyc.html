@@ -210,6 +210,24 @@
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMIr9tw7hPBc2qm04VIOcH96mGNDkXmzKWvX_Um9oRo4Pd-R2GmsLlv6YR6lBpS48TMqWbxUtg5-J2/pub?output=csv";
 const STAFF_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSiMkVMVvQkzzKxi_BVqQ3IcOqcxUMrnH2ArVrKLy0Lk_LdKugfIJwZ6GWB8_9SZoUc8OxDQEoDN7vV/pub?gid=1813383915&single=true&output=csv";
 
+// This staff sheet is a single live "as of now" snapshot, not a historical
+// per-date log — so the date filter can't pull different data per date.
+// Instead, it validates the picked date against the sheet's own date label
+// (row 0) and tells the user plainly when there's nothing to show, rather
+// than silently displaying the wrong day's numbers or doing nothing at all.
+let latestStaffRows = null;
+let currentStaffDateYMD = null;
+
+// Local-time "YYYY-MM-DD", matching what <input type="date"> gives us —
+// avoids the day-shift bugs that toISOString()/UTC methods can cause here.
+function toYMD(d) {
+  if (!(d instanceof Date) || isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 // Turns "3,889" -> 3889, "`11" -> 11, "" -> 0 — strips anything that isn't a
 // digit, dot or minus sign, since these hand-maintained sheets sometimes have
 // stray characters from copy/paste.
@@ -296,9 +314,33 @@ function parseAndRender(rows) {
 function renderStaffTable(rows) {
   // Row 0 is a date label (e.g. "September 6, 2026"), row 1 is the header
   // (Staff Name, Pending (now), Done Today), data starts at row 2.
+  latestStaffRows = rows;
   const dateLabel = (rows[0] && rows[0][0]) || '';
   document.getElementById('asOfLabel').textContent = dateLabel ? `As of ${dateLabel}` : '';
+  currentStaffDateYMD = dateLabel ? toYMD(new Date(dateLabel)) : null;
 
+  applyStaffDateFilter();
+}
+
+function applyStaffDateFilter() {
+  const tableWrap = document.getElementById('staffTableWrap');
+  const mismatchEl = document.getElementById('staffDateMismatch');
+  const picked = document.getElementById('staffDateFilter').value; // "" or "YYYY-MM-DD"
+
+  if (picked && currentStaffDateYMD && picked !== currentStaffDateYMD) {
+    tableWrap.style.display = 'none';
+    mismatchEl.style.display = 'block';
+    const friendly = new Date(picked + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    mismatchEl.textContent = `No data for ${friendly} — this sheet only tracks a live snapshot as of ${document.getElementById('asOfLabel').textContent.replace('As of ', '')}. Clear the date to view it.`;
+    return;
+  }
+
+  tableWrap.style.display = '';
+  mismatchEl.style.display = 'none';
+  renderStaffRows(latestStaffRows || []);
+}
+
+function renderStaffRows(rows) {
   const staffRows = rows.slice(2).filter(r => r && r[0] && r[0].trim() !== '');
   const parsed = staffRows.map(r => ({
     name: r[0].trim(),
@@ -321,6 +363,9 @@ function renderStaffTable(rows) {
   `).join('');
 }
 
+document.getElementById('staffDateFilter').max = toYMD(new Date());
+document.getElementById('staffDateFilter').addEventListener('change', applyStaffDateFilter);
+
 function loadKyc() {
   Papa.parse(SHEET_URL + '&_cb=' + Date.now(), {
     download: true,
@@ -339,7 +384,7 @@ function loadKyc() {
 }
 
 loadKyc();
-setInterval(loadKyc, 60000);
+setInterval(loadKyc, 20000);
 </script>
 </body>
 </html>
