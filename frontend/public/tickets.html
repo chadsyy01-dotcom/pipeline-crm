@@ -151,6 +151,7 @@
   .t-table tbody tr{cursor:pointer;transition:background .15s;}
   .t-table tbody tr:hover{background:#F8FAFC;}
   .t-id{font-weight:700;color:var(--primary);}
+  .t-id a:hover{text-decoration:underline;}
   .t-customer{display:flex;align-items:center;gap:9px;}
   .t-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
   .t-cname{font-weight:700;font-size:13px;}
@@ -689,7 +690,7 @@
     pageItems.forEach(t => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="t-id">${escapeHtml(t.id)}</td>
+        <td class="t-id">${t.sheetLink ? `<a href="${escapeHtml(t.sheetLink)}" target="_blank" rel="noopener" title="Open in Google Sheet">${escapeHtml(t.id)}</a>` : escapeHtml(t.id)}</td>
         <td>
           <div class="t-customer">
             <div class="t-av" style="background:${t.color};">${escapeHtml(t.init)}</div>
