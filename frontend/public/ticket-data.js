@@ -37,7 +37,8 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBUDcdD5qJtw1GjRwHkWKKaIgcvMQUcYlMIq61H8JV-6piChgqQIn-8K0RyyU6KnrCcvkfhxkp1VWd/pub?gid=0&single=true&output=csv", brandOverride: { code: 'HPP_BD', label: 'HypePlay BD' }, sheetId: "1Tm444iBlAx2S79MbXIo3tlCkZeiHut21-Se8P1CXCIA" }, // HypePlay BD — shares the "HPP" ticket-ID prefix with HypePlay PH, disambiguated by source sheet
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2finxr4w7O8FK0KhhGQFB7s7Xs8arcLIZOk4vFS_DxpbJNUElnIN802VNzOYcy0HT-zJUIcGvDjso/pub?output=csv", brandOverride: { code: 'TMT_PLAY', label: 'TMTPLAY' }, sheetId: "12lRRNvsG_o-AOD6_FggRA87yvqxVwJPXDTgV79TcTpI" } // TMTPLAY — shares the "TMT" ticket-ID prefix with TMTCash, disambiguated by source sheet
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2finxr4w7O8FK0KhhGQFB7s7Xs8arcLIZOk4vFS_DxpbJNUElnIN802VNzOYcy0HT-zJUIcGvDjso/pub?output=csv", brandOverride: { code: 'TMT_PLAY', label: 'TMTPLAY' }, sheetId: "12lRRNvsG_o-AOD6_FggRA87yvqxVwJPXDTgV79TcTpI" }, // TMTPLAY — shares the "TMT" ticket-ID prefix with TMTCash, disambiguated by source sheet
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpnmq17Q7n0uLYDgH2WvE2SZFNkvqPgQKnTLY0LT8gqJPlxQQZUmyL1JSlHF9xPGYfvBDLpCpK2Cjp/pub?gid=648660778&single=true&output=csv", kind: 'division', sheetId: "1YB5OBsZ3aqY5Hs5CZeNEU0yO36GcQI74pJYJvjADOww" } // SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITORING tab (brand comes from the Division column per row, see DIVISION_BRAND_MAP; any other Division value is filtered out)
   ];
 
   const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
@@ -63,7 +64,8 @@
     MGK: 'MasterGoldKey',
     LSP: 'LuckyStacks PH',
     SSP: 'SuperScatter PH',
-    TMT_PLAY: 'TMTPLAY'
+    TMT_PLAY: 'TMTPLAY',
+    MNC: 'Manila Casino'
   };
 
   function brandFromTicketId(ticketId) {
@@ -99,6 +101,25 @@
   function statusInfo(raw) {
     const key = (raw || '').trim().toLowerCase();
     return STATUS_MAP[key] || { label: raw || 'Unknown', cls: 'unknown' };
+  }
+
+  // Used only by mapDivisionRow — this sheet has no Ticket ID prefix scheme
+  // (Reference IDs are just timestamp+username), so brand comes from its
+  // "Division" column instead. Any Division not listed here is deliberately
+  // excluded from the dataset (per-brand opt-in, not opt-out).
+  const DIVISION_BRAND_MAP = {
+    'superscatter ph': { code: 'SSP', label: 'SuperScatter PH' },
+    'manila casino': { code: 'MNC', label: 'Manila Casino' },
+    'casinyeam': { code: 'CSY', label: 'Casinyeam' }
+  };
+
+  // Parses "H:MM:SS" / "M:SS" duration text (e.g. "0:18:25") into seconds.
+  // Returns null for empty/unparseable values.
+  function parseHmsToSeconds(str) {
+    if (!str || typeof str !== 'string') return null;
+    const parts = str.trim().split(':').map(Number);
+    if (parts.some(isNaN) || parts.length === 0) return null;
+    return parts.reduce((total, part) => total * 60 + part, 0);
   }
 
   // Deep-links straight to a ticket's row in the live, editable sheet (not the
@@ -307,7 +328,49 @@
     };
   }
 
-  let cachedPromise = null;
+  // Maps a "REQUEST MONITORING"-style row (Reference ID / Division / Bot Notif Time /
+  // Checking Time / Done Time / Handled By / ...) — used for sheets that track
+  // multiple brands in one tab via a Division column instead of a Ticket ID prefix.
+  // Returns null (filtered out) for any Division not in DIVISION_BRAND_MAP, so only
+  // explicitly opted-in brands ever make it into the dataset.
+  function mapDivisionRow(row, sheetMeta) {
+    if (!row['Reference ID']) return null;
+    const brand = DIVISION_BRAND_MAP[(row['Division'] || '').trim().toLowerCase()];
+    if (!brand) return null;
+    const submitted = new Date(row['Bot Notif Time']);
+    if (isNaN(submitted.getTime())) return null;
+    const name = row['Username'] || 'Unknown';
+    const category = (row['Concern Type'] || '').trim();
+    const subcategory = (row['Subcategory'] || '').trim();
+    const acknowledgedAt = row['Checking Time'] ? new Date(row['Checking Time']) : null;
+    const resolvedAt = row['Done Time'] ? new Date(row['Done Time']) : null;
+    const si = statusInfo(row['Status']);
+    const handledBy = row['Handled By'] || null;
+    return {
+      id: row['Reference ID'],
+      name,
+      init: initialsForName(name),
+      color: colorForName(name),
+      category,
+      issue: subcategory || category || '—',
+      channel: 'Bot Request',
+      brandCode: brand.code,
+      brandLabel: brand.label,
+      priority: 'medium',
+      priorityLabel: 'NORMAL',
+      statusRaw: row['Status'],
+      statusCls: si.cls,
+      statusLabel: si.label,
+      submitted,
+      acknowledgedBy: handledBy,
+      acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
+      resolvedBy: handledBy,
+      resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
+      ackDurationSec: parseHmsToSeconds(row['Acknowledge Duration']),
+      resolveDurationSec: parseHmsToSeconds(row['Task Duration']),
+      sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
+    };
+  }
   function fetchTickets(forceRefresh) {
     if (cachedPromise && !forceRefresh) return cachedPromise;
     cachedPromise = Promise.allSettled(SHEET_SOURCES.map(parseSheetCsv))
@@ -329,6 +392,7 @@
           rows.forEach(row => {
             const ticket = kind === 'followup' ? mapFollowupRow(row, sheetMeta)
               : kind === 'callback' ? mapCallbackRow(row, sheetMeta)
+              : kind === 'division' ? mapDivisionRow(row, sheetMeta)
               : mapTicketRow(row, brandOverride, sheetMeta);
             if (!ticket) return;
             // De-dupe by brand+id (scoped per brand so that two different
