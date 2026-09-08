@@ -371,9 +371,27 @@
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
+  // Guards against a single hung request (e.g. a fetch that never calls back)
+  // blocking Promise.allSettled forever, which would otherwise freeze the
+  // whole dashboard on "Loading…" indefinitely. After `ms`, the source is
+  // treated as failed (skipped, same as a network error) so everything else
+  // can still render.
+  function withTimeout(promise, ms, label) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms: ${label}`)), ms);
+      promise.then(
+        val => { clearTimeout(timer); resolve(val); },
+        err => { clearTimeout(timer); reject(err); }
+      );
+    });
+  }
+
+  const SOURCE_TIMEOUT_MS = 15000;
+
+  let cachedPromise = null;
   function fetchTickets(forceRefresh) {
     if (cachedPromise && !forceRefresh) return cachedPromise;
-    cachedPromise = Promise.allSettled(SHEET_SOURCES.map(parseSheetCsv))
+    cachedPromise = Promise.allSettled(SHEET_SOURCES.map(source => withTimeout(parseSheetCsv(source), SOURCE_TIMEOUT_MS, source.url)))
       .then(settled => {
         const sheetResults = [];
         settled.forEach((result, i) => {
