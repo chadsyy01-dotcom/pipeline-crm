@@ -9,6 +9,12 @@
   // If two brands ever share the same prefix (e.g. "HPP" reused across countries),
   // give the affected source an explicit `brandOverride` so it isn't misattributed
   // to whichever brand that prefix normally maps to.
+  //
+  // Optional `sheetId`: the REAL Google Sheet ID (from the normal .../d/{ID}/edit
+  // share link — NOT the long "Publish to web" ID already in `url`). When present,
+  // each ticket gets a `sheetLink` that deep-links straight to its row in the live,
+  // editable sheet. Add it per-brand as those real IDs become available; sources
+  // without it simply get no link (Ticket ID renders as plain text, same as before).
   const SHEET_SOURCES = [
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv" }, // Buenas PH — Deposit
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyi3716uR8070u3tMdSgcDB9QmtJb6SkJ_3DHAyHfQkl0tgwNr9f5pBZxXrv0gxQOy3zb4QxXoyYgp/pub?gid=0&single=true&output=csv" }, // Buenas PH — Withdrawal
@@ -16,7 +22,7 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=906571162&single=true&output=csv" }, // Buenas PH — Error/Bug
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=2007332310&single=true&output=csv" }, // Buenas PH — Bonus/Reward
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=1356077885&single=true&output=csv" }, // Buenas PH — Callback Request (uses standard Ticket ID schema)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=0&single=true&output=csv" }, // TMTCash
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=0&single=true&output=csv", sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJjSjsokoykFPem4oIurq1-ex1Yho3IsHplupTHPiSs6wueznpFyx2OL2hdYHkXUPePZH1KnJKeiO0/pub?gid=0&single=true&output=csv" }, // Mobile Casino Play (MCP)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=0&single=true&output=csv" }, // ManilaPlay (MNP)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=1958931723&single=true&output=csv", kind: 'followup' }, // ManilaPlay — Follow Up
@@ -29,8 +35,8 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0Sbf9dckRTWoYtJJnXD6uaxrqSn8-wnCHGJk-R8ZU34VvlttKyThhLknBcmm_vQgfERoIAXSRFHth/pub?gid=0&single=true&output=csv" }, // LuckyStacks PH (LSP)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=0&single=true&output=csv" }, // Casinyeam (CSY)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBUDcdD5qJtw1GjRwHkWKKaIgcvMQUcYlMIq61H8JV-6piChgqQIn-8K0RyyU6KnrCcvkfhxkp1VWd/pub?gid=0&single=true&output=csv", brandOverride: { code: 'HPP_BD', label: 'HypePlay BD' } }, // HypePlay BD — shares the "HPP" ticket-ID prefix with HypePlay PH, disambiguated by source sheet
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup' }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback' } // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" } // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
   ];
 
   const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
@@ -93,6 +99,14 @@
     return STATUS_MAP[key] || { label: raw || 'Unknown', cls: 'unknown' };
   }
 
+  // Deep-links straight to a ticket's row in the live, editable sheet (not the
+  // published CSV snapshot). null when we don't have a real sheetId for that
+  // brand yet — callers should just render plain text in that case.
+  function buildSheetLink(sheetMeta, rowNumber) {
+    if (!sheetMeta || !sheetMeta.sheetId || rowNumber == null) return null;
+    return `https://docs.google.com/spreadsheets/d/${sheetMeta.sheetId}/edit#gid=${sheetMeta.gid}&range=A${rowNumber}`;
+  }
+
   function relativeTime(dateStrOrDate) {
     const then = dateStrOrDate instanceof Date ? dateStrOrDate : new Date(dateStrOrDate);
     if (isNaN(then.getTime())) return '—';
@@ -153,18 +167,26 @@
         return;
       }
       const bustUrl = source.url + (source.url.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+      const gidMatch = source.url.match(/[?&]gid=(\d+)/);
+      const gid = gidMatch ? gidMatch[1] : '0';
       Papa.parse(bustUrl, {
         download: true,
         header: true,
         skipEmptyLines: true,
-        complete: (results) => resolve({ rows: results.data || [], brandOverride: source.brandOverride || null, kind: source.kind || 'ticket' }),
+        complete: (results) => {
+          // Row 1 is the header, so the first data row is sheet row 2. This only
+          // stays accurate if there are no blank rows *within* the data range —
+          // skipEmptyLines would otherwise shift later rows out of sync.
+          const rows = (results.data || []).map((row, i) => ({ ...row, __rowNumber: i + 2 }));
+          resolve({ rows, brandOverride: source.brandOverride || null, kind: source.kind || 'ticket', sheetId: source.sheetId || null, gid });
+        },
         error: (err) => reject(err)
       });
     });
   }
 
   // Maps a normal ticket-sheet row (Ticket ID / Username / Category / ...) to our common shape.
-  function mapTicketRow(row, brandOverride) {
+  function mapTicketRow(row, brandOverride, sheetMeta) {
     if (!row['Ticket ID']) return null;
     const submitted = new Date(row['Submitted At']);
     if (isNaN(submitted.getTime())) return null;
@@ -198,13 +220,14 @@
       resolvedBy: row['Resolved By'] || null,
       resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
       ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
-      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
+      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
+      sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
 
   // Maps a "Follow Up" sheet row (Reference ID / Query / Query Type / ...) to the
   // same common shape, so it flows through every KPI/chart/list alongside real tickets.
-  function mapFollowupRow(row) {
+  function mapFollowupRow(row, sheetMeta) {
     if (!row['Reference ID']) return null;
     const submitted = new Date(row['Submitted At']);
     if (isNaN(submitted.getTime())) return null;
@@ -237,13 +260,14 @@
       resolvedBy: row['Resolved By'] || null,
       resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
       ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
-      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
+      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
+      sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
 
   // Maps a "Callback" sheet row (Reference ID / Username / Mobile / Concern / ...) to the
   // same common shape.
-  function mapCallbackRow(row) {
+  function mapCallbackRow(row, sheetMeta) {
     if (!row['Reference ID']) return null;
     const submitted = new Date(row['Submitted At']);
     if (isNaN(submitted.getTime())) return null;
@@ -276,7 +300,8 @@
       resolvedBy: row['Resolved By'] || null,
       resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
       ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
-      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec
+      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
+      sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
 
@@ -297,11 +322,12 @@
           }
         });
         const seen = new Map();
-        sheetResults.forEach(({ rows, brandOverride, kind }) => {
+        sheetResults.forEach(({ rows, brandOverride, kind, sheetId, gid }) => {
+          const sheetMeta = { sheetId, gid };
           rows.forEach(row => {
-            const ticket = kind === 'followup' ? mapFollowupRow(row)
-              : kind === 'callback' ? mapCallbackRow(row)
-              : mapTicketRow(row, brandOverride);
+            const ticket = kind === 'followup' ? mapFollowupRow(row, sheetMeta)
+              : kind === 'callback' ? mapCallbackRow(row, sheetMeta)
+              : mapTicketRow(row, brandOverride, sheetMeta);
             if (!ticket) return;
             // De-dupe by brand+id (scoped per brand so that two different
             // brands sharing the same ID prefix/format can never collide with
