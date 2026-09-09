@@ -76,7 +76,12 @@ function isSignatureValid(req) {
 // webhook list and is never included in the payload itself.
 function extractFields(payload) {
   const conversation = payload.conversation || (payload.status && payload.id ? payload : null);
-  const contact = conversation?.contact || payload.sender || payload.contact || null;
+  // `sender` on a message event can be the AGENT replying, not the customer
+  // — only trust it as the conversation's "contact" when it's actually a
+  // contact (payload.sender.type === 'contact'). Otherwise an agent's own
+  // reply would get mistaken for the customer's identity.
+  const senderIsContact = payload.sender?.type === 'contact';
+  const contact = conversation?.contact || (senderIsContact ? payload.sender : null) || payload.contact || null;
   const isMessageEvent = payload.content !== undefined || (payload.event || '').startsWith('message_');
   const inbox = payload.inbox || conversation?.inbox || null;
 
@@ -136,10 +141,12 @@ router.post('/webhook/:brand', async (req, res) => {
 
 // GET /api/chatwoot/conversations?brand=buenasph&limit=50
 // One row per conversation (not per raw event) — latest status/contact info
-// plus a plain-text preview of the most recent message. Two queries instead
-// of one: the conversation's LATEST event (any type) may not be the one that
-// carries message content (e.g. it could be a typing/status-only event), so
-// status and message preview are resolved independently, then merged.
+// plus a plain-text preview of the most recent message. Three queries
+// instead of one merged: the conversation's LATEST event (any type) may not
+// be the one that carries message content (e.g. it could be a typing/status
+// -only event) or reliable contact info (a status-change event often has
+// neither) — so status, contact identity, and message preview are each
+// resolved from the most recent row that actually has that data, then merged.
 router.get('/conversations', requireAuth, async (req, res) => {
   try {
     const brand = req.query.brand || null;
@@ -148,10 +155,17 @@ router.get('/conversations', requireAuth, async (req, res) => {
 
     const latestPerConversation = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
-        "conversationId", "brand", "inboxName", "contactName", "contactEmail",
-        "status", "createdAt" AS "lastActivityAt"
+        "conversationId", "brand", "inboxName", "status", "createdAt" AS "lastActivityAt"
       FROM "ChatwootEvents"
       WHERE "conversationId" IS NOT NULL ${brandClause}
+      ORDER BY "conversationId", "createdAt" DESC
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+
+    const latestContactPerConversation = await sequelize.query(`
+      SELECT DISTINCT ON ("conversationId")
+        "conversationId", "contactName", "contactEmail"
+      FROM "ChatwootEvents"
+      WHERE "conversationId" IS NOT NULL AND "contactName" IS NOT NULL ${brandClause}
       ORDER BY "conversationId", "createdAt" DESC
     `, { replacements: { brand }, type: QueryTypes.SELECT });
 
@@ -163,16 +177,18 @@ router.get('/conversations', requireAuth, async (req, res) => {
       ORDER BY "conversationId", "createdAt" DESC
     `, { replacements: { brand }, type: QueryTypes.SELECT });
 
+    const contactMap = new Map(latestContactPerConversation.map(r => [r.conversationId, r]));
     const messageMap = new Map(latestMessagePerConversation.map(r => [r.conversationId, r]));
     const conversations = latestPerConversation
       .map(row => {
+        const contact = contactMap.get(row.conversationId);
         const msg = messageMap.get(row.conversationId);
         return {
           conversationId: row.conversationId,
           brand: row.brand,
           inboxName: row.inboxName,
-          contactName: row.contactName,
-          contactEmail: row.contactEmail,
+          contactName: contact ? contact.contactName : null,
+          contactEmail: contact ? contact.contactEmail : null,
           status: row.status,
           lastActivityAt: row.lastActivityAt,
           lastMessage: msg ? stripHtml(msg.content) : null,
