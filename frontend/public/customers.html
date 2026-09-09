@@ -110,6 +110,19 @@
   .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
   .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
 
+  /* CSAT STATS */
+  .csat-panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-bottom:18px;display:flex;gap:0;flex-wrap:wrap;}
+  .csat-stat{flex:1;min-width:130px;padding:0 20px;border-right:1px solid var(--line);}
+  .csat-stat:last-child{border-right:none;}
+  .csat-stat-label{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--ink-faint);text-transform:uppercase;margin-bottom:6px;}
+  .csat-stat-value{font-size:22px;font-weight:800;line-height:1;}
+  .csat-stat-value.good{color:var(--success);}
+  .csat-stat-value.bad{color:var(--danger);}
+  .csat-stat-sub{font-size:11.5px;color:var(--ink-faint);margin-top:4px;}
+  @media (max-width:700px){
+    .csat-stat{flex:1 1 45%;border-right:none;border-bottom:1px solid var(--line);padding:10px 0;}
+  }
+
   /* FILTER TABS */
   .filter-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
   .ftab{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
@@ -343,6 +356,25 @@
     </div>
 
     <!-- CHATS PANEL -->
+    <!-- CSAT / DSAT SUMMARY -->
+    <div class="csat-panel" id="csatPanel">
+      <div class="csat-stat">
+        <div class="csat-stat-label">Avg Rating</div>
+        <div class="csat-stat-value" id="csatAvgRating">—</div>
+        <div class="csat-stat-sub" id="csatTotalSub">No responses yet</div>
+      </div>
+      <div class="csat-stat">
+        <div class="csat-stat-label">CSAT (Satisfied)</div>
+        <div class="csat-stat-value good" id="csatPercent">—</div>
+        <div class="csat-stat-sub" id="csatCountSub"></div>
+      </div>
+      <div class="csat-stat">
+        <div class="csat-stat-label">DSAT (Dissatisfied)</div>
+        <div class="csat-stat-value bad" id="dsatPercent">—</div>
+        <div class="csat-stat-sub" id="dsatCountSub"></div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-head">
         <h3>All Conversations <span id="liveIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;">● Live</span></h3>
@@ -503,8 +535,50 @@
         currentBrand = tab.dataset.brand;
         renderBrandTabs();
         applyFiltersAndRender();
+        loadCsatStats();
       });
     });
+  }
+
+  async function loadCsatStats() {
+    const token = localStorage.getItem('pipeline_token');
+    if (!token) return;
+    const url = currentBrand === 'all'
+      ? `${API_BASE}/chatwoot/csat`
+      : `${API_BASE}/chatwoot/csat?brand=${encodeURIComponent(currentBrand)}`;
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const stats = await res.json();
+      renderCsatStats(stats);
+    } catch (err) {
+      console.error('Failed to load CSAT stats:', err);
+    }
+  }
+
+  function renderCsatStats(stats) {
+    const avgEl = document.getElementById('csatAvgRating');
+    const totalSub = document.getElementById('csatTotalSub');
+    const csatEl = document.getElementById('csatPercent');
+    const csatSub = document.getElementById('csatCountSub');
+    const dsatEl = document.getElementById('dsatPercent');
+    const dsatSub = document.getElementById('dsatCountSub');
+
+    if (!stats.total) {
+      avgEl.textContent = '—';
+      totalSub.textContent = 'No responses yet';
+      csatEl.textContent = '—';
+      csatSub.textContent = '';
+      dsatEl.textContent = '—';
+      dsatSub.textContent = '';
+      return;
+    }
+    avgEl.textContent = `${stats.avgRating} / 5`;
+    totalSub.textContent = `${stats.total} response${stats.total === 1 ? '' : 's'}`;
+    csatEl.textContent = `${stats.csatPercent}%`;
+    csatSub.textContent = `${stats.csatCount} response${stats.csatCount === 1 ? '' : 's'} (4–5★)`;
+    dsatEl.textContent = `${stats.dsatPercent}%`;
+    dsatSub.textContent = `${stats.dsatCount} response${stats.dsatCount === 1 ? '' : 's'} (1–2★)`;
   }
 
   document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
@@ -609,7 +683,9 @@
   }
 
   loadConversations();
+  loadCsatStats();
   setInterval(loadConversations, 20000);
+  setInterval(loadCsatStats, 20000);
 
   // ---- Conversation thread modal ----
   document.getElementById('convBody').addEventListener('click', (e) => {
