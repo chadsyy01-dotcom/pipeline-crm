@@ -272,4 +272,40 @@ router.get('/events', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/chatwoot/backfill
+// One-time maintenance action: re-runs the CURRENT extractFields() logic
+// against every stored row's raw `payload`, and updates the derived
+// columns to match. Nothing about the payload itself changes — this just
+// lets rows captured before an extraction-logic fix (like the meta.sender
+// fix) benefit from it immediately, instead of waiting for a new event on
+// that same conversation. Safe to run more than once.
+router.post('/backfill', requireAuth, async (req, res) => {
+  try {
+    const allEvents = await ChatwootEvent.findAll();
+    let updated = 0;
+    for (const row of allEvents) {
+      const fields = extractFields(row.payload);
+      await row.update({
+        conversationId: fields.conversationId,
+        messageId: fields.messageId,
+        status: fields.status,
+        inboxId: fields.inboxId,
+        inboxName: fields.inboxName,
+        contactName: fields.contactName,
+        contactEmail: fields.contactEmail,
+        senderName: fields.senderName,
+        senderType: fields.senderType,
+        isPrivate: fields.isPrivate,
+        labels: fields.labels,
+        handoffStage: fields.handoffStage,
+      });
+      updated++;
+    }
+    res.json({ ok: true, updated });
+  } catch (err) {
+    console.error('Chatwoot backfill error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
