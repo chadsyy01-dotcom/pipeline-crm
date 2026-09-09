@@ -45,6 +45,16 @@ function stripHtml(html) {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Names of AI/bot personas that appear as a Chatwoot "Agent" but are NOT a
+// real human — a reply from one of these does NOT count as a handoff, no
+// matter what the conversation's labels say. Add more names here as new
+// brands' bot personas get added (each brand may name theirs differently).
+const AI_BOT_SENDER_NAMES = new Set(['Admin Joy']);
+
+function isRealHumanAgentReply(senderName, senderType) {
+  return senderType === 'user' && !!senderName && !AI_BOT_SENDER_NAMES.has(senderName);
+}
+
 // Normalizes Chatwoot conversation labels (e.g. "BNS-HH PENDING", "TMT-HH-
 // CLOSED") into one of a small set of canonical handoff stages, regardless
 // of each brand's own label prefix/spacing conventions:
@@ -127,7 +137,17 @@ function extractFields(payload) {
     senderType: payload.sender?.type ?? null,
     isPrivate: payload.private ?? payload.is_private ?? false,
     labels: labels && labels.length ? labels : null,
-    handoffStage: normalizeHandoffStage(labels),
+    // Prefer the sender-based signal — a real human agent (anyone except
+    // the AI bot persona) replying is a direct, automatic sign of handoff,
+    // more reliable than depending on someone remembering to apply a label.
+    // Falls back to the label if the sender doesn't tell us anything (e.g.
+    // this event is a customer message, or a bot template) but a label WAS
+    // applied — this is currently the only way 'pending' gets set, since
+    // "assigned but not yet replied" isn't reliably detectable from
+    // messages alone.
+    handoffStage: isRealHumanAgentReply(payload.sender?.name, payload.sender?.type)
+      ? ((conversation?.status ?? payload.status) === 'resolved' ? 'closed' : 'opened')
+      : normalizeHandoffStage(labels),
   };
 }
 
