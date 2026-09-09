@@ -147,6 +147,12 @@
   .status.resolved::before{background:var(--success);}
   .status.unknown{background:#F1F5F9;color:var(--ink-faint);}
   .status.unknown::before{background:var(--ink-faint);}
+  .handoff-pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;}
+  .handoff-pill.pending{background:var(--warning-tint);color:var(--warning);}
+  .handoff-pill.opened{background:var(--primary-tint);color:var(--primary);}
+  .handoff-pill.closed{background:var(--success-tint);color:var(--success);}
+  .handoff-pill.handoff{background:var(--purple-tint);color:var(--purple);}
+  .handoff-pill.none{color:var(--ink-faint);}
 
   .table-wrap{overflow-x:auto;}
   .empty-note{padding:40px 12px;text-align:center;color:var(--ink-faint);font-size:13px;}
@@ -319,6 +325,12 @@
         <div class="ftab" data-status="pending">Pending</div>
         <div class="ftab" data-status="resolved">Resolved</div>
       </div>
+      <div class="filter-tabs" id="handoffTabs">
+        <div class="ftab active" data-handoff="all">All Handoff</div>
+        <div class="ftab" data-handoff="pending">HH Pending</div>
+        <div class="ftab" data-handoff="opened">HH Opened</div>
+        <div class="ftab" data-handoff="closed">HH Closed</div>
+      </div>
       <div class="table-wrap">
         <table class="conv-table">
           <thead>
@@ -327,11 +339,12 @@
               <th>Brand</th>
               <th>Last Message</th>
               <th>Status</th>
+              <th>Handoff</th>
               <th>Updated</th>
             </tr>
           </thead>
           <tbody id="convBody">
-            <tr><td colspan="5"><div class="empty-note">Loading…</div></td></tr>
+            <tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -398,6 +411,7 @@
   let allConversations = [];
   let currentBrand = 'all';
   let currentStatus = 'all';
+  let currentHandoff = 'all';
   let currentSearch = '';
 
   async function loadConversations() {
@@ -448,6 +462,14 @@
     });
   });
 
+  document.querySelectorAll('#handoffTabs .ftab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      currentHandoff = tab.dataset.handoff;
+      document.querySelectorAll('#handoffTabs .ftab').forEach(t => t.classList.toggle('active', t === tab));
+      applyFiltersAndRender();
+    });
+  });
+
   document.getElementById('searchInput').addEventListener('input', (e) => {
     currentSearch = e.target.value.trim().toLowerCase();
     applyFiltersAndRender();
@@ -457,6 +479,7 @@
     let filtered = allConversations;
     if (currentBrand !== 'all') filtered = filtered.filter(c => c.brand === currentBrand);
     if (currentStatus !== 'all') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
+    if (currentHandoff !== 'all') filtered = filtered.filter(c => c.handoffStage === currentHandoff);
     if (currentSearch) {
       filtered = filtered.filter(c =>
         (c.contactName || '').toLowerCase().includes(currentSearch) ||
@@ -467,10 +490,16 @@
     renderConversations(filtered);
   }
 
+  function handoffPillHtml(stage) {
+    const labels = { pending: 'HH Pending', opened: 'HH Opened', closed: 'HH Closed', handoff: 'Handoff' };
+    if (!stage || !labels[stage]) return '<span class="handoff-pill none">—</span>';
+    return `<span class="handoff-pill ${stage}">${labels[stage]}</span>`;
+  }
+
   function renderConversations(conversations) {
     const tbody = document.getElementById('convBody');
     if (conversations.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-note">No conversations found.</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-note">No conversations found.</div></td></tr>`;
       return;
     }
     tbody.innerHTML = conversations.map(c => {
@@ -493,6 +522,7 @@
           <td><span class="c-brand">${escapeHtml(brandLabel(c.brand))}</span></td>
           <td><div class="c-preview ${c.lastMessage ? '' : 'empty'}">${c.lastMessage ? preview : 'No messages yet'}</div></td>
           <td><span class="status ${si.cls}">${escapeHtml(si.label)}</span></td>
+          <td>${handoffPillHtml(c.handoffStage)}</td>
           <td><div class="c-time">${timeAgo(c.lastActivityAt)}</div></td>
         </tr>
       `;
