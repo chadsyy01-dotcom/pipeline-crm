@@ -88,6 +88,19 @@
   .topbar-right{display:flex;align-items:center;gap:12px;}
   .month-select{font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;color:var(--ink);cursor:pointer;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);}
   .compare-note{font-size:12px;color:var(--ink-faint);font-weight:600;}
+  .custom-range-wrap{position:relative;}
+  .custom-range-popover{position:absolute;top:calc(100% + 8px);right:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:16px;width:270px;display:none;z-index:60;}
+  .custom-range-popover.open{display:block;}
+  .custom-range-popover h4{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--ink);}
+  .crp-field{margin-bottom:10px;}
+  .crp-field label{display:block;font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-bottom:4px;}
+  .crp-field input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;color:var(--ink);box-sizing:border-box;}
+  .crp-time-row{display:flex;gap:8px;}
+  .crp-time-row .crp-field{flex:1;margin-bottom:10px;}
+  .crp-error{font-size:11.5px;color:var(--danger);min-height:14px;margin:-2px 0 6px;}
+  .crp-actions{display:flex;gap:8px;margin-top:4px;}
+  .crp-btn{flex:1;padding:9px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);}
+  .crp-btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
 
   /* KPI CARDS */
   .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px;}
@@ -235,11 +248,35 @@
     <div class="topbar">
       <div class="greeting">
         <h1>Reports</h1>
-        <p>Monthly summary of your support operations, with comparisons to the previous month.</p>
+        <p>Summary of your support operations, with comparisons to the previous period.</p>
       </div>
       <div class="topbar-right">
         <span class="compare-note" id="compareNote"></span>
-        <select class="month-select" id="monthSelect"></select>
+        <div class="custom-range-wrap">
+          <select class="month-select" id="monthSelect"></select>
+          <div class="custom-range-popover" id="customRangePopover">
+            <h4>Filter by specific day/time</h4>
+            <div class="crp-field">
+              <label>Day</label>
+              <input type="date" id="customDayInput">
+            </div>
+            <div class="crp-time-row">
+              <div class="crp-field">
+                <label>From</label>
+                <input type="time" id="customFromInput" value="00:00">
+              </div>
+              <div class="crp-field">
+                <label>To</label>
+                <input type="time" id="customToInput" value="23:59">
+              </div>
+            </div>
+            <div class="crp-error" id="customRangeError"></div>
+            <div class="crp-actions">
+              <button type="button" class="crp-btn" id="customRangeCancel">Cancel</button>
+              <button type="button" class="crp-btn primary" id="customRangeApply">Apply</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -353,12 +390,154 @@ function monthLabel(key) { return monthKeyToDate(key).toLocaleDateString('en-US'
 function prevMonthKey(key) { const d = monthKeyToDate(key); d.setMonth(d.getMonth() - 1); return monthKeyOf(d); }
 function daysInMonth(key) { const d = monthKeyToDate(key); return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
 
-function ticketsSubmittedIn(tickets, key) {
-  return tickets.filter(t => monthKeyOf(t.submitted) === key);
+function ticketsInRange(tickets, field, start, end) {
+  return tickets.filter(t => { const v = t[field]; return v && v >= start && v <= end; });
 }
-function ticketsResolvedIn(tickets, key) {
-  return tickets.filter(t => t.resolvedAt && monthKeyOf(t.resolvedAt) === key);
+
+function formatRangeLabel(start, end) {
+  const sameDay = start.toDateString() === end.toDateString();
+  const dateFmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const timeFmt = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const isFullDay = start.getHours() === 0 && start.getMinutes() === 0 && end.getHours() === 23 && end.getMinutes() >= 59;
+  if (sameDay) {
+    return isFullDay ? `${dateFmt(start)} (All day)` : `${dateFmt(start)}, ${timeFmt(start)} – ${timeFmt(end)}`;
+  }
+  return `${dateFmt(start)} ${timeFmt(start)} – ${dateFmt(end)} ${timeFmt(end)}`;
 }
+
+// A "period" describes whatever window the report is currently showing —
+// either a calendar month (from the dropdown) or a custom day/time range
+// (from the popover) — plus the equal-length prior window it's compared
+// against. Every render function below reads only start/end/prevStart/
+// prevEnd/label/prevLabel/effDays/prevEffDays, so both kinds work the same.
+function buildPeriodFromMonthKey(key) {
+  const prevKey = prevMonthKey(key);
+  const start = monthKeyToDate(key);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+  const prevStart = monthKeyToDate(prevKey);
+  const prevEnd = new Date(prevStart.getFullYear(), prevStart.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  const earliest = earliestSubmittedDate(allTickets);
+  const effDays = effectiveDaysInMonth(key, earliest);
+  const prevEffDays = effectiveDaysInMonth(prevKey, earliest);
+
+  const notes = [];
+  if (monthKeyOf(new Date()) === key && effDays < daysInMonth(key)) {
+    notes.push(`${monthLabel(key)} is still in progress (day ${effDays} of ${daysInMonth(key)})`);
+  }
+  if (earliest && monthKeyOf(earliest) === prevKey) {
+    const startLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    notes.push(`ticket tracking only began ${startLabel}, so ${monthLabel(prevKey)} only has ${prevEffDays} day${prevEffDays === 1 ? '' : 's'} of real data`);
+  } else if (earliest && monthKeyOf(earliest) === key) {
+    const startLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    notes.push(`ticket tracking only began ${startLabel}, so ${monthLabel(key)} only has ${effDays} day${effDays === 1 ? '' : 's'} of real data`);
+  }
+
+  return {
+    kind: 'month', key, prevKey,
+    start, end, prevStart, prevEnd,
+    label: monthLabel(key), prevLabel: monthLabel(prevKey),
+    effDays, prevEffDays,
+    note: notes.length ? `⚠️ ${notes.join('; ')} — raw totals aren't a full comparison yet. Use the Daily Avg columns for a fairer read.` : '',
+  };
+}
+
+function buildCustomPeriod(dateStr, fromTime, toTime) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [fh, fm] = fromTime.split(':').map(Number);
+  const [th, tm] = toTime.split(':').map(Number);
+  const start = new Date(y, m - 1, d, fh, fm, 0, 0);
+  const end = new Date(y, m - 1, d, th, tm, 59, 999);
+  const duration = end.getTime() - start.getTime();
+  const prevEnd = new Date(start.getTime() - 1);
+  const prevStart = new Date(prevEnd.getTime() - duration);
+  const effDays = duration / 86400000;
+
+  return {
+    kind: 'custom',
+    start, end, prevStart, prevEnd,
+    label: formatRangeLabel(start, end), prevLabel: formatRangeLabel(prevStart, prevEnd),
+    effDays, prevEffDays: effDays,
+    note: '',
+    trendGranularity: duration <= 48 * 3600000 ? 'hour' : 'day',
+  };
+}
+
+// ---- Populate month dropdown (last 6 calendar months, most recent first) ----
+function populateMonthSelect() {
+  const select = document.getElementById('monthSelect');
+  const now = new Date();
+  const options = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    options.push(monthKeyOf(d));
+  }
+  const monthOptionsHtml = options.map(key => `<option value="${key}">${monthLabel(key)}</option>`).join('');
+  select.innerHTML = `<option value="__custom__">📅 Filter by specific day/time…</option>` + monthOptionsHtml;
+  select.value = options[0];
+  select.addEventListener('change', () => {
+    const val = select.value;
+    if (val === '__custom__') { openCustomPopover(); return; }
+    if (val === 'custom-active') return; // already showing this custom range
+    removeCustomOption();
+    currentPeriod = buildPeriodFromMonthKey(val);
+    renderAll(currentPeriod);
+  });
+}
+
+let currentPeriod = null;
+
+function removeCustomOption() {
+  const opt = document.getElementById('customOptionEl');
+  if (opt) opt.remove();
+}
+
+function openCustomPopover() {
+  const dateInput = document.getElementById('customDayInput');
+  if (!dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+  document.getElementById('customRangeError').textContent = '';
+  document.getElementById('customRangePopover').classList.add('open');
+}
+
+function closeCustomPopover(revert) {
+  document.getElementById('customRangePopover').classList.remove('open');
+  if (revert) {
+    const select = document.getElementById('monthSelect');
+    if (currentPeriod && currentPeriod.kind === 'month') select.value = currentPeriod.key;
+    else if (!(currentPeriod && currentPeriod.kind === 'custom')) select.selectedIndex = 1;
+  }
+}
+
+function applyCustomRange() {
+  const dateStr = document.getElementById('customDayInput').value;
+  const fromTime = document.getElementById('customFromInput').value || '00:00';
+  const toTime = document.getElementById('customToInput').value || '23:59';
+  if (!dateStr) { document.getElementById('customRangeError').textContent = 'Pick a day first.'; return; }
+  if (toTime <= fromTime) { document.getElementById('customRangeError').textContent = 'End time must be after start time.'; return; }
+
+  const period = buildCustomPeriod(dateStr, fromTime, toTime);
+  currentPeriod = period;
+
+  const select = document.getElementById('monthSelect');
+  removeCustomOption();
+  const opt = document.createElement('option');
+  opt.value = 'custom-active';
+  opt.id = 'customOptionEl';
+  opt.textContent = `📅 ${period.label}`;
+  select.insertBefore(opt, select.firstChild);
+  select.value = 'custom-active';
+
+  closeCustomPopover(false);
+  renderAll(period);
+}
+
+document.getElementById('customRangeApply').addEventListener('click', applyCustomRange);
+document.getElementById('customRangeCancel').addEventListener('click', () => closeCustomPopover(true));
+document.addEventListener('click', (e) => {
+  const wrap = document.querySelector('.custom-range-wrap');
+  if (wrap && !wrap.contains(e.target)) closeCustomPopover(true);
+});
+document.getElementById('customRangePopover').addEventListener('click', (e) => e.stopPropagation());
 
 function median(arr) {
   if (!arr.length) return null;
@@ -388,20 +567,6 @@ function ratePillClass(rate) {
   return 'low';
 }
 
-// ---- Populate month dropdown (last 6 calendar months, most recent first) ----
-function populateMonthSelect() {
-  const select = document.getElementById('monthSelect');
-  const now = new Date();
-  const options = [];
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    options.push(monthKeyOf(d));
-  }
-  select.innerHTML = options.map(key => `<option value="${key}">${monthLabel(key)}</option>`).join('');
-  select.value = options[0];
-  select.addEventListener('change', () => renderAll(select.value));
-}
-
 function daysElapsedInMonth(key) {
   const now = new Date();
   return monthKeyOf(now) === key ? now.getDate() : daysInMonth(key);
@@ -425,42 +590,27 @@ function effectiveDaysInMonth(key, earliest) {
 }
 
 // ---- Main render ----
-function renderAll(key) {
-  const prevKey = prevMonthKey(key);
-  document.getElementById('compareNote').textContent = `Compared to ${monthLabel(prevKey)}`;
-  document.getElementById('legendThisMonth').textContent = monthLabel(key);
-  document.getElementById('legendLastMonth').textContent = monthLabel(prevKey);
+// Accepts a "period" object built by buildPeriodFromMonthKey() or
+// buildCustomPeriod() — every chart/table below is driven purely off its
+// start/end/prevStart/prevEnd, so a whole month and a specific day/time
+// window are rendered exactly the same way.
+function renderAll(period) {
+  document.getElementById('compareNote').textContent = `Compared to ${period.prevLabel}`;
+  document.getElementById('legendThisMonth').textContent = period.label;
+  document.getElementById('legendLastMonth').textContent = period.prevLabel;
+  document.getElementById('brandFairnessNote').textContent = period.note;
 
-  const thisMonthSubmitted = ticketsSubmittedIn(allTickets, key);
-  const lastMonthSubmitted = ticketsSubmittedIn(allTickets, prevKey);
-  const thisMonthResolvedEvents = ticketsResolvedIn(allTickets, key);
-  const lastMonthResolvedEvents = ticketsResolvedIn(allTickets, prevKey);
+  const thisSubmitted = ticketsInRange(allTickets, 'submitted', period.start, period.end);
+  const lastSubmitted = ticketsInRange(allTickets, 'submitted', period.prevStart, period.prevEnd);
+  const thisResolvedEvents = ticketsInRange(allTickets, 'resolvedAt', period.start, period.end);
+  const lastResolvedEvents = ticketsInRange(allTickets, 'resolvedAt', period.prevStart, period.prevEnd);
 
-  const earliest = earliestSubmittedDate(allTickets);
-  const thisDays = effectiveDaysInMonth(key, earliest);
-  const lastDays = effectiveDaysInMonth(prevKey, earliest);
-
-  const notes = [];
-  if (monthKeyOf(new Date()) === key && thisDays < daysInMonth(key)) {
-    notes.push(`${monthLabel(key)} is still in progress (day ${thisDays} of ${daysInMonth(key)})`);
-  }
-  if (earliest && monthKeyOf(earliest) === prevKey) {
-    const startLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    notes.push(`ticket tracking only began ${startLabel}, so ${monthLabel(prevKey)} only has ${lastDays} day${lastDays === 1 ? '' : 's'} of real data`);
-  } else if (earliest && monthKeyOf(earliest) === key) {
-    const startLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    notes.push(`ticket tracking only began ${startLabel}, so ${monthLabel(key)} only has ${thisDays} day${thisDays === 1 ? '' : 's'} of real data`);
-  }
-  document.getElementById('brandFairnessNote').textContent = notes.length
-    ? `⚠️ ${notes.join('; ')} — raw totals aren't a full-month comparison yet. Use the Daily Avg columns for a fairer read.`
-    : '';
-
-  renderKpis(thisMonthSubmitted, lastMonthSubmitted, thisMonthResolvedEvents, lastMonthResolvedEvents);
-  renderTrendChart(key, prevKey);
-  renderBrandTable(thisMonthSubmitted, lastMonthSubmitted, thisDays, lastDays);
-  renderConcernsTable(thisMonthSubmitted);
-  renderChannelDonut(thisMonthSubmitted);
-  renderAgentTable(thisMonthResolvedEvents);
+  renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolvedEvents);
+  renderTrendChart(period);
+  renderBrandTable(thisSubmitted, lastSubmitted, period.effDays, period.prevEffDays);
+  renderConcernsTable(thisSubmitted);
+  renderChannelDonut(thisSubmitted);
+  renderAgentTable(thisResolvedEvents);
 }
 
 function renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolvedEvents) {
@@ -530,13 +680,42 @@ function renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolv
   }
 }
 
-function renderTrendChart(key, prevKey) {
-  const days = Math.max(daysInMonth(key), daysInMonth(prevKey));
-  const thisCounts = new Array(days).fill(0);
-  const lastCounts = new Array(days).fill(0);
-  ticketsSubmittedIn(allTickets, key).forEach(t => { thisCounts[t.submitted.getDate() - 1]++; });
-  ticketsSubmittedIn(allTickets, prevKey).forEach(t => { lastCounts[t.submitted.getDate() - 1]++; });
-  const labels = Array.from({ length: days }, (_, i) => i + 1);
+function renderTrendChart(period) {
+  let labels, thisCounts, lastCounts;
+  let xTitle = 'Day of month';
+
+  if (period.kind === 'month') {
+    const days = Math.max(daysInMonth(period.key), daysInMonth(period.prevKey));
+    thisCounts = new Array(days).fill(0);
+    lastCounts = new Array(days).fill(0);
+    ticketsInRange(allTickets, 'submitted', period.start, period.end).forEach(t => { thisCounts[t.submitted.getDate() - 1]++; });
+    ticketsInRange(allTickets, 'submitted', period.prevStart, period.prevEnd).forEach(t => { lastCounts[t.submitted.getDate() - 1]++; });
+    labels = Array.from({ length: days }, (_, i) => i + 1);
+  } else {
+    // Custom day/time range: bucket by hour for short windows, by day for
+    // longer ones, aligned so bucket i on the "this" line and bucket i on
+    // the "previous" line represent the same elapsed offset from the start
+    // of their respective windows.
+    const bucketMs = period.trendGranularity === 'hour' ? 3600000 : 86400000;
+    const bucketCount = Math.max(1, Math.round((period.end - period.start) / bucketMs));
+    thisCounts = new Array(bucketCount).fill(0);
+    lastCounts = new Array(bucketCount).fill(0);
+    ticketsInRange(allTickets, 'submitted', period.start, period.end).forEach(t => {
+      const idx = Math.min(bucketCount - 1, Math.max(0, Math.floor((t.submitted - period.start) / bucketMs)));
+      thisCounts[idx]++;
+    });
+    ticketsInRange(allTickets, 'submitted', period.prevStart, period.prevEnd).forEach(t => {
+      const idx = Math.min(bucketCount - 1, Math.max(0, Math.floor((t.submitted - period.prevStart) / bucketMs)));
+      lastCounts[idx]++;
+    });
+    labels = Array.from({ length: bucketCount }, (_, i) => {
+      const t = new Date(period.start.getTime() + i * bucketMs);
+      return period.trendGranularity === 'hour'
+        ? t.toLocaleTimeString('en-US', { hour: 'numeric' })
+        : t.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    xTitle = period.trendGranularity === 'hour' ? 'Hour' : 'Day';
+  }
 
   if (trendChart) trendChart.destroy();
   trendChart = new Chart(document.getElementById('trendChart'), {
@@ -544,15 +723,15 @@ function renderTrendChart(key, prevKey) {
     data: {
       labels,
       datasets: [
-        { label: monthLabel(key), data: thisCounts, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,.08)', fill: true, tension: .35, pointRadius: 0, borderWidth: 2.5 },
-        { label: monthLabel(prevKey), data: lastCounts, borderColor: '#CBD5E1', backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0, borderWidth: 2, borderDash: [5, 4] }
+        { label: period.label, data: thisCounts, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,.08)', fill: true, tension: .35, pointRadius: 0, borderWidth: 2.5 },
+        { label: period.prevLabel, data: lastCounts, borderColor: '#CBD5E1', backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0, borderWidth: 2, borderDash: [5, 4] }
       ]
     },
     options: {
       responsive: true,
       plugins: { legend: { display: false } },
       scales: {
-        x: { title: { display: true, text: 'Day of month' }, grid: { display: false } },
+        x: { title: { display: true, text: xTitle }, grid: { display: false } },
         y: { beginAtZero: true, grid: { color: '#EEF1F6' } }
       }
     }
@@ -721,10 +900,11 @@ populateMonthSelect();
 TicketData.fetchTickets()
   .then(tickets => {
     allTickets = tickets;
-    renderAll(document.getElementById('monthSelect').value);
+    currentPeriod = buildPeriodFromMonthKey(document.getElementById('monthSelect').value);
+    renderAll(currentPeriod);
     TicketData.startAutoRefresh(tickets2 => {
       allTickets = tickets2;
-      renderAll(document.getElementById('monthSelect').value);
+      renderAll(currentPeriod);
     }, 120000);
   })
   .catch(err => {
