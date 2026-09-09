@@ -94,12 +94,20 @@ function isSignatureValid(req) {
 // webhook list and is never included in the payload itself.
 function extractFields(payload) {
   const conversation = payload.conversation || (payload.status && payload.id ? payload : null);
-  // `sender` on a message event can be the AGENT replying, not the customer
-  // — only trust it as the conversation's "contact" when it's actually a
-  // contact (payload.sender.type === 'contact'). Otherwise an agent's own
-  // reply would get mistaken for the customer's identity.
-  const senderIsContact = payload.sender?.type === 'contact';
-  const contact = conversation?.contact || (senderIsContact ? payload.sender : null) || payload.contact || null;
+  // Contact/customer identity shows up in different places depending on
+  // event type — conversation-level events (conversation_created,
+  // conversation_updated) nest it under `meta.sender`, message-level events
+  // put it directly on `sender`, and some shapes nest it under
+  // `conversation.contact`. Only trust a sender-shaped value when its
+  // `type` is actually 'contact' (not 'user'/'agent_bot'), since an agent's
+  // own reply/assignment would otherwise get mistaken for the customer.
+  const metaSender = payload.meta?.sender || conversation?.meta?.sender;
+  const isContactSender = (s) => s?.type === 'contact';
+  const contact = conversation?.contact
+    || (isContactSender(metaSender) ? metaSender : null)
+    || (isContactSender(payload.sender) ? payload.sender : null)
+    || payload.contact
+    || null;
   const isMessageEvent = payload.content !== undefined || (payload.event || '').startsWith('message_');
   const inbox = payload.inbox || conversation?.inbox || null;
   // Chatwoot's API has used both `labels` and `label_names` for this field
