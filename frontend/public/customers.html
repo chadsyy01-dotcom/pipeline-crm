@@ -112,7 +112,11 @@
 
   /* CSAT STATS */
   .csat-panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-bottom:18px;display:flex;gap:0;flex-wrap:wrap;}
-  .csat-stat{flex:1;min-width:130px;padding:0 20px;border-right:1px solid var(--line);}
+  .csat-stat{flex:1;min-width:130px;padding:0 20px;border-right:1px solid var(--line);cursor:pointer;border-radius:8px;transition:background .15s;}
+  .csat-stat:hover{background:var(--bg);}
+  .csat-stat.active{background:var(--bg);box-shadow:inset 0 0 0 2px var(--line);}
+  .csat-stat:first-child{cursor:default;}
+  .csat-stat:first-child:hover{background:none;}
   .csat-stat:last-child{border-right:none;}
   .csat-stat-label{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--ink-faint);text-transform:uppercase;margin-bottom:6px;}
   .csat-stat-value{font-size:22px;font-weight:800;line-height:1;}
@@ -363,12 +367,12 @@
         <div class="csat-stat-value" id="csatAvgRating">—</div>
         <div class="csat-stat-sub" id="csatTotalSub">No responses yet</div>
       </div>
-      <div class="csat-stat">
+      <div class="csat-stat" id="csatStatBlock" data-csat-filter="csat">
         <div class="csat-stat-label">CSAT (Satisfied)</div>
         <div class="csat-stat-value good" id="csatPercent">—</div>
         <div class="csat-stat-sub" id="csatCountSub"></div>
       </div>
-      <div class="csat-stat">
+      <div class="csat-stat" id="dsatStatBlock" data-csat-filter="dsat">
         <div class="csat-stat-label">DSAT (Dissatisfied)</div>
         <div class="csat-stat-value bad" id="dsatPercent">—</div>
         <div class="csat-stat-sub" id="dsatCountSub"></div>
@@ -496,6 +500,7 @@
   let currentStatus = 'all';
   let currentHandoff = 'all';
   let currentAdmin = 'all';
+  let currentCsatFilter = 'all';
   let currentSearch = '';
 
   async function loadConversations() {
@@ -633,6 +638,8 @@
     if (currentStatus !== 'all') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
     if (currentHandoff !== 'all') filtered = filtered.filter(c => c.handoffStage === currentHandoff);
     if (currentAdmin !== 'all') filtered = filtered.filter(c => c.lastMessageSender === currentAdmin);
+    if (currentCsatFilter === 'csat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating >= 4);
+    if (currentCsatFilter === 'dsat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating <= 2);
     if (currentSearch) {
       filtered = filtered.filter(c =>
         (c.contactName || '').toLowerCase().includes(currentSearch) ||
@@ -658,9 +665,15 @@
     tbody.innerHTML = conversations.map(c => {
       const name = c.contactName || 'Unknown';
       const si = statusInfo(c.status);
-      const preview = c.lastMessage
-        ? `${c.lastMessageSenderType === 'user' ? `<span class="sender">${escapeHtml(c.lastMessageSender || 'Agent')}:</span> ` : ''}${escapeHtml(c.lastMessage)}`
-        : '<span></span>';
+      const hasFeedback = c.csatFeedback && c.csatFeedback.trim();
+      const csatBadge = c.csatRating != null
+        ? `<span style="display:inline-flex;align-items:center;gap:2px;font-weight:800;font-size:12px;color:${c.csatRating >= 4 ? 'var(--success)' : c.csatRating <= 2 ? 'var(--danger)' : 'var(--warning)'};margin-right:7px;flex-shrink:0;">★ ${c.csatRating}/5</span>`
+        : '';
+      const preview = hasFeedback
+        ? escapeHtml(c.csatFeedback)
+        : (c.lastMessage
+          ? `${c.lastMessageSenderType === 'user' ? `<span class="sender">${escapeHtml(c.lastMessageSender || 'Agent')}:</span> ` : ''}${escapeHtml(c.lastMessage)}`
+          : '<span></span>');
       return `
         <tr data-conversation-id="${c.conversationId}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
           <td>
@@ -673,7 +686,7 @@
             </div>
           </td>
           <td><span class="c-brand">${escapeHtml(brandLabel(c.brand))}</span></td>
-          <td><div class="c-preview ${c.lastMessage ? '' : 'empty'}">${c.lastMessage ? preview : 'No messages yet'}</div></td>
+          <td><div class="c-preview ${c.lastMessage || hasFeedback ? '' : 'empty'}" style="display:flex;align-items:center;">${csatBadge}${c.lastMessage || hasFeedback ? preview : 'No messages yet'}</div></td>
           <td><span class="status ${si.cls}">${escapeHtml(si.label)}</span></td>
           <td>${handoffPillHtml(c.handoffStage)}</td>
           <td><div class="c-time">${timeAgo(c.lastActivityAt)}</div></td>
@@ -686,6 +699,20 @@
   loadCsatStats();
   setInterval(loadConversations, 20000);
   setInterval(loadCsatStats, 20000);
+
+  document.querySelectorAll('#csatPanel .csat-stat[data-csat-filter]').forEach(block => {
+    block.addEventListener('click', () => {
+      const filter = block.dataset.csatFilter;
+      // Click again to clear the filter, same as re-clicking an active tab.
+      currentCsatFilter = (currentCsatFilter === filter) ? 'all' : filter;
+      document.querySelectorAll('#csatPanel .csat-stat[data-csat-filter]').forEach(b => {
+        b.classList.toggle('active', b.dataset.csatFilter === currentCsatFilter);
+      });
+      applyFiltersAndRender();
+      // Scroll to the table so the filtered result is immediately visible.
+      document.getElementById('convBody').closest('.panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
 
   // ---- Conversation thread modal ----
   document.getElementById('convBody').addEventListener('click', (e) => {
