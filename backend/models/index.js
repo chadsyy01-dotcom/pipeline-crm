@@ -87,6 +87,8 @@ const ChatwootEvent = sequelize.define('ChatwootEvent', {
   isPrivate: { type: DataTypes.BOOLEAN, defaultValue: false },
   labels: DataTypes.ARRAY(DataTypes.STRING),
   handoffStage: DataTypes.STRING,
+  csatRating: DataTypes.INTEGER,
+  csatFeedback: DataTypes.TEXT,
   payload: { type: DataTypes.JSONB, allowNull: false },
 });
 
