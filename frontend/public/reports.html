@@ -294,7 +294,7 @@
         <div class="kpi-delta" id="kpiRejectedDelta"></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="kpi-label">ART</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="kpi-label">Resolution Rate</div></div>
         <div class="kpi-value" id="kpiRateValue">—</div>
         <div class="kpi-delta" id="kpiRateDelta"></div>
       </div>
@@ -364,7 +364,7 @@
       </div>
       <div class="table-wrap">
         <table class="report-table">
-          <thead><tr><th>Agent</th><th class="num">Handled</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Resolution Rate</th><th class="num">FTR</th></tr></thead>
+          <thead><tr><th>Agent</th><th class="num">Handled</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">ART</th><th class="num">FTR</th></tr></thead>
           <tbody id="agentTableBody"></tbody>
         </table>
       </div>
@@ -643,17 +643,16 @@ function renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolv
   const thisAckVals = thisSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
   const lastAckVals = lastSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
 
-  // ART — Average Response Time (mean, not median, so it's sensitive to
-  // outliers the way "Median Response Time" below deliberately isn't).
-  const thisArt = mean(thisAckVals);
-  const lastArt = mean(lastAckVals);
-  document.getElementById('kpiRateValue').textContent = thisArt !== null ? TicketData.formatDuration(thisArt) : '—';
-  if (thisArt !== null && lastArt !== null) {
-    const pct = TicketData.pctChange(thisArt, lastArt);
+  const thisHandled = thisDone.length + thisRejected.length;
+  const lastHandled = lastDone.length + lastRejected.length;
+  const thisRate = thisHandled > 0 ? Math.round((thisDone.length / thisHandled) * 100) : null;
+  const lastRate = lastHandled > 0 ? Math.round((lastDone.length / lastHandled) * 100) : null;
+  document.getElementById('kpiRateValue').textContent = thisRate !== null ? `${thisRate}%` : '—';
+  if (thisRate !== null && lastRate !== null) {
+    const diff = thisRate - lastRate;
     const el = document.getElementById('kpiRateDelta');
-    // For time metrics, lower is better — flip the up/down color logic.
-    el.textContent = `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}% vs last month`;
-    el.className = 'kpi-delta ' + (pct <= 0 ? 'up' : 'down');
+    el.textContent = `${diff >= 0 ? '↑' : '↓'} ${Math.abs(diff)} pts vs last month`;
+    el.className = 'kpi-delta ' + (diff >= 0 ? 'up' : 'down');
   } else {
     const el = document.getElementById('kpiRateDelta');
     el.textContent = 'No data last month';
@@ -842,10 +841,11 @@ function renderAgentTable(thisResolvedEvents) {
   const agents = {};
   thisResolvedEvents.forEach(t => {
     const name = t.resolvedBy || 'Unassigned';
-    if (!agents[name]) agents[name] = { done: 0, rejected: 0, resolveDurations: [] };
+    if (!agents[name]) agents[name] = { done: 0, rejected: 0, resolveDurations: [], ackDurations: [] };
     if (t.statusCls === 'done') agents[name].done++;
     if (t.statusCls === 'rejected') agents[name].rejected++;
     if (t.resolveDurationSec != null) agents[name].resolveDurations.push(t.resolveDurationSec);
+    if (t.ackDurationSec != null) agents[name].ackDurations.push(t.ackDurationSec);
   });
   const names = Object.keys(agents).sort((a, b) => (agents[b].done + agents[b].rejected) - (agents[a].done + agents[a].rejected));
 
@@ -892,7 +892,8 @@ function renderAgentTable(thisResolvedEvents) {
   tbody.innerHTML = names.map(name => {
     const a = agents[name];
     const handled = a.done + a.rejected;
-    const rate = handled > 0 ? Math.round((a.done / handled) * 100) : 0;
+    // ART — Average Response Time per agent (mean of first-response duration).
+    const art = mean(a.ackDurations);
     const avgHandle = median(a.resolveDurations);
     return `<tr>
       <td>
@@ -904,7 +905,7 @@ function renderAgentTable(thisResolvedEvents) {
       <td class="num">${handled.toLocaleString()}</td>
       <td class="num">${a.done.toLocaleString()}</td>
       <td class="num">${a.rejected.toLocaleString()}</td>
-      <td class="num"><span class="rate-pill ${ratePillClass(rate)}">${rate}%</span></td>
+      <td class="num">${art !== null ? TicketData.formatDuration(art) : '—'}</td>
       <td class="num">${avgHandle !== null ? TicketData.formatDuration(avgHandle) : '—'}</td>
     </tr>`;
   }).join('');
