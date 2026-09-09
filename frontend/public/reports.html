@@ -89,7 +89,7 @@
   .month-select{font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;color:var(--ink);cursor:pointer;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);}
   .compare-note{font-size:12px;color:var(--ink-faint);font-weight:600;}
   .custom-range-wrap{position:relative;}
-  .custom-range-popover{position:absolute;top:calc(100% + 8px);right:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:16px;width:270px;display:none;z-index:60;}
+  .custom-range-popover{position:absolute;top:calc(100% + 8px);right:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:16px;width:300px;display:none;z-index:60;}
   .custom-range-popover.open{display:block;}
   .custom-range-popover h4{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--ink);}
   .crp-field{margin-bottom:10px;}
@@ -255,19 +255,15 @@
         <div class="custom-range-wrap">
           <select class="month-select" id="monthSelect"></select>
           <div class="custom-range-popover" id="customRangePopover">
-            <h4>Filter by specific day/time</h4>
-            <div class="crp-field">
-              <label>Day</label>
-              <input type="date" id="customDayInput">
-            </div>
+            <h4>Filter by date range</h4>
             <div class="crp-time-row">
               <div class="crp-field">
-                <label>From</label>
-                <input type="time" id="customFromInput" value="00:00">
+                <label>From day</label>
+                <input type="date" id="customFromDayInput">
               </div>
               <div class="crp-field">
-                <label>To</label>
-                <input type="time" id="customToInput" value="23:59">
+                <label>To day</label>
+                <input type="date" id="customToDayInput">
               </div>
             </div>
             <div class="crp-error" id="customRangeError"></div>
@@ -397,10 +393,18 @@ function ticketsInRange(tickets, field, start, end) {
 function formatRangeLabel(start, end) {
   const sameDay = start.toDateString() === end.toDateString();
   const dateFmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const dateFmtNoYear = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const timeFmt = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  const isFullDay = start.getHours() === 0 && start.getMinutes() === 0 && end.getHours() === 23 && end.getMinutes() >= 59;
+  const isFullDayStart = start.getHours() === 0 && start.getMinutes() === 0;
+  const isFullDayEnd = end.getHours() === 23 && end.getMinutes() >= 59;
+  const isFullDay = isFullDayStart && isFullDayEnd;
+
   if (sameDay) {
     return isFullDay ? `${dateFmt(start)} (All day)` : `${dateFmt(start)}, ${timeFmt(start)} – ${timeFmt(end)}`;
+  }
+  if (isFullDay) {
+    const sameYear = start.getFullYear() === end.getFullYear();
+    return sameYear ? `${dateFmtNoYear(start)} – ${dateFmt(end)}` : `${dateFmt(start)} – ${dateFmt(end)}`;
   }
   return `${dateFmt(start)} ${timeFmt(start)} – ${dateFmt(end)} ${timeFmt(end)}`;
 }
@@ -442,12 +446,11 @@ function buildPeriodFromMonthKey(key) {
   };
 }
 
-function buildCustomPeriod(dateStr, fromTime, toTime) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const [fh, fm] = fromTime.split(':').map(Number);
-  const [th, tm] = toTime.split(':').map(Number);
-  const start = new Date(y, m - 1, d, fh, fm, 0, 0);
-  const end = new Date(y, m - 1, d, th, tm, 59, 999);
+function buildCustomPeriod(fromDateStr, toDateStr) {
+  const [fy, fmo, fd] = fromDateStr.split('-').map(Number);
+  const [ty, tmo, td] = toDateStr.split('-').map(Number);
+  const start = new Date(fy, fmo - 1, fd, 0, 0, 0, 0);
+  const end = new Date(ty, tmo - 1, td, 23, 59, 59, 999);
   const duration = end.getTime() - start.getTime();
   const prevEnd = new Date(start.getTime() - 1);
   const prevStart = new Date(prevEnd.getTime() - duration);
@@ -473,7 +476,7 @@ function populateMonthSelect() {
     options.push(monthKeyOf(d));
   }
   const monthOptionsHtml = options.map(key => `<option value="${key}">${monthLabel(key)}</option>`).join('');
-  select.innerHTML = `<option value="__custom__">📅 Filter by specific day/time…</option>` + monthOptionsHtml;
+  select.innerHTML = `<option value="__custom__">📅 Filter by date range…</option>` + monthOptionsHtml;
   select.value = options[0];
   select.addEventListener('change', () => {
     const val = select.value;
@@ -493,8 +496,11 @@ function removeCustomOption() {
 }
 
 function openCustomPopover() {
-  const dateInput = document.getElementById('customDayInput');
-  if (!dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+  const fromDay = document.getElementById('customFromDayInput');
+  const toDay = document.getElementById('customToDayInput');
+  const today = new Date().toISOString().slice(0, 10);
+  if (!fromDay.value) fromDay.value = today;
+  if (!toDay.value) toDay.value = today;
   document.getElementById('customRangeError').textContent = '';
   document.getElementById('customRangePopover').classList.add('open');
 }
@@ -509,13 +515,15 @@ function closeCustomPopover(revert) {
 }
 
 function applyCustomRange() {
-  const dateStr = document.getElementById('customDayInput').value;
-  const fromTime = document.getElementById('customFromInput').value || '00:00';
-  const toTime = document.getElementById('customToInput').value || '23:59';
-  if (!dateStr) { document.getElementById('customRangeError').textContent = 'Pick a day first.'; return; }
-  if (toTime <= fromTime) { document.getElementById('customRangeError').textContent = 'End time must be after start time.'; return; }
+  const fromDateStr = document.getElementById('customFromDayInput').value;
+  const toDateStr = document.getElementById('customToDayInput').value;
+  const errEl = document.getElementById('customRangeError');
 
-  const period = buildCustomPeriod(dateStr, fromTime, toTime);
+  if (!fromDateStr || !toDateStr) { errEl.textContent = 'Pick a from and to day.'; return; }
+  if (toDateStr < fromDateStr) { errEl.textContent = 'To day must be on or after the from day.'; return; }
+  errEl.textContent = '';
+
+  const period = buildCustomPeriod(fromDateStr, toDateStr);
   currentPeriod = period;
 
   const select = document.getElementById('monthSelect');
