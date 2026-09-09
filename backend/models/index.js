@@ -72,10 +72,13 @@ const Task = sequelize.define('Task', {
 // before without notice, so this is the safety net against losing data when that
 // happens again.
 const ChatwootEvent = sequelize.define('ChatwootEvent', {
+  brand: { type: DataTypes.STRING, allowNull: false },
   event: { type: DataTypes.STRING, allowNull: false },
   conversationId: DataTypes.INTEGER,
   messageId: DataTypes.INTEGER,
   status: DataTypes.STRING,
+  inboxId: DataTypes.INTEGER,
+  inboxName: DataTypes.STRING,
   contactName: DataTypes.STRING,
   contactEmail: DataTypes.STRING,
   content: DataTypes.TEXT,
