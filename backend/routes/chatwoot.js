@@ -242,14 +242,24 @@ router.get('/conversations', requireAuth, async (req, res) => {
       ORDER BY "conversationId", "createdAt" DESC
     `, { replacements: { brand }, type: QueryTypes.SELECT });
 
+    const latestCsatPerConversation = await sequelize.query(`
+      SELECT DISTINCT ON ("conversationId")
+        "conversationId", "csatRating", "csatFeedback"
+      FROM "ChatwootEvents"
+      WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${brandClause}
+      ORDER BY "conversationId", "createdAt" DESC
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+
     const contactMap = new Map(latestContactPerConversation.map(r => [r.conversationId, r]));
     const messageMap = new Map(latestMessagePerConversation.map(r => [r.conversationId, r]));
     const handoffMap = new Map(latestHandoffPerConversation.map(r => [r.conversationId, r]));
+    const csatMap = new Map(latestCsatPerConversation.map(r => [r.conversationId, r]));
     const conversations = latestPerConversation
       .map(row => {
         const contact = contactMap.get(row.conversationId);
         const msg = messageMap.get(row.conversationId);
         const handoff = handoffMap.get(row.conversationId);
+        const csat = csatMap.get(row.conversationId);
         return {
           conversationId: row.conversationId,
           brand: row.brand,
@@ -264,6 +274,8 @@ router.get('/conversations', requireAuth, async (req, res) => {
           lastMessageSenderType: msg ? msg.senderType : null,
           handoffStage: handoff ? handoff.handoffStage : null,
           labels: handoff ? handoff.labels : null,
+          csatRating: csat ? csat.csatRating : null,
+          csatFeedback: csat ? csat.csatFeedback : null,
         };
       })
       .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt))
