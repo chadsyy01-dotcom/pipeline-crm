@@ -201,6 +201,17 @@
 
   .table-wrap{overflow-x:auto;}
   .admin-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);max-width:220px;margin-bottom:10px;}
+  .date-filter-wrap{position:relative;display:inline-block;margin-bottom:10px;margin-left:8px;}
+  .date-filter-wrap select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
+  .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:60;width:210px;}
+  .custom-date-pop.open{display:block;}
+  .custom-date-pop label{display:block;font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;}
+  .custom-date-pop label:first-child{margin-top:0;}
+  .custom-date-pop input[type="date"]{width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--line);font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--bg);}
+  .custom-date-actions{display:flex;gap:8px;margin-top:14px;}
+  .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);}
+  #customDateCancel{background:var(--card);color:var(--ink-soft);}
+  #customDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
   .empty-note{padding:40px 12px;text-align:center;color:var(--ink-faint);font-size:13px;}
 
   @media (max-width:860px){
@@ -400,6 +411,27 @@
       <select id="adminFilter" class="admin-select">
         <option value="all">All Admins</option>
       </select>
+      <div class="date-filter-wrap" id="dateFilterWrap">
+        <select id="dateFilter">
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+          <option value="month">This Month</option>
+          <option value="custom" id="customDateOption">Custom Date</option>
+        </select>
+        <div class="custom-date-pop" id="customDatePop">
+          <label for="customDateFrom">From</label>
+          <input type="date" id="customDateFrom">
+          <label for="customDateTo">To</label>
+          <input type="date" id="customDateTo">
+          <div class="custom-date-actions">
+            <button type="button" id="customDateCancel">Cancel</button>
+            <button type="button" id="customDateApply">Apply</button>
+          </div>
+        </div>
+      </div>
       <div class="table-wrap">
         <table class="conv-table">
           <thead>
@@ -501,7 +533,47 @@
   let currentHandoff = 'all';
   let currentAdmin = 'all';
   let currentCsatFilter = 'all';
+  let currentDateFilter = 'all';
+  let customDateFrom = null;
+  let customDateTo = null;
   let currentSearch = '';
+
+  function matchesDateFilter(c) {
+    if (currentDateFilter === 'all') return true;
+    const activity = new Date(c.lastActivityAt);
+    if (isNaN(activity.getTime())) return false;
+    const now = new Date();
+    if (currentDateFilter === 'today') {
+      return activity.getFullYear() === now.getFullYear() && activity.getMonth() === now.getMonth() && activity.getDate() === now.getDate();
+    }
+    if (currentDateFilter === 'yesterday') {
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      return activity.getFullYear() === y.getFullYear() && activity.getMonth() === y.getMonth() && activity.getDate() === y.getDate();
+    }
+    if (currentDateFilter === '7d') {
+      const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7); cutoff.setHours(0, 0, 0, 0);
+      return activity >= cutoff;
+    }
+    if (currentDateFilter === '30d') {
+      const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 30); cutoff.setHours(0, 0, 0, 0);
+      return activity >= cutoff;
+    }
+    if (currentDateFilter === 'month') {
+      return activity.getFullYear() === now.getFullYear() && activity.getMonth() === now.getMonth();
+    }
+    if (currentDateFilter === 'custom') {
+      if (!customDateFrom || !customDateTo) return true;
+      return activity >= customDateFrom && activity <= customDateTo;
+    }
+    return true;
+  }
+
+  function updateCustomDateOptionLabel() {
+    const opt = document.getElementById('customDateOption');
+    if (!opt || !customDateFrom || !customDateTo) return;
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    opt.textContent = `${fmt(customDateFrom)} – ${fmt(customDateTo)}`;
+  }
 
   async function loadConversations() {
     const token = localStorage.getItem('pipeline_token');
@@ -640,6 +712,7 @@
     if (currentAdmin !== 'all') filtered = filtered.filter(c => c.lastMessageSender === currentAdmin);
     if (currentCsatFilter === 'csat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating >= 4);
     if (currentCsatFilter === 'dsat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating <= 2);
+    filtered = filtered.filter(matchesDateFilter);
     if (currentSearch) {
       filtered = filtered.filter(c =>
         (c.contactName || '').toLowerCase().includes(currentSearch) ||
@@ -699,6 +772,55 @@
   loadCsatStats();
   setInterval(loadConversations, 20000);
   setInterval(loadCsatStats, 20000);
+
+  // ---- Date filter ----
+  const dateFilterSelect = document.getElementById('dateFilter');
+  const customDatePop = document.getElementById('customDatePop');
+  const customDateFromInput = document.getElementById('customDateFrom');
+  const customDateToInput = document.getElementById('customDateTo');
+
+  dateFilterSelect.addEventListener('change', (e) => {
+    if (e.target.value === 'custom') {
+      customDatePop.classList.add('open');
+      customDateFromInput.focus();
+      return;
+    }
+    customDatePop.classList.remove('open');
+    currentDateFilter = e.target.value;
+    applyFiltersAndRender();
+  });
+
+  document.getElementById('customDateApply').addEventListener('click', () => {
+    const fromVal = customDateFromInput.value;
+    const toVal = customDateToInput.value;
+    if (!fromVal || !toVal) {
+      alert('Please pick both a start and end date.');
+      return;
+    }
+    if (fromVal > toVal) {
+      alert('Start date must be before the end date.');
+      return;
+    }
+    customDateFrom = new Date(fromVal + 'T00:00:00');
+    customDateTo = new Date(toVal + 'T23:59:59.999');
+    currentDateFilter = 'custom';
+    dateFilterSelect.value = 'custom';
+    updateCustomDateOptionLabel();
+    customDatePop.classList.remove('open');
+    applyFiltersAndRender();
+  });
+
+  document.getElementById('customDateCancel').addEventListener('click', () => {
+    customDatePop.classList.remove('open');
+    dateFilterSelect.value = currentDateFilter;
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!customDatePop.classList.contains('open')) return;
+    if (document.getElementById('dateFilterWrap').contains(e.target)) return;
+    customDatePop.classList.remove('open');
+    dateFilterSelect.value = currentDateFilter;
+  });
 
   document.querySelectorAll('#csatPanel .csat-stat[data-csat-filter]').forEach(block => {
     block.addEventListener('click', () => {
