@@ -123,6 +123,10 @@ function extractFields(payload) {
   // Chatwoot's API has used both `labels` and `label_names` for this field
   // across versions — check both, defensively.
   const labels = conversation?.labels || conversation?.label_names || payload.labels || payload.label_names || null;
+  // A CSAT response is a customer's answer to the "Rate our support" survey
+  // — it arrives as a normal message_created event, but with the rating
+  // tucked inside content_attributes instead of (or alongside) plain text.
+  const csatResponse = payload.content_attributes?.submitted_values?.csat_survey_response || null;
 
   return {
     conversationId: conversation?.id ?? payload.conversation_id ?? null,
@@ -137,6 +141,8 @@ function extractFields(payload) {
     senderType: payload.sender?.type ?? null,
     isPrivate: payload.private ?? payload.is_private ?? false,
     labels: labels && labels.length ? labels : null,
+    csatRating: csatResponse?.rating ?? null,
+    csatFeedback: csatResponse?.feedback_message ?? null,
     // Prefer the sender-based signal — a real human agent (anyone except
     // the AI bot persona) replying is a direct, automatic sign of handoff,
     // more reliable than depending on someone remembering to apply a label.
@@ -272,6 +278,48 @@ router.get('/conversations', requireAuth, async (req, res) => {
 
 // GET /api/chatwoot/events?brand=tmtcash&event=message_created&conversationId=123&limit=50
 // For the dashboard to browse what's come in so far.
+// GET /api/chatwoot/csat?brand=buenasph
+// Aggregate CSAT stats from stored survey responses. Chatwoot's default
+// scale is 1-5 — this uses the common convention of 4-5 = satisfied (CSAT),
+// 1-2 = dissatisfied (DSAT), 3 = neutral. Adjust the thresholds below if
+// your actual survey uses a different scale (e.g. a straight thumbs up/down).
+router.get('/csat', requireAuth, async (req, res) => {
+  try {
+    const brand = req.query.brand || null;
+    const brandClause = brand ? 'AND "brand" = :brand' : '';
+
+    // One response per conversation — a customer could technically answer
+    // more than once if surveyed again, so take their latest answer only.
+    const responses = await sequelize.query(`
+      SELECT DISTINCT ON ("conversationId")
+        "conversationId", "csatRating", "csatFeedback", "createdAt"
+      FROM "ChatwootEvents"
+      WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${brandClause}
+      ORDER BY "conversationId", "createdAt" DESC
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+
+    const total = responses.length;
+    const csatCount = responses.filter(r => r.csatRating >= 4).length;
+    const dsatCount = responses.filter(r => r.csatRating <= 2).length;
+    const neutralCount = total - csatCount - dsatCount;
+    const avgRating = total ? responses.reduce((sum, r) => sum + r.csatRating, 0) / total : null;
+
+    res.json({
+      total,
+      avgRating: avgRating !== null ? Math.round(avgRating * 100) / 100 : null,
+      csatCount,
+      dsatCount,
+      neutralCount,
+      csatPercent: total ? Math.round((csatCount / total) * 1000) / 10 : null,
+      dsatPercent: total ? Math.round((dsatCount / total) * 1000) / 10 : null,
+      responses: responses.map(r => ({ conversationId: r.conversationId, rating: r.csatRating, feedback: r.csatFeedback, createdAt: r.createdAt })),
+    });
+  } catch (err) {
+    console.error('Chatwoot CSAT stats error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/events', requireAuth, async (req, res) => {
   try {
     const where = {};
@@ -318,6 +366,8 @@ router.post('/backfill', requireAuth, async (req, res) => {
         isPrivate: fields.isPrivate,
         labels: fields.labels,
         handoffStage: fields.handoffStage,
+        csatRating: fields.csatRating,
+        csatFeedback: fields.csatFeedback,
       });
       updated++;
     }
