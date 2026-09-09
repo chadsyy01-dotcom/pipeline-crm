@@ -154,6 +154,34 @@
   .handoff-pill.handoff{background:var(--purple-tint);color:var(--purple);}
   .handoff-pill.none{color:var(--ink-faint);}
 
+  /* CONVERSATION MODAL */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:100;
+    align-items:center;justify-content:center;padding:24px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal-panel{
+    background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);
+    width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;
+  }
+  .modal-head{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+    padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0;
+  }
+  .modal-title{font-size:15px;font-weight:800;}
+  .modal-sub{font-size:12px;color:var(--ink-faint);margin-top:2px;}
+  .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .modal-close svg{width:15px;height:15px;color:var(--ink-soft);}
+  .modal-body{padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px;}
+  .msg-row{display:flex;flex-direction:column;max-width:82%;}
+  .msg-row.from-customer{align-self:flex-start;align-items:flex-start;}
+  .msg-row.from-agent{align-self:flex-end;align-items:flex-end;}
+  .msg-meta{font-size:11px;color:var(--ink-faint);margin-bottom:3px;padding:0 3px;}
+  .msg-bubble{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+  .from-customer .msg-bubble{background:var(--bg);color:var(--ink);border-bottom-left-radius:4px;}
+  .from-agent .msg-bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px;}
+  .from-agent.is-bot .msg-bubble{background:var(--purple);}
+
   .table-wrap{overflow-x:auto;}
   .empty-note{padding:40px 12px;text-align:center;color:var(--ink-faint);font-size:13px;}
 
@@ -351,6 +379,24 @@
       </div>
     </div>
   </main>
+
+  <!-- CONVERSATION MODAL -->
+  <div class="modal-overlay" id="convModalOverlay">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="modalCustomerName">—</div>
+          <div class="modal-sub" id="modalCustomerSub">—</div>
+        </div>
+        <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <div class="empty-note">Loading…</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -510,7 +556,7 @@
         ? `${c.lastMessageSenderType === 'user' ? `<span class="sender">${escapeHtml(c.lastMessageSender || 'Agent')}:</span> ` : ''}${escapeHtml(c.lastMessage)}`
         : '<span></span>';
       return `
-        <tr>
+        <tr data-conversation-id="${c.conversationId}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
           <td>
             <div class="c-customer">
               <div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div>
@@ -532,6 +578,81 @@
 
   loadConversations();
   setInterval(loadConversations, 20000);
+
+  // ---- Conversation thread modal ----
+  document.getElementById('convBody').addEventListener('click', (e) => {
+    const row = e.target.closest('tr[data-conversation-id]');
+    if (!row) return;
+    openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
+  });
+
+  document.getElementById('modalCloseBtn').addEventListener('click', closeConversationModal);
+  document.getElementById('convModalOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'convModalOverlay') closeConversationModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeConversationModal();
+  });
+
+  function closeConversationModal() {
+    document.getElementById('convModalOverlay').classList.remove('open');
+  }
+
+  async function openConversationModal(conversationId, customerName, customerSub) {
+    const overlay = document.getElementById('convModalOverlay');
+    const body = document.getElementById('modalBody');
+    document.getElementById('modalCustomerName').textContent = customerName || 'Unknown';
+    document.getElementById('modalCustomerSub').textContent = customerSub || '';
+    body.innerHTML = '<div class="empty-note">Loading…</div>';
+    overlay.classList.add('open');
+
+    const token = localStorage.getItem('pipeline_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&event=message_created&limit=200`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      // API returns newest-first — reverse for natural top-to-bottom reading order.
+      const messages = (data.events || []).slice().reverse();
+      renderMessageThread(messages);
+    } catch (err) {
+      console.error('Failed to load conversation thread:', err);
+      body.innerHTML = '<div class="empty-note">Could not load this conversation. Please try again.</div>';
+    }
+  }
+
+  function renderMessageThread(messages) {
+    const body = document.getElementById('modalBody');
+    const withContent = messages.filter(m => m.content);
+    if (withContent.length === 0) {
+      body.innerHTML = '<div class="empty-note">No messages found for this conversation.</div>';
+      return;
+    }
+    body.innerHTML = withContent.map(m => {
+      const isAgent = m.senderType === 'user';
+      const isBot = isAgent && AI_BOT_NAMES_CLIENT.has(m.senderName);
+      const who = isAgent ? (m.senderName || 'Agent') : (m.contactName || 'Customer');
+      const when = m.createdAt ? new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+      return `
+        <div class="msg-row ${isAgent ? 'from-agent' : 'from-customer'} ${isBot ? 'is-bot' : ''}">
+          <div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div>
+          <div class="msg-bubble">${escapeHtml(stripHtmlClient(m.content))}</div>
+        </div>
+      `;
+    }).join('');
+    body.scrollTop = body.scrollHeight;
+  }
+
+  // Mirrors AI_BOT_SENDER_NAMES in routes/chatwoot.js — kept in sync manually
+  // since this is just for the bubble color, not the actual handoff logic.
+  const AI_BOT_NAMES_CLIENT = new Set(['Admin Joy']);
+
+  function stripHtmlClient(html) {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  }
 
   document.getElementById('backfillBtn').addEventListener('click', async () => {
     const btn = document.getElementById('backfillBtn');
