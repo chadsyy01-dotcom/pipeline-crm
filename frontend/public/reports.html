@@ -892,8 +892,8 @@ function renderAgentTable(thisResolvedEvents) {
   tbody.innerHTML = names.map(name => {
     const a = agents[name];
     const handled = a.done + a.rejected;
-    // ART — Average Response Time per agent (mean of first-response duration).
-    const art = mean(a.ackDurations);
+    // ART — Average Resolution Time per agent (mean of resolve duration).
+    const art = mean(a.resolveDurations);
     const avgHandle = median(a.resolveDurations);
     return `<tr>
       <td>
