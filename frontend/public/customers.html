@@ -183,6 +183,7 @@
   .from-agent.is-bot .msg-bubble{background:var(--purple);}
 
   .table-wrap{overflow-x:auto;}
+  .admin-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);max-width:220px;margin-bottom:10px;}
   .empty-note{padding:40px 12px;text-align:center;color:var(--ink-faint);font-size:13px;}
 
   @media (max-width:860px){
@@ -360,6 +361,9 @@
         <div class="ftab" data-handoff="opened">HH Opened</div>
         <div class="ftab" data-handoff="closed">HH Closed</div>
       </div>
+      <select id="adminFilter" class="admin-select">
+        <option value="all">All Admins</option>
+      </select>
       <div class="table-wrap">
         <table class="conv-table">
           <thead>
@@ -459,6 +463,7 @@
   let currentBrand = 'all';
   let currentStatus = 'all';
   let currentHandoff = 'all';
+  let currentAdmin = 'all';
   let currentSearch = '';
 
   async function loadConversations() {
@@ -474,6 +479,7 @@
       document.getElementById('liveIndicator').textContent = '● Live';
       document.getElementById('liveIndicator').style.color = 'var(--success)';
       renderBrandTabs();
+      renderAdminFilter();
       applyFiltersAndRender();
     } catch (err) {
       console.error('Failed to load conversations:', err);
@@ -522,11 +528,37 @@
     applyFiltersAndRender();
   });
 
+  function renderAdminFilter() {
+    // Only real agent replies count as "handled by" someone — not customer
+    // messages or bot template messages (senderType null/'contact').
+    const admins = [...new Set(
+      allConversations
+        .filter(c => c.lastMessageSenderType === 'user' && c.lastMessageSender)
+        .map(c => c.lastMessageSender)
+    )].sort();
+
+    const select = document.getElementById('adminFilter');
+    const previousValue = select.value || 'all';
+    select.innerHTML = '<option value="all">All Admins</option>' +
+      admins.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+    // Preserve the current selection across refreshes, if it's still valid.
+    if (previousValue === 'all' || admins.includes(previousValue)) {
+      select.value = previousValue;
+    }
+    currentAdmin = select.value;
+  }
+
+  document.getElementById('adminFilter').addEventListener('change', (e) => {
+    currentAdmin = e.target.value;
+    applyFiltersAndRender();
+  });
+
   function applyFiltersAndRender() {
     let filtered = allConversations;
     if (currentBrand !== 'all') filtered = filtered.filter(c => c.brand === currentBrand);
     if (currentStatus !== 'all') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
     if (currentHandoff !== 'all') filtered = filtered.filter(c => c.handoffStage === currentHandoff);
+    if (currentAdmin !== 'all') filtered = filtered.filter(c => c.lastMessageSender === currentAdmin);
     if (currentSearch) {
       filtered = filtered.filter(c =>
         (c.contactName || '').toLowerCase().includes(currentSearch) ||
