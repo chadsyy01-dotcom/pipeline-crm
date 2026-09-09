@@ -294,7 +294,7 @@
         <div class="kpi-delta" id="kpiRejectedDelta"></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="kpi-label">Resolution Rate</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="kpi-label">ART</div></div>
         <div class="kpi-value" id="kpiRateValue">—</div>
         <div class="kpi-delta" id="kpiRateDelta"></div>
       </div>
@@ -364,7 +364,7 @@
       </div>
       <div class="table-wrap">
         <table class="report-table">
-          <thead><tr><th>Agent</th><th class="num">Handled</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Resolution Rate</th><th class="num">Median Handle Time</th></tr></thead>
+          <thead><tr><th>Agent</th><th class="num">Handled</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Resolution Rate</th><th class="num">FTR</th></tr></thead>
           <tbody id="agentTableBody"></tbody>
         </table>
       </div>
@@ -554,6 +554,11 @@ function median(arr) {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+function mean(arr) {
+  if (!arr.length) return null;
+  return arr.reduce((sum, v) => sum + v, 0) / arr.length;
+}
+
 function deltaEl(el, current, previous, suffix) {
   if (!el) return;
   const pct = TicketData.pctChange(current, previous);
@@ -635,16 +640,20 @@ function renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolv
   document.getElementById('kpiRejectedValue').textContent = thisRejected.length.toLocaleString();
   deltaEl(document.getElementById('kpiRejectedDelta'), thisRejected.length, lastRejected.length);
 
-  const thisHandled = thisDone.length + thisRejected.length;
-  const lastHandled = lastDone.length + lastRejected.length;
-  const thisRate = thisHandled > 0 ? Math.round((thisDone.length / thisHandled) * 100) : null;
-  const lastRate = lastHandled > 0 ? Math.round((lastDone.length / lastHandled) * 100) : null;
-  document.getElementById('kpiRateValue').textContent = thisRate !== null ? `${thisRate}%` : '—';
-  if (thisRate !== null && lastRate !== null) {
-    const diff = thisRate - lastRate;
+  const thisAckVals = thisSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
+  const lastAckVals = lastSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
+
+  // ART — Average Response Time (mean, not median, so it's sensitive to
+  // outliers the way "Median Response Time" below deliberately isn't).
+  const thisArt = mean(thisAckVals);
+  const lastArt = mean(lastAckVals);
+  document.getElementById('kpiRateValue').textContent = thisArt !== null ? TicketData.formatDuration(thisArt) : '—';
+  if (thisArt !== null && lastArt !== null) {
+    const pct = TicketData.pctChange(thisArt, lastArt);
     const el = document.getElementById('kpiRateDelta');
-    el.textContent = `${diff >= 0 ? '↑' : '↓'} ${Math.abs(diff)} pts vs last month`;
-    el.className = 'kpi-delta ' + (diff >= 0 ? 'up' : 'down');
+    // For time metrics, lower is better — flip the up/down color logic.
+    el.textContent = `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}% vs last month`;
+    el.className = 'kpi-delta ' + (pct <= 0 ? 'up' : 'down');
   } else {
     const el = document.getElementById('kpiRateDelta');
     el.textContent = 'No data last month';
@@ -652,8 +661,6 @@ function renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolv
     el.style.color = 'var(--ink-faint)';
   }
 
-  const thisAckVals = thisSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
-  const lastAckVals = lastSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
   const thisAckAvg = median(thisAckVals);
   const lastAckAvg = median(lastAckVals);
   document.getElementById('kpiAckValue').textContent = thisAckAvg !== null ? TicketData.formatDuration(thisAckAvg) : '—';
