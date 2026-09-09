@@ -866,7 +866,7 @@
     const token = localStorage.getItem('pipeline_token');
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&event=message_created&limit=200`, {
+      const res = await fetch(`${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&limit=200`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -882,9 +882,22 @@
 
   function renderMessageThread(messages) {
     const body = document.getElementById('modalBody');
-    const withContent = messages.filter(m => m.content);
+
+    // Dedupe by messageId — a CSAT survey message, for example, arrives as
+    // message_created (original prompt) and later message_updated (once the
+    // customer answers), both with the same messageId. A Map keeps the
+    // LATEST version of each (most complete data) while preserving each
+    // message's original chronological position, since re-setting an
+    // existing key doesn't change a Map's iteration order.
+    const byMessageId = new Map();
+    let syntheticKey = 0;
+    messages.filter(m => m.content).forEach(m => {
+      byMessageId.set(m.messageId ?? `__no_id_${syntheticKey++}`, m);
+    });
+    const withContent = [...byMessageId.values()];
+
     if (withContent.length === 0) {
-      body.innerHTML = '<div class="empty-note">No messages found for this conversation.</div>';
+      body.innerHTML = '<div class="empty-note">No messages found for this conversation. (This can happen for older conversations that were already resolved before this dashboard started syncing.)</div>';
       return;
     }
     body.innerHTML = withContent.map(m => {
