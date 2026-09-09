@@ -8,9 +8,11 @@
 // that header only matters for the OTHER direction (us calling Chatwoot's
 // API), which this route doesn't need.
 //
-// SETUP (Chatwoot UI):
+// SETUP (Chatwoot UI, per brand — each brand is a separate Chatwoot
+// account/instance, so this gets configured once per brand):
 //   Settings -> Integrations -> Webhooks -> Add new webhook
-//   URL: https://<this-railway-service>/api/chatwoot/webhook
+//   URL: https://<this-railway-service>/api/chatwoot/webhook/<brand-slug>
+//        e.g. .../api/chatwoot/webhook/tmtcash, .../webhook/buenasph
 //   Events: conversation_created, conversation_status_changed,
 //           conversation_updated, message_created (pick whichever you need)
 //
@@ -58,15 +60,23 @@ function isSignatureValid(req) {
 // top level with `conversation` nested inside; conversation events put the
 // conversation itself at the top level. Extract defensively from either —
 // anything missed here is still preserved in the raw `payload` JSONB column.
+//
+// inboxId/inboxName identify which Chatwoot inbox (and therefore which
+// brand, once inboxes map 1:1 to brands) an event came from — NOT the
+// "Webhook Name" set in the Chatwoot UI, which is just a label for your own
+// webhook list and is never included in the payload itself.
 function extractFields(payload) {
   const conversation = payload.conversation || (payload.status && payload.id ? payload : null);
   const contact = conversation?.contact || payload.sender || payload.contact || null;
   const isMessageEvent = payload.content !== undefined || (payload.event || '').startsWith('message_');
+  const inbox = payload.inbox || conversation?.inbox || null;
 
   return {
     conversationId: conversation?.id ?? payload.conversation_id ?? null,
     messageId: isMessageEvent ? (payload.id ?? null) : null,
     status: conversation?.status ?? payload.status ?? null,
+    inboxId: inbox?.id ?? conversation?.inbox_id ?? payload.inbox_id ?? null,
+    inboxName: inbox?.name ?? null,
     contactName: contact?.name ?? null,
     contactEmail: contact?.email ?? null,
     content: payload.content ?? null,
@@ -76,10 +86,18 @@ function extractFields(payload) {
   };
 }
 
-// POST /api/chatwoot/webhook
+// POST /api/chatwoot/webhook/:brand
 // No requireAuth — Chatwoot's server calls this directly, not a logged-in
 // browser session. Protected instead by the optional signature check above.
-router.post('/webhook', async (req, res) => {
+//
+// :brand comes from the URL itself, not the payload — each brand runs its
+// own separate Chatwoot account/instance, so inbox_id/account_id inside the
+// payload aren't guaranteed unique across them (two brands could both have
+// "inbox_id": 1). Give each brand's webhook its own URL when configuring it
+// in that brand's Chatwoot: .../api/chatwoot/webhook/tmtcash,
+// .../api/chatwoot/webhook/buenasph, etc. — use short lowercase slugs,
+// consistent with brandCode conventions elsewhere in this codebase.
+router.post('/webhook/:brand', async (req, res) => {
   try {
     if (!isSignatureValid(req)) {
       console.warn('Chatwoot webhook: signature check failed (see comment above about known Chatwoot bug #13809 before assuming this delivery is fake).');
@@ -89,6 +107,7 @@ router.post('/webhook', async (req, res) => {
     const fields = extractFields(payload);
 
     await ChatwootEvent.create({
+      brand: req.params.brand,
       event: payload.event || 'unknown',
       ...fields,
       payload,
@@ -106,11 +125,12 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
-// GET /api/chatwoot/events?event=message_created&conversationId=123&limit=50
+// GET /api/chatwoot/events?brand=tmtcash&event=message_created&conversationId=123&limit=50
 // For the dashboard to browse what's come in so far.
 router.get('/events', requireAuth, async (req, res) => {
   try {
     const where = {};
+    if (req.query.brand) where.brand = req.query.brand;
     if (req.query.event) where.event = req.query.event;
     if (req.query.conversationId) where.conversationId = Number(req.query.conversationId);
 
