@@ -317,6 +317,7 @@
     <div class="panel">
       <div class="panel-head">
         <h3>All Conversations <span id="liveIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;">● Live</span></h3>
+        <button id="backfillBtn" type="button" style="font-size:12px;font-weight:700;color:var(--ink-soft);background:var(--card);border:1px solid var(--line);padding:7px 13px;border-radius:8px;cursor:pointer;">Fix old customer names</button>
       </div>
       <div class="filter-tabs" id="brandTabs"></div>
       <div class="filter-tabs" id="statusTabs">
@@ -531,6 +532,29 @@
 
   loadConversations();
   setInterval(loadConversations, 20000);
+
+  document.getElementById('backfillBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('backfillBtn');
+    const token = localStorage.getItem('pipeline_token');
+    if (!token) return;
+    btn.disabled = true;
+    btn.textContent = 'Fixing…';
+    try {
+      const res = await fetch(`${API_BASE}/chatwoot/backfill`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      btn.textContent = `Fixed ${data.updated} records ✓`;
+      await loadConversations();
+      setTimeout(() => { btn.textContent = 'Fix old customer names'; btn.disabled = false; }, 4000);
+    } catch (err) {
+      console.error('Backfill failed:', err);
+      btn.textContent = 'Failed — try again';
+      btn.disabled = false;
+    }
+  });
 </script>
 </body>
 </html>
