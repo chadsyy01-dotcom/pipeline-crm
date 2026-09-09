@@ -33,8 +33,17 @@
 const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
-const { ChatwootEvent } = require('../models');
+const { ChatwootEvent, sequelize } = require('../models');
+const { QueryTypes } = require('sequelize');
 const { requireAuth } = require('../middleware/auth');
+
+// Chatwoot message content comes as HTML (e.g. "<p>Hello</p>") — strip tags
+// for plain-text display in list/preview contexts. Full HTML is still kept
+// as-is in the raw `payload` JSONB if a richer view ever needs it.
+function stripHtml(html) {
+  if (!html) return html;
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 function isSignatureValid(req) {
   const secret = process.env.CHATWOOT_WEBHOOK_SECRET;
@@ -122,6 +131,63 @@ router.post('/webhook/:brand', async (req, res) => {
     // Still 200 — a 4xx/5xx here just makes Chatwoot retry the same
     // delivery, which won't help if the failure was e.g. a DB hiccup.
     res.status(200).json({ ok: false });
+  }
+});
+
+// GET /api/chatwoot/conversations?brand=buenasph&limit=50
+// One row per conversation (not per raw event) — latest status/contact info
+// plus a plain-text preview of the most recent message. Two queries instead
+// of one: the conversation's LATEST event (any type) may not be the one that
+// carries message content (e.g. it could be a typing/status-only event), so
+// status and message preview are resolved independently, then merged.
+router.get('/conversations', requireAuth, async (req, res) => {
+  try {
+    const brand = req.query.brand || null;
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const brandClause = brand ? 'AND "brand" = :brand' : '';
+
+    const latestPerConversation = await sequelize.query(`
+      SELECT DISTINCT ON ("conversationId")
+        "conversationId", "brand", "inboxName", "contactName", "contactEmail",
+        "status", "createdAt" AS "lastActivityAt"
+      FROM "ChatwootEvents"
+      WHERE "conversationId" IS NOT NULL ${brandClause}
+      ORDER BY "conversationId", "createdAt" DESC
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+
+    const latestMessagePerConversation = await sequelize.query(`
+      SELECT DISTINCT ON ("conversationId")
+        "conversationId", "content", "senderName", "senderType", "createdAt" AS "lastMessageAt"
+      FROM "ChatwootEvents"
+      WHERE "conversationId" IS NOT NULL AND "content" IS NOT NULL ${brandClause}
+      ORDER BY "conversationId", "createdAt" DESC
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+
+    const messageMap = new Map(latestMessagePerConversation.map(r => [r.conversationId, r]));
+    const conversations = latestPerConversation
+      .map(row => {
+        const msg = messageMap.get(row.conversationId);
+        return {
+          conversationId: row.conversationId,
+          brand: row.brand,
+          inboxName: row.inboxName,
+          contactName: row.contactName,
+          contactEmail: row.contactEmail,
+          status: row.status,
+          lastActivityAt: row.lastActivityAt,
+          lastMessage: msg ? stripHtml(msg.content) : null,
+          lastMessageAt: msg ? msg.lastMessageAt : null,
+          lastMessageSender: msg ? msg.senderName : null,
+          lastMessageSenderType: msg ? msg.senderType : null,
+        };
+      })
+      .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt))
+      .slice(0, limit);
+
+    res.json({ conversations });
+  } catch (err) {
+    console.error('Chatwoot conversations error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
