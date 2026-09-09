@@ -66,6 +66,25 @@ const Task = sequelize.define('Task', {
   done: { type: DataTypes.BOOLEAN, defaultValue: false },
 });
 
+// Logs every Chatwoot webhook delivery (message_created, conversation_status_changed,
+// etc). `payload` always keeps the full raw JSON regardless of what we managed to
+// extract into the columns below — Chatwoot has changed webhook payload shapes
+// before without notice, so this is the safety net against losing data when that
+// happens again.
+const ChatwootEvent = sequelize.define('ChatwootEvent', {
+  event: { type: DataTypes.STRING, allowNull: false },
+  conversationId: DataTypes.INTEGER,
+  messageId: DataTypes.INTEGER,
+  status: DataTypes.STRING,
+  contactName: DataTypes.STRING,
+  contactEmail: DataTypes.STRING,
+  content: DataTypes.TEXT,
+  senderName: DataTypes.STRING,
+  senderType: DataTypes.STRING,
+  isPrivate: { type: DataTypes.BOOLEAN, defaultValue: false },
+  payload: { type: DataTypes.JSONB, allowNull: false },
+});
+
 // Associations
 Company.hasMany(Contact); Contact.belongsTo(Company);
 Company.hasMany(Deal); Deal.belongsTo(Company);
@@ -81,4 +100,4 @@ User.hasMany(Task); Task.belongsTo(User);
 Contact.hasMany(Task); Task.belongsTo(Contact);
 Deal.hasMany(Task); Task.belongsTo(Deal);
 
-module.exports = { sequelize, User, Company, Contact, DealStage, Deal, Activity, Task };
+module.exports = { sequelize, User, Company, Contact, DealStage, Deal, Activity, Task, ChatwootEvent };
