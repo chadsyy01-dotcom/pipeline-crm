@@ -5,7 +5,13 @@ const { sequelize, DealStage } = require('./models');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// `verify` stashes the raw request bytes on req.rawBody alongside the normal
+// parsed req.body — needed by routes/chatwoot.js to check the Chatwoot
+// webhook signature, since that has to be computed over the exact raw JSON
+// as sent, not a re-serialized copy (which can differ in key order/spacing).
+app.use(express.json({
+  verify: (req, res, buf) => { req.rawBody = buf; }
+}));
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/companies', require('./routes/companies'));
@@ -13,6 +19,7 @@ app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/deal-stages', require('./routes/dealStages'));
 app.use('/api/deals', require('./routes/deals'));
 app.use('/api/openai-billing', require('./routes/openaiBilling'));
+app.use('/api/chatwoot', require('./routes/chatwoot'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
