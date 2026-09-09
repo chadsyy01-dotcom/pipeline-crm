@@ -45,6 +45,24 @@ function stripHtml(html) {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Normalizes Chatwoot conversation labels (e.g. "BNS-HH PENDING", "TMT-HH-
+// CLOSED") into one of a small set of canonical handoff stages, regardless
+// of each brand's own label prefix/spacing conventions:
+//   'pending' — AI already handed off to a human agent, agent hasn't replied yet
+//   'opened'  — an agent has picked it up, conversation is ongoing
+//   'closed'  — the handoff is done / conversation with the agent is over
+//   'handoff' — flagged for a human agent but not one of the above sub-stages
+//   null      — no handoff label at all (still AI/bot-handled)
+function normalizeHandoffStage(labels) {
+  if (!labels || !labels.length) return null;
+  const joined = labels.join(' ').toUpperCase();
+  if (/HH[\s-]*PENDING|PENDING[\s-]*HH/.test(joined)) return 'pending';
+  if (/HH[\s-]*OPEN/.test(joined)) return 'opened';
+  if (/HH[\s-]*CLOSED|CLOSED[\s-]*HH/.test(joined)) return 'closed';
+  if (/\bHH\b/.test(joined)) return 'handoff';
+  return null;
+}
+
 function isSignatureValid(req) {
   const secret = process.env.CHATWOOT_WEBHOOK_SECRET;
   if (!secret) return true; // verification not configured — accept everything
@@ -84,6 +102,9 @@ function extractFields(payload) {
   const contact = conversation?.contact || (senderIsContact ? payload.sender : null) || payload.contact || null;
   const isMessageEvent = payload.content !== undefined || (payload.event || '').startsWith('message_');
   const inbox = payload.inbox || conversation?.inbox || null;
+  // Chatwoot's API has used both `labels` and `label_names` for this field
+  // across versions — check both, defensively.
+  const labels = conversation?.labels || conversation?.label_names || payload.labels || payload.label_names || null;
 
   return {
     conversationId: conversation?.id ?? payload.conversation_id ?? null,
@@ -97,6 +118,8 @@ function extractFields(payload) {
     senderName: payload.sender?.name ?? null,
     senderType: payload.sender?.type ?? null,
     isPrivate: payload.private ?? payload.is_private ?? false,
+    labels: labels && labels.length ? labels : null,
+    handoffStage: normalizeHandoffStage(labels),
   };
 }
 
@@ -177,12 +200,22 @@ router.get('/conversations', requireAuth, async (req, res) => {
       ORDER BY "conversationId", "createdAt" DESC
     `, { replacements: { brand }, type: QueryTypes.SELECT });
 
+    const latestHandoffPerConversation = await sequelize.query(`
+      SELECT DISTINCT ON ("conversationId")
+        "conversationId", "handoffStage", "labels"
+      FROM "ChatwootEvents"
+      WHERE "conversationId" IS NOT NULL AND "handoffStage" IS NOT NULL ${brandClause}
+      ORDER BY "conversationId", "createdAt" DESC
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+
     const contactMap = new Map(latestContactPerConversation.map(r => [r.conversationId, r]));
     const messageMap = new Map(latestMessagePerConversation.map(r => [r.conversationId, r]));
+    const handoffMap = new Map(latestHandoffPerConversation.map(r => [r.conversationId, r]));
     const conversations = latestPerConversation
       .map(row => {
         const contact = contactMap.get(row.conversationId);
         const msg = messageMap.get(row.conversationId);
+        const handoff = handoffMap.get(row.conversationId);
         return {
           conversationId: row.conversationId,
           brand: row.brand,
@@ -195,6 +228,8 @@ router.get('/conversations', requireAuth, async (req, res) => {
           lastMessageAt: msg ? msg.lastMessageAt : null,
           lastMessageSender: msg ? msg.senderName : null,
           lastMessageSenderType: msg ? msg.senderType : null,
+          handoffStage: handoff ? handoff.handoffStage : null,
+          labels: handoff ? handoff.labels : null,
         };
       })
       .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt))
