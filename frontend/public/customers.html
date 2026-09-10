@@ -390,6 +390,16 @@
         <div class="csat-stat-value bad" id="dsatPercent">—</div>
         <div class="csat-stat-sub" id="dsatCountSub"></div>
       </div>
+      <div class="csat-stat">
+        <div class="csat-stat-label">Avg HH First Reply</div>
+        <div class="csat-stat-value" id="avgFtrValue">—</div>
+        <div class="csat-stat-sub" id="avgFtrSub">No handoffs yet</div>
+      </div>
+      <div class="csat-stat">
+        <div class="csat-stat-label">Avg HH Response Time</div>
+        <div class="csat-stat-value" id="avgArtValue">—</div>
+        <div class="csat-stat-sub" id="avgArtSub">No handoffs yet</div>
+      </div>
     </div>
 
     <div class="panel">
@@ -608,6 +618,7 @@
       renderBrandTabs();
       renderAdminFilter();
       applyFiltersAndRender();
+      renderArtFtrStats();
     } catch (err) {
       console.error('Failed to load conversations:', err);
       document.getElementById('liveIndicator').textContent = '● Error loading';
@@ -631,6 +642,7 @@
         renderBrandTabs();
         applyFiltersAndRender();
         loadCsatStats();
+        renderArtFtrStats();
       });
     });
   }
@@ -674,6 +686,42 @@
     csatSub.textContent = `${stats.csatCount} response${stats.csatCount === 1 ? '' : 's'} (4–5★)`;
     dsatEl.textContent = `${stats.dsatPercent}%`;
     dsatSub.textContent = `${stats.dsatCount} response${stats.dsatCount === 1 ? '' : 's'} (1–2★)`;
+  }
+
+  // Average First Reply Time / Average Response Time across handoff
+  // conversations only (ftr/art are null for non-handoff conversations —
+  // see computeArtFtr on the backend). Filtered by the current brand tab,
+  // same scope as the CSAT/DSAT summary above.
+  function renderArtFtrStats() {
+    const ftrEl = document.getElementById('avgFtrValue');
+    const ftrSub = document.getElementById('avgFtrSub');
+    const artEl = document.getElementById('avgArtValue');
+    const artSub = document.getElementById('avgArtSub');
+
+    const scoped = currentBrand === 'all'
+      ? allConversations
+      : allConversations.filter(c => c.brand === currentBrand);
+
+    const ftrValues = scoped.filter(c => c.ftr != null).map(c => c.ftr);
+    const artValues = scoped.filter(c => c.art != null).map(c => c.art);
+
+    if (ftrValues.length) {
+      const avgFtr = ftrValues.reduce((a, b) => a + b, 0) / ftrValues.length;
+      ftrEl.textContent = formatDuration(avgFtr);
+      ftrSub.textContent = `${ftrValues.length} handoff${ftrValues.length === 1 ? '' : 's'}`;
+    } else {
+      ftrEl.textContent = '—';
+      ftrSub.textContent = 'No handoffs yet';
+    }
+
+    if (artValues.length) {
+      const avgArt = artValues.reduce((a, b) => a + b, 0) / artValues.length;
+      artEl.textContent = formatDuration(avgArt);
+      artSub.textContent = `${artValues.length} handoff${artValues.length === 1 ? '' : 's'}`;
+    } else {
+      artEl.textContent = '—';
+      artSub.textContent = 'No handoffs yet';
+    }
   }
 
   document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
