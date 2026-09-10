@@ -249,8 +249,16 @@ function loadAccounts() {
       const options = accounts.map(a => `<option value="${a.index}">${a.name}</option>`);
       if (accounts.length > 1) {
         options.unshift(`<option value="all">All Accounts (${accounts.length})</option>`);
+        // Default to "All Accounts" when there's more than one — matches
+        // what the dropdown visually shows as its first option, since
+        // otherwise currentAccount would stay at its initial value (0) and
+        // the billing data shown wouldn't match what the dropdown displays.
+        currentAccount = 'all';
+      } else {
+        currentAccount = accounts[0].index;
       }
       select.innerHTML = options.join('');
+      select.value = String(currentAccount);
       loadBilling();
     })
     .catch(() => loadBilling());
