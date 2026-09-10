@@ -217,16 +217,18 @@ router.post('/webhook/:brand', async (req, res) => {
 // -only event) or reliable contact info (a status-change event often has
 // neither) — so status, contact identity, and message preview are each
 // resolved from the most recent row that actually has that data, then merged.
-// Computes Average Response Time (art) and First Response Time (ftr), in
+// Computes Total Chatting Time (art) and First Response Time (ftr), in
 // seconds, from a conversation's chronologically-ordered messages. Bot
 // replies (AI_BOT_SENDER_NAMES) are ignored entirely — they neither count
-// as a response nor reset the customer's wait, since they don't represent
-// a human handoff. Consecutive agent messages after one customer message
-// only count once (the gap resets after each response), so an agent
-// sending several follow-up messages in a row doesn't inflate the average.
+// as a response nor as the handoff itself, since they don't represent a
+// human agent. "Chatting time" is the full span from the moment a human
+// agent first joined (handoff) to the conversation's last message — not
+// an average of individual reply gaps — so it reflects how long the
+// customer was actually being chatted with by an agent.
 function computeArtFtr(messages) {
   let lastCustomerMsgTime = null;
   let firstAgentGap = null;
+  let firstAgentMsgTime = null;
   const gaps = [];
 
   for (const m of messages) {
@@ -234,16 +236,25 @@ function computeArtFtr(messages) {
       lastCustomerMsgTime = new Date(m.createdAt).getTime();
     } else if (m.senderType === 'user' && AI_BOT_SENDER_NAMES.has(m.senderName)) {
       continue; // bot reply — not a human response, ignore entirely
-    } else if (m.senderType === 'user' && lastCustomerMsgTime !== null) {
-      const gapSec = (new Date(m.createdAt).getTime() - lastCustomerMsgTime) / 1000;
-      gaps.push(gapSec);
-      if (firstAgentGap === null) firstAgentGap = gapSec;
-      lastCustomerMsgTime = null;
+    } else if (m.senderType === 'user') {
+      const msgTime = new Date(m.createdAt).getTime();
+      if (firstAgentMsgTime === null) firstAgentMsgTime = msgTime; // handoff point
+      if (lastCustomerMsgTime !== null) {
+        const gapSec = (msgTime - lastCustomerMsgTime) / 1000;
+        if (firstAgentGap === null) firstAgentGap = gapSec;
+        lastCustomerMsgTime = null;
+      }
     }
   }
 
+  let chattingTime = null;
+  if (firstAgentMsgTime !== null && messages.length) {
+    const lastMsgTime = new Date(messages[messages.length - 1].createdAt).getTime();
+    chattingTime = Math.max(0, (lastMsgTime - firstAgentMsgTime) / 1000);
+  }
+
   return {
-    art: gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : null,
+    art: chattingTime,
     ftr: firstAgentGap,
   };
 }
