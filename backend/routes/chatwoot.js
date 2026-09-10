@@ -49,7 +49,7 @@ function stripHtml(html) {
 // real human — a reply from one of these does NOT count as a handoff, no
 // matter what the conversation's labels say. Add more names here as new
 // brands' bot personas get added (each brand may name theirs differently).
-const AI_BOT_SENDER_NAMES = new Set(['Admin Joy', 'Admin Love', 'Agent Jem', 'Manila Play Admin']);
+const AI_BOT_SENDER_NAMES = new Set(['Admin Joy', 'Admin Love', 'Agent Jem', 'Manila Play Admin', 'Mona']);
 
 function isRealHumanAgentReply(senderName, senderType) {
   return senderType === 'user' && !!senderName && !AI_BOT_SENDER_NAMES.has(senderName);
