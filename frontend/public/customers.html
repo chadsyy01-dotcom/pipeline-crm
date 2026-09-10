@@ -396,7 +396,7 @@
         <div class="csat-stat-sub" id="avgFtrSub">No handoffs yet</div>
       </div>
       <div class="csat-stat">
-        <div class="csat-stat-label">Avg HH Response Time</div>
+        <div class="csat-stat-label">Avg HH Chatting Time</div>
         <div class="csat-stat-value" id="avgArtValue">—</div>
         <div class="csat-stat-sub" id="avgArtSub">No handoffs yet</div>
       </div>
@@ -688,10 +688,11 @@
     dsatSub.textContent = `${stats.dsatCount} response${stats.dsatCount === 1 ? '' : 's'} (1–2★)`;
   }
 
-  // Average First Reply Time / Average Response Time across handoff
+  // Average First Reply Time / Average Total Chatting Time across handoff
   // conversations only (ftr/art are null for non-handoff conversations —
-  // see computeArtFtr on the backend). Filtered by the current brand tab,
-  // same scope as the CSAT/DSAT summary above.
+  // see computeArtFtr on the backend; art = full span from handoff to the
+  // conversation's last message, not an average of reply gaps). Filtered
+  // by the current brand tab, same scope as the CSAT/DSAT summary above.
   function renderArtFtrStats() {
     const ftrEl = document.getElementById('avgFtrValue');
     const ftrSub = document.getElementById('avgFtrSub');
