@@ -4,8 +4,12 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import CsrDashboard from './pages/CsrDashboard.jsx';
 
+function isNetlifyDeploy() {
+  return window.location.hostname.includes('netlify.app');
+}
+
 function Protected({ children }) {
-  if (!isLoggedIn()) return <Navigate to="/login" replace />;
+  if (!isLoggedIn() && !isNetlifyDeploy()) return <Navigate to="/login" replace />;
   return children;
 }
 
