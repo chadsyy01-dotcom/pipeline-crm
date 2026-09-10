@@ -221,29 +221,33 @@ router.post('/webhook/:brand', async (req, res) => {
 // seconds, from a conversation's chronologically-ordered messages. Bot
 // replies (AI_BOT_SENDER_NAMES) are ignored entirely — they neither count
 // as a response nor as the handoff itself, since they don't represent a
-// human agent. "Chatting time" is the full span from the moment a human
-// agent first joined (handoff) to the conversation's last message — not
-// an average of individual reply gaps — so it reflects how long the
-// customer was actually being chatted with by an agent.
+// human agent. The "handoff point" is defined as the agent's first
+// GENUINE reply to a customer message (i.e. there must be a preceding
+// customer message to reply to) — not just the first non-bot agent
+// message in the thread. This keeps ftr and art scoped to the exact same
+// set of conversations, so their "N handoffs" counts always match: a
+// conversation only counts toward either average once it has a real,
+// gap-measurable handoff. "Chatting time" itself is the full span from
+// that handoff point to the conversation's last message — not an average
+// of individual reply gaps — so it reflects how long the customer was
+// actually being chatted with by an agent.
 function computeArtFtr(messages) {
   let lastCustomerMsgTime = null;
   let firstAgentGap = null;
   let firstAgentMsgTime = null;
-  const gaps = [];
 
   for (const m of messages) {
     if (m.senderType === 'contact') {
       lastCustomerMsgTime = new Date(m.createdAt).getTime();
     } else if (m.senderType === 'user' && AI_BOT_SENDER_NAMES.has(m.senderName)) {
       continue; // bot reply — not a human response, ignore entirely
-    } else if (m.senderType === 'user') {
+    } else if (m.senderType === 'user' && lastCustomerMsgTime !== null) {
       const msgTime = new Date(m.createdAt).getTime();
-      if (firstAgentMsgTime === null) firstAgentMsgTime = msgTime; // handoff point
-      if (lastCustomerMsgTime !== null) {
-        const gapSec = (msgTime - lastCustomerMsgTime) / 1000;
-        if (firstAgentGap === null) firstAgentGap = gapSec;
-        lastCustomerMsgTime = null;
+      if (firstAgentGap === null) {
+        firstAgentGap = (msgTime - lastCustomerMsgTime) / 1000;
+        firstAgentMsgTime = msgTime; // handoff point = first genuine reply
       }
+      lastCustomerMsgTime = null;
     }
   }
 
