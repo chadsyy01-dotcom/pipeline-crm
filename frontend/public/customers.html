@@ -443,8 +443,8 @@
               <th>Last Message</th>
               <th>Status</th>
               <th>Handoff</th>
-              <th>ART</th>
-              <th>FTR</th>
+              <th>First Reply Time</th>
+              <th>Chatting Time</th>
               <th>Updated</th>
             </tr>
           </thead>
@@ -780,8 +780,8 @@
           <td><div class="c-preview ${c.lastMessage || hasFeedback ? '' : 'empty'}" style="display:flex;align-items:center;">${csatBadge}${c.lastMessage || hasFeedback ? preview : 'No messages yet'}</div></td>
           <td><span class="status ${si.cls}">${escapeHtml(si.label)}</span></td>
           <td>${handoffPillHtml(c.handoffStage)}</td>
-          <td><div class="c-time">${formatDuration(c.art)}</div></td>
           <td><div class="c-time">${formatDuration(c.ftr)}</div></td>
+          <td><div class="c-time">${formatDuration(c.art)}</div></td>
           <td><div class="c-time">${timeAgo(c.lastActivityAt)}</div></td>
         </tr>
       `;
