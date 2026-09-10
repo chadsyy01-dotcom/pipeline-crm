@@ -93,6 +93,19 @@ function isSignatureValid(req) {
   }
 }
 
+// message_created events sometimes omit `sender.type` at the top level even
+// for a genuine customer message — the same info is then only available
+// (differently cased: "Contact"/"User" instead of "contact"/"user") on the
+// matching entry inside conversation.messages[]. Without this fallback, a
+// real customer message with a missing top-level type gets misclassified
+// as an automated/system message in the UI.
+function resolveSenderType(payload, conversation) {
+  if (payload.sender?.type) return payload.sender.type;
+  const nested = conversation?.messages?.find(m => m.id === payload.id);
+  if (nested?.sender_type) return nested.sender_type.toLowerCase();
+  return null;
+}
+
 // Payload shape varies by event type: message events put the message at the
 // top level with `conversation` nested inside; conversation events put the
 // conversation itself at the top level. Extract defensively from either —
@@ -138,7 +151,7 @@ function extractFields(payload) {
     contactEmail: contact?.email ?? null,
     content: payload.content ?? null,
     senderName: payload.sender?.name ?? null,
-    senderType: payload.sender?.type ?? null,
+    senderType: resolveSenderType(payload, conversation),
     isPrivate: payload.private ?? payload.is_private ?? false,
     labels: labels && labels.length ? labels : null,
     csatRating: csatResponse?.rating ?? null,
