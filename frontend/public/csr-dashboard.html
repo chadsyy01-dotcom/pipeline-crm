@@ -374,7 +374,7 @@
             <div id="notifList"></div>
           </div>
         </div>
-        <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <div class="icon-btn" id="chatIconBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <div class="profile" id="profileToggle" onclick="toggleProfileMenu(event)">
           <div class="avatar">CS</div>
           <div class="profile-name">Chad Syy<span>Assistant Operation Manager</span></div>
@@ -1100,12 +1100,16 @@ function setupTeamViewAllToggle() {
         el.style.display = 'none';
       }
     });
-    // "Generate Report" in Quick Links also points to /reports — hide it too.
-    document.querySelectorAll('.ql-item[href]').forEach(function (el) {
-      var href = (el.getAttribute('href') || '').toLowerCase();
-      var clean = href.replace(/^\//, '').replace(/\.html$/, '');
-      if (clean === 'reports') el.style.display = 'none';
-    });
+    // Hide the whole Quick Links panel (Create Ticket, Customer Lookup, Broadcast Notice, Generate Report).
+    document.querySelectorAll('.quick-links').forEach(function (el) { el.style.display = 'none'; });
+    // Hide the personalized greeting ("Good afternoon, Chad").
+    var greetingEl = document.querySelector('.greeting');
+    if (greetingEl) greetingEl.style.display = 'none';
+    // Hide the chat icon and the profile info (name/role) in the top bar.
+    var chatIconEl = document.getElementById('chatIconBtn');
+    if (chatIconEl) chatIconEl.style.display = 'none';
+    var profileEl = document.getElementById('profileToggle');
+    if (profileEl) profileEl.style.display = 'none';
   }
 })();
 </script>
