@@ -1089,5 +1089,18 @@ function setupTeamViewAllToggle() {
   teamToggleWired = true;
 }
 </script>
+<script>
+(function () {
+  if (window.location.hostname.includes('netlify.app')) {
+    var hideHrefs = ['tickets.html', 'kyc.html', 'customers.html', 'reports.html', 'openai.html', 'settings.html'];
+    document.querySelectorAll('.nav-item').forEach(function (el) {
+      var href = el.getAttribute('href');
+      if (hideHrefs.includes(href) || el.classList.contains('soon')) {
+        el.style.display = 'none';
+      }
+    });
+  }
+})();
+</script>
 </body>
 </html>
