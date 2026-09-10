@@ -217,6 +217,37 @@ router.post('/webhook/:brand', async (req, res) => {
 // -only event) or reliable contact info (a status-change event often has
 // neither) — so status, contact identity, and message preview are each
 // resolved from the most recent row that actually has that data, then merged.
+// Computes Average Response Time (art) and First Response Time (ftr), in
+// seconds, from a conversation's chronologically-ordered messages. Bot
+// replies (AI_BOT_SENDER_NAMES) are ignored entirely — they neither count
+// as a response nor reset the customer's wait, since they don't represent
+// a human handoff. Consecutive agent messages after one customer message
+// only count once (the gap resets after each response), so an agent
+// sending several follow-up messages in a row doesn't inflate the average.
+function computeArtFtr(messages) {
+  let lastCustomerMsgTime = null;
+  let firstAgentGap = null;
+  const gaps = [];
+
+  for (const m of messages) {
+    if (m.senderType === 'contact') {
+      lastCustomerMsgTime = new Date(m.createdAt).getTime();
+    } else if (m.senderType === 'user' && AI_BOT_SENDER_NAMES.has(m.senderName)) {
+      continue; // bot reply — not a human response, ignore entirely
+    } else if (m.senderType === 'user' && lastCustomerMsgTime !== null) {
+      const gapSec = (new Date(m.createdAt).getTime() - lastCustomerMsgTime) / 1000;
+      gaps.push(gapSec);
+      if (firstAgentGap === null) firstAgentGap = gapSec;
+      lastCustomerMsgTime = null;
+    }
+  }
+
+  return {
+    art: gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : null,
+    ftr: firstAgentGap,
+  };
+}
+
 router.get('/conversations', requireAuth, async (req, res) => {
   try {
     const brand = req.query.brand || null;
@@ -289,12 +320,45 @@ router.get('/conversations', requireAuth, async (req, res) => {
           labels: handoff ? handoff.labels : null,
           csatRating: csat ? csat.csatRating : null,
           csatFeedback: csat ? csat.csatFeedback : null,
+          art: null,
+          ftr: null,
         };
-      })
+      });
+
+    // ART/FTR need the FULL message thread (not just the latest row), so
+    // this only runs for conversations that actually have a handoff —
+    // there's no point computing human response times for pure-AI ones,
+    // and it keeps this extra query scoped to a much smaller set.
+    const handoffIds = conversations.filter(c => c.handoffStage).map(c => c.conversationId);
+    if (handoffIds.length > 0) {
+      const allMessages = await sequelize.query(`
+        SELECT "conversationId", "senderType", "senderName", "createdAt"
+        FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND content IS NOT NULL
+          AND "conversationId" IN (:handoffIds)
+        ORDER BY "conversationId", "createdAt" ASC
+      `, { replacements: { handoffIds }, type: QueryTypes.SELECT });
+
+      const byConversation = {};
+      allMessages.forEach(m => {
+        (byConversation[m.conversationId] ??= []).push(m);
+      });
+
+      conversations.forEach(c => {
+        if (!c.handoffStage) return;
+        const msgs = byConversation[c.conversationId];
+        if (!msgs) return;
+        const { art, ftr } = computeArtFtr(msgs);
+        c.art = art;
+        c.ftr = ftr;
+      });
+    }
+
+    const sorted = conversations
       .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt))
       .slice(0, limit);
 
-    res.json({ conversations });
+    res.json({ conversations: sorted });
   } catch (err) {
     console.error('Chatwoot conversations error:', err);
     res.status(500).json({ error: err.message });
