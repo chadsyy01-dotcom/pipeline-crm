@@ -353,6 +353,10 @@
 
   <!-- MAIN -->
   <main class="main">
+    <div id="netlifyTopBrand" style="display:none;align-items:center;gap:10px;margin-bottom:18px;">
+      <img src="logo.png" alt="CSR Dashboard logo" style="width:32px;height:32px;border-radius:8px;object-fit:cover;">
+      <div style="font-size:19px;font-weight:800;color:var(--ink);">CSR Dashboard</div>
+    </div>
     <div class="topbar">
       <div class="greeting">
         <h1 id="greetingText">Hello 👋</h1>
@@ -1110,6 +1114,11 @@ function setupTeamViewAllToggle() {
     if (chatIconEl) chatIconEl.style.display = 'none';
     var profileEl = document.getElementById('profileToggle');
     if (profileEl) profileEl.style.display = 'none';
+    // Hide the whole sidebar (nav + logo), and show the compact brand bar at the top of the main content instead.
+    var sidebarEl = document.querySelector('.sidebar');
+    if (sidebarEl) sidebarEl.style.display = 'none';
+    var topBrandEl = document.getElementById('netlifyTopBrand');
+    if (topBrandEl) topBrandEl.style.display = 'flex';
   }
 })();
 </script>
