@@ -198,6 +198,8 @@
   .from-customer .msg-bubble{background:var(--bg);color:var(--ink);border-bottom-left-radius:4px;}
   .from-agent .msg-bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px;}
   .from-agent.is-bot .msg-bubble{background:var(--purple);}
+  .msg-row.from-system{align-self:center;align-items:center;max-width:90%;}
+  .from-system .msg-bubble{background:#F1F5F9;color:var(--ink-faint);font-size:12px;font-style:italic;text-align:center;border-radius:10px;}
 
   .table-wrap{overflow-x:auto;}
   .admin-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);max-width:220px;margin-bottom:10px;}
@@ -901,12 +903,26 @@
       return;
     }
     body.innerHTML = withContent.map(m => {
-      const isAgent = m.senderType === 'user';
-      const isBot = isAgent && AI_BOT_NAMES_CLIENT.has(m.senderName);
-      const who = isAgent ? (m.senderName || 'Agent') : (m.contactName || 'Customer');
+      // Automated/system messages (auto-close notices, CSAT prompts, etc.)
+      // have no real sender — senderType is null/missing, not 'contact' or
+      // 'user'. Attributing these to the customer (as a naive fallback
+      // would) is misleading, since Chatwoot itself logs them as system
+      // actions, not something the customer said.
+      let cls, who;
+      if (m.senderType === 'contact') {
+        cls = 'from-customer';
+        who = m.contactName || 'Customer';
+      } else if (m.senderType === 'user') {
+        const isBot = AI_BOT_NAMES_CLIENT.has(m.senderName);
+        cls = 'from-agent' + (isBot ? ' is-bot' : '');
+        who = m.senderName || 'Agent';
+      } else {
+        cls = 'from-system';
+        who = 'Automated Message';
+      }
       const when = m.createdAt ? new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
       return `
-        <div class="msg-row ${isAgent ? 'from-agent' : 'from-customer'} ${isBot ? 'is-bot' : ''}">
+        <div class="msg-row ${cls}">
           <div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div>
           <div class="msg-bubble">${escapeHtml(stripHtmlClient(m.content))}</div>
         </div>
