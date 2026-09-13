@@ -266,16 +266,29 @@ function computeArtFtr(messages) {
 router.get('/conversations', requireAuth, async (req, res) => {
   try {
     const brand = req.query.brand || null;
+    const from = req.query.from || null;
+    const to = req.query.to || null;
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const brandClause = brand ? 'AND "brand" = :brand' : '';
+    // Restricts which conversations are "in scope" for this request, and
+    // what counts as their lastActivityAt, to activity that happened within
+    // [from, to] — WITHOUT restricting the other lookups below (contact,
+    // message preview, handoff, csat), which still resolve each matched
+    // conversation's TRUE latest info regardless of date. This avoids two
+    // failure modes: (1) a date filter silently missing older conversations
+    // that got crowded out of the unfiltered top-`limit` rows by newer,
+    // unrelated activity elsewhere, and (2) showing blank/"Unknown" contact
+    // or status info for a conversation whose identifying data happens to
+    // predate the selected window.
+    const dateClause = (from && to) ? 'AND "createdAt" BETWEEN :from AND :to' : '';
 
     const latestPerConversation = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
         "conversationId", "brand", "inboxName", "status", "createdAt" AS "lastActivityAt"
       FROM "ChatwootEvents"
-      WHERE "conversationId" IS NOT NULL ${brandClause}
+      WHERE "conversationId" IS NOT NULL ${brandClause} ${dateClause}
       ORDER BY "conversationId", "createdAt" DESC
-    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    `, { replacements: { brand, from, to }, type: QueryTypes.SELECT });
 
     const latestContactPerConversation = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
