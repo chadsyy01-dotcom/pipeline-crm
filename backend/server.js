@@ -20,6 +20,7 @@ app.use('/api/deal-stages', require('./routes/dealStages'));
 app.use('/api/deals', require('./routes/deals'));
 app.use('/api/openai-billing', require('./routes/openaiBilling'));
 app.use('/api/chatwoot', require('./routes/chatwoot'));
+app.use('/api/livechat', require('./routes/livechat'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
