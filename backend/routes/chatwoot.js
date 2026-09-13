@@ -111,6 +111,9 @@ const STORED_EVENTS = new Set([
 
 const PAYLOAD_RETENTION_DAYS = Number(process.env.CHATWOOT_PAYLOAD_RETENTION_DAYS) || 3;
 
+// Max conversations returned PER BRAND when no ?brand= filter is given.
+const PER_BRAND_LIMIT = 200;
+
 function hasCsatResponse(payload) {
   return !!payload?.content_attributes?.submitted_values?.csat_survey_response;
 }
@@ -411,13 +414,28 @@ router.get('/conversations', requireAuth, async (req, res) => {
     // predate the selected window.
     const dateClause = (from && to) ? 'AND "createdAt" BETWEEN :from AND :to' : '';
 
+    // Per-brand cap (2026-09-13): a single global top-N let high-volume
+    // brands (Buenas/TMT/MCP) crowd low-volume ones (MGK, LuckystacksPH)
+    // out of the list entirely. Now every brand gets its own most-recent
+    // `perBrand` conversations, so all brands always appear in the tabs.
+    // Implemented with ROW_NUMBER() over the per-conversation "latest"
+    // rows, partitioned by brand.
+    const perBrand = brand ? limit : PER_BRAND_LIMIT;
     const latestPerConversation = await sequelize.query(`
-      SELECT DISTINCT ON ("conversationId")
-        "conversationId", "brand", "inboxName", "status", "createdAt" AS "lastActivityAt"
-      FROM "ChatwootEvents"
-      WHERE "conversationId" IS NOT NULL ${brandClause} ${dateClause}
-      ORDER BY "conversationId", "createdAt" DESC
-    `, { replacements: { brand, from, to }, type: QueryTypes.SELECT });
+      SELECT "conversationId", "brand", "inboxName", "status", "lastActivityAt"
+      FROM (
+        SELECT latest.*,
+               ROW_NUMBER() OVER (PARTITION BY "brand" ORDER BY "lastActivityAt" DESC) AS rn
+        FROM (
+          SELECT DISTINCT ON ("conversationId")
+            "conversationId", "brand", "inboxName", "status", "createdAt" AS "lastActivityAt"
+          FROM "ChatwootEvents"
+          WHERE "conversationId" IS NOT NULL ${brandClause} ${dateClause}
+          ORDER BY "conversationId", "createdAt" DESC
+        ) latest
+      ) ranked
+      WHERE rn <= :perBrand
+    `, { replacements: { brand, from, to, perBrand }, type: QueryTypes.SELECT });
 
     const latestContactPerConversation = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
@@ -511,9 +529,11 @@ router.get('/conversations', requireAuth, async (req, res) => {
       });
     }
 
+    // No global slice when showing all brands — the per-brand cap above
+    // already bounds the result (<= PER_BRAND_LIMIT x number of brands).
     const sorted = conversations
       .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt))
-      .slice(0, limit);
+      .slice(0, brand ? limit : conversations.length);
 
     res.json({ conversations: sorted });
   } catch (err) {
