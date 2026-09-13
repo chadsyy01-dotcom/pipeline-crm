@@ -110,8 +110,7 @@ const STORED_EVENTS = new Set([
 ]);
 
 const PAYLOAD_RETENTION_DAYS = Number(process.env.CHATWOOT_PAYLOAD_RETENTION_DAYS) || 3;
-// Max conversations returned PER BRAND when no ?brand= filter is given.
-const PER_BRAND_LIMIT = 200;
+
 function hasCsatResponse(payload) {
   return !!payload?.content_attributes?.submitted_values?.csat_survey_response;
 }
@@ -394,8 +393,10 @@ router.get('/conversations', requireAuth, async (req, res) => {
     const brand = req.query.brand || null;
     const from = req.query.from || null;
     const to = req.query.to || null;
-        // Cap raised 200 -> 1000 (2026-09-13): low-traffic brands (MGK,
-    // LuckystacksPH) were crowded out of the top-200 by Buenas/TMT/MCP volume.
+    // Cap raised 200 -> 1000 (2026-09-13): with 10 brands, low-traffic ones
+    // (MGK, LuckystacksPH) were being crowded out of the top-200 by Buenas/
+    // TMT/MCP volume and vanished from the brand tabs entirely. The frontend
+    // should still pass ?limit=1000 explicitly to get the full set.
     const limit = Math.min(Number(req.query.limit) || 50, 1000);
     const brandClause = brand ? 'AND "brand" = :brand' : '';
     // Restricts which conversations are "in scope" for this request, and
@@ -442,31 +443,13 @@ router.get('/conversations', requireAuth, async (req, res) => {
       ORDER BY "conversationId", "createdAt" DESC
     `, { replacements: { brand }, type: QueryTypes.SELECT });
 
-        // Per-brand cap (2026-09-13): a single global top-N let high-volume
-    // brands (Buenas/TMT/MCP) crowd low-volume ones (MGK, LuckystacksPH)
-    // out of the list entirely. Now every brand gets its own most-recent
-    // `perBrand` conversations, so all brands always appear in the tabs.
-    const perBrand = brand ? limit : PER_BRAND_LIMIT;
-    const latestPerConversation = await sequelize.query(`
-      SELECT "conversationId", "brand", "inboxName", "status", "lastActivityAt"
-      FROM (
-        SELECT DISTINCT ON ("conversationId")
-          "conversationId", "brand", "inboxName", "status", "createdAt" AS "lastActivityAt"
-        FROM "ChatwootEvents"
-        WHERE "conversationId" IS NOT NULL ${brandClause} ${dateClause}
-        ORDER BY "conversationId", "createdAt" DESC
-      ) latest
-      WHERE "lastActivityAt" >= COALESCE((
-        SELECT "lastActivityAt" FROM (
-          SELECT DISTINCT ON ("conversationId") "brand", "createdAt" AS "lastActivityAt"
-          FROM "ChatwootEvents"
-          WHERE "conversationId" IS NOT NULL AND "brand" = latest."brand" ${dateClause}
-          ORDER BY "conversationId", "createdAt" DESC
-        ) b
-        ORDER BY "lastActivityAt" DESC
-        OFFSET :perBrandOffset LIMIT 1
-      ), '1970-01-01'::timestamptz)
-    `, { replacements: { brand, from, to, perBrandOffset: perBrand - 1 }, type: QueryTypes.SELECT });
+    const latestCsatPerConversation = await sequelize.query(`
+      SELECT DISTINCT ON ("conversationId")
+        "conversationId", "csatRating", "csatFeedback"
+      FROM "ChatwootEvents"
+      WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${brandClause}
+      ORDER BY "conversationId", "createdAt" DESC
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
 
     const contactMap = new Map(latestContactPerConversation.map(r => [r.conversationId, r]));
     const messageMap = new Map(latestMessagePerConversation.map(r => [r.conversationId, r]));
@@ -528,11 +511,9 @@ router.get('/conversations', requireAuth, async (req, res) => {
       });
     }
 
-       // No global slice when showing all brands — the per-brand cap above
-    // already bounds the result (≤ PER_BRAND_LIMIT × number of brands).
     const sorted = conversations
       .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt))
-      .slice(0, brand ? limit : conversations.length);
+      .slice(0, limit);
 
     res.json({ conversations: sorted });
   } catch (err) {
