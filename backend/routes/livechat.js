@@ -33,12 +33,9 @@
 //                             PRIMARY brand source: the site the customer
 //                             chatted from (customer.last_visit.last_pages).
 //                             Defaults for the 3 known brands are built in.
-//   LIVECHAT_GROUP_MAP        optional JSON: { "<group_id>": "<brand-slug>" }
-//                             e.g. {"0":"livechat-general","1":"superscatterph",
-//                                   "2":"manilacasino","3":"casinyeam"}
-//                             Unknown/unmapped groups fall back to the slug
-//                             "livechat-group-<id>" so they still show up in
-//                             the brand tabs (and tell you the id to map).
+//   LIVECHAT_GROUP_MAP        (legacy, no longer used for brand attribution —
+//                             groups don't decide the brand any more; see
+//                             resolveBrand). Safe to leave unset.
 //
 // KEY DIFFERENCES FROM CHATWOOT (and how they're handled):
 //   - One LiveChat license serving several sites. The :brand URL param is
@@ -129,6 +126,7 @@ const DEFAULT_DOMAIN_MAP = {
   'casinyeam': 'casinyeam',
   'manilacasino': 'manilacasino',
   'superscatter': 'superscatterph',
+  'supperscatter': 'superscatterph',
   'ssph': 'superscatterph',
 };
 let DOMAIN_MAP = { ...DEFAULT_DOMAIN_MAP };
@@ -166,12 +164,15 @@ function brandForHost(host) {
   return null;
 }
 
-// Brand resolution order: originating domain first (what the user asked
-// for — one LiveChat group can serve several sites), then the LiveChat
-// group as fallback.
+// Brand rule (confirmed 2026-09-14): the ORIGINATING DOMAIN decides the
+// brand. Anything that can't be identified from a known domain — no page
+// URL in the payload, an unrecognised host, a chat started from somewhere
+// other than a brand site — goes to LC General. LiveChat groups are NOT
+// used for brand attribution (kept only as inboxId metadata).
+const GENERAL_BRAND = 'livechat-general';
 function resolveBrand(customer, groupId) {
   const host = customerHost(customer);
-  return { brand: brandForHost(host) || brandForGroup(groupId), host };
+  return { brand: brandForHost(host) || GENERAL_BRAND, host };
 }
 
 function agentDisplayName(authorId) {
@@ -262,7 +263,7 @@ async function normalize(body) {
     const known = await lookupBrand(conversationId);
     const st = senderTypeFor(ev.author_id);
     return [{
-      brand: known?.brand || 'livechat-unknown',
+      brand: known?.brand || GENERAL_BRAND,
       conversationId,
       messageId: stableIntId(ev.id),
       inboxName: known?.inboxName || 'LiveChat',
@@ -283,7 +284,7 @@ async function normalize(body) {
     const conversationId = stableIntId(p.chat_id);
     const known = await lookupBrand(conversationId);
     return [{
-      brand: known?.brand || 'livechat-unknown',
+      brand: known?.brand || GENERAL_BRAND,
       conversationId,
       inboxName: known?.inboxName || 'LiveChat',
       contactName: known?.contactName || null,
@@ -303,7 +304,7 @@ async function normalize(body) {
     const known = await lookupBrand(conversationId);
     const score = Number(rating.score);
     return [{
-      brand: known?.brand || 'livechat-unknown',
+      brand: known?.brand || GENERAL_BRAND,
       conversationId,
       messageId: stableIntId(`${p.chat_id}:${p.thread_id}:rating`),
       inboxName: known?.inboxName || 'LiveChat',
@@ -323,7 +324,7 @@ async function normalize(body) {
     const conversationId = stableIntId(p.chat_id);
     const known = await lookupBrand(conversationId);
     return [{
-      brand: known?.brand || 'livechat-unknown',
+      brand: known?.brand || GENERAL_BRAND,
       conversationId,
       inboxName: known?.inboxName || 'LiveChat',
       contactName: known?.contactName || null,
