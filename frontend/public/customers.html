@@ -333,7 +333,7 @@
     <div class="topbar">
       <div class="greeting">
         <h1>Customers</h1>
-        <p>Customer conversations across brands, synced from Chatwoot live chat.</p>
+        <p>Customer conversations across brands, synced from Chatwoot and LiveChat.</p>
       </div>
       <div class="topbar-right">
         <div class="search">
@@ -479,23 +479,16 @@
 
 <script>
   // Display labels for known brand slugs — extend as more brands get their
-  // webhook set up (see routes/chatwoot.js). Falls back to a title-cased
-  // version of the slug for anything not listed here, so a new brand still
-  // shows something reasonable before this map is updated.
+  // webhook set up (see routes/chatwoot.js and routes/livechat.js). Falls
+  // back to a title-cased version of the slug for anything not listed here,
+  // so a new brand still shows something reasonable before this map is
+  // updated. Slugs are CASE-SENSITIVE — they must match exactly what the
+  // backend stores in ChatwootEvents.brand.
   const BRAND_LABELS = {
+    // ---- Chatwoot brands (webhook URL slugs) ----
     buenasph: 'Buenas PH',
     tmtcash: 'TMTCash',
-    manilaplay: 'ManilaPlay',
-    hypeplayph: 'HypePlay PH',
-    hypeplaybd: 'HypePlay BD',
-    mastergoldkey: 'MasterGoldKey',
-    luckystacksph: 'LuckyStacks PH',
     mcp: 'Mobile Casino Play',
-    casinyeam: 'Casinyeam',
-    tmtplay: 'TMTPLAY',
-    manilacasino: 'Manila Casino',
-        superscatterph: 'SuperScatter PH',
-    // actual webhook slugs in use (case-sensitive) — see routes/chatwoot.js
     manilaplayph: 'Manila Play PH',
     HypleplayPH: 'HypePlay PH',
     HypeplayBD: 'HypePlay BD',
@@ -503,6 +496,18 @@
     MGK: '88MGK',
     BuenasCredit: 'Buenas Credit',
     LuckystacksPH: 'LuckyStacks PH',
+    // ---- LiveChat.com brands (resolved from originating domain) ----
+    casinyeam: 'Casinyeam',
+    manilacasino: 'Manila Casino',
+    superscatterph: 'SuperScatter PH',
+    'livechat-general': 'LC General',
+    // ---- legacy / reserved slugs ----
+    manilaplay: 'ManilaPlay',
+    hypeplayph: 'HypePlay PH',
+    hypeplaybd: 'HypePlay BD',
+    mastergoldkey: 'MasterGoldKey',
+    luckystacksph: 'LuckyStacks PH',
+    tmtplay: 'TMTPLAY',
   };
   function brandLabel(slug) {
     if (!slug) return 'Unknown';
@@ -643,6 +648,8 @@
     if (!token) return;
     try {
       const params = new URLSearchParams();
+      // The backend caps per-brand (200 each) when no ?brand= is given, so
+      // this just needs to be high enough not to truncate that set.
       params.set('limit', '1000');
       const range = getDateRangeParams();
       if (range) {
@@ -1051,7 +1058,8 @@
 
   // Mirrors AI_BOT_SENDER_NAMES in routes/chatwoot.js — kept in sync manually
   // since this is just for the bubble color, not the actual handoff logic.
-    const AI_BOT_NAMES_CLIENT = new Set([
+  // (LiveChat.com brands have no bot persona — all agents there are human.)
+  const AI_BOT_NAMES_CLIENT = new Set([
     'Admin Joy', 'Admin Love', 'Agent Jem', 'Manila Play Admin', 'Mona',
     'Hype Play PH Admin', 'Bogchi', 'Lucky Stacks Admin', 'Admin May',
     'TMTPlay Admin', 'Buenas88 Admin', 'Admin Heart', 'Maya',
