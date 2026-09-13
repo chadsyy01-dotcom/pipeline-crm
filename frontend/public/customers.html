@@ -635,7 +635,7 @@
     if (!token) return;
     try {
       const params = new URLSearchParams();
-      params.set('limit', '200');
+      params.set('limit', '1000');
       const range = getDateRangeParams();
       if (range) {
         params.set('from', range.from);
