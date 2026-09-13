@@ -382,25 +382,34 @@ router.get('/conversations', requireAuth, async (req, res) => {
 
 // GET /api/chatwoot/events?brand=tmtcash&event=message_created&conversationId=123&limit=50
 // For the dashboard to browse what's come in so far.
-// GET /api/chatwoot/csat?brand=buenasph
+// GET /api/chatwoot/csat?brand=buenasph&from=2026-09-01T00:00:00.000Z&to=2026-09-13T23:59:59.999Z
 // Aggregate CSAT stats from stored survey responses. Chatwoot's default
 // scale is 1-5 — this uses the common convention of 4-5 = satisfied (CSAT),
 // 1-2 = dissatisfied (DSAT), 3 = neutral. Adjust the thresholds below if
 // your actual survey uses a different scale (e.g. a straight thumbs up/down).
+// `from`/`to` are optional ISO timestamps — when both are present, only
+// CSAT responses whose event `createdAt` (i.e. when the customer actually
+// submitted the survey) falls within that window are counted. Passing only
+// one of the two is treated as no date filter at all, same as passing
+// neither, since a half-open range isn't something the frontend ever sends.
 router.get('/csat', requireAuth, async (req, res) => {
   try {
     const brand = req.query.brand || null;
+    const from = req.query.from || null;
+    const to = req.query.to || null;
     const brandClause = brand ? 'AND "brand" = :brand' : '';
+    const dateClause = (from && to) ? 'AND "createdAt" BETWEEN :from AND :to' : '';
 
     // One response per conversation — a customer could technically answer
-    // more than once if surveyed again, so take their latest answer only.
+    // more than once if surveyed again, so take their latest answer only
+    // (within the date window, when one is given).
     const responses = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
         "conversationId", "csatRating", "csatFeedback", "createdAt"
       FROM "ChatwootEvents"
-      WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${brandClause}
+      WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${brandClause} ${dateClause}
       ORDER BY "conversationId", "createdAt" DESC
-    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    `, { replacements: { brand, from, to }, type: QueryTypes.SELECT });
 
     const total = responses.length;
     const csatCount = responses.filter(r => r.csatRating >= 4).length;
