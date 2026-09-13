@@ -603,6 +603,41 @@
     opt.textContent = `${fmt(customDateFrom)} – ${fmt(customDateTo)}`;
   }
 
+  // Mirrors matchesDateFilter()'s date-window logic, but as an actual
+  // {from, to} ISO range for the backend CSAT endpoint to filter on —
+  // matchesDateFilter itself stays client-side-only since it runs against
+  // already-loaded conversation objects, not a SQL query.
+  function getDateRangeParams() {
+    const now = new Date();
+    let from, to;
+    if (currentDateFilter === 'all') {
+      return null;
+    } else if (currentDateFilter === 'today') {
+      from = new Date(now); from.setHours(0, 0, 0, 0);
+      to = new Date(now); to.setHours(23, 59, 59, 999);
+    } else if (currentDateFilter === 'yesterday') {
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      from = new Date(y); from.setHours(0, 0, 0, 0);
+      to = new Date(y); to.setHours(23, 59, 59, 999);
+    } else if (currentDateFilter === '7d') {
+      from = new Date(now); from.setDate(from.getDate() - 7); from.setHours(0, 0, 0, 0);
+      to = new Date(now); to.setHours(23, 59, 59, 999);
+    } else if (currentDateFilter === '30d') {
+      from = new Date(now); from.setDate(from.getDate() - 30); from.setHours(0, 0, 0, 0);
+      to = new Date(now); to.setHours(23, 59, 59, 999);
+    } else if (currentDateFilter === 'month') {
+      from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      to = new Date(now); to.setHours(23, 59, 59, 999);
+    } else if (currentDateFilter === 'custom') {
+      if (!customDateFrom || !customDateTo) return null;
+      from = customDateFrom;
+      to = customDateTo;
+    } else {
+      return null;
+    }
+    return { from: from.toISOString(), to: to.toISOString() };
+  }
+
   async function loadConversations() {
     const token = localStorage.getItem('pipeline_token');
     if (!token) return;
@@ -650,9 +685,15 @@
   async function loadCsatStats() {
     const token = localStorage.getItem('pipeline_token');
     if (!token) return;
-    const url = currentBrand === 'all'
-      ? `${API_BASE}/chatwoot/csat`
-      : `${API_BASE}/chatwoot/csat?brand=${encodeURIComponent(currentBrand)}`;
+    const params = new URLSearchParams();
+    if (currentBrand !== 'all') params.set('brand', currentBrand);
+    const range = getDateRangeParams();
+    if (range) {
+      params.set('from', range.from);
+      params.set('to', range.to);
+    }
+    const qs = params.toString();
+    const url = `${API_BASE}/chatwoot/csat${qs ? '?' + qs : ''}`;
     try {
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
