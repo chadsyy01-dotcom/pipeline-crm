@@ -27,6 +27,12 @@
 //                             are rejected. Required (no "accept everything"
 //                             fallback — unlike Chatwoot, the mechanism here
 //                             is reliable).
+//   LIVECHAT_DOMAIN_MAP       optional JSON: { "<hostname substring>": "<brand-slug>" }
+//                             e.g. {"casinyeam":"casinyeam","manilacasino":"manilacasino",
+//                                   "superscatter":"superscatterph"}
+//                             PRIMARY brand source: the site the customer
+//                             chatted from (customer.last_visit.last_pages).
+//                             Defaults for the 3 known brands are built in.
 //   LIVECHAT_GROUP_MAP        optional JSON: { "<group_id>": "<brand-slug>" }
 //                             e.g. {"0":"livechat-general","1":"superscatterph",
 //                                   "2":"manilacasino","3":"casinyeam"}
@@ -35,9 +41,11 @@
 //                             the brand tabs (and tell you the id to map).
 //
 // KEY DIFFERENCES FROM CHATWOOT (and how they're handled):
-//   - One LiveChat license, brands = GROUPS. The :brand URL param is just
-//     "main"; the real brand comes from chat.access.group_ids on
-//     incoming_chat and is remembered per conversation for later events.
+//   - One LiveChat license serving several sites. The :brand URL param is
+//     just "main"; the real brand is resolved on incoming_chat from the
+//     DOMAIN the customer chatted from (customer.last_visit.last_pages),
+//     falling back to the LiveChat group id — and is then remembered per
+//     conversation for all later events (which don't carry either).
 //   - Chat/event IDs are strings ("PJ0MRSHTDG"), but ChatwootEvents.
 //     conversationId / messageId are integers. We derive a stable positive
 //     32-bit integer from the string (FNV-1a) in the 2,000,000,000+ range so
@@ -112,6 +120,60 @@ function brandForGroup(groupId) {
   return GROUP_MAP[key] || `livechat-group-${key}`;
 }
 
+// Domain -> brand. Matched as a case-insensitive SUBSTRING of the hostname,
+// so "www.casinyeam.com", "casinyeam.ph" and "m.casinyeam.vip" all map to
+// the same brand. Override/extend via LIVECHAT_DOMAIN_MAP env var (JSON:
+// { "<substring>": "<brand-slug>" }). Checked in insertion order; put more
+// specific substrings first if two could overlap.
+const DEFAULT_DOMAIN_MAP = {
+  'casinyeam': 'casinyeam',
+  'manilacasino': 'manilacasino',
+  'superscatter': 'superscatterph',
+  'ssph': 'superscatterph',
+};
+let DOMAIN_MAP = { ...DEFAULT_DOMAIN_MAP };
+try {
+  if (process.env.LIVECHAT_DOMAIN_MAP) {
+    DOMAIN_MAP = { ...JSON.parse(process.env.LIVECHAT_DOMAIN_MAP), ...DOMAIN_MAP };
+  }
+} catch (e) {
+  console.error('LiveChat: LIVECHAT_DOMAIN_MAP is not valid JSON — using defaults.', e.message);
+}
+
+// Pull the hostname the customer was chatting from. LiveChat puts the pages
+// the visitor browsed on the customer object (last_visit.last_pages) and the
+// referrer on last_visit.referrer; the chat widget's own url is sometimes on
+// session_fields. Returns null if nothing usable is present.
+function customerHost(customer) {
+  const candidates = [];
+  const lv = customer?.last_visit || {};
+  for (const pg of lv.last_pages || []) if (pg?.url) candidates.push(pg.url);
+  if (lv.referrer) candidates.push(lv.referrer);
+  for (const sf of customer?.session_fields || []) {
+    for (const v of Object.values(sf || {})) if (typeof v === 'string' && /^https?:\/\//i.test(v)) candidates.push(v);
+  }
+  for (const url of candidates) {
+    try { return new URL(url).hostname.toLowerCase(); } catch { /* not a url */ }
+  }
+  return null;
+}
+
+function brandForHost(host) {
+  if (!host) return null;
+  for (const [needle, slug] of Object.entries(DOMAIN_MAP)) {
+    if (host.includes(needle.toLowerCase())) return slug;
+  }
+  return null;
+}
+
+// Brand resolution order: originating domain first (what the user asked
+// for — one LiveChat group can serve several sites), then the LiveChat
+// group as fallback.
+function resolveBrand(customer, groupId) {
+  const host = customerHost(customer);
+  return { brand: brandForHost(host) || brandForGroup(groupId), host };
+}
+
 function agentDisplayName(authorId) {
   return LIVECHAT_AGENTS[authorId] || authorId || null;
 }
@@ -155,14 +217,16 @@ async function normalize(body) {
     const chat = p.chat || {};
     const thread = chat.thread || {};
     const groupId = (thread.access?.group_ids || chat.access?.group_ids || [0])[0];
-    const brand = brandForGroup(groupId);
     const customer = (chat.users || []).find(u => u.type === 'customer') || {};
+    const { brand, host } = resolveBrand(customer, groupId);
     const conversationId = stableIntId(chat.id);
     const base = {
       brand,
       conversationId,
       inboxId: Number(groupId) || 0,
-      inboxName: `LiveChat · group ${groupId}`,
+      // "LiveChat · <host>" when the domain is known, else the group — the
+      // prefix is what lookupBrand() keys on, so keep it.
+      inboxName: host ? `LiveChat · ${host}` : `LiveChat · group ${groupId}`,
       contactName: customer.name || null,
       contactEmail: customer.email || null,
       status: 'open',
@@ -171,7 +235,7 @@ async function normalize(body) {
     const rows = [{
       ...base,
       event: 'conversation_created',
-      payload: { source: 'livechat', action, lc_chat_id: chat.id, lc_thread_id: thread.id, group_id: groupId, customer: { id: customer.id, name: customer.name, email: customer.email } },
+      payload: { source: 'livechat', action, lc_chat_id: chat.id, lc_thread_id: thread.id, group_id: groupId, host, customer: { id: customer.id, name: customer.name, email: customer.email } },
     }];
     // Initial events that came with the chat (e.g. the customer's first message).
     for (const ev of thread.events || []) {
@@ -323,7 +387,7 @@ router.post('/webhook/:brand', async (req, res) => {
 // GET /api/livechat/health — quick check that the route is mounted and the
 // secret is configured (does not reveal it).
 router.get('/health', (req, res) => {
-  res.json({ ok: true, secretConfigured: !!WEBHOOK_SECRET, groupMap: GROUP_MAP });
+  res.json({ ok: true, secretConfigured: !!WEBHOOK_SECRET, domainMap: DOMAIN_MAP, groupMap: GROUP_MAP });
 });
 
 module.exports = router;
