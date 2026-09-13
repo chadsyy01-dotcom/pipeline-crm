@@ -49,7 +49,26 @@ function stripHtml(html) {
 // real human — a reply from one of these does NOT count as a handoff, no
 // matter what the conversation's labels say. Add more names here as new
 // brands' bot personas get added (each brand may name theirs differently).
-const AI_BOT_SENDER_NAMES = new Set(['Admin Joy', 'Admin Love', 'Agent Jem', 'Manila Play Admin', 'Mona']);
+//
+// Convention: the bot persona is the account the AI posts through — the
+// brand's admin@ / bot@ login. Real human agents (Hanna, Mim, Lucy,
+// Admin Mika, OM - AOM, Tala, Bella, etc.) must NOT be listed here, or
+// their replies stop counting as handoffs.
+const AI_BOT_SENDER_NAMES = new Set([
+  // existing
+  'Admin Joy',
+  'Admin Love',
+  'Agent Jem',
+  'Manila Play Admin',
+  'Mona',
+  // added 2026-09-13 from Chatwoot agent rosters
+  'Hype Play PH Admin',   // admin@hypeplay.asia
+  'Bogchi',               // admin@hypeplaybdt.com
+  'Lucky Stacks Admin',   // admin@luckystacks.ph
+  'Admin May',            // bot@88mgk.com
+  'TMTPlay Admin',        // admin@tmtplay88.online
+  'Buenas88 Admin',       // admin@buenas88.vip
+]);
 
 function isRealHumanAgentReply(senderName, senderType) {
   return senderType === 'user' && !!senderName && !AI_BOT_SENDER_NAMES.has(senderName);
