@@ -642,7 +642,14 @@
     const token = localStorage.getItem('pipeline_token');
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/chatwoot/conversations?limit=200`, {
+      const params = new URLSearchParams();
+      params.set('limit', '200');
+      const range = getDateRangeParams();
+      if (range) {
+        params.set('from', range.from);
+        params.set('to', range.to);
+      }
+      const res = await fetch(`${API_BASE}/chatwoot/conversations?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -732,19 +739,19 @@
   // Average First Reply Time / Average Total Chatting Time across handoff
   // conversations only (ftr/art are null for non-handoff conversations —
   // see computeArtFtr on the backend; art = full span from handoff to the
-  // conversation's last message, not an average of reply gaps). Filtered
-  // by the current brand tab AND the current date filter, same scope as
-  // the conversation table below.
+  // conversation's last message, not an average of reply gaps). Brand is
+  // filtered client-side (allConversations always holds every brand); date
+  // is already scoped server-side by loadConversations(), so allConversations
+  // itself reflects the current date filter — no extra date check needed here.
   function renderArtFtrStats() {
     const ftrEl = document.getElementById('avgFtrValue');
     const ftrSub = document.getElementById('avgFtrSub');
     const artEl = document.getElementById('avgArtValue');
     const artSub = document.getElementById('avgArtSub');
 
-    const scoped = allConversations.filter(c => {
-      if (currentBrand !== 'all' && c.brand !== currentBrand) return false;
-      return matchesDateFilter(c);
-    });
+    const scoped = currentBrand === 'all'
+      ? allConversations
+      : allConversations.filter(c => c.brand === currentBrand);
 
     const ftrValues = scoped.filter(c => c.ftr != null).map(c => c.ftr);
     const artValues = scoped.filter(c => c.art != null).map(c => c.art);
@@ -822,7 +829,6 @@
     if (currentAdmin !== 'all') filtered = filtered.filter(c => c.lastMessageSender === currentAdmin);
     if (currentCsatFilter === 'csat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating >= 4);
     if (currentCsatFilter === 'dsat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating <= 2);
-    filtered = filtered.filter(matchesDateFilter);
     if (currentSearch) {
       filtered = filtered.filter(c =>
         (c.contactName || '').toLowerCase().includes(currentSearch) ||
@@ -899,8 +905,7 @@
     }
     customDatePop.classList.remove('open');
     currentDateFilter = e.target.value;
-    applyFiltersAndRender();
-    renderArtFtrStats();
+    loadConversations();
     loadCsatStats();
   });
 
@@ -921,8 +926,7 @@
     dateFilterSelect.value = 'custom';
     updateCustomDateOptionLabel();
     customDatePop.classList.remove('open');
-    applyFiltersAndRender();
-    renderArtFtrStats();
+    loadConversations();
     loadCsatStats();
   });
 
