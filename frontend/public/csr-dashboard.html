@@ -94,11 +94,6 @@
     display:flex;align-items:center;gap:8px;color:#AEBBD1;white-space:nowrap;
   }
   .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
-  .quick-links{background:#151E30;border-radius:12px;padding:14px;margin-top:12px;white-space:nowrap;}
-  .quick-links h4{margin:0 0 8px;font-size:11px;letter-spacing:.02em;color:#748199;font-weight:600;}
-  .ql-item{display:flex;align-items:center;gap:9px;padding:7px 4px;font-size:12.5px;color:#C4D0E2;cursor:pointer;border-radius:8px;}
-  .ql-item:hover{color:#fff;background:#1C273B;}
-  .ql-item svg{width:15px;height:15px;color:var(--primary);}
 
   /* MAIN */
   .main{flex:1;min-width:0;padding:26px 32px 40px;}
@@ -215,17 +210,7 @@
   .donut-center .lab{font-size:11px;color:var(--ink-soft);font-weight:600;}
   .donut-wrap{position:relative;display:flex;justify-content:center;}
 
-  /* QUICK ACTIONS + TEAM */
-  .grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;}
-  .qa-grid{display:flex;gap:12px;flex-wrap:wrap;}
-  .qa-btn{
-    display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;min-width:96px;
-    background:#F8FAFC;border:1px solid var(--line);border-radius:12px;padding:16px 10px;cursor:pointer;transition:transform .15s, box-shadow .15s;
-  }
-  .qa-btn:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
-  .qa-ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;}
-  .qa-ico svg{width:18px;height:18px;}
-  .qa-label{font-size:12px;font-weight:700;text-align:center;}
+  /* TEAM */
   .team-strip{display:flex;flex-wrap:wrap;gap:10px;}
   .team-av{position:relative;width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;}
   .team-av .st{position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;border:2px solid var(--card);}
@@ -235,7 +220,6 @@
     .kpi-row{grid-template-columns:repeat(3,1fr);}
     .grid-4{grid-template-columns:1fr 1fr;}
     .grid-4b{grid-template-columns:1fr 1fr;}
-    .grid-2{grid-template-columns:1fr;}
   }
   @media (max-width:860px){
     .sidebar{display:none;}
@@ -377,14 +361,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         Settings
       </a>
-    </div>
-
-    <div class="quick-links">
-      <h4>QUICK LINKS</h4>
-      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Create Ticket</div>
-      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Customer Lookup</div>
-      <a class='ql-item' href='/reports'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Generate Report</a>
-      <div class="ql-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg>Broadcast Notice</div>
     </div>
 
     <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
@@ -569,24 +545,10 @@
       </div>
     </div>
 
-    <!-- QUICK ACTIONS + TEAM -->
-    <div class="grid-2">
-      <div class="panel">
-        <div class="panel-head"><h3>Quick Actions</h3></div>
-        <div class="qa-grid">
-          <div class="qa-btn"><div class="qa-ico" style="background:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></div><div class="qa-label">Create Ticket</div></div>
-          <div class="qa-btn"><div class="qa-ico" style="background:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="qa-label">Customer Lookup</div></div>
-          <div class="qa-btn"><div class="qa-ico" style="background:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div><div class="qa-label">Knowledge Base</div></div>
-          <a class='qa-btn' href='/reports'><div class="qa-ico" style="background:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div><div class="qa-label">Generate Report</div></a>
-          <div class="qa-btn"><div class="qa-ico" style="background:#0EA5E9;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg></div><div class="qa-label">Broadcast Notice</div></div>
-          <div class="qa-btn"><div class="qa-ico" style="background:#64748B;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div><div class="qa-label">Settings</div></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><h3>Team Status (Today)</h3><a href="#" class="view-all" id="teamViewAllBtn">View all</a></div>
-        <div class="team-strip" id="teamStrip"></div>
-      </div>
+    <!-- TEAM -->
+    <div class="panel" style="margin-bottom:14px;">
+      <div class="panel-head"><h3>Team Status (Today)</h3><a href="#" class="view-all" id="teamViewAllBtn">View all</a></div>
+      <div class="team-strip" id="teamStrip"></div>
     </div>
 
   </main>
@@ -1152,8 +1114,6 @@ function setupTeamViewAllToggle() {
         el.style.display = 'none';
       }
     });
-    // Hide the whole Quick Links panel (Create Ticket, Customer Lookup, Broadcast Notice, Generate Report).
-    document.querySelectorAll('.quick-links').forEach(function (el) { el.style.display = 'none'; });
     // Hide the personalized greeting ("Good afternoon, Chad").
     var greetingEl = document.querySelector('.greeting');
     if (greetingEl) greetingEl.style.display = 'none';
