@@ -68,11 +68,108 @@ const AI_BOT_SENDER_NAMES = new Set([
   'Admin May',            // bot@88mgk.com
   'TMTPlay Admin',        // admin@tmtplay88.online
   'Buenas88 Admin',       // admin@buenas88.vip
+  // added 2026-09-13 from CSAT reports (assigned agent on nearly every
+  // survey for the brand — same pattern as Admin Joy / Mona). Remove if
+  // either turns out to be a real person.
+  'Admin Heart',          // tmtcash-love@buenas.ph (tmtcash)
+  'Maya',                 // maya@manilaplay.ph (manilaplayph)
 ]);
 
 function isRealHumanAgentReply(senderName, senderType) {
   return senderType === 'user' && !!senderName && !AI_BOT_SENDER_NAMES.has(senderName);
 }
+
+// ---------------------------------------------------------------------------
+// STORAGE CONTROL (added 2026-09-13 after the Supabase -> Neon migration)
+//
+// Context: with every Chatwoot event stored in full, the table grew ~35 MB
+// per day across 10 brands (614 MB in 4 days) and blew through the 500 MB
+// free tier. Only four event types feed the dashboard; the rest (typing
+// indicators, contact_created/updated, webwidget_triggered, and almost all
+// message_updated) were pure noise. Three measures below keep growth low
+// enough to live on Neon's free 0.5 GB indefinitely:
+//   1. STORED_EVENTS allowlist — anything else is acknowledged (200) but
+//      never written.
+//   2. message_updated is the ONE exception: it's discarded UNLESS it carries
+//      a CSAT survey response — that is the only place ratings arrive
+//      (Chatwoot updates the existing survey message when the customer
+//      answers; it does not create a new one). Deleting message_updated
+//      wholesale wiped every CSAT/DSAT — hence this rule.
+//   3. slimPayload() strips the bulky, never-read parts of the raw payload
+//      (mainly conversation.messages, which repeats the whole thread on every
+//      event), and prunePayloads() blanks payload entirely on rows older
+//      than PAYLOAD_RETENTION_DAYS. Extracted columns are never touched, so
+//      the dashboard is unaffected; only /backfill loses the ability to
+//      re-derive those old rows, which is an acceptable trade.
+// ---------------------------------------------------------------------------
+const STORED_EVENTS = new Set([
+  'message_created',
+  'conversation_created',
+  'conversation_status_changed',
+  'conversation_updated',
+]);
+
+const PAYLOAD_RETENTION_DAYS = Number(process.env.CHATWOOT_PAYLOAD_RETENTION_DAYS) || 3;
+
+function hasCsatResponse(payload) {
+  return !!payload?.content_attributes?.submitted_values?.csat_survey_response;
+}
+
+function shouldStoreEvent(payload) {
+  const event = payload.event || '';
+  if (STORED_EVENTS.has(event)) return true;
+  if (event === 'message_updated') return hasCsatResponse(payload);
+  return false;
+}
+
+// Drops the parts of a Chatwoot payload that extractFields() never reads and
+// that account for most of its size. Returns a new object; input untouched.
+function slimPayload(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+  const out = { ...payload };
+  if (out.conversation && typeof out.conversation === 'object') {
+    const c = { ...out.conversation };
+    delete c.messages;               // full thread repeated on every event — the big one
+    delete c.additional_attributes;  // browser/referer/geo blobs
+    delete c.custom_attributes;
+    delete c.contact_inbox;
+    if (c.meta && typeof c.meta === 'object') {
+      // keep meta.sender (contact identity); drop assignee/team objects
+      c.meta = c.meta.sender ? { sender: c.meta.sender } : {};
+    }
+    out.conversation = c;
+  }
+  if (out.sender && typeof out.sender === 'object') {
+    const s = { ...out.sender };
+    delete s.additional_attributes;
+    delete s.custom_attributes;
+    out.sender = s;
+  }
+  delete out.additional_attributes;
+  delete out.attachments;
+  return out;
+}
+
+// Blank the payload on rows older than the retention window. Runs on boot
+// and then every 24h. Idempotent; cheap once caught up (indexed by createdAt
+// scan, skips rows already blanked).
+async function prunePayloads() {
+  try {
+    const [, meta] = await sequelize.query(`
+      UPDATE "ChatwootEvents"
+      SET "payload" = '{}'::jsonb
+      WHERE "createdAt" < NOW() - (:days || ' days')::interval
+        AND "payload" IS NOT NULL
+        AND "payload" <> '{}'::jsonb
+    `, { replacements: { days: String(PAYLOAD_RETENTION_DAYS) } });
+    const n = meta?.rowCount ?? meta ?? 0;
+    console.log(`Chatwoot prune: blanked payload on ${n} row(s) older than ${PAYLOAD_RETENTION_DAYS} day(s).`);
+  } catch (err) {
+    console.error('Chatwoot prune error:', err);
+  }
+}
+setTimeout(prunePayloads, 60 * 1000);                 // 1 min after boot
+setInterval(prunePayloads, 24 * 60 * 60 * 1000);      // then daily
 
 // Normalizes Chatwoot conversation labels (e.g. "BNS-HH PENDING", "TMT-HH-
 // CLOSED") into one of a small set of canonical handoff stages, regardless
@@ -207,13 +304,22 @@ router.post('/webhook/:brand', async (req, res) => {
     }
 
     const payload = req.body || {};
+
+    // Storage control: acknowledge but don't persist events the dashboard
+    // never reads (see STORED_EVENTS / shouldStoreEvent above).
+    if (!shouldStoreEvent(payload)) {
+      return res.status(200).json({ ok: true, stored: false });
+    }
+
+    // Extract from the FULL payload (so nothing is lost to slimming), then
+    // persist only the slimmed copy.
     const fields = extractFields(payload);
 
     await ChatwootEvent.create({
       brand: req.params.brand,
       event: payload.event || 'unknown',
       ...fields,
-      payload,
+      payload: slimPayload(payload),
     });
 
     // Chatwoot doesn't do anything with the response body, but it does
@@ -496,7 +602,15 @@ router.post('/backfill', requireAuth, async (req, res) => {
   try {
     const allEvents = await ChatwootEvent.findAll();
     let updated = 0;
+    let skipped = 0;
     for (const row of allEvents) {
+      // Rows whose payload was pruned to {} (or migrated without one) have
+      // nothing to re-derive from — re-running extractFields on them would
+      // overwrite good columns with nulls. Leave them exactly as they are.
+      if (!row.payload || typeof row.payload !== 'object' || Object.keys(row.payload).length === 0) {
+        skipped++;
+        continue;
+      }
       const fields = extractFields(row.payload);
       await row.update({
         conversationId: fields.conversationId,
@@ -516,7 +630,7 @@ router.post('/backfill', requireAuth, async (req, res) => {
       });
       updated++;
     }
-    res.json({ ok: true, updated });
+    res.json({ ok: true, updated, skipped });
   } catch (err) {
     console.error('Chatwoot backfill error:', err);
     res.status(500).json({ error: err.message });
