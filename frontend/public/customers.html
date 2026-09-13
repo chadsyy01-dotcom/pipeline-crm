@@ -692,16 +692,18 @@
   // conversations only (ftr/art are null for non-handoff conversations —
   // see computeArtFtr on the backend; art = full span from handoff to the
   // conversation's last message, not an average of reply gaps). Filtered
-  // by the current brand tab, same scope as the CSAT/DSAT summary above.
+  // by the current brand tab AND the current date filter, same scope as
+  // the conversation table below.
   function renderArtFtrStats() {
     const ftrEl = document.getElementById('avgFtrValue');
     const ftrSub = document.getElementById('avgFtrSub');
     const artEl = document.getElementById('avgArtValue');
     const artSub = document.getElementById('avgArtSub');
 
-    const scoped = currentBrand === 'all'
-      ? allConversations
-      : allConversations.filter(c => c.brand === currentBrand);
+    const scoped = allConversations.filter(c => {
+      if (currentBrand !== 'all' && c.brand !== currentBrand) return false;
+      return matchesDateFilter(c);
+    });
 
     const ftrValues = scoped.filter(c => c.ftr != null).map(c => c.ftr);
     const artValues = scoped.filter(c => c.art != null).map(c => c.art);
@@ -857,6 +859,8 @@
     customDatePop.classList.remove('open');
     currentDateFilter = e.target.value;
     applyFiltersAndRender();
+    renderArtFtrStats();
+    loadCsatStats();
   });
 
   document.getElementById('customDateApply').addEventListener('click', () => {
@@ -877,6 +881,8 @@
     updateCustomDateOptionLabel();
     customDatePop.classList.remove('open');
     applyFiltersAndRender();
+    renderArtFtrStats();
+    loadCsatStats();
   });
 
   document.getElementById('customDateCancel').addEventListener('click', () => {
