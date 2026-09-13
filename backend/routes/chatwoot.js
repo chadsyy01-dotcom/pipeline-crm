@@ -393,7 +393,9 @@ router.get('/conversations', requireAuth, async (req, res) => {
     const brand = req.query.brand || null;
     const from = req.query.from || null;
     const to = req.query.to || null;
-    const limit = Math.min(Number(req.query.limit) || 50, 200);
+        // Cap raised 200 -> 1000 (2026-09-13): low-traffic brands (MGK,
+    // LuckystacksPH) were crowded out of the top-200 by Buenas/TMT/MCP volume.
+    const limit = Math.min(Number(req.query.limit) || 50, 1000);
     const brandClause = brand ? 'AND "brand" = :brand' : '';
     // Restricts which conversations are "in scope" for this request, and
     // what counts as their lastActivityAt, to activity that happened within
