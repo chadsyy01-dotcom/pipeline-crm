@@ -629,10 +629,16 @@
     document.getElementById('kpiInactiveSub').textContent = pct(c.inactive);
     document.getElementById('kpiLeave').textContent = c.leave.toLocaleString();
     document.getElementById('kpiLeaveSub').textContent = pct(c.leave);
-    const companyDevices = allStaff.filter(s => s.ownershipKey === 'company').length;
-    const activeCompany = allStaff.filter(s => s.ownershipKey === 'company' && s.statusKey === 'active').length;
-    document.getElementById('kpiCompanyDevices').textContent = companyDevices.toLocaleString();
-    document.getElementById('kpiCompanyDevicesSub').textContent = `${activeCompany} with active staff`;
+    // Company devices in circulation = held by staff who are still with us
+    // (Active or On Leave). Inactive staff are excluded — their devices should
+    // already be returned; if that count matters, filter the table instead.
+    const inCirculation = allStaff.filter(s => s.ownershipKey === 'company' && (s.statusKey === 'active' || s.statusKey === 'leave'));
+    const withActive = inCirculation.filter(s => s.statusKey === 'active').length;
+    const withLeave = inCirculation.length - withActive;
+    document.getElementById('kpiCompanyDevices').textContent = inCirculation.length.toLocaleString();
+    document.getElementById('kpiCompanyDevicesSub').textContent = withLeave
+      ? `${withActive} active · ${withLeave} on leave`
+      : `${withActive} with active staff`;
   }
 
   function renderStatusCounts() {
