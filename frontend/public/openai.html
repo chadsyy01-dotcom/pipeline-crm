@@ -537,6 +537,31 @@ loadAccounts();
   }
 
   // ---- data loading ----
+  // Strips pseudo-service columns that come from the sheet layout: the
+  // sheet's own TOTAL column (we compute totals ourselves) and any column
+  // whose header is really a NOTE typed into the header row (seen 2026-09-14:
+  // the note lived in the TOTAL header cell, which doubled every total).
+  // The note text is kept and shown as a footnote under the table instead.
+  // Returns true when something was cleaned (so the caller can re-persist).
+  function sanitize() {
+    if (!cbData || !Array.isArray(cbData.services)) return false;
+    let changed = false;
+    const dropIdx = [];
+    cbData.services.forEach((s, i) => {
+      const up = String(s || '').trim().toUpperCase();
+      if (up.startsWith('TOTAL')) dropIdx.push(i);
+      else if (up.startsWith('NOTE')) { dropIdx.push(i); if (!cbData.note) cbData.note = String(s).trim(); }
+    });
+    if (dropIdx.length) {
+      const keep = i => !dropIdx.includes(i);
+      cbData.services = cbData.services.filter((_, i) => keep(i));
+      cbData.dates = (cbData.dates || []).filter((_, i) => keep(i));
+      cbData.divisions.forEach(d => { d.vals = d.vals.filter((_, i) => keep(i)); });
+      changed = true;
+    }
+    return changed;
+  }
+
   async function loadFromDb() {
     const upd = document.getElementById('cbUpdated');
     try {
@@ -545,6 +570,7 @@ loadAccounts();
       const body = await res.json();
       if (body.data) {
         cbData = body.data; cbMeta = { updatedAt: body.updatedAt, updatedBy: body.updatedBy };
+        if (sanitize()) { try { await persist(); } catch (e) { console.warn('sanitize re-save failed:', e.message); } }
         render();
       } else {
         // First use — offer a one-time seed from the Google Sheet.
@@ -582,6 +608,7 @@ loadAccounts();
       }
       if (!divisions.length) throw new Error('No division rows in sheet');
       cbData = { services, dates, divisions };
+      sanitize();                            // sheet quirks (TOTAL/NOTE columns) out before saving
       await persist();                       // save the seed so next load is DB-only
       cbMeta = { updatedAt: new Date().toISOString(), updatedBy: 'sheet import' };
       render();
@@ -620,6 +647,8 @@ loadAccounts();
       divisions.push({ name, vals });
     });
     cbData.divisions = divisions;
+    const noteInp = document.getElementById('cbNoteInput');
+    if (noteInp) cbData.note = noteInp.value.trim() || undefined;
   }
 
   async function saveEdits() {
@@ -689,9 +718,12 @@ loadAccounts();
 
     const foot = `<tr><td>ALL DIVISIONS</td>${svcTotals.map(v => `<td>${fmt(v)}</td>`).join('')}<td>${fmt(grand || null)}</td>${cbEditing ? '<td></td>' : ''}</tr>`;
 
-    wrap.innerHTML = d.divisions.length || cbEditing
+    const noteHtml = cbEditing
+      ? `<div style="margin-top:12px;"><input class="cb-input" id="cbNoteInput" style="width:100%;text-align:left;font-weight:500;" placeholder="Optional note shown under the table" value="${esc(d.note || '')}"></div>`
+      : (d.note ? `<div class="cb-note" style="margin-top:12px;">${esc(d.note)}</div>` : '');
+    wrap.innerHTML = (d.divisions.length || cbEditing
       ? `<table class="cb-table"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`
-      : '<div class="cb-empty">No billing data yet — click Edit to add divisions.</div>';
+      : '<div class="cb-empty">No billing data yet — click Edit to add divisions.</div>') + noteHtml;
 
     if (cbEditing) {
       // live row totals while typing + row delete
@@ -718,7 +750,7 @@ loadAccounts();
   loadFromDb();
 })();
 </script>
-<!-- ============== END CONSOLIDATED BILLING BLOCK v2 ============== -->
+<!-- ============== END CONSOLIDATED BILLING BLOCK v3 ============== -->
 
 </body>
 </html>
