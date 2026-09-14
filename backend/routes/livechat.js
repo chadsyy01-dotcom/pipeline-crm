@@ -60,6 +60,11 @@
 //     handled end to end.)
 //   - Agents are identified by email (author_id). LIVECHAT_AGENTS maps
 //     those to display names; unmapped emails are shown as-is.
+//
+// DEBUG LOGGING (added 2026-09-14): every delivery now logs its action and
+// chat id on arrival, ignored deliveries log WHY they were ignored, and
+// stored deliveries log the row count + brand. Grep Railway logs for
+// "LiveChat webhook" while sending a test chat to trace the full path.
 
 const express = require('express');
 const router = express.Router();
@@ -206,7 +211,8 @@ async function lookupBrand(conversationId) {
 
 // ---------------------------------------------------------------------------
 // Normalizers — each returns { rows: [ {...ChatwootEvent fields} ] } or null
-// to ignore the delivery.
+// to ignore the delivery. When ignoring, log the reason so silent drops are
+// visible in Railway logs (added 2026-09-14).
 // ---------------------------------------------------------------------------
 
 async function normalize(body) {
@@ -258,7 +264,11 @@ async function normalize(body) {
 
   if (action === 'incoming_event') {
     const ev = p.event || {};
-    if (ev.type !== 'message' || !ev.text) return null; // ignore system/rich/form events
+    if (ev.type !== 'message' || !ev.text) {
+      // DEBUG (2026-09-14): visible instead of silent
+      console.log(`LiveChat webhook: ignoring incoming_event (type=${ev.type || '?'}, hasText=${!!ev.text}) chat=${p.chat_id || '?'}`);
+      return null; // ignore system/rich/form events
+    }
     const conversationId = stableIntId(p.chat_id);
     const known = await lookupBrand(conversationId);
     const st = senderTypeFor(ev.author_id);
@@ -299,7 +309,11 @@ async function normalize(body) {
 
   if (action === 'thread_properties_updated') {
     const rating = p.properties?.rating;
-    if (!rating || rating.score === undefined || rating.score === null) return null; // not a rating change
+    if (!rating || rating.score === undefined || rating.score === null) {
+      // DEBUG (2026-09-14): visible instead of silent
+      console.log(`LiveChat webhook: ignoring thread_properties_updated (no rating) chat=${p.chat_id || '?'}`);
+      return null; // not a rating change
+    }
     const conversationId = stableIntId(p.chat_id);
     const known = await lookupBrand(conversationId);
     const score = Number(rating.score);
@@ -320,7 +334,11 @@ async function normalize(body) {
 
   if (action === 'user_added_to_chat') {
     const u = p.user || {};
-    if (u.type !== 'agent') return null;
+    if (u.type !== 'agent') {
+      // DEBUG (2026-09-14): visible instead of silent
+      console.log(`LiveChat webhook: ignoring user_added_to_chat (user type=${u.type || '?'}) chat=${p.chat_id || '?'}`);
+      return null;
+    }
     const conversationId = stableIntId(p.chat_id);
     const known = await lookupBrand(conversationId);
     return [{
@@ -338,6 +356,8 @@ async function normalize(body) {
     }];
   }
 
+  // DEBUG (2026-09-14): visible instead of silent
+  console.log(`LiveChat webhook: ignoring unknown action "${action || '(none)'}"`);
   return null; // any other action — ignore
 }
 
@@ -347,6 +367,15 @@ async function normalize(body) {
 router.post('/webhook/:brand', async (req, res) => {
   try {
     const body = req.body || {};
+
+    // DEBUG (2026-09-14): log every delivery on arrival, before any checks,
+    // so Railway logs show whether LiveChat is reaching us at all.
+    console.log(
+      'LiveChat webhook received:',
+      body.action || '(no action)',
+      'chat:', body.payload?.chat?.id || body.payload?.chat_id || '?',
+      'secret_key present:', !!body.secret_key
+    );
 
     if (!WEBHOOK_SECRET) {
       console.error('LiveChat webhook: LIVECHAT_WEBHOOK_SECRET is not set — rejecting delivery.');
@@ -377,6 +406,8 @@ router.post('/webhook/:brand', async (req, res) => {
         ...r,
       });
     }
+    // DEBUG (2026-09-14): confirm what was stored and under which brand.
+    console.log(`LiveChat webhook: stored ${rows.length} row(s) — action=${body.action}, brand=${rows[0].brand}, conversationId=${rows[0].conversationId}`);
     res.status(200).json({ ok: true, stored: rows.length });
   } catch (err) {
     console.error('LiveChat webhook error:', err);
