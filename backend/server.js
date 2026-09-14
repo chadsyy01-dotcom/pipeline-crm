@@ -21,6 +21,7 @@ app.use('/api/deals', require('./routes/deals'));
 app.use('/api/openai-billing', require('./routes/openaiBilling'));
 app.use('/api/chatwoot', require('./routes/chatwoot'));
 app.use('/api/livechat', require('./routes/livechat'));
+app.use('/api/billing', require('./routes/billing'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
