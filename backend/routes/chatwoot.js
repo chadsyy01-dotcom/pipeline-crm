@@ -307,7 +307,8 @@ function extractFields(payload) {
       // stuck in Waiting-for-Agent. (Fix 2026-09-14.)
       if (labelStage && convStatus === 'resolved') return 'closed';
       return labelStage;
-    })(),
+     })(),
+  };
 }
 
 // POST /api/chatwoot/webhook/:brand
