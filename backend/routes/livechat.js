@@ -196,6 +196,41 @@ function cleanText(t) {
   return String(t).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() || null;
 }
 
+// ---------------------------------------------------------------------------
+// Auto-greeting detection (added 2026-09-14)
+//
+// The OpenWidget/LiveChat setup sends an automatic welcome message UNDER AN
+// AGENT IDENTITY the moment a chat starts (e.g. "Hi, Welcome to your 24/7
+// Support."). Without this filter, every chat instantly counts as "agent
+// replied", which (a) makes the Waiting-for-Agent / HH Pending widgets
+// permanently zero and (b) fakes the First Reply Time (~22s = greeting
+// speed, not human speed).
+//
+// Messages matching a greeting pattern are STILL STORED (so the transcript
+// is complete) but do NOT set handoffStage 'opened' — the first REAL human
+// reply does. Patterns are case-insensitive substrings of the cleaned text.
+// Override/extend via LIVECHAT_GREETING_PATTERNS env var (JSON array of
+// strings), e.g. ["welcome to your 24/7 support","kumusta! paano kami"].
+// ---------------------------------------------------------------------------
+const DEFAULT_GREETING_PATTERNS = [
+  'welcome to your 24/7 support',
+];
+let GREETING_PATTERNS = [...DEFAULT_GREETING_PATTERNS];
+try {
+  if (process.env.LIVECHAT_GREETING_PATTERNS) {
+    const extra = JSON.parse(process.env.LIVECHAT_GREETING_PATTERNS);
+    if (Array.isArray(extra)) GREETING_PATTERNS = [...new Set([...GREETING_PATTERNS, ...extra.map(s => String(s))])];
+  }
+} catch (e) {
+  console.error('LiveChat: LIVECHAT_GREETING_PATTERNS is not valid JSON array — using defaults.', e.message);
+}
+
+function isAutoGreeting(text) {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return GREETING_PATTERNS.some(p => t.includes(p.toLowerCase()));
+}
+
 // The brand is only known on incoming_chat (chat.access.group_ids). For all
 // later events on that chat, look it up from what we already stored.
 async function lookupBrand(conversationId) {
@@ -248,15 +283,20 @@ async function normalize(body) {
     for (const ev of thread.events || []) {
       if (ev.type !== 'message' || !ev.text) continue;
       const st = senderTypeFor(ev.author_id);
+      const content = cleanText(ev.text);
+      // Auto-greeting (2026-09-14): stored, but never counts as the agent's
+      // first reply — see isAutoGreeting().
+      const greeting = st === 'user' && isAutoGreeting(content);
+      if (greeting) console.log(`LiveChat webhook: auto-greeting detected (incoming_chat) chat=${chat.id} — not counted as agent reply`);
       rows.push({
         ...base,
         event: 'message_created',
         messageId: stableIntId(ev.id),
-        content: cleanText(ev.text),
+        content,
         senderName: st === 'user' ? agentDisplayName(ev.author_id) : (customer.name || null),
         senderType: st,
-        handoffStage: st === 'user' ? 'opened' : null,
-        payload: { source: 'livechat', action, lc_chat_id: chat.id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at },
+        handoffStage: st === 'user' && !greeting ? 'opened' : null,
+        payload: { source: 'livechat', action, lc_chat_id: chat.id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined },
       });
     }
     return rows;
@@ -272,6 +312,11 @@ async function normalize(body) {
     const conversationId = stableIntId(p.chat_id);
     const known = await lookupBrand(conversationId);
     const st = senderTypeFor(ev.author_id);
+    const content = cleanText(ev.text);
+    // Auto-greeting (2026-09-14): stored, but never counts as the agent's
+    // first reply — see isAutoGreeting().
+    const greeting = st === 'user' && isAutoGreeting(content);
+    if (greeting) console.log(`LiveChat webhook: auto-greeting detected (incoming_event) chat=${p.chat_id} — not counted as agent reply`);
     return [{
       brand: known?.brand || GENERAL_BRAND,
       conversationId,
@@ -280,13 +325,13 @@ async function normalize(body) {
       contactName: known?.contactName || null,
       contactEmail: known?.contactEmail || null,
       status: 'open',
-      content: cleanText(ev.text),
+      content,
       senderName: st === 'user' ? agentDisplayName(ev.author_id) : (known?.contactName || null),
       senderType: st,
       isPrivate: false,
-      handoffStage: st === 'user' ? 'opened' : null,
+      handoffStage: st === 'user' && !greeting ? 'opened' : null,
       event: 'message_created',
-      payload: { source: 'livechat', action, lc_chat_id: p.chat_id, lc_thread_id: p.thread_id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at },
+      payload: { source: 'livechat', action, lc_chat_id: p.chat_id, lc_thread_id: p.thread_id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined },
     }];
   }
 
@@ -419,7 +464,7 @@ router.post('/webhook/:brand', async (req, res) => {
 // GET /api/livechat/health — quick check that the route is mounted and the
 // secret is configured (does not reveal it).
 router.get('/health', (req, res) => {
-  res.json({ ok: true, secretConfigured: !!WEBHOOK_SECRET, domainMap: DOMAIN_MAP, groupMap: GROUP_MAP });
+  res.json({ ok: true, secretConfigured: !!WEBHOOK_SECRET, domainMap: DOMAIN_MAP, groupMap: GROUP_MAP, greetingPatterns: GREETING_PATTERNS });
 });
 
 module.exports = router;
