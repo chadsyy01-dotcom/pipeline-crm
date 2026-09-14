@@ -483,37 +483,48 @@ router.get('/conversations', requireAuth, async (req, res) => {
       WHERE rn <= :perBrand
     `, { replacements: { brand, from, to, perBrand }, type: QueryTypes.SELECT });
 
+    // Egress control (2026-09-14, after Neon data-transfer quota exhaustion):
+    // the four lookups below used to DISTINCT ON over the WHOLE table on
+    // every poll — thousands of rows (message previews included) shipped
+    // from the DB each time. Scoping them to the conversation ids actually
+    // selected above cuts DB egress by an order of magnitude.
+    const selectedIds = latestPerConversation.map(r => r.conversationId);
+    if (!selectedIds.length) {
+      return res.json({ conversations: [] });
+    }
+    const idsClause = 'AND "conversationId" IN (:selectedIds)';
+
     const latestContactPerConversation = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
         "conversationId", "contactName", "contactEmail"
       FROM "ChatwootEvents"
-      WHERE "conversationId" IS NOT NULL AND "contactName" IS NOT NULL ${brandClause}
+      WHERE "conversationId" IS NOT NULL AND "contactName" IS NOT NULL ${brandClause} ${idsClause}
       ORDER BY "conversationId", "createdAt" DESC
-    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
     const latestMessagePerConversation = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
         "conversationId", "content", "senderName", "senderType", "createdAt" AS "lastMessageAt"
       FROM "ChatwootEvents"
-      WHERE "conversationId" IS NOT NULL AND "content" IS NOT NULL ${brandClause}
+      WHERE "conversationId" IS NOT NULL AND "content" IS NOT NULL ${brandClause} ${idsClause}
       ORDER BY "conversationId", "createdAt" DESC
-    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
     const latestHandoffPerConversation = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
         "conversationId", "handoffStage", "labels"
       FROM "ChatwootEvents"
-      WHERE "conversationId" IS NOT NULL AND "handoffStage" IS NOT NULL ${brandClause}
+      WHERE "conversationId" IS NOT NULL AND "handoffStage" IS NOT NULL ${brandClause} ${idsClause}
       ORDER BY "conversationId", "createdAt" DESC
-    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
     const latestCsatPerConversation = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
         "conversationId", "csatRating", "csatFeedback"
       FROM "ChatwootEvents"
-      WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${brandClause}
+      WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${brandClause} ${idsClause}
       ORDER BY "conversationId", "createdAt" DESC
-    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
     const contactMap = new Map(latestContactPerConversation.map(r => [r.conversationId, r]));
     const messageMap = new Map(latestMessagePerConversation.map(r => [r.conversationId, r]));
@@ -702,6 +713,67 @@ router.get('/stats', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Chatwoot stats error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/chatwoot/pending
+// Lightweight feed for the "Needs Attention — Waiting for Agent" widget
+// (added 2026-09-14 for egress control). Returns ONLY conversations whose
+// LATEST handoff stage is 'pending', with just the fields the widget shows.
+// Replaces the dashboard's previous approach of pulling the full 1000-per-
+// brand conversation list every poll just to filter it down to a handful.
+router.get('/pending', requireAuth, async (req, res) => {
+  try {
+    const pendingRows = await sequelize.query(`
+      SELECT "conversationId", "brand" FROM (
+        SELECT DISTINCT ON ("conversationId") "conversationId", "brand", "handoffStage"
+        FROM "ChatwootEvents"
+        WHERE "conversationId" IS NOT NULL AND "handoffStage" IS NOT NULL
+        ORDER BY "conversationId", "createdAt" DESC
+      ) latest
+      WHERE "handoffStage" = 'pending'
+    `, { type: QueryTypes.SELECT });
+
+    if (!pendingRows.length) return res.json({ pending: [] });
+    const ids = pendingRows.map(r => r.conversationId);
+    const brandMap = new Map(pendingRows.map(r => [r.conversationId, r.brand]));
+
+    const [contacts, messages, activity] = await Promise.all([
+      sequelize.query(`
+        SELECT DISTINCT ON ("conversationId") "conversationId", "contactName"
+        FROM "ChatwootEvents"
+        WHERE "conversationId" IN (:ids) AND "contactName" IS NOT NULL
+        ORDER BY "conversationId", "createdAt" DESC
+      `, { replacements: { ids }, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT DISTINCT ON ("conversationId") "conversationId", "content"
+        FROM "ChatwootEvents"
+        WHERE "conversationId" IN (:ids) AND "content" IS NOT NULL
+        ORDER BY "conversationId", "createdAt" DESC
+      `, { replacements: { ids }, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT "conversationId", MAX("createdAt") AS "lastActivityAt"
+        FROM "ChatwootEvents"
+        WHERE "conversationId" IN (:ids)
+        GROUP BY "conversationId"
+      `, { replacements: { ids }, type: QueryTypes.SELECT }),
+    ]);
+    const contactMap = new Map(contacts.map(r => [r.conversationId, r.contactName]));
+    const messageMap = new Map(messages.map(r => [r.conversationId, r.content]));
+    const activityMap = new Map(activity.map(r => [r.conversationId, r.lastActivityAt]));
+
+    res.json({
+      pending: ids.map(id => ({
+        conversationId: id,
+        brand: brandMap.get(id),
+        contactName: contactMap.get(id) || null,
+        lastMessage: stripHtml(messageMap.get(id) || null),
+        lastActivityAt: activityMap.get(id) || null,
+      })),
+    });
+  } catch (err) {
+    console.error('Chatwoot pending list error:', err);
     res.status(500).json({ error: err.message });
   }
 });
