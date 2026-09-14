@@ -293,10 +293,21 @@ function extractFields(payload) {
     // applied — this is currently the only way 'pending' gets set, since
     // "assigned but not yet replied" isn't reliably detectable from
     // messages alone.
-    handoffStage: isRealHumanAgentReply(payload.sender?.name, payload.sender?.type)
-      ? ((conversation?.status ?? payload.status) === 'resolved' ? 'closed' : 'opened')
-      : normalizeHandoffStage(labels),
-  };
+        handoffStage: (() => {
+      const convStatus = conversation?.status ?? payload.status ?? null;
+      if (isRealHumanAgentReply(payload.sender?.name, payload.sender?.type)) {
+        return convStatus === 'resolved' ? 'closed' : 'opened';
+      }
+      const labelStage = normalizeHandoffStage(labels);
+      // Bot handoff labels (e.g. "pending_humanhandoff") stay on the
+      // conversation forever — Chatwoot never removes them. Once the
+      // conversation is RESOLVED, any label-derived pending/handoff must
+      // read as 'closed', or post-resolve events (CSAT prompt, closing
+      // message, status change) re-assert 'pending' and the chat gets
+      // stuck in Waiting-for-Agent. (Fix 2026-09-14.)
+      if (labelStage && convStatus === 'resolved') return 'closed';
+      return labelStage;
+    })(),
 }
 
 // POST /api/chatwoot/webhook/:brand
