@@ -789,13 +789,13 @@ async function loadChatOverview() {
     const prev = q(r.prevFrom, r.prevTo);
     const vs = { vs: r.prevLabel };
 
-    const [statsToday, statsYesterday, csatToday, csatYesterday, convToday, convAll] = await Promise.all([
+    const [statsToday, statsYesterday, csatToday, csatYesterday, convToday, pendingResp] = await Promise.all([
       apiGet(`/chatwoot/stats?${cur}`),
       apiGet(`/chatwoot/stats?${prev}`),
       apiGet(`/chatwoot/csat?${cur}`),
       apiGet(`/chatwoot/csat?${prev}`),
       apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000&${cur}`),   // for FTR/ART averages (activity in range)
-      apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000`),           // for the HH Pending list (any age — never date-filtered)
+      apiGet(`/chatwoot/pending`),                                          // lightweight Waiting-for-Agent feed (egress diet, 2026-09-14)
     ]);
 
     // --- KPI: chats active today (exact, from /stats) ---
@@ -834,8 +834,8 @@ async function loadChatOverview() {
       'buenasph', 'tmtcash',                                             // Chatwoot
       'casinyeam', 'manilacasino', 'superscatterph', 'livechat-general', // LiveChat (all)
     ]);
-    const pending = (convAll.conversations || [])
-      .filter(c => c.handoffStage === 'pending' && WAITING_BRANDS.has(c.brand))
+    const pending = (pendingResp.pending || [])
+      .filter(c => WAITING_BRANDS.has(c.brand))
       .sort((a, b) => new Date(a.lastActivityAt) - new Date(b.lastActivityAt)); // oldest first
     const pendingCount = pending.length;
     document.getElementById('chatPendingValue').textContent = pendingCount.toLocaleString();
@@ -973,7 +973,7 @@ async function loadChatOverview() {
 })();
 
 loadChatOverview();
-setInterval(loadChatOverview, Number(localStorage.getItem('csr_refresh_interval')) || 30000);
+setInterval(loadChatOverview, Number(localStorage.getItem('csr_refresh_interval')) || 60000); // 60s default (egress diet, 2026-09-14)
 
 // =====================================================================
 // TICKETS — Google Sheets via TicketData
