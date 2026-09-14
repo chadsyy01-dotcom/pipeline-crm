@@ -140,8 +140,8 @@
   .custom-date-pop input[type="date"]{width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--line);font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--bg);}
   .custom-date-actions{display:flex;gap:8px;margin-top:14px;}
   .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);}
-  #chatDateCancel{background:var(--card);color:var(--ink-soft);}
-  #chatDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
+  #chatDateCancel,#ticketDateCancel{background:var(--card);color:var(--ink-soft);}
+  #chatDateApply,#ticketDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
 
   /* SECTION HEADERS */
   .section-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px;gap:12px;flex-wrap:wrap;}
@@ -501,24 +501,46 @@
 
     <!-- ================= TICKETS ================= -->
     <div class="section-title">
-      <h2>Tickets — Today</h2>
-      <a href="/tickets">Open Tickets →</a>
+      <h2>Tickets — <span id="ticketRangeLabel">Today</span></h2>
+      <div class="right">
+        <div class="date-filter-wrap" id="ticketDateWrap">
+          <select id="ticketDateFilter">
+            <option value="today" selected>Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="month">This Month</option>
+            <option value="custom" id="ticketCustomDateOption">Custom Date</option>
+          </select>
+          <div class="custom-date-pop" id="ticketCustomDatePop">
+            <label for="ticketDateFrom">From</label>
+            <input type="date" id="ticketDateFrom">
+            <label for="ticketDateTo">To</label>
+            <input type="date" id="ticketDateTo">
+            <div class="custom-date-actions">
+              <button type="button" id="ticketDateCancel">Cancel</button>
+              <button type="button" id="ticketDateApply">Apply</button>
+            </div>
+          </div>
+        </div>
+        <a href="/tickets">Open Tickets →</a>
+      </div>
     </div>
 
     <!-- KPI CARDS -->
     <div class="kpi-row">
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></div><div class="kpi-label">Total Tickets Today</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></div><div class="kpi-label">Tickets <span class="ticket-range-tag">Today</span></div></div>
         <div class="kpi-value" id="kpiTotalValue">—</div>
         <div class="kpi-delta" id="kpiTotalDelta">—</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></div><div class="kpi-label">Open Tickets</div></div>
         <div class="kpi-value" id="kpiOpenValue">—</div>
-        <div class="kpi-delta" id="kpiOpenDelta" style="color:var(--ink-faint);">Unresolved, submitted today</div>
+        <div class="kpi-delta" id="kpiOpenDelta" style="color:var(--ink-faint);">Unresolved right now (any date)</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div><div class="kpi-label">Resolved Today</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div><div class="kpi-label">Resolved <span class="ticket-range-tag">Today</span></div></div>
         <div class="kpi-value" id="kpiResolvedValue">—</div>
         <div class="kpi-delta" id="kpiResolvedDelta">—</div>
       </div>
@@ -528,7 +550,7 @@
         <div class="kpi-delta" id="kpiAvgResponseDelta">—</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="kpi-label">Rejected Today</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="kpi-label">Rejected <span class="ticket-range-tag">Today</span></div></div>
         <div class="kpi-value" id="kpiRejectedValue">—</div>
         <div class="kpi-delta" id="kpiRejectedDelta">—</div>
       </div>
@@ -542,15 +564,7 @@
     <!-- TOP TICKET CONCERNS -->
     <div class="panel" style="margin-bottom:14px;">
       <div class="panel-head">
-        <h3>Top 5 Ticket Concerns</h3>
-        <select id="concernsRangeFilter" class="issue-select">
-          <option value="today" selected>Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="7d">Last 7 Days</option>
-          <option value="30d">Last 30 Days</option>
-          <option value="month">This Month</option>
-          <option value="all">All Time</option>
-        </select>
+        <h3>Top 5 Ticket Concerns (<span class="ticket-range-tag">Today</span>)</h3>
       </div>
       <div id="topConcerns">
         <div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">Loading…</div></div>
@@ -560,7 +574,7 @@
     <!-- QUEUE / ACTIVITY / PERFORMANCE / ALERTS -->
     <div class="grid-4">
       <div class="panel">
-        <div class="panel-head"><h3>Ticket Status Breakdown</h3></div>
+        <div class="panel-head"><h3>Ticket Status Breakdown (<span class="ticket-range-tag">Today</span>)</h3></div>
         <div id="ticketQueue">
           <div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">Loading…</div></div>
         </div>
@@ -569,14 +583,14 @@
 
 
       <div class="panel">
-        <div class="panel-head"><h3>Tickets by Brand (Today)</h3></div>
+        <div class="panel-head"><h3>Tickets by Brand (<span class="ticket-range-tag">Today</span>)</h3></div>
         <div id="ticketByBrand"><div class="empty-note">Loading…</div></div>
       </div>
     </div>
 
     <!-- TEAM -->
     <div class="panel" style="margin-bottom:14px;">
-      <div class="panel-head"><h3>Agents Active Today (Tickets)</h3><a href="/reports" class="view-all">Full report</a></div>
+      <div class="panel-head"><h3>Agents Active (<span class="ticket-range-tag">Today</span>)</h3><a href="/reports" class="view-all">Full report</a></div>
       <div style="overflow-x:auto;">
         <table class="team-table">
           <thead><tr><th>Agent</th><th class="num">Acked</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Avg Handle</th><th class="num">Last Active</th></tr></thead>
@@ -663,8 +677,44 @@ function applyChatRangeLabels(r) {
 }
 
 let allTickets = [];
-let concernsRange = 'today';
-let concernsToggleWired = false;
+
+// ---- Tickets section date filter (same options/behaviour as the chat one) ----
+let ticketDateFilter = 'today';
+let ticketCustomFrom = null;
+let ticketCustomTo = null;
+
+function ticketRange() {
+  const now = new Date();
+  const startOf = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const endOf = d => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+  let from, to, label;
+  if (ticketDateFilter === 'yesterday') {
+    const y = new Date(now); y.setDate(y.getDate() - 1);
+    from = startOf(y); to = endOf(y); label = 'Yesterday';
+  } else if (ticketDateFilter === '7d') {
+    from = startOf(now); from.setDate(from.getDate() - 6); to = endOf(now); label = 'Last 7 Days';
+  } else if (ticketDateFilter === '30d') {
+    from = startOf(now); from.setDate(from.getDate() - 29); to = endOf(now); label = 'Last 30 Days';
+  } else if (ticketDateFilter === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1); to = endOf(now); label = 'This Month';
+  } else if (ticketDateFilter === 'custom' && ticketCustomFrom && ticketCustomTo) {
+    from = ticketCustomFrom; to = ticketCustomTo;
+    const f = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    label = `${f(from)} – ${f(to)}`;
+  } else {
+    from = startOf(now); to = endOf(now); label = 'Today';
+  }
+  const span = to.getTime() - from.getTime();
+  const prevTo = new Date(from.getTime() - 1);
+  const prevFrom = new Date(prevTo.getTime() - span);
+  const prevLabel = ticketDateFilter === 'today' ? 'yesterday' : 'previous period';
+  // URL params for deep links into tickets.html (which understands these).
+  const urlParam = ticketDateFilter === 'custom' && ticketCustomFrom && ticketCustomTo
+    ? `date=custom&dateFrom=${ticketCustomFrom.toISOString().slice(0, 10)}&dateTo=${ticketCustomTo.toISOString().slice(0, 10)}`
+    : `date=${ticketDateFilter}`;
+  return { from, to, prevFrom, prevTo, label, prevLabel, urlParam };
+}
+const inRange = (d, from, to) => d && d >= from && d <= to;
 
 function deltaEl(el, current, previous, opts = {}) {
   if (!el) return;
@@ -861,6 +911,42 @@ async function loadChatOverview() {
   });
 })();
 
+(function setupTicketDateFilter() {
+  const select = document.getElementById('ticketDateFilter');
+  const pop = document.getElementById('ticketCustomDatePop');
+  const fromInput = document.getElementById('ticketDateFrom');
+  const toInput = document.getElementById('ticketDateTo');
+
+  select.addEventListener('change', (e) => {
+    if (e.target.value === 'custom') { pop.classList.add('open'); fromInput.focus(); return; }
+    pop.classList.remove('open');
+    ticketDateFilter = e.target.value;
+    if (allTickets.length) renderAll();
+  });
+  document.getElementById('ticketDateApply').addEventListener('click', () => {
+    if (!fromInput.value || !toInput.value) { alert('Please pick both a start and end date.'); return; }
+    if (fromInput.value > toInput.value) { alert('Start date must be before the end date.'); return; }
+    ticketCustomFrom = new Date(fromInput.value + 'T00:00:00');
+    ticketCustomTo = new Date(toInput.value + 'T23:59:59.999');
+    ticketDateFilter = 'custom';
+    select.value = 'custom';
+    const f = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    document.getElementById('ticketCustomDateOption').textContent = `${f(ticketCustomFrom)} – ${f(ticketCustomTo)}`;
+    pop.classList.remove('open');
+    if (allTickets.length) renderAll();
+  });
+  document.getElementById('ticketDateCancel').addEventListener('click', () => {
+    pop.classList.remove('open');
+    select.value = ticketDateFilter;
+  });
+  document.addEventListener('click', (e) => {
+    if (!pop.classList.contains('open')) return;
+    if (document.getElementById('ticketDateWrap').contains(e.target)) return;
+    pop.classList.remove('open');
+    select.value = ticketDateFilter;
+  });
+})();
+
 loadChatOverview();
 setInterval(loadChatOverview, Number(localStorage.getItem('csr_refresh_interval')) || 30000);
 
@@ -967,48 +1053,54 @@ document.addEventListener('click', () => {
 
 function renderAll() {
   const now = new Date();
-  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-  const todayTickets = allTickets.filter(t => isSameLocalDay(t.submitted, now));
-  const yesterdayTickets = allTickets.filter(t => isSameLocalDay(t.submitted, yesterday));
+  const r = ticketRange();
+  document.getElementById('ticketRangeLabel').textContent = r.label;
+  document.querySelectorAll('.ticket-range-tag').forEach(el => { el.textContent = r.label; });
+
+  const curTickets = allTickets.filter(t => inRange(t.submitted, r.from, r.to));
+  const prevTickets = allTickets.filter(t => inRange(t.submitted, r.prevFrom, r.prevTo));
 
   renderNotifBadge();
-  renderKPIs(todayTickets, yesterdayTickets, now);
-  renderTopConcerns();
-  setupConcernsRangeFilter();
-  renderQueueBreakdown();
-  renderTicketsByBrand(todayTickets);
-  renderTeamTable(now);
+  renderKPIs(curTickets, prevTickets, now, r);
+  renderTopConcerns(curTickets, r);
+  renderQueueBreakdown(curTickets, r);
+  renderTicketsByBrand(curTickets, r);
+  renderTeamTable(now, r);
 }
 
 // ---------- KPI cards ----------
-function renderKPIs(todayTickets, yesterdayTickets, now) {
-  document.getElementById('kpiTotalValue').textContent = todayTickets.length.toLocaleString();
-  deltaEl(document.getElementById('kpiTotalDelta'), todayTickets.length, yesterdayTickets.length);
+// Total / Resolved / Rejected / Avg Ack follow the section date filter and
+// compare against the equal-length previous period. Open Tickets and the
+// SLA-breach card are CURRENT STATE (what's open right now) — a date filter
+// doesn't apply to them.
+function renderKPIs(curTickets, prevTickets, now, r) {
+  const vs = { vs: r.prevLabel };
+  document.getElementById('kpiTotalValue').textContent = curTickets.length.toLocaleString();
+  deltaEl(document.getElementById('kpiTotalDelta'), curTickets.length, prevTickets.length, vs);
 
-  const openTodayCount = todayTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
-  document.getElementById('kpiOpenValue').textContent = openTodayCount.toLocaleString();
+  const openCount = allTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
+  document.getElementById('kpiOpenValue').textContent = openCount.toLocaleString();
 
-  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-  const resolvedToday = allTickets.filter(t => t.statusCls === 'done' && t.resolvedAt && isSameLocalDay(t.resolvedAt, now));
-  const resolvedYesterday = allTickets.filter(t => t.statusCls === 'done' && t.resolvedAt && isSameLocalDay(t.resolvedAt, yesterday));
-  document.getElementById('kpiResolvedValue').textContent = resolvedToday.length.toLocaleString();
-  deltaEl(document.getElementById('kpiResolvedDelta'), resolvedToday.length, resolvedYesterday.length);
+  const resolvedCur = allTickets.filter(t => t.statusCls === 'done' && inRange(t.resolvedAt, r.from, r.to));
+  const resolvedPrev = allTickets.filter(t => t.statusCls === 'done' && inRange(t.resolvedAt, r.prevFrom, r.prevTo));
+  document.getElementById('kpiResolvedValue').textContent = resolvedCur.length.toLocaleString();
+  deltaEl(document.getElementById('kpiResolvedDelta'), resolvedCur.length, resolvedPrev.length, vs);
 
-  const rejectedToday = allTickets.filter(t => t.statusCls === 'rejected' && t.resolvedAt && isSameLocalDay(t.resolvedAt, now));
-  const rejectedYesterday = allTickets.filter(t => t.statusCls === 'rejected' && t.resolvedAt && isSameLocalDay(t.resolvedAt, yesterday));
-  document.getElementById('kpiRejectedValue').textContent = rejectedToday.length.toLocaleString();
-  deltaEl(document.getElementById('kpiRejectedDelta'), rejectedToday.length, rejectedYesterday.length, { lowerIsBetter: true });
+  const rejectedCur = allTickets.filter(t => t.statusCls === 'rejected' && inRange(t.resolvedAt, r.from, r.to));
+  const rejectedPrev = allTickets.filter(t => t.statusCls === 'rejected' && inRange(t.resolvedAt, r.prevFrom, r.prevTo));
+  document.getElementById('kpiRejectedValue').textContent = rejectedCur.length.toLocaleString();
+  deltaEl(document.getElementById('kpiRejectedDelta'), rejectedCur.length, rejectedPrev.length, { lowerIsBetter: true, ...vs });
 
-  const ackToday = todayTickets.filter(t => t.ackDurationSec != null);
-  const ackYesterday = yesterdayTickets.filter(t => t.ackDurationSec != null);
-  const avgAckToday = ackToday.length ? ackToday.reduce((s, t) => s + t.ackDurationSec, 0) / ackToday.length : null;
-  const avgAckYesterday = ackYesterday.length ? ackYesterday.reduce((s, t) => s + t.ackDurationSec, 0) / ackYesterday.length : null;
-  document.getElementById('kpiAvgResponseValue').textContent = avgAckToday != null ? formatDuration(avgAckToday) : '—';
-  if (avgAckToday != null && avgAckYesterday != null) {
-    deltaEl(document.getElementById('kpiAvgResponseDelta'), avgAckToday, avgAckYesterday, { lowerIsBetter: true });
+  const ackCur = curTickets.filter(t => t.ackDurationSec != null);
+  const ackPrev = prevTickets.filter(t => t.ackDurationSec != null);
+  const avgAckCur = ackCur.length ? ackCur.reduce((s, t) => s + t.ackDurationSec, 0) / ackCur.length : null;
+  const avgAckPrev = ackPrev.length ? ackPrev.reduce((s, t) => s + t.ackDurationSec, 0) / ackPrev.length : null;
+  document.getElementById('kpiAvgResponseValue').textContent = avgAckCur != null ? formatDuration(avgAckCur) : '—';
+  if (avgAckCur != null && avgAckPrev != null) {
+    deltaEl(document.getElementById('kpiAvgResponseDelta'), avgAckCur, avgAckPrev, { lowerIsBetter: true, ...vs });
   } else {
     const el = document.getElementById('kpiAvgResponseDelta');
-    el.textContent = 'No data yesterday';
+    el.textContent = `No data ${r.prevLabel}`;
     el.className = 'kpi-delta';
     el.style.color = 'var(--ink-faint)';
   }
@@ -1019,33 +1111,10 @@ function renderKPIs(todayTickets, yesterdayTickets, now) {
   document.getElementById('kpiBreachCard').classList.toggle('alert', breaches.length > 0);
 }
 
-// ---------- Top 5 ticket concerns (issues), selectable time range ----------
-function ticketInDateRange(t, range) {
-  if (range === 'all') return true;
-  const now = new Date();
-  if (range === 'today') return isSameLocalDay(t.submitted, now);
-  if (range === 'yesterday') {
-    const y = new Date(now); y.setDate(y.getDate() - 1);
-    return isSameLocalDay(t.submitted, y);
-  }
-  if (range === '7d') {
-    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7); cutoff.setHours(0, 0, 0, 0);
-    return t.submitted >= cutoff;
-  }
-  if (range === '30d') {
-    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 30); cutoff.setHours(0, 0, 0, 0);
-    return t.submitted >= cutoff;
-  }
-  if (range === 'month') {
-    return t.submitted.getFullYear() === now.getFullYear() && t.submitted.getMonth() === now.getMonth();
-  }
-  return true;
-}
-
-function renderTopConcerns() {
-  const subset = allTickets.filter(t => ticketInDateRange(t, concernsRange));
+// ---------- Top 5 ticket concerns (issues) in the selected range ----------
+function renderTopConcerns(curTickets, r) {
   const counts = {};
-  subset.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
+  curTickets.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
   const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const el = document.getElementById('topConcerns');
 
@@ -1056,12 +1125,11 @@ function renderTopConcerns() {
 
   const rankColors = ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'];
   const maxCount = ranked[0][1];
-  const dateParam = concernsRange === 'all' ? '' : `&date=${concernsRange}`;
 
   el.innerHTML = ranked.map(([issue, count], i) => {
     const pct = Math.round((count / maxCount) * 100);
     return `
-    <a class="queue-item" href="/tickets?issue=${encodeURIComponent(issue)}${dateParam}">
+    <a class="queue-item" href="/tickets?issue=${encodeURIComponent(issue)}&${r.urlParam}">
       <div class="rank-badge" style="background:${rankColors[i]}22;color:${rankColors[i]};">#${i + 1}</div>
       <div style="flex:1;min-width:0;">
         <div class="queue-name" style="margin-bottom:4px;">${escapeHtml(issue)}</div>
@@ -1073,55 +1141,43 @@ function renderTopConcerns() {
   }).join('');
 }
 
-function setupConcernsRangeFilter() {
-  if (concernsToggleWired) return;
-  const select = document.getElementById('concernsRangeFilter');
-  if (!select) return;
-  select.addEventListener('change', () => {
-    concernsRange = select.value;
-    renderTopConcerns();
-  });
-  concernsToggleWired = true;
-}
-
-// ---------- Ticket status breakdown ----------
-function renderQueueBreakdown() {
-  const now = new Date();
-  const todayTickets = allTickets.filter(t => isSameLocalDay(t.submitted, now));
+// ---------- Ticket status breakdown (in range) ----------
+// "Unresolved from Previous" = still open but submitted BEFORE the range
+// (the backlog carried into it). For Today this is identical to the old
+// "Unresolved from Previous" number.
+function renderQueueBreakdown(curTickets, r) {
   const counts = { pending: 0, checking: 0, done: 0, rejected: 0, backlog: 0 };
-  todayTickets.forEach(t => { if (counts[t.statusCls] !== undefined) counts[t.statusCls]++; });
+  curTickets.forEach(t => { if (counts[t.statusCls] !== undefined) counts[t.statusCls]++; });
   allTickets.forEach(t => {
-    if ((t.statusCls === 'pending' || t.statusCls === 'checking') && !isSameLocalDay(t.submitted, now)) {
-      counts.backlog++;
-    }
+    if ((t.statusCls === 'pending' || t.statusCls === 'checking') && t.submitted < r.from) counts.backlog++;
   });
   const rows = [
-    { key: 'pending', label: 'New Today', bg: 'var(--primary-tint)', fg: 'var(--primary)', icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M8 8h8M8 16h5"/>', dateScoped: true },
-    { key: 'checking', label: 'In Progress Today', bg: 'var(--warning-tint)', fg: 'var(--warning)', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>', dateScoped: true },
+    { key: 'pending', label: 'New', bg: 'var(--primary-tint)', fg: 'var(--primary)', icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M8 8h8M8 16h5"/>', dateScoped: true },
+    { key: 'checking', label: 'In Progress', bg: 'var(--warning-tint)', fg: 'var(--warning)', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>', dateScoped: true },
     { key: 'backlog', label: 'Unresolved from Previous', bg: 'var(--purple-tint)', fg: 'var(--purple)', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4l2.5 2.5"/><path d="M3 12a9 9 0 019-9"/>', dateScoped: false },
-    { key: 'done', label: 'Done Today', bg: 'var(--success-tint)', fg: 'var(--success)', icon: '<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>', dateScoped: true },
-    { key: 'rejected', label: 'Rejected Today', bg: 'var(--danger-tint)', fg: 'var(--danger)', icon: '<circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/>', dateScoped: true }
+    { key: 'done', label: 'Done', bg: 'var(--success-tint)', fg: 'var(--success)', icon: '<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>', dateScoped: true },
+    { key: 'rejected', label: 'Rejected', bg: 'var(--danger-tint)', fg: 'var(--danger)', icon: '<circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/>', dateScoped: true }
   ];
-  document.getElementById('ticketQueue').innerHTML = rows.map(r => `
-    <a class="queue-item" href="/tickets?status=${r.key}${r.dateScoped ? '&date=today' : ''}">
-      <div class="queue-ico" style="background:${r.bg};color:${r.fg};"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${r.icon}</svg></div>
-      <div class="queue-name">${r.label}</div>
-      <div class="queue-count">${counts[r.key].toLocaleString()}</div>
+  document.getElementById('ticketQueue').innerHTML = rows.map(row => `
+    <a class="queue-item" href="/tickets?status=${row.key}${row.dateScoped ? '&' + r.urlParam : ''}">
+      <div class="queue-ico" style="background:${row.bg};color:${row.fg};"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${row.icon}</svg></div>
+      <div class="queue-name">${row.label}</div>
+      <div class="queue-count">${counts[row.key].toLocaleString()}</div>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
     </a>`).join('');
 }
 
-function renderTicketsByBrand(todayTickets) {
+function renderTicketsByBrand(curTickets, r) {
   const counts = {};
-  todayTickets.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || { label: t.brandLabel, n: 0 }); counts[t.brandCode].n++; });
+  curTickets.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || { label: t.brandLabel, n: 0 }); counts[t.brandCode].n++; });
   const rows = Object.entries(counts)
     .sort((a, b) => b[1].n - a[1].n)
-    .map(([code, v]) => ({ label: v.label, value: v.n, href: `/tickets?date=today` }));
-  barList(document.getElementById('ticketByBrand'), rows, { empty: 'No tickets yet today.' });
+    .map(([code, v]) => ({ label: v.label, value: v.n, href: `/tickets?${r.urlParam}` }));
+  barList(document.getElementById('ticketByBrand'), rows, { empty: 'No tickets in this range.' });
 }
 
-// ---------- Agents active today: real per-agent numbers from the sheet ----------
-function renderTeamTable(now) {
+// ---------- Agents active in range: real per-agent numbers from the sheet ----------
+function renderTeamTable(now, r) {
   const agents = new Map(); // name -> { acked, resolved, rejected, handle: [], last }
   const bump = (name, field, when, dur) => {
     if (!name) return;
@@ -1132,8 +1188,8 @@ function renderTeamTable(now) {
     agents.set(name, a);
   };
   allTickets.forEach(t => {
-    if (t.acknowledgedBy && t.acknowledgedAt && isSameLocalDay(t.acknowledgedAt, now)) bump(t.acknowledgedBy, 'acked', t.acknowledgedAt);
-    if (t.resolvedBy && t.resolvedAt && isSameLocalDay(t.resolvedAt, now)) {
+    if (t.acknowledgedBy && inRange(t.acknowledgedAt, r.from, r.to)) bump(t.acknowledgedBy, 'acked', t.acknowledgedAt);
+    if (t.resolvedBy && inRange(t.resolvedAt, r.from, r.to)) {
       if (t.statusCls === 'done') bump(t.resolvedBy, 'resolved', t.resolvedAt, t.resolveDurationSec);
       else if (t.statusCls === 'rejected') bump(t.resolvedBy, 'rejected', t.resolvedAt);
     }
@@ -1142,7 +1198,7 @@ function renderTeamTable(now) {
   const rows = Array.from(agents.entries()).sort((a, b) => (b[1].resolved + b[1].rejected + b[1].acked) - (a[1].resolved + a[1].rejected + a[1].acked));
   const tbody = document.getElementById('teamTableBody');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-note">No agent activity yet today.</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-note">No agent activity in this range.</div></td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(([name, a]) => {
