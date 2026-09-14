@@ -1151,8 +1151,17 @@
   }
 
   // ---- find visible text nodes containing Bengali ----
+  // Scoped to the OPEN CONVERSATION MODAL when one is open (that's what the
+  // CSR is reading) — translating the whole background table too was firing
+  // 50+ API calls at once, which trips MyMemory's per-IP throttle and burns
+  // the daily quota for nothing; the table also re-renders every 20s and
+  // would wipe those translations anyway. (Changed 2026-09-14 after v1.)
+  function translationRoot() {
+    const modal = document.querySelector('#convModalOverlay.open .modal-body');
+    return modal || document.body;
+  }
   function bengaliTextNodes() {
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    const walker = document.createTreeWalker(translationRoot(), NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         if (!BN_REGEX.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
         const el = node.parentElement;
@@ -1179,7 +1188,12 @@
     if (!res.ok) throw new Error(`translate HTTP ${res.status}`);
     const data = await res.json();
     const out = data?.responseData?.translatedText;
-    if (!out || data.responseStatus === 403) throw new Error(data?.responseDetails || 'translation failed');
+    // MyMemory sometimes reports quota problems INSIDE translatedText with a
+    // 200 status ("MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS...")
+    // — never show that as if it were the message's translation.
+    if (!out || Number(data.responseStatus) !== 200 || /MYMEMORY WARNING|USED ALL AVAILABLE/i.test(out)) {
+      throw new Error(data?.responseDetails || out || 'translation failed');
+    }
     cacheSet(text, out);
     return out;
   }
@@ -1189,7 +1203,7 @@
     working = true;
     btn.disabled = true;
     const nodes = bengaliTextNodes();
-    let done = 0, failed = 0;
+    let done = 0, failed = 0, quotaHit = false;
     for (const node of nodes) {
       // Skip if this node was already swapped (e.g. new nodes appeared mid-run)
       if (node.__btOriginal) { done++; continue; }
@@ -1210,16 +1224,27 @@
           el.appendChild(tag);
         }
         done++;
+        // Small gap between requests — MyMemory throttles rapid-fire calls
+        // from the same IP, which silently fails every message after the
+        // first few. Cached messages skip this entirely.
+        await new Promise(r => setTimeout(r, 350));
       } catch (e) {
         console.warn('Translate failed for one message:', e.message);
         failed++;
-        // Quota/network problem — stop hammering the API, keep what we got.
-        if (/429|quota|403/i.test(e.message)) break;
+        // Quota/throttle — stop hammering the API, keep what we got.
+        if (/429|quota|403|TOO MANY|USED ALL/i.test(e.message)) { quotaHit = true; break; }
       }
     }
     translatedNow = true;
     btn.classList.add('bt-on');
-    label.textContent = failed ? `Show original (${failed} failed)` : 'Show original';
+    if (quotaHit) {
+      label.textContent = done ? `Show original (limit hit after ${done})` : 'Show original';
+      alert('The free translation service hit its rate/daily limit.\n\n' +
+            (done ? `${done} message(s) were translated before it stopped. ` : 'Nothing was translated. ') +
+            'Wait a minute and try again — or ask the admin to set MYMEMORY_EMAIL in customers.html to raise the free daily limit.');
+    } else {
+      label.textContent = failed ? `Show original (${failed} failed)` : 'Show original';
+    }
     btn.disabled = false;
     working = false;
   }
