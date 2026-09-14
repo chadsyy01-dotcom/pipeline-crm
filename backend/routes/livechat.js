@@ -277,6 +277,13 @@ async function normalize(body) {
     const rows = [{
       ...base,
       event: 'conversation_created',
+      // 'pending' (added 2026-09-14): every LiveChat chat is human-handled
+      // from the start, so the chat's creation IS its handoff moment. This
+      // puts it in Waiting-for-Agent / HH Pending until a REAL human reply
+      // sets 'opened' (auto-greetings excluded — see isAutoGreeting). If the
+      // dashboard's waiting query expects a different stage value than
+      // 'pending', adjust here to match.
+      handoffStage: 'pending',
       payload: { source: 'livechat', action, lc_chat_id: chat.id, lc_thread_id: thread.id, group_id: groupId, host, customer: { id: customer.id, name: customer.name, email: customer.email } },
     }];
     // Initial events that came with the chat (e.g. the customer's first message).
