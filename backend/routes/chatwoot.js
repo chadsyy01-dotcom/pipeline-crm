@@ -191,9 +191,14 @@ function normalizeHandoffStage(labels) {
   if (!labels || !labels.length) return null;
   const joined = labels.join(' ').toUpperCase();
   if (/HH[\s-]*PENDING|PENDING[\s-]*HH/.test(joined)) return 'pending';
+  // Real-world bot labels (seen 2026-09-14): "tmtcpending_humanhandoff",
+  // "tmtchumanhandoff" — prefix + pending/humanhandoff, underscores, no "HH".
+  // Matched generically so any brand prefix (tmtc-, bns-, ...) works.
+  if (/PENDING[\s_-]*(HUMAN)?[\s_-]*HANDOFF|HANDOFF[\s_-]*PENDING/.test(joined)) return 'pending';
   if (/HH[\s-]*OPEN/.test(joined)) return 'opened';
   if (/HH[\s-]*CLOSED|CLOSED[\s-]*HH/.test(joined)) return 'closed';
   if (/\bHH\b/.test(joined)) return 'handoff';
+  if (/HUMAN[\s_-]*HANDOFF/.test(joined)) return 'handoff';
   return null;
 }
 
