@@ -893,6 +893,19 @@ async function loadChatOverview() {
   const fromInput = document.getElementById('chatDateFrom');
   const toInput = document.getElementById('chatDateTo');
 
+  // Chat data retention is 70 days (see CHATWOOT_EVENT_RETENTION_DAYS on the
+  // backend) — grey out older dates so nobody picks a window that would just
+  // show misleading blanks. Tickets pickers are NOT capped (Google Sheets
+  // keeps full history).
+  const RETENTION_DAYS = 70;
+  const minD = new Date(); minD.setDate(minD.getDate() - RETENTION_DAYS);
+  const minStr = minD.toISOString().slice(0, 10);
+  fromInput.min = minStr; toInput.min = minStr;
+  const note = document.createElement('div');
+  note.style.cssText = 'font-size:10.5px;color:var(--ink-faint);margin-top:8px;';
+  note.textContent = `Chat data available: last ${RETENTION_DAYS} days`;
+  pop.appendChild(note);
+
   select.addEventListener('change', (e) => {
     if (e.target.value === 'custom') { pop.classList.add('open'); fromInput.focus(); return; }
     pop.classList.remove('open');
