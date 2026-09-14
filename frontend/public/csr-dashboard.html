@@ -744,8 +744,8 @@ async function loadChatOverview() {
       apiGet(`/chatwoot/stats?${q(yesterday)}`),
       apiGet(`/chatwoot/csat?${q(today)}`),
       apiGet(`/chatwoot/csat?${q(yesterday)}`),
-      apiGet(`/chatwoot/conversations?limit=1000&${q(today)}`),   // for FTR/ART averages (today's activity)
-      apiGet(`/chatwoot/conversations?limit=1000`),               // for the HH Pending list (any age)
+      apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000&${q(today)}`),   // for FTR/ART averages (today's activity)
+      apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000`),               // for the HH Pending list (any age)
     ]);
 
     // --- KPI: chats active today (exact, from /stats) ---
