@@ -798,6 +798,75 @@ router.get('/events', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/chatwoot/import-csat
+// One-time restore tool (added 2026-09-14 after the Neon->Supabase migration
+// left the new DB without September's ratings). Accepts rows exported from
+// each brand's Chatwoot Reports->CSAT CSV and writes them as the same
+// message_updated/csatRating rows the live webhook produces, with createdAt
+// set to the ORIGINAL recorded time so date filters and monthly comparisons
+// see them in the right period. Idempotent: a conversation that already has
+// a rating row (from live webhooks or a previous import run) is skipped, so
+// running this twice — or importing a CSV that overlaps live data — cannot
+// double-count anything.
+router.post('/import-csat', requireAuth, async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    if (!rows.length) return res.status(400).json({ error: 'rows[] required' });
+
+    // Existing rated conversations (any brand) — skip these.
+    const existing = await sequelize.query(`
+      SELECT DISTINCT "conversationId" FROM "ChatwootEvents" WHERE "csatRating" IS NOT NULL
+    `, { type: QueryTypes.SELECT });
+    const existingIds = new Set(existing.map(r => Number(r.conversationId)));
+
+    // Within the submitted batch, keep only the LATEST rating per conversation
+    // (a customer re-rated conversation appears twice in Chatwoot's export).
+    const latestByConv = new Map();
+    for (const r of rows) {
+      const id = Number(r.conversationId);
+      if (!id || !r.brand || r.rating == null) continue;
+      const prev = latestByConv.get(id);
+      if (!prev || new Date(r.recordedAt) > new Date(prev.recordedAt)) latestByConv.set(id, r);
+    }
+
+    let imported = 0, skippedExisting = 0;
+    for (const r of latestByConv.values()) {
+      const id = Number(r.conversationId);
+      if (existingIds.has(id)) { skippedExisting++; continue; }
+      const when = r.recordedAt ? new Date(r.recordedAt) : new Date();
+      await ChatwootEvent.create({
+        brand: String(r.brand),
+        event: 'message_updated',
+        conversationId: id,
+        messageId: null,
+        status: null,
+        inboxId: null,
+        inboxName: null,
+        contactName: r.contactName || null,
+        contactEmail: null,
+        content: null,
+        senderName: r.agentName || null,
+        senderType: null,
+        isPrivate: false,
+        labels: null,
+        csatRating: Number(r.rating),
+        csatFeedback: r.feedback || null,
+        handoffStage: null,
+        payload: { source: 'csat-import', imported_at: new Date().toISOString() },
+        createdAt: when,
+        updatedAt: when,
+      });
+      existingIds.add(id);
+      imported++;
+    }
+    console.log(`CSAT import: ${imported} imported, ${skippedExisting} skipped (already rated), batch=${rows.length}`);
+    res.json({ ok: true, imported, skippedExisting, batch: rows.length });
+  } catch (err) {
+    console.error('CSAT import error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/chatwoot/backfill
 // One-time maintenance action: re-runs the CURRENT extractFields() logic
 // against every stored row's raw `payload`, and updates the derived
