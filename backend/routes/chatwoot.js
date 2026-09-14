@@ -111,6 +111,17 @@ const STORED_EVENTS = new Set([
 
 const PAYLOAD_RETENTION_DAYS = Number(process.env.CHATWOOT_PAYLOAD_RETENTION_DAYS) || 3;
 
+// Full-row retention (added 2026-09-14): rows older than this are DELETED
+// entirely — not just payload-blanked. Decided with ops: the dashboard's
+// longest lookback need is month-vs-previous-month comparison, which
+// requires up to ~2 months of history (current window + the equal-length
+// window before it). 70 days = 2 months + buffer. This caps the table at a
+// stable size instead of growing forever. Covers LiveChat rows too (same
+// table). Override with CHATWOOT_EVENT_RETENTION_DAYS if the comparison
+// window ever changes — never set it below ~62 while monthly comparisons
+// are in use.
+const EVENT_RETENTION_DAYS = Number(process.env.CHATWOOT_EVENT_RETENTION_DAYS) || 70;
+
 // Max conversations returned PER BRAND when no ?brand= filter is given.
 // Default 500 (raised from 200 on 2026-09-14 — Buenas/TMTCash/ManilaPlay/MCP
 // each exceed 200 active conversations). Callers can pass ?perBrand=N up to
@@ -163,6 +174,15 @@ function slimPayload(payload) {
 // scan, skips rows already blanked).
 async function prunePayloads() {
   try {
+    // Step 1: delete rows past full retention (frees the most space).
+    const [, delMeta] = await sequelize.query(`
+      DELETE FROM "ChatwootEvents"
+      WHERE "createdAt" < NOW() - (:evDays || ' days')::interval
+    `, { replacements: { evDays: String(EVENT_RETENTION_DAYS) } });
+    const nDel = delMeta?.rowCount ?? delMeta ?? 0;
+    console.log(`Chatwoot prune: deleted ${nDel} row(s) older than ${EVENT_RETENTION_DAYS} day(s).`);
+
+    // Step 2: blank payloads on remaining rows past payload retention.
     const [, meta] = await sequelize.query(`
       UPDATE "ChatwootEvents"
       SET "payload" = '{}'::jsonb
