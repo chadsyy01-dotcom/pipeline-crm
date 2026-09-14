@@ -84,10 +84,6 @@
   .nav-item svg{width:18px;height:18px;flex-shrink:0;}
   .nav-item:hover{background:#151E30;color:#fff;}
   .nav-item.active{background:var(--primary);color:#fff;}
-  .nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;}
-  .nav-item.soon{opacity:.45;cursor:default;pointer-events:none;position:relative;}
-  .nav-item.soon:hover{background:transparent;color:#AEBBD1;}
-  .nav-item.soon .soon-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.02em;background:#1C273B;color:#748199;padding:2px 6px;border-radius:6px;}
 
   .sidebar-status{
     margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;
@@ -106,12 +102,13 @@
     padding:9px 14px;border-radius:10px;min-width:260px;color:var(--ink-faint);font-size:13px;box-shadow:var(--shadow);
   }
   .search svg{width:16px;height:16px;flex-shrink:0;}
+  .search input{border:none;outline:none;background:transparent;font:inherit;color:var(--ink);width:100%;}
+  .search input::placeholder{color:var(--ink-faint);}
   .icon-btn{position:relative;width:38px;height:38px;border-radius:10px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer;}
   .icon-btn svg{width:17px;height:17px;color:var(--ink-soft);}
   .icon-btn .badge{position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:20px;}
   .notif-dropdown{position:absolute;top:calc(100% + 10px);right:0;background:var(--card);border-radius:12px;box-shadow:var(--shadow);width:320px;max-height:380px;overflow-y:auto;display:none;z-index:50;cursor:default;}
   .notif-dropdown.open{display:block;}
-  .notif-dropdown .notif-head{padding:12px 14px;font-size:13px;font-weight:700;border-bottom:1px solid var(--line);}
   .notif-tabs{display:flex;border-bottom:1px solid var(--line);}
   .notif-tab{flex:1;text-align:center;padding:10px 8px;font-size:12px;font-weight:700;color:var(--ink-faint);cursor:pointer;border-bottom:2px solid transparent;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;}
   .notif-tab.active{color:var(--primary);border-bottom-color:var(--primary);}
@@ -134,9 +131,18 @@
   .profile-name{font-size:13px;font-weight:700;line-height:1.3;}
   .profile-name span{display:block;font-size:11px;color:var(--ink-faint);font-weight:500;}
 
+  /* SECTION HEADERS */
+  .section-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px;}
+  .section-title h2{margin:0;font-size:15px;font-weight:800;letter-spacing:-.01em;}
+  .section-title .sub{font-size:12px;color:var(--ink-faint);font-weight:600;}
+  .section-title a{font-size:12px;color:var(--primary);font-weight:700;}
+
   /* KPI CARDS */
   .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px;}
   .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px 16px 15px;box-shadow:var(--shadow);}
+  .kpi-card.clickable{cursor:pointer;transition:transform .12s,box-shadow .12s;}
+  .kpi-card.clickable:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(15,23,42,.06),0 12px 28px -12px rgba(15,23,42,.16);}
+  .kpi-card.alert{outline:2px solid var(--danger);outline-offset:-2px;}
   .kpi-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
   .kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .kpi-icon svg{width:18px;height:18px;}
@@ -147,8 +153,9 @@
 
   /* GRID PANELS */
   .grid-4{display:grid;grid-template-columns:1.05fr 1.4fr 1.05fr 1.15fr;gap:14px;margin-bottom:14px;align-items:start;}
+  .grid-3{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin-bottom:20px;align-items:start;}
   .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
-  .panel-head{display:flex;align-items:center;justify-content:between;justify-content:space-between;margin-bottom:14px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
   .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
   .panel-head .view-all{font-size:12px;color:var(--primary);font-weight:600;}
 
@@ -162,6 +169,16 @@
   .queue-item svg.chev{width:15px;height:15px;color:var(--ink-faint);}
   .view-link{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--primary);margin-top:8px;}
 
+  /* Compact bar list (used for by-brand breakdowns) */
+  .bar-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;}
+  .bar-row:last-child{border-bottom:none;}
+  .bar-row:hover .bar-label{color:var(--primary);}
+  .bar-label{font-size:12.5px;font-weight:600;width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar-track{flex:1;height:7px;background:#F1F5F9;border-radius:4px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;}
+  .bar-val{font-size:12.5px;font-weight:800;width:44px;text-align:right;font-variant-numeric:tabular-nums;}
+  .bar-sub{font-size:11px;color:var(--ink-faint);width:70px;text-align:right;white-space:nowrap;}
+
   .activity-item{display:flex;align-items:center;gap:11px;padding:10px 6px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;cursor:pointer;}
   .activity-item:hover{background:#F8FAFC;}
   .activity-item:last-child{border-bottom:none;}
@@ -173,6 +190,7 @@
   .pill.high{background:var(--danger-tint);color:var(--danger);}
   .pill.medium{background:var(--warning-tint);color:var(--warning);}
   .pill.low{background:var(--success-tint);color:var(--success);}
+  .pill.brand{background:var(--bg);color:var(--ink-soft);margin:0;}
   .act-time{font-size:11px;color:var(--ink-faint);display:block;}
 
   .perf-ring-wrap{display:flex;justify-content:center;margin:6px 0 14px;position:relative;}
@@ -183,16 +201,17 @@
   .perf-row:last-of-type{border-bottom:none;}
   .perf-row .l{font-size:12px;color:var(--ink-soft);font-weight:600;}
   .perf-row .r{font-size:14px;font-weight:800;text-align:right;}
-  .perf-row .r small{display:block;font-size:10.5px;font-weight:700;}
 
-  .alert-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;cursor:pointer;}
+  .alert-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;cursor:pointer;align-items:center;}
   .alert-item:hover{background:#F8FAFC;}
   .alert-item:last-child{border-bottom:none;}
   .alert-ico{width:30px;height:30px;border-radius:9px;background:var(--danger-tint);color:var(--danger);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .alert-ico.warn{background:var(--warning-tint);color:var(--warning);}
   .alert-ico svg{width:15px;height:15px;}
   .alert-title{font-size:12.5px;font-weight:700;line-height:1.35;}
   .alert-sub{font-size:11.5px;color:var(--ink-faint);}
   .alert-time{margin-left:auto;font-size:12px;font-weight:800;color:var(--danger);white-space:nowrap;}
+  .alert-time.warn{color:var(--warning);}
 
   /* CHARTS ROW */
   .grid-4b{display:grid;grid-template-columns:1fr 1.3fr 1fr 1.3fr;gap:14px;margin-bottom:14px;}
@@ -211,20 +230,29 @@
   .donut-wrap{position:relative;display:flex;justify-content:center;}
 
   /* TEAM */
-  .team-strip{display:flex;flex-wrap:wrap;gap:10px;}
-  .team-av{position:relative;width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;}
-  .team-av .st{position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;border:2px solid var(--card);}
-  .team-more{width:42px;height:42px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink-soft);}
+  .team-table{width:100%;border-collapse:collapse;}
+  .team-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);font-weight:700;padding:0 8px 8px;border-bottom:1px solid var(--line);}
+  .team-table td{padding:9px 8px;font-size:13px;border-bottom:1px solid var(--line);}
+  .team-table tr:last-child td{border-bottom:none;}
+  .team-table td.num, .team-table th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .team-table td.num{font-weight:700;}
+  .agent-cell{display:flex;align-items:center;gap:9px;}
+  .av-xs{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;position:relative;}
+  .av-xs .st{position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;border:2px solid var(--card);}
+
+  .empty-note{color:var(--ink-faint);font-size:12.5px;padding:14px 4px;text-align:center;}
 
   @media (max-width:1200px){
     .kpi-row{grid-template-columns:repeat(3,1fr);}
     .grid-4{grid-template-columns:1fr 1fr;}
+    .grid-3{grid-template-columns:1fr 1fr;}
     .grid-4b{grid-template-columns:1fr 1fr;}
   }
   @media (max-width:860px){
     .sidebar{display:none;}
     .kpi-row{grid-template-columns:1fr 1fr;}
     .grid-4{grid-template-columns:1fr;}
+    .grid-3{grid-template-columns:1fr;}
     .grid-4b{grid-template-columns:1fr;}
     .main{padding:20px 16px 32px;}
     .search{min-width:0;flex:1;}
@@ -236,6 +264,19 @@
   // ---- Auth check: uses the same pipeline_token + Railway API as the React app ----
   const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
   const LOGIN_PATH = "/login";
+
+  // Time-of-day greeting in Philippine time (the whole team runs on PH time,
+  // regardless of the visitor's device timezone). Called once on load (no
+  // name yet) and again once /api/auth/me tells us who's logged in.
+  function setGreeting(firstName) {
+    const el = document.getElementById('greetingText');
+    if (!el) return;
+    const phHour = Number(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', hour12: false }));
+    let greeting = 'Good evening';
+    if (phHour >= 5 && phHour < 12) greeting = 'Good morning';
+    else if (phHour >= 12 && phHour < 18) greeting = 'Good afternoon';
+    el.textContent = firstName ? `${greeting}, ${firstName} 👋` : `${greeting}! 👋`;
+  }
 
   (async function checkAuth() {
     const token = localStorage.getItem("pipeline_token");
@@ -264,16 +305,7 @@
         if (avatarEl && user.name) {
           avatarEl.textContent = user.name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
         }
-        // Greeting name must match whoever is actually logged in, not a hardcoded placeholder.
-        const greetingEl = document.getElementById("greetingText");
-        if (greetingEl && user.name) {
-          const phHour = Number(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', hour12: false }));
-          let greeting = 'Good evening';
-          if (phHour >= 5 && phHour < 12) greeting = 'Good morning';
-          else if (phHour >= 12 && phHour < 18) greeting = 'Good afternoon';
-          const firstName = user.name.trim().split(/\s+/)[0];
-          greetingEl.textContent = `${greeting}, ${firstName} 👋`;
-        }
+        if (user.name) setGreeting(user.name.trim().split(/\s+/)[0]);
       }
     } catch (err) {
       localStorage.removeItem("pipeline_token");
@@ -349,14 +381,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
         OpenAI
       </a>
-      <div class="nav-item soon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        Agents <span class="soon-tag">Soon</span>
-      </div>
-      <div class="nav-item soon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-        Knowledge Base <span class="soon-tag">Soon</span>
-      </div>
       <a class='nav-item' href='/settings'>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         Settings
@@ -377,20 +401,17 @@
 
   <!-- MAIN -->
   <main class="main">
-    <div id="netlifyTopBrand" style="display:none;align-items:center;gap:10px;margin-bottom:18px;">
-      <img src="logo.png" alt="CSR Dashboard logo" style="width:32px;height:32px;border-radius:8px;object-fit:cover;">
-      <div style="font-size:19px;font-weight:800;color:var(--ink);">CSR Dashboard</div>
-    </div>
     <div class="topbar">
       <div class="greeting">
         <h1 id="greetingText">Hello 👋</h1>
         <p>Here's what's happening with your support today. <span id="liveIndicator" style="font-size:11.5px;font-weight:600;color:var(--ink-faint);">● Live</span></p>
       </div>
       <div class="topbar-right">
-        <div class="search">
+        <!-- Search: jumps to the Tickets page with the query applied (that page owns the real filtering). -->
+        <form class="search" id="searchForm" onsubmit="return goSearch(event)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          Search ticket, customer or ID...
-        </div>
+          <input type="text" id="searchInput" placeholder="Search ticket, customer or ID… (Enter)">
+        </form>
         <div class="icon-btn" id="notifToggle" onclick="toggleNotifMenu(event)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
           <span class="badge" id="notifBadge" style="display:none;">0</span>
@@ -402,18 +423,13 @@
             <div id="notifList"></div>
           </div>
         </div>
-        <div class="icon-btn" id="chatIconBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <div class="profile" id="profileToggle" onclick="toggleProfileMenu(event)">
-          <div class="avatar">CS</div>
-          <div class="profile-name">Chad Syy<span>Assistant Operation Manager</span></div>
+          <div class="avatar">—</div>
+          <div class="profile-name">&nbsp;<span>&nbsp;</span></div>
           <div class="profile-dropdown" id="profileDropdown">
             <a href='/profile'>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               Profile
-            </a>
-            <a href='/profile'>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-              Account Settings
             </a>
             <div class="divider"></div>
             <button class="logout-item" onclick="logoutUser(event)">
@@ -423,6 +439,66 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- ================= CHAT OVERVIEW (Chatwoot + LiveChat) ================= -->
+    <div class="section-title">
+      <h2>Live Chat — Today <span class="sub" id="chatLiveIndicator">● Live</span></h2>
+      <a href="/customers">Open Customers →</a>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div class="kpi-label">Chats Active Today</div></div>
+        <div class="kpi-value" id="chatTotalValue">—</div>
+        <div class="kpi-delta" id="chatTotalDelta">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></div><div class="kpi-label">CSAT Today</div></div>
+        <div class="kpi-value" id="chatCsatValue">—</div>
+        <div class="kpi-delta" id="chatCsatDelta">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h3a2 2 0 012 2v7a2 2 0 01-2 2h-3"/></svg></div><div class="kpi-label">DSAT Today</div></div>
+        <div class="kpi-value" id="chatDsatValue">—</div>
+        <div class="kpi-delta" id="chatDsatDelta">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">Avg HH First Reply</div></div>
+        <div class="kpi-value" id="chatFtrValue">—</div>
+        <div class="kpi-delta" id="chatFtrDelta" style="color:var(--ink-faint);">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg></div><div class="kpi-label">Avg HH Chatting Time</div></div>
+        <div class="kpi-value" id="chatArtValue">—</div>
+        <div class="kpi-delta" id="chatArtDelta" style="color:var(--ink-faint);">—</div>
+      </div>
+      <a class="kpi-card clickable" id="chatPendingCard" href="/customers">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div><div class="kpi-label">HH Pending (waiting)</div></div>
+        <div class="kpi-value" id="chatPendingValue">—</div>
+        <div class="kpi-delta" id="chatPendingDelta" style="color:var(--ink-faint);">Handed off, no agent reply yet</div>
+      </a>
+    </div>
+
+    <div class="grid-3">
+      <div class="panel">
+        <div class="panel-head"><h3>Needs Attention — Waiting for Agent</h3><a class="view-all" href="/customers">View all</a></div>
+        <div id="chatPendingList"><div class="empty-note">Loading…</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Chats by Brand (Today)</h3></div>
+        <div id="chatByBrand"><div class="empty-note">Loading…</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>DSAT by Brand (Today)</h3></div>
+        <div id="chatDsatByBrand"><div class="empty-note">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- ================= TICKETS ================= -->
+    <div class="section-title">
+      <h2>Tickets — Today</h2>
+      <a href="/tickets">Open Tickets →</a>
     </div>
 
     <!-- KPI CARDS -->
@@ -443,7 +519,7 @@
         <div class="kpi-delta" id="kpiResolvedDelta">—</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">Avg Response Time</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">Avg Ack Time</div></div>
         <div class="kpi-value" id="kpiAvgResponseValue">—</div>
         <div class="kpi-delta" id="kpiAvgResponseDelta">—</div>
       </div>
@@ -452,11 +528,11 @@
         <div class="kpi-value" id="kpiRejectedValue">—</div>
         <div class="kpi-delta" id="kpiRejectedDelta">—</div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="kpi-label">Active Agents Today</div></div>
-        <div class="kpi-value" id="kpiAgentsValue">—</div>
-        <div class="kpi-delta" id="kpiAgentsDelta" style="color:var(--ink-faint);">Handled tickets today</div>
-      </div>
+      <a class="kpi-card clickable" id="kpiBreachCard" href="/tickets?status=pending">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div><div class="kpi-label">Unacked &gt; <span id="slaMinsLabel">30</span> min</div></div>
+        <div class="kpi-value" id="kpiBreachValue">—</div>
+        <div class="kpi-delta" id="kpiBreachDelta" style="color:var(--ink-faint);">New tickets past the SLA</div>
+      </a>
     </div>
 
     <!-- TOP TICKET CONCERNS -->
@@ -492,7 +568,6 @@
         <div id="liveActivity">
           <div class="activity-item"><div class="act-name" style="color:var(--ink-faint);">Loading…</div></div>
         </div>
-        <a class='view-link' href='/tickets'>View all live activity →</a>
       </div>
 
       <div class="panel">
@@ -504,22 +579,20 @@
         <div class="perf-row"><div class="l">Average Handle Time</div><div class="r" id="perfHandleTime">—</div></div>
         <div class="perf-row"><div class="l">Rejection Rate</div><div class="r" id="perfRejectionRate">—</div></div>
         <div class="perf-row"><div class="l">Total Handled Today</div><div class="r" id="perfTotalHandled">—</div></div>
-        <a class='view-link' href='/tickets'>View detailed performance →</a>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Open Tickets — Longest Waiting</h3><a class='view-all' href='/tickets'>View all</a></div>
+        <div class="panel-head"><h3>Open Tickets — Longest Waiting</h3><a class='view-all' href='/tickets?status=pending'>View all</a></div>
         <div id="slaAlerts">
           <div class="alert-item"><div class="alert-title" style="color:var(--ink-faint);">Loading…</div></div>
         </div>
-        <a class='view-link' href='/tickets'>View all open tickets →</a>
       </div>
     </div>
 
     <!-- CHARTS -->
     <div class="grid-4b">
       <div class="panel">
-        <div class="panel-head"><h3>Tickets by Channel</h3></div>
+        <div class="panel-head"><h3>Tickets by Channel (Today)</h3></div>
         <div class="donut-wrap" style="height:150px;"><canvas id="channelDonut"></canvas></div>
         <div class="chart-legend" id="channelLegend"></div>
         <div class="chart-total" id="channelTotal">Total: —</div>
@@ -531,12 +604,8 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Resolution Rate</h3></div>
-        <div class="donut-wrap" style="height:160px;"><canvas id="resDonut"></canvas>
-          <div class="donut-center"><div class="num" id="resCenterNum">—</div><div class="lab">Resolved</div></div>
-        </div>
-        <div class="chart-legend" id="resLegend"></div>
-        <div class="chart-total" id="resTotal">Total: —</div>
+        <div class="panel-head"><h3>Tickets by Brand (Today)</h3></div>
+        <div id="ticketByBrand"><div class="empty-note">Loading…</div></div>
       </div>
 
       <div class="panel">
@@ -547,8 +616,13 @@
 
     <!-- TEAM -->
     <div class="panel" style="margin-bottom:14px;">
-      <div class="panel-head"><h3>Team Status (Today)</h3><a href="#" class="view-all" id="teamViewAllBtn">View all</a></div>
-      <div class="team-strip" id="teamStrip"></div>
+      <div class="panel-head"><h3>Agents Active Today (Tickets)</h3><a href="/reports" class="view-all">Full report</a></div>
+      <div style="overflow-x:auto;">
+        <table class="team-table">
+          <thead><tr><th>Agent</th><th class="num">Acked</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Avg Handle</th><th class="num">Last Active</th></tr></thead>
+          <tbody id="teamTableBody"><tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr></tbody>
+        </table>
+      </div>
     </div>
 
   </main>
@@ -556,35 +630,51 @@
 
 <script>
 Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
-
-// Greeting is based on Philippine time (Asia/Manila) regardless of the
-// visitor's own device timezone, since the whole team operates on PH time.
-// This runs first (before the auth check resolves) so only the time-of-day
-// greeting is set here — no name. checkAuth() overwrites this with the
-// actual logged-in user's first name once /api/auth/me responds, so the
-// greeting always matches the profile shown top-right, never a stale name.
-(function setGreetingByPHTime() {
-  const el = document.getElementById('greetingText');
-  if (!el) return;
-  const phHour = Number(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', hour12: false }));
-  let greeting = 'Good evening';
-  if (phHour >= 5 && phHour < 12) greeting = 'Good morning';
-  else if (phHour >= 12 && phHour < 18) greeting = 'Good afternoon';
-  el.textContent = `${greeting}! 👋`;
-})();
+setGreeting(null);
 
 const { escapeHtml, relativeTime, compactElapsed, formatDuration, isSameLocalDay, dayKey, colorForName, initialsForName } = TicketData;
 const CHART_PALETTE = ['#3B82F6','#22C55E','#8B5CF6','#F59E0B','#14B8A6','#EC4899','#0EA5E9','#F97316','#A855F7','#64748B'];
 
+// Tickets with no acknowledgement past this many minutes count as an SLA
+// breach on the "Unacked > N min" card. Adjustable in Settings via
+// localStorage key csr_sla_ack_minutes; defaults to 30.
+const SLA_ACK_MINUTES = Number(localStorage.getItem('csr_sla_ack_minutes')) || 30;
+document.getElementById('slaMinsLabel').textContent = SLA_ACK_MINUTES;
+
+function goSearch(e) {
+  e.preventDefault();
+  const q = document.getElementById('searchInput').value.trim();
+  if (q) window.location.href = `/tickets?search=${encodeURIComponent(q)}`;
+  return false;
+}
+
+// Display labels for chat brand slugs — mirrors BRAND_LABELS in customers.html
+// (Chatwoot webhook slugs are case-sensitive; LiveChat slugs come from domain).
+const CHAT_BRAND_LABELS = {
+  buenasph: 'Buenas PH', tmtcash: 'TMTCash', mcp: 'Mobile Casino Play', manilaplayph: 'Manila Play PH',
+  HypleplayPH: 'HypePlay PH', HypeplayBD: 'HypePlay BD', Tmtplay: 'TMTPLAY', MGK: '88MGK',
+  BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH',
+  casinyeam: 'Casinyeam', manilacasino: 'Manila Casino', superscatterph: 'SuperScatter PH',
+  'livechat-general': 'LC General',
+};
+function chatBrandLabel(slug) {
+  if (!slug) return 'Unknown';
+  return CHAT_BRAND_LABELS[slug] || slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function dayRange(d) {
+  const from = new Date(d); from.setHours(0, 0, 0, 0);
+  const to = new Date(d); to.setHours(23, 59, 59, 999);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
 let allTickets = [];
-let trendChart, resTimeChart, channelChart, resChart, perfRingChart;
-let teamStripExpanded = false;
-let teamToggleWired = false;
+let trendChart, resTimeChart, channelChart, perfRingChart;
 let concernsRange = 'today';
 let concernsToggleWired = false;
 let chartTabsWired = false;
 
-function deltaEl(el, current, previous) {
+function deltaEl(el, current, previous, opts = {}) {
   if (!el) return;
   const pct = TicketData.pctChange(current, previous);
   if (pct === null) {
@@ -594,11 +684,157 @@ function deltaEl(el, current, previous) {
     return;
   }
   const arrow = pct >= 0 ? '↑' : '↓';
+  // lowerIsBetter flips the colour for time metrics.
+  const good = opts.lowerIsBetter ? pct <= 0 : pct >= 0;
   el.textContent = `${arrow} ${Math.abs(pct)}% vs yesterday`;
-  el.className = 'kpi-delta ' + (pct >= 0 ? 'up' : 'down');
+  el.className = 'kpi-delta ' + (good ? 'up' : 'down');
+  el.style.color = '';
+}
+function pointsDeltaEl(el, current, previous, opts = {}) {
+  if (!el) return;
+  if (current == null || previous == null) {
+    el.textContent = 'No data yesterday';
+    el.className = 'kpi-delta';
+    el.style.color = 'var(--ink-faint)';
+    return;
+  }
+  const diff = Math.round((current - previous) * 10) / 10;
+  const good = opts.lowerIsBetter ? diff <= 0 : diff >= 0;
+  el.textContent = `${diff >= 0 ? '↑' : '↓'} ${Math.abs(diff)} pts vs yesterday`;
+  el.className = 'kpi-delta ' + (good ? 'up' : 'down');
   el.style.color = '';
 }
 
+// =====================================================================
+// CHAT OVERVIEW — Chatwoot + LiveChat, via the Railway API
+// =====================================================================
+function barList(container, rows, opts = {}) {
+  // rows: [{ label, value, sub, href, color }]
+  if (!rows.length) {
+    container.innerHTML = `<div class="empty-note">${escapeHtml(opts.empty || 'No data yet today.')}</div>`;
+    return;
+  }
+  const max = Math.max(...rows.map(r => r.value)) || 1;
+  container.innerHTML = rows.map((r, i) => `
+    <a class="bar-row" href="${escapeHtml(r.href || '#')}">
+      <div class="bar-label" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round((r.value / max) * 100)}%;background:${r.color || CHART_PALETTE[i % CHART_PALETTE.length]};"></div></div>
+      <div class="bar-val">${r.value.toLocaleString()}</div>
+      ${r.sub != null ? `<div class="bar-sub">${escapeHtml(r.sub)}</div>` : ''}
+    </a>`).join('');
+}
+
+async function apiGet(path) {
+  const token = localStorage.getItem('pipeline_token');
+  const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} on ${path}`);
+  return res.json();
+}
+
+async function loadChatOverview() {
+  const ind = document.getElementById('chatLiveIndicator');
+  try {
+    const today = dayRange(new Date());
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const yesterday = dayRange(y);
+    const q = r => `from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`;
+
+    const [statsToday, statsYesterday, csatToday, csatYesterday, convToday, convAll] = await Promise.all([
+      apiGet(`/chatwoot/stats?${q(today)}`),
+      apiGet(`/chatwoot/stats?${q(yesterday)}`),
+      apiGet(`/chatwoot/csat?${q(today)}`),
+      apiGet(`/chatwoot/csat?${q(yesterday)}`),
+      apiGet(`/chatwoot/conversations?limit=1000&${q(today)}`),   // for FTR/ART averages (today's activity)
+      apiGet(`/chatwoot/conversations?limit=1000`),               // for the HH Pending list (any age)
+    ]);
+
+    // --- KPI: chats active today (exact, from /stats) ---
+    const sum = obj => Object.values(obj).reduce((a, b) => a + b, 0);
+    const chatsToday = sum(statsToday.conversationsByBrand);
+    const chatsYesterday = sum(statsYesterday.conversationsByBrand);
+    document.getElementById('chatTotalValue').textContent = chatsToday.toLocaleString();
+    deltaEl(document.getElementById('chatTotalDelta'), chatsToday, chatsYesterday);
+
+    // --- KPI: CSAT / DSAT today ---
+    document.getElementById('chatCsatValue').textContent = csatToday.total ? `${csatToday.csatPercent}%` : '—';
+    document.getElementById('chatDsatValue').textContent = csatToday.total ? `${csatToday.dsatPercent}%` : '—';
+    pointsDeltaEl(document.getElementById('chatCsatDelta'), csatToday.total ? csatToday.csatPercent : null, csatYesterday.total ? csatYesterday.csatPercent : null);
+    pointsDeltaEl(document.getElementById('chatDsatDelta'), csatToday.total ? csatToday.dsatPercent : null, csatYesterday.total ? csatYesterday.dsatPercent : null, { lowerIsBetter: true });
+    if (csatToday.total) {
+      document.getElementById('chatCsatDelta').textContent += ` · ${csatToday.total} rated`;
+    }
+
+    // --- KPI: FTR / ART (avg over handoff conversations active today) ---
+    const convs = convToday.conversations || [];
+    const ftrVals = convs.filter(c => c.ftr != null).map(c => c.ftr);
+    const artVals = convs.filter(c => c.art != null).map(c => c.art);
+    const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+    const avgFtr = avg(ftrVals), avgArt = avg(artVals);
+    document.getElementById('chatFtrValue').textContent = avgFtr != null ? formatDuration(avgFtr) : '—';
+    document.getElementById('chatFtrDelta').textContent = ftrVals.length ? `${ftrVals.length} handoff${ftrVals.length === 1 ? '' : 's'} today` : 'No handoffs yet';
+    document.getElementById('chatArtValue').textContent = avgArt != null ? formatDuration(avgArt) : '—';
+    document.getElementById('chatArtDelta').textContent = artVals.length ? `${artVals.length} handoff${artVals.length === 1 ? '' : 's'} today` : 'No handoffs yet';
+
+    // --- KPI + list: HH Pending (waiting for a human, any age) ---
+    const pending = (convAll.conversations || [])
+      .filter(c => c.handoffStage === 'pending')
+      .sort((a, b) => new Date(a.lastActivityAt) - new Date(b.lastActivityAt)); // oldest first
+    const pendingCount = statsToday.handoffPending ?? pending.length;
+    document.getElementById('chatPendingValue').textContent = pendingCount.toLocaleString();
+    document.getElementById('chatPendingCard').classList.toggle('alert', pendingCount > 0);
+
+    const now = new Date();
+    const listEl = document.getElementById('chatPendingList');
+    if (!pending.length) {
+      listEl.innerHTML = '<div class="empty-note" style="color:var(--success);">No chats waiting for an agent — nice!</div>';
+    } else {
+      listEl.innerHTML = pending.slice(0, 6).map(c => {
+        const waitedMin = (now - new Date(c.lastActivityAt)) / 60000;
+        const severe = waitedMin >= 15;
+        return `
+        <a class="alert-item" href="/customers">
+          <div class="alert-ico ${severe ? '' : 'warn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+          <div style="min-width:0;">
+            <div class="alert-title">${escapeHtml(c.contactName || 'Unknown')} <span class="pill brand">${escapeHtml(chatBrandLabel(c.brand))}</span></div>
+            <div class="alert-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">${escapeHtml(c.lastMessage || '—')}</div>
+          </div>
+          <div class="alert-time ${severe ? '' : 'warn'}">${compactElapsed(c.lastActivityAt, now)}</div>
+        </a>`;
+      }).join('');
+      if (pending.length > 6) listEl.innerHTML += `<a class="view-link" href="/customers">+${pending.length - 6} more waiting →</a>`;
+    }
+
+    // --- Chats by brand (today) ---
+    const byBrand = Object.entries(statsToday.conversationsByBrand)
+      .sort((a, b) => b[1] - a[1])
+      .map(([brand, n]) => ({ label: chatBrandLabel(brand), value: n, href: '/customers' }));
+    barList(document.getElementById('chatByBrand'), byBrand);
+
+    // --- DSAT by brand (today) ---
+    const dsatRows = Object.entries(statsToday.csatByBrand)
+      .filter(([, v]) => v.total > 0)
+      .map(([brand, v]) => ({
+        label: chatBrandLabel(brand), value: v.dsat, color: '#EF4444',
+        sub: `${Math.round((v.dsat / v.total) * 100)}% of ${v.total}`, href: '/customers',
+      }))
+      .sort((a, b) => b.value - a.value);
+    barList(document.getElementById('chatDsatByBrand'), dsatRows, { empty: 'No ratings yet today.' });
+
+    ind.textContent = `● Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    ind.style.color = 'var(--success)';
+  } catch (err) {
+    console.error('Chat overview failed:', err);
+    ind.textContent = '● Error loading';
+    ind.style.color = 'var(--danger)';
+  }
+}
+
+loadChatOverview();
+setInterval(loadChatOverview, Number(localStorage.getItem('csr_refresh_interval')) || 30000);
+
+// =====================================================================
+// TICKETS — Google Sheets via TicketData
+// =====================================================================
 let notifiedTicketIds = new Set();
 
 function checkForNewTicketNotifications() {
@@ -649,9 +885,6 @@ function markLiveUpdated() {
 let notifActiveTab = 'new';
 
 function renderNotifBadge() {
-  // The bell badge always reflects "New" tickets specifically — the ones
-  // nobody has acknowledged yet. Once acked (In Progress or further), a
-  // ticket drops off the badge count automatically.
   const newTickets = allTickets.filter(t => t.statusCls === 'pending').sort((a, b) => b.submitted - a.submitted);
   const badge = document.getElementById('notifBadge');
   if (badge) {
@@ -683,10 +916,10 @@ function renderNotifList() {
     return;
   }
   list.innerHTML = tickets.slice(0, 20).map(t => `
-    <a class="notif-item" href="tickets.html?search=${encodeURIComponent(t.id)}">
-      <div class="n-id">${TicketData.escapeHtml(t.id)}</div>
-      <div class="n-name">${TicketData.escapeHtml(t.name)} — ${TicketData.escapeHtml(t.issue)}</div>
-      <div class="n-time">${TicketData.relativeTime(t.submitted)}</div>
+    <a class="notif-item" href="/tickets?search=${encodeURIComponent(t.id)}">
+      <div class="n-id">${escapeHtml(t.id)}</div>
+      <div class="n-name">${escapeHtml(t.name)} — ${escapeHtml(t.issue)}</div>
+      <div class="n-time">${relativeTime(t.submitted)}</div>
     </a>
   `).join('');
 }
@@ -707,31 +940,30 @@ function renderAll() {
   const yesterdayTickets = allTickets.filter(t => isSameLocalDay(t.submitted, yesterday));
 
   renderNotifBadge();
-  renderKPIs(todayTickets, yesterdayTickets);
+  renderKPIs(todayTickets, yesterdayTickets, now);
   renderTopConcerns();
   setupConcernsRangeFilter();
   renderQueueBreakdown();
   renderLiveActivity();
-  renderPerformance(todayTickets, yesterdayTickets);
+  renderPerformance(todayTickets);
   renderSlaAlerts(now);
-  renderChannelDonut();
-  renderResolutionDonut();
-  renderTrendChart(7);
-  renderResTimeChart(7);
-  renderTeamStrip(now);
+  renderChannelDonut(todayTickets);
+  renderTicketsByBrand(todayTickets);
+  renderTrendChart(Number(document.querySelector('#trendTabs .tab.active')?.dataset.range || 7));
+  renderResTimeChart(Number(document.querySelector('#restimeTabs .tab.active')?.dataset.range || 7));
+  renderTeamTable(now);
   setupTabs();
-  setupTeamViewAllToggle();
 }
 
 // ---------- KPI cards ----------
-function renderKPIs(todayTickets, yesterdayTickets) {
+function renderKPIs(todayTickets, yesterdayTickets, now) {
   document.getElementById('kpiTotalValue').textContent = todayTickets.length.toLocaleString();
   deltaEl(document.getElementById('kpiTotalDelta'), todayTickets.length, yesterdayTickets.length);
 
   const openTodayCount = todayTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
   document.getElementById('kpiOpenValue').textContent = openTodayCount.toLocaleString();
 
-  const now = new Date(), yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
   const resolvedToday = allTickets.filter(t => t.statusCls === 'done' && t.resolvedAt && isSameLocalDay(t.resolvedAt, now));
   const resolvedYesterday = allTickets.filter(t => t.statusCls === 'done' && t.resolvedAt && isSameLocalDay(t.resolvedAt, yesterday));
   document.getElementById('kpiResolvedValue').textContent = resolvedToday.length.toLocaleString();
@@ -740,7 +972,7 @@ function renderKPIs(todayTickets, yesterdayTickets) {
   const rejectedToday = allTickets.filter(t => t.statusCls === 'rejected' && t.resolvedAt && isSameLocalDay(t.resolvedAt, now));
   const rejectedYesterday = allTickets.filter(t => t.statusCls === 'rejected' && t.resolvedAt && isSameLocalDay(t.resolvedAt, yesterday));
   document.getElementById('kpiRejectedValue').textContent = rejectedToday.length.toLocaleString();
-  deltaEl(document.getElementById('kpiRejectedDelta'), rejectedToday.length, rejectedYesterday.length);
+  deltaEl(document.getElementById('kpiRejectedDelta'), rejectedToday.length, rejectedYesterday.length, { lowerIsBetter: true });
 
   const ackToday = todayTickets.filter(t => t.ackDurationSec != null);
   const ackYesterday = yesterdayTickets.filter(t => t.ackDurationSec != null);
@@ -748,7 +980,7 @@ function renderKPIs(todayTickets, yesterdayTickets) {
   const avgAckYesterday = ackYesterday.length ? ackYesterday.reduce((s, t) => s + t.ackDurationSec, 0) / ackYesterday.length : null;
   document.getElementById('kpiAvgResponseValue').textContent = avgAckToday != null ? formatDuration(avgAckToday) : '—';
   if (avgAckToday != null && avgAckYesterday != null) {
-    deltaEl(document.getElementById('kpiAvgResponseDelta'), avgAckToday, avgAckYesterday);
+    deltaEl(document.getElementById('kpiAvgResponseDelta'), avgAckToday, avgAckYesterday, { lowerIsBetter: true });
   } else {
     const el = document.getElementById('kpiAvgResponseDelta');
     el.textContent = 'No data yesterday';
@@ -756,12 +988,10 @@ function renderKPIs(todayTickets, yesterdayTickets) {
     el.style.color = 'var(--ink-faint)';
   }
 
-  const agentsToday = new Set();
-  allTickets.forEach(t => {
-    if (t.acknowledgedBy && t.acknowledgedAt && isSameLocalDay(t.acknowledgedAt, now)) agentsToday.add(t.acknowledgedBy);
-    if (t.resolvedBy && t.resolvedAt && isSameLocalDay(t.resolvedAt, now)) agentsToday.add(t.resolvedBy);
-  });
-  document.getElementById('kpiAgentsValue').textContent = agentsToday.size.toLocaleString();
+  // SLA breach: still "New" (unacked) and older than SLA_ACK_MINUTES — any day.
+  const breaches = allTickets.filter(t => t.statusCls === 'pending' && (now - t.submitted) / 60000 > SLA_ACK_MINUTES);
+  document.getElementById('kpiBreachValue').textContent = breaches.length.toLocaleString();
+  document.getElementById('kpiBreachCard').classList.toggle('alert', breaches.length > 0);
 }
 
 // ---------- Top 5 ticket concerns (issues), selectable time range ----------
@@ -801,13 +1031,12 @@ function renderTopConcerns() {
 
   const rankColors = ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'];
   const maxCount = ranked[0][1];
-  // 'all' maps to no date param at all, since tickets.html's own date filter already defaults to "All Time".
   const dateParam = concernsRange === 'all' ? '' : `&date=${concernsRange}`;
 
   el.innerHTML = ranked.map(([issue, count], i) => {
     const pct = Math.round((count / maxCount) * 100);
     return `
-    <a class="queue-item" href="tickets.html?issue=${encodeURIComponent(issue)}${dateParam}">
+    <a class="queue-item" href="/tickets?issue=${encodeURIComponent(issue)}${dateParam}">
       <div class="rank-badge" style="background:${rankColors[i]}22;color:${rankColors[i]};">#${i + 1}</div>
       <div style="flex:1;min-width:0;">
         <div class="queue-name" style="margin-bottom:4px;">${escapeHtml(issue)}</div>
@@ -830,7 +1059,7 @@ function setupConcernsRangeFilter() {
   concernsToggleWired = true;
 }
 
-// ---------- Ticket status breakdown (replaces the old fixed "Ticket Queue") ----------
+// ---------- Ticket status breakdown ----------
 function renderQueueBreakdown() {
   const now = new Date();
   const todayTickets = allTickets.filter(t => isSameLocalDay(t.submitted, now));
@@ -849,7 +1078,7 @@ function renderQueueBreakdown() {
     { key: 'rejected', label: 'Rejected Today', bg: 'var(--danger-tint)', fg: 'var(--danger)', icon: '<circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/>', dateScoped: true }
   ];
   document.getElementById('ticketQueue').innerHTML = rows.map(r => `
-    <a class="queue-item" href="tickets.html?status=${r.key}${r.dateScoped ? '&date=today' : ''}">
+    <a class="queue-item" href="/tickets?status=${r.key}${r.dateScoped ? '&date=today' : ''}">
       <div class="queue-ico" style="background:${r.bg};color:${r.fg};"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${r.icon}</svg></div>
       <div class="queue-name">${r.label}</div>
       <div class="queue-count">${counts[r.key].toLocaleString()}</div>
@@ -866,16 +1095,15 @@ function renderLiveActivity() {
     return;
   }
   el.innerHTML = items.map(t => `
-    <a class="activity-item" href="tickets.html?search=${encodeURIComponent(t.id)}">
+    <a class="activity-item" href="/tickets?search=${encodeURIComponent(t.id)}">
       <div class="av-sm" style="background:${t.color};">${escapeHtml(t.init)}</div>
-      <div><div class="act-name">${escapeHtml(t.name)}</div><div class="act-issue">${escapeHtml(t.issue)}</div></div>
+      <div><div class="act-name">${escapeHtml(t.name)} <span class="pill brand">${escapeHtml(t.brandLabel)}</span></div><div class="act-issue">${escapeHtml(t.issue)}</div></div>
       <div class="act-right"><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span><span class="act-time">${relativeTime(t.submitted)}</span></div>
     </a>`).join('');
 }
 
-// ---------- Team performance (aggregate across agents, since there's no reliable
-// mapping yet between the logged-in profile and the sheet's agent usernames) ----------
-function renderPerformance(todayTickets, yesterdayTickets) {
+// ---------- Team performance (aggregate, today) ----------
+function renderPerformance(todayTickets) {
   const doneToday = todayTickets.filter(t => t.statusCls === 'done');
   const rejectedToday = todayTickets.filter(t => t.statusCls === 'rejected');
   const totalHandledToday = doneToday.length + rejectedToday.length;
@@ -907,7 +1135,7 @@ function renderPerformance(todayTickets, yesterdayTickets) {
   document.getElementById('perfTotalHandled').textContent = totalHandledToday.toLocaleString();
 }
 
-// ---------- Open tickets waiting longest (replaces the old fixed "SLA Alerts") ----------
+// ---------- Open tickets waiting longest ----------
 function renderSlaAlerts(now) {
   const open = allTickets
     .filter(t => t.statusCls === 'pending' || t.statusCls === 'checking')
@@ -922,22 +1150,22 @@ function renderSlaAlerts(now) {
   }
 
   el.innerHTML = open.map(t => {
-    const label = t.priority === 'high' ? 'High' : t.priority === 'low' ? 'Low' : 'Normal';
+    const breached = t.statusCls === 'pending' && (now - t.submitted) / 60000 > SLA_ACK_MINUTES;
     return `
-    <a class="alert-item" href="tickets.html?search=${encodeURIComponent(t.id)}">
-      <div class="alert-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
-      <div><div class="alert-title">${label} priority · ${escapeHtml(t.id)}</div><div class="alert-sub">${escapeHtml(t.name)} — ${escapeHtml(t.issue)}</div></div>
-      <div class="alert-time">${compactElapsed(t.submitted, now)}</div>
+    <a class="alert-item" href="/tickets?search=${encodeURIComponent(t.id)}">
+      <div class="alert-ico ${breached ? '' : 'warn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+      <div style="min-width:0;"><div class="alert-title">${escapeHtml(t.id)} <span class="pill brand">${escapeHtml(t.brandLabel)}</span></div><div class="alert-sub">${escapeHtml(t.name)} — ${escapeHtml(t.issue)} · ${escapeHtml(t.statusLabel)}</div></div>
+      <div class="alert-time ${breached ? '' : 'warn'}">${compactElapsed(t.submitted, now)}</div>
     </a>`;
   }).join('');
 }
 
 // ---------- Charts ----------
-function renderChannelDonut() {
+function renderChannelDonut(todayTickets) {
   const counts = {};
-  allTickets.forEach(t => { counts[t.channel] = (counts[t.channel] || 0) + 1; });
+  todayTickets.forEach(t => { counts[t.channel] = (counts[t.channel] || 0) + 1; });
   const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const total = allTickets.length;
+  const total = todayTickets.length;
   const labels = entries.map(e => e[0]);
   const data = entries.map(e => e[1]);
   const colors = labels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]);
@@ -949,32 +1177,20 @@ function renderChannelDonut() {
     options: { cutout: '62%', plugins: { legend: { display: false } } }
   });
 
-  document.getElementById('channelLegend').innerHTML = entries.map((e, i) => {
+  document.getElementById('channelLegend').innerHTML = entries.length ? entries.map((e, i) => {
     const pct = total ? Math.round((e[1] / total) * 100) : 0;
     return `<div class="legend-row"><span class="sw" style="background:${colors[i]};"></span>${escapeHtml(e[0])}<b>${pct}% (${e[1].toLocaleString()})</b></div>`;
-  }).join('');
+  }).join('') : '<div class="empty-note">No tickets yet today.</div>';
   document.getElementById('channelTotal').textContent = `Total: ${total.toLocaleString()}`;
 }
 
-function renderResolutionDonut() {
-  const total = allTickets.length;
-  const resolved = allTickets.filter(t => t.statusCls === 'done').length;
-  const unresolved = total - resolved;
-  const pct = total ? Math.round((resolved / total) * 100) : 0;
-
-  if (resChart) resChart.destroy();
-  resChart = new Chart(document.getElementById('resDonut'), {
-    type: 'doughnut',
-    data: { datasets: [{ data: [resolved, unresolved], backgroundColor: ['#22C55E', '#E2E8F0'], borderWidth: 0 }] },
-    options: { cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
-  });
-
-  document.getElementById('resCenterNum').textContent = `${pct}%`;
-  document.getElementById('resLegend').innerHTML = `
-    <div class="legend-row"><span class="sw" style="background:#22C55E;"></span>Resolved<b>${resolved.toLocaleString()} (${pct}%)</b></div>
-    <div class="legend-row"><span class="sw" style="background:#E2E8F0;"></span>Other (open/rejected)<b>${unresolved.toLocaleString()} (${100 - pct}%)</b></div>
-  `;
-  document.getElementById('resTotal').textContent = `Total: ${total.toLocaleString()}`;
+function renderTicketsByBrand(todayTickets) {
+  const counts = {};
+  todayTickets.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || { label: t.brandLabel, n: 0 }); counts[t.brandCode].n++; });
+  const rows = Object.entries(counts)
+    .sort((a, b) => b[1].n - a[1].n)
+    .map(([code, v]) => ({ label: v.label, value: v.n, href: `/tickets?date=today` }));
+  barList(document.getElementById('ticketByBrand'), rows, { empty: 'No tickets yet today.' });
 }
 
 function lastNDaysData(days, dateSelector, filterFn) {
@@ -1046,89 +1262,45 @@ function setupTabs() {
   chartTabsWired = true;
 }
 
-// ---------- Team status strip: real agents seen acting on tickets in the sheet ----------
-function renderTeamStrip(now) {
-  const strip = document.getElementById('teamStrip');
-  const toggleBtn = document.getElementById('teamViewAllBtn');
-  const agentsMap = new Map(); // name -> last active Date (today only)
-
+// ---------- Agents active today: real per-agent numbers from the sheet ----------
+function renderTeamTable(now) {
+  const agents = new Map(); // name -> { acked, resolved, rejected, handle: [], last }
+  const bump = (name, field, when, dur) => {
+    if (!name) return;
+    const a = agents.get(name) || { acked: 0, resolved: 0, rejected: 0, handle: [], last: null };
+    a[field]++;
+    if (dur != null) a.handle.push(dur);
+    if (!a.last || when > a.last) a.last = when;
+    agents.set(name, a);
+  };
   allTickets.forEach(t => {
-    if (t.acknowledgedBy && t.acknowledgedAt && isSameLocalDay(t.acknowledgedAt, now)) {
-      const prev = agentsMap.get(t.acknowledgedBy);
-      if (!prev || t.acknowledgedAt > prev) agentsMap.set(t.acknowledgedBy, t.acknowledgedAt);
-    }
+    if (t.acknowledgedBy && t.acknowledgedAt && isSameLocalDay(t.acknowledgedAt, now)) bump(t.acknowledgedBy, 'acked', t.acknowledgedAt);
     if (t.resolvedBy && t.resolvedAt && isSameLocalDay(t.resolvedAt, now)) {
-      const prev = agentsMap.get(t.resolvedBy);
-      if (!prev || t.resolvedAt > prev) agentsMap.set(t.resolvedBy, t.resolvedAt);
+      if (t.statusCls === 'done') bump(t.resolvedBy, 'resolved', t.resolvedAt, t.resolveDurationSec);
+      else if (t.statusCls === 'rejected') bump(t.resolvedBy, 'rejected', t.resolvedAt);
     }
   });
 
-  const agents = Array.from(agentsMap.entries()).sort((a, b) => b[1] - a[1]);
-
-  if (agents.length === 0) {
-    strip.innerHTML = '<div style="color:var(--ink-faint);font-size:12.5px;">No agent activity yet today.</div>';
-    if (toggleBtn) toggleBtn.style.display = 'none';
+  const rows = Array.from(agents.entries()).sort((a, b) => (b[1].resolved + b[1].rejected + b[1].acked) - (a[1].resolved + a[1].rejected + a[1].acked));
+  const tbody = document.getElementById('teamTableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-note">No agent activity yet today.</div></td></tr>';
     return;
   }
-
-  const visible = teamStripExpanded ? agents : agents.slice(0, 10);
-  const extra = agents.length - visible.length;
-
-  strip.innerHTML = visible.map(([name, lastActive]) => {
-    const minsAgo = (now - lastActive) / 60000;
+  tbody.innerHTML = rows.map(([name, a]) => {
+    const avgHandle = a.handle.length ? a.handle.reduce((s, v) => s + v, 0) / a.handle.length : null;
+    const minsAgo = (now - a.last) / 60000;
     const statusColor = minsAgo <= 60 ? '#22C55E' : '#94A3B8';
-    return `<div class="team-av" style="background:${colorForName(name)}" title="${escapeHtml(name)} — active ${relativeTime(lastActive)}">${escapeHtml(initialsForName(name))}<span class="st" style="background:${statusColor}"></span></div>`;
+    return `<tr>
+      <td><div class="agent-cell"><div class="av-xs" style="background:${colorForName(name)};">${escapeHtml(initialsForName(name))}<span class="st" style="background:${statusColor};"></span></div><span>${escapeHtml(name)}</span></div></td>
+      <td class="num">${a.acked.toLocaleString()}</td>
+      <td class="num">${a.resolved.toLocaleString()}</td>
+      <td class="num">${a.rejected.toLocaleString()}</td>
+      <td class="num">${avgHandle != null ? formatDuration(avgHandle) : '—'}</td>
+      <td class="num" style="color:var(--ink-faint);font-weight:600;">${relativeTime(a.last)}</td>
+    </tr>`;
   }).join('');
-  if (extra > 0) strip.innerHTML += `<div class="team-more">+${extra}</div>`;
-
-  if (toggleBtn) {
-    if (agents.length <= 10) {
-      toggleBtn.style.display = 'none';
-    } else {
-      toggleBtn.style.display = '';
-      toggleBtn.textContent = teamStripExpanded ? 'Show less' : 'View all';
-    }
-  }
 }
-
-function setupTeamViewAllToggle() {
-  if (teamToggleWired) return;
-  const toggleBtn = document.getElementById('teamViewAllBtn');
-  if (!toggleBtn) return;
-  toggleBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    teamStripExpanded = !teamStripExpanded;
-    renderTeamStrip(new Date());
-  });
-  teamToggleWired = true;
-}
-</script>
-<script>
-(function () {
-  if (window.location.hostname.includes('netlify.app')) {
-    var hideNames = ['tickets', 'kyc', 'customers', 'reports', 'openai', 'settings'];
-    document.querySelectorAll('.nav-item').forEach(function (el) {
-      var href = (el.getAttribute('href') || '').toLowerCase();
-      var clean = href.replace(/^\//, '').replace(/\.html$/, '');
-      if (hideNames.includes(clean) || el.classList.contains('soon')) {
-        el.style.display = 'none';
-      }
-    });
-    // Hide the personalized greeting ("Good afternoon, Chad").
-    var greetingEl = document.querySelector('.greeting');
-    if (greetingEl) greetingEl.style.display = 'none';
-    // Hide the chat icon and the profile info (name/role) in the top bar.
-    var chatIconEl = document.getElementById('chatIconBtn');
-    if (chatIconEl) chatIconEl.style.display = 'none';
-    var profileEl = document.getElementById('profileToggle');
-    if (profileEl) profileEl.style.display = 'none';
-    // Hide the whole sidebar (nav + logo), and show the compact brand bar at the top of the main content instead.
-    var sidebarEl = document.querySelector('.sidebar');
-    if (sidebarEl) sidebarEl.style.display = 'none';
-    var topBrandEl = document.getElementById('netlifyTopBrand');
-    if (topBrandEl) topBrandEl.style.display = 'flex';
-  }
-})();
 </script>
 </body>
 </html>
