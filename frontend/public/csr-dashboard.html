@@ -826,10 +826,18 @@ async function loadChatOverview() {
     document.getElementById('chatArtDelta').textContent = artVals.length ? `${artVals.length} handoff${artVals.length === 1 ? '' : 's'}` : 'No handoffs in range';
 
     // --- KPI + list: HH Pending (waiting for a human, any age) ---
+    // Brands watched by the Waiting-for-Agent widget (decision 2026-09-14):
+    // all LiveChat brands + ONLY Buenas PH and TMTCash on the Chatwoot side
+    // (bot -> human handoffs). Other Chatwoot brands still record 'pending'
+    // in the DB; they're just not surfaced here. Add a slug to include more.
+    const WAITING_BRANDS = new Set([
+      'buenasph', 'tmtcash',                                             // Chatwoot
+      'casinyeam', 'manilacasino', 'superscatterph', 'livechat-general', // LiveChat (all)
+    ]);
     const pending = (convAll.conversations || [])
-      .filter(c => c.handoffStage === 'pending')
+      .filter(c => c.handoffStage === 'pending' && WAITING_BRANDS.has(c.brand))
       .sort((a, b) => new Date(a.lastActivityAt) - new Date(b.lastActivityAt)); // oldest first
-    const pendingCount = statsToday.handoffPending ?? pending.length;
+    const pendingCount = pending.length;
     document.getElementById('chatPendingValue').textContent = pendingCount.toLocaleString();
     document.getElementById('chatPendingCard').classList.toggle('alert', pendingCount > 0);
 
