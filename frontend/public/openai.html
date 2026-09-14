@@ -433,5 +433,292 @@ function exportBillingCsv() {
 fetchPhpRate().then(() => { if (lastBillingData) renderBilling(lastBillingData); });
 loadAccounts();
 </script>
+<style>
+  .cb-section{margin-top:24px;}
+  .cb-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px;gap:12px;flex-wrap:wrap;}
+  .cb-title h2{margin:0;font-size:15px;font-weight:800;letter-spacing:-.01em;}
+  .cb-title .cb-right{display:flex;align-items:center;gap:10px;}
+  .cb-title .cb-live{font-size:12px;color:var(--ink-faint,#94A3B8);font-weight:600;}
+  .cb-btn{font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line,#EEF1F6);background:var(--card,#fff);color:var(--ink-soft,#475569);font-family:inherit;}
+  .cb-btn.primary{background:var(--primary,#2563EB);color:#fff;border-color:var(--primary,#2563EB);}
+  .cb-btn.danger{color:var(--danger,#EF4444);}
+  .cb-btn:disabled{opacity:.55;cursor:wait;}
+  .cb-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+  @media (max-width:900px){.cb-cards{grid-template-columns:1fr;}}
+  .cb-card{background:var(--card,#fff);border-radius:14px;padding:16px;box-shadow:var(--shadow,0 1px 2px rgba(15,23,42,.04),0 8px 24px -12px rgba(15,23,42,.10));}
+  .cb-card .cb-label{font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint,#94A3B8);margin-bottom:6px;}
+  .cb-card .cb-value{font-size:22px;font-weight:800;letter-spacing:-.01em;}
+  .cb-card .cb-sub{font-size:11.5px;color:var(--ink-faint,#94A3B8);margin-top:4px;}
+  .cb-panel{background:var(--card,#fff);border-radius:14px;box-shadow:var(--shadow,0 1px 2px rgba(15,23,42,.04),0 8px 24px -12px rgba(15,23,42,.10));padding:18px;overflow-x:auto;}
+  .cb-table{width:100%;border-collapse:collapse;min-width:860px;}
+  .cb-table th{text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint,#94A3B8);font-weight:700;padding:0 10px 8px;border-bottom:1px solid var(--line,#EEF1F6);white-space:nowrap;}
+  .cb-table th:first-child{text-align:left;}
+  .cb-table th .cb-date{display:block;font-size:9.5px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--ink-faint,#94A3B8);opacity:.85;}
+  .cb-table td{padding:8px 10px;font-size:12.5px;border-bottom:1px solid var(--line,#EEF1F6);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .cb-table td:first-child{text-align:left;font-weight:700;}
+  .cb-table tbody tr:hover{background:#F8FAFC;}
+  .cb-table td.cb-total{font-weight:800;}
+  .cb-table tfoot td{font-weight:800;border-top:2px solid var(--line,#EEF1F6);border-bottom:none;background:#F8FAFC;}
+  .cb-empty{padding:32px 12px;text-align:center;color:var(--ink-faint,#94A3B8);font-size:13px;}
+  .cb-dim{color:var(--ink-faint,#94A3B8);font-weight:500;}
+  .cb-input{width:92px;padding:5px 7px;border:1px solid var(--line,#EEF1F6);border-radius:7px;font:inherit;font-size:12px;text-align:right;background:#fff;color:var(--ink,#0F172A);}
+  .cb-input.cb-name{width:170px;text-align:left;font-weight:700;}
+  .cb-input:focus{outline:2px solid var(--primary,#2563EB);outline-offset:-1px;}
+  .cb-rowdel{border:none;background:none;color:var(--danger,#EF4444);font-size:14px;cursor:pointer;padding:2px 6px;}
+  .cb-editbar{display:none;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .cb-editbar.on{display:flex;}
+  .cb-note{font-size:11.5px;color:var(--ink-faint,#94A3B8);}
+</style>
+<script>
+(function () {
+  const CB_API = (typeof API_BASE !== 'undefined' ? API_BASE : 'https://pipeline-crm-production-412d.up.railway.app/api');
+  const CB_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSPhoe4LCgJ1VWFE-fMUsH1D20E76eSxLq4ZJoA_XpLqGKqrvBiot6JIqkFmbWAMfYQOX--Y4k-DFgM/pub?gid=1411288339&single=true&output=csv';
+
+  let cbData = null;      // { services, dates, divisions:[{name, vals[]}] }
+  let cbEditing = false;
+  let cbMeta = {};
+
+  // ---- helpers ----
+  function parseCsv(text) {
+    const rows = []; let row = [], field = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; } else field += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(field); field = ''; rows.push(row); row = []; }
+      else field += c;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+  function peso(v) { if (v == null) return null; const n = parseFloat(String(v).replace(/[₱,\s]/g, '')); return isNaN(n) ? null : n; }
+  function money(n) { return n == null ? null : '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmt(n) { return n == null ? '<span class="cb-dim">—</span>' : money(n); }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function authHeaders() { return { Authorization: 'Bearer ' + localStorage.getItem('pipeline_token') }; }
+  function rowTotal(d) { const nums = d.vals.filter(v => v != null); return nums.length ? nums.reduce((a, b) => a + b, 0) : null; }
+
+  // ---- mount ----
+  function buildSection() {
+    const main = document.querySelector('.main') || document.body;
+    const sec = document.createElement('div');
+    sec.className = 'cb-section';
+    sec.innerHTML = `
+      <div class="cb-title">
+        <h2>Consolidated Billing (Monthly)</h2>
+        <div class="cb-right">
+          <span class="cb-live" id="cbUpdated">Loading…</span>
+          <button class="cb-btn" id="cbEditBtn" style="display:none;">Edit</button>
+        </div>
+      </div>
+      <div class="cb-editbar" id="cbEditBar">
+        <button class="cb-btn primary" id="cbSaveBtn">Save changes</button>
+        <button class="cb-btn" id="cbCancelBtn">Cancel</button>
+        <button class="cb-btn" id="cbAddRowBtn">+ Add division</button>
+        <span class="cb-note">Amounts are in ₱. Leave a cell blank for “—”. TOTALs compute automatically.</span>
+      </div>
+      <div class="cb-cards" id="cbCards" style="display:none;">
+        <div class="cb-card"><div class="cb-label">Grand Total / Month</div><div class="cb-value" id="cbGrand">—</div><div class="cb-sub" id="cbGrandSub"></div></div>
+        <div class="cb-card"><div class="cb-label">Highest Division</div><div class="cb-value" id="cbTopDiv" style="font-size:17px;">—</div><div class="cb-sub" id="cbTopDivSub"></div></div>
+        <div class="cb-card"><div class="cb-label">Biggest Service Cost</div><div class="cb-value" id="cbTopSvc" style="font-size:17px;">—</div><div class="cb-sub" id="cbTopSvcSub"></div></div>
+      </div>
+      <div class="cb-panel"><div id="cbTableWrap"><div class="cb-empty">Loading billing data…</div></div></div>
+    `;
+    main.appendChild(sec);
+    document.getElementById('cbEditBtn').addEventListener('click', () => { cbEditing = true; render(); });
+    document.getElementById('cbCancelBtn').addEventListener('click', () => { cbEditing = false; loadFromDb(); });
+    document.getElementById('cbSaveBtn').addEventListener('click', saveEdits);
+    document.getElementById('cbAddRowBtn').addEventListener('click', () => {
+      collectEdits();
+      cbData.divisions.push({ name: 'NEW DIVISION', vals: cbData.services.map(() => null) });
+      render();
+    });
+  }
+
+  // ---- data loading ----
+  async function loadFromDb() {
+    const upd = document.getElementById('cbUpdated');
+    try {
+      const res = await fetch(`${CB_API}/billing/consolidated`, { headers: authHeaders() });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const body = await res.json();
+      if (body.data) {
+        cbData = body.data; cbMeta = { updatedAt: body.updatedAt, updatedBy: body.updatedBy };
+        render();
+      } else {
+        // First use — offer a one-time seed from the Google Sheet.
+        await seedFromSheet();
+      }
+    } catch (err) {
+      console.error('Billing load failed:', err);
+      upd.textContent = '● Error loading'; upd.style.color = 'var(--danger,#EF4444)';
+      document.getElementById('cbTableWrap').innerHTML =
+        '<div class="cb-empty">Could not load billing data. If the backend was just updated, confirm the /api/billing route is wired in server.js.</div>';
+    }
+  }
+
+  async function seedFromSheet() {
+    const wrap = document.getElementById('cbTableWrap');
+    wrap.innerHTML = '<div class="cb-empty">No saved billing data yet — importing the Google Sheet as a starting point…</div>';
+    try {
+      const res = await fetch(CB_SHEET_CSV + '&t=' + Date.now());
+      if (!res.ok) throw new Error('sheet HTTP ' + res.status);
+      const rows = parseCsv(await res.text());
+      const rawServices = rows[0].slice(1).map(s => s.trim());
+      // Drop the sheet's TOTAL column — totals are computed, not stored.
+      const totalIdx = rawServices.findIndex(s => s.toUpperCase().startsWith('TOTAL'));
+      const services = rawServices.filter((s, i) => s && i !== totalIdx);
+      const dates = (rows[1] || []).slice(1).filter((_, i) => rawServices[i] && i !== totalIdx).map(s => (s || '').trim());
+      const divStart = rows.findIndex(r => (r[0] || '').trim().toUpperCase() === 'DIVISION') + 1;
+      if (divStart <= 0) throw new Error('DIVISION marker not found in sheet');
+      const divisions = [];
+      for (let i = divStart; i < rows.length; i++) {
+        const name = (rows[i][0] || '').trim();
+        if (!name) continue;
+        const vals = rawServices.map((_, k) => peso(rows[i][k + 1])).filter((_, k) => rawServices[k] && k !== totalIdx);
+        if (vals.every(v => v == null)) continue;
+        divisions.push({ name, vals });
+      }
+      if (!divisions.length) throw new Error('No division rows in sheet');
+      cbData = { services, dates, divisions };
+      await persist();                       // save the seed so next load is DB-only
+      cbMeta = { updatedAt: new Date().toISOString(), updatedBy: 'sheet import' };
+      render();
+    } catch (err) {
+      console.error('Sheet seed failed:', err);
+      wrap.innerHTML = '<div class="cb-empty">No saved data, and the Google Sheet import failed. Click Edit to start from a blank table.</div>';
+      cbData = { services: ['Netlify','N8N','Claude','Host Server','Supabase','Open AI'], dates: ['','','','','',''], divisions: [] };
+      document.getElementById('cbEditBtn').style.display = '';
+    }
+  }
+
+  async function persist() {
+    const res = await fetch(`${CB_API}/billing/consolidated`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ data: cbData }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
+  }
+
+  // ---- edit flow ----
+  function collectEdits() {
+    if (!cbEditing) return;
+    const rows = document.querySelectorAll('#cbTableWrap tbody tr');
+    const divisions = [];
+    rows.forEach(tr => {
+      const name = tr.querySelector('.cb-name')?.value.trim();
+      if (!name) return; // blank name = drop row
+      const vals = [...tr.querySelectorAll('.cb-val')].map(inp => {
+        const v = inp.value.trim();
+        if (v === '') return null;
+        const n = parseFloat(v.replace(/[₱,\s]/g, ''));
+        return isNaN(n) ? null : Math.round(n * 100) / 100;
+      });
+      divisions.push({ name, vals });
+    });
+    cbData.divisions = divisions;
+  }
+
+  async function saveEdits() {
+    const btn = document.getElementById('cbSaveBtn');
+    collectEdits();
+    if (!cbData.divisions.length) { alert('At least one division row is required.'); return; }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      await persist();
+      cbEditing = false;
+      cbMeta = { updatedAt: new Date().toISOString(), updatedBy: 'you' };
+      render();
+    } catch (err) {
+      console.error('Billing save failed:', err);
+      alert('Save failed: ' + err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save changes';
+    }
+  }
+
+  // ---- render ----
+  function render() {
+    const upd = document.getElementById('cbUpdated');
+    const editBtn = document.getElementById('cbEditBtn');
+    const editBar = document.getElementById('cbEditBar');
+    const wrap = document.getElementById('cbTableWrap');
+    const d = cbData;
+    editBtn.style.display = cbEditing ? 'none' : '';
+    editBar.classList.toggle('on', cbEditing);
+
+    const totals = d.divisions.map(rowTotal);
+    const svcTotals = d.services.map((_, k) => {
+      const nums = d.divisions.map(x => x.vals[k]).filter(v => v != null);
+      return nums.length ? nums.reduce((a, b) => a + b, 0) : null;
+    });
+    const grand = totals.filter(v => v != null).reduce((a, b) => a + b, 0);
+
+    // Cards (view mode only — hidden while editing to avoid stale numbers)
+    document.getElementById('cbCards').style.display = cbEditing ? 'none' : '';
+    if (!cbEditing && d.divisions.length) {
+      document.getElementById('cbGrand').textContent = money(grand) || '—';
+      document.getElementById('cbGrandSub').textContent = d.divisions.length + ' divisions · ' + d.services.length + ' services';
+      let ti = 0; totals.forEach((v, i) => { if ((v || 0) > (totals[ti] || 0)) ti = i; });
+      document.getElementById('cbTopDiv').textContent = d.divisions[ti]?.name || '—';
+      document.getElementById('cbTopDivSub').textContent = (money(totals[ti]) || '—') + ' / month';
+      let si = 0; svcTotals.forEach((v, i) => { if ((v || 0) > (svcTotals[si] || 0)) si = i; });
+      document.getElementById('cbTopSvc').textContent = d.services[si] || '—';
+      document.getElementById('cbTopSvcSub').textContent = (money(svcTotals[si]) || '—') + ' across all divisions';
+    }
+
+    // Table
+    const head = '<tr><th>Division</th>' + d.services.map((s, k) =>
+      `<th>${esc(s)}${d.dates[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : ''}</th>`).join('')
+      + '<th>Total</th>' + (cbEditing ? '<th></th>' : '') + '</tr>';
+
+    const body = d.divisions.map((div, i) => {
+      if (cbEditing) {
+        return `<tr>
+          <td><input class="cb-input cb-name" value="${esc(div.name)}"></td>
+          ${div.vals.map(v => `<td><input class="cb-input cb-val" inputmode="decimal" value="${v == null ? '' : v}"></td>`).join('')}
+          <td class="cb-total cb-rowtotal">${fmt(rowTotal(div))}</td>
+          <td><button class="cb-rowdel" title="Remove division" data-i="${i}">✕</button></td>
+        </tr>`;
+      }
+      return `<tr><td>${esc(div.name)}</td>${div.vals.map(v => `<td>${fmt(v)}</td>`).join('')}<td class="cb-total">${fmt(rowTotal(div))}</td></tr>`;
+    }).join('');
+
+    const foot = `<tr><td>ALL DIVISIONS</td>${svcTotals.map(v => `<td>${fmt(v)}</td>`).join('')}<td>${fmt(grand || null)}</td>${cbEditing ? '<td></td>' : ''}</tr>`;
+
+    wrap.innerHTML = d.divisions.length || cbEditing
+      ? `<table class="cb-table"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`
+      : '<div class="cb-empty">No billing data yet — click Edit to add divisions.</div>';
+
+    if (cbEditing) {
+      // live row totals while typing + row delete
+      wrap.querySelectorAll('.cb-val').forEach(inp => inp.addEventListener('input', (e) => {
+        const tr = e.target.closest('tr');
+        const nums = [...tr.querySelectorAll('.cb-val')]
+          .map(x => parseFloat(x.value.replace(/[₱,\s]/g, '')))
+          .filter(n => !isNaN(n));
+        tr.querySelector('.cb-rowtotal').innerHTML = nums.length ? money(nums.reduce((a, b) => a + b, 0)) : '<span class="cb-dim">—</span>';
+      }));
+      wrap.querySelectorAll('.cb-rowdel').forEach(btn => btn.addEventListener('click', (e) => {
+        collectEdits();
+        cbData.divisions.splice(Number(e.target.dataset.i), 1);
+        render();
+      }));
+    }
+
+    upd.textContent = cbEditing ? 'Editing…'
+      : (cbMeta.updatedAt ? '● Saved ' + new Date(cbMeta.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + (cbMeta.updatedBy ? ' · ' + cbMeta.updatedBy : '') : '●');
+    upd.style.color = cbEditing ? 'var(--warning,#F59E0B)' : 'var(--success,#22C55E)';
+  }
+
+  buildSection();
+  loadFromDb();
+})();
+</script>
+<!-- ============== END CONSOLIDATED BILLING BLOCK v2 ============== -->
+
 </body>
 </html>
