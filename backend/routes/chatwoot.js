@@ -270,10 +270,34 @@ function extractFields(payload) {
   // tucked inside content_attributes instead of (or alongside) plain text.
   const csatResponse = payload.content_attributes?.submitted_values?.csat_survey_response || null;
 
+  // Handoff stage. Prefer the sender-based signal — a real human agent
+  // (anyone except the AI bot persona) replying is a direct, automatic sign
+  // of handoff, more reliable than depending on someone remembering to
+  // apply a label. Falls back to the label if the sender doesn't tell us
+  // anything (e.g. this event is a customer message, or a bot template)
+  // but a label WAS applied — this is currently the only way 'pending'
+  // gets set, since "assigned but not yet replied" isn't reliably
+  // detectable from messages alone.
+  //
+  // RESOLVED OVERRIDE (fix 2026-09-14): bot handoff labels (e.g.
+  // "pending_humanhandoff") stay on the conversation forever — Chatwoot
+  // never removes them. Once the conversation is RESOLVED, any
+  // label-derived pending/handoff must read as 'closed', or post-resolve
+  // events (CSAT prompt, closing message, status change) re-assert
+  // 'pending' and the chat gets stuck in Waiting-for-Agent.
+  const convStatus = conversation?.status ?? payload.status ?? null;
+  let handoffStage;
+  if (isRealHumanAgentReply(payload.sender?.name, payload.sender?.type)) {
+    handoffStage = convStatus === 'resolved' ? 'closed' : 'opened';
+  } else {
+    const labelStage = normalizeHandoffStage(labels);
+    handoffStage = (labelStage && convStatus === 'resolved') ? 'closed' : labelStage;
+  }
+
   return {
     conversationId: conversation?.id ?? payload.conversation_id ?? null,
     messageId: isMessageEvent ? (payload.id ?? null) : null,
-    status: conversation?.status ?? payload.status ?? null,
+    status: convStatus,
     inboxId: inbox?.id ?? conversation?.inbox_id ?? payload.inbox_id ?? null,
     inboxName: inbox?.name ?? null,
     contactName: contact?.name ?? null,
@@ -285,29 +309,7 @@ function extractFields(payload) {
     labels: labels && labels.length ? labels : null,
     csatRating: csatResponse?.rating ?? null,
     csatFeedback: csatResponse?.feedback_message ?? null,
-    // Prefer the sender-based signal — a real human agent (anyone except
-    // the AI bot persona) replying is a direct, automatic sign of handoff,
-    // more reliable than depending on someone remembering to apply a label.
-    // Falls back to the label if the sender doesn't tell us anything (e.g.
-    // this event is a customer message, or a bot template) but a label WAS
-    // applied — this is currently the only way 'pending' gets set, since
-    // "assigned but not yet replied" isn't reliably detectable from
-    // messages alone.
-        handoffStage: (() => {
-      const convStatus = conversation?.status ?? payload.status ?? null;
-      if (isRealHumanAgentReply(payload.sender?.name, payload.sender?.type)) {
-        return convStatus === 'resolved' ? 'closed' : 'opened';
-      }
-      const labelStage = normalizeHandoffStage(labels);
-      // Bot handoff labels (e.g. "pending_humanhandoff") stay on the
-      // conversation forever — Chatwoot never removes them. Once the
-      // conversation is RESOLVED, any label-derived pending/handoff must
-      // read as 'closed', or post-resolve events (CSAT prompt, closing
-      // message, status change) re-assert 'pending' and the chat gets
-      // stuck in Waiting-for-Agent. (Fix 2026-09-14.)
-      if (labelStage && convStatus === 'resolved') return 'closed';
-      return labelStage;
-     })(),
+    handoffStage,
   };
 }
 
