@@ -112,7 +112,12 @@ const STORED_EVENTS = new Set([
 const PAYLOAD_RETENTION_DAYS = Number(process.env.CHATWOOT_PAYLOAD_RETENTION_DAYS) || 3;
 
 // Max conversations returned PER BRAND when no ?brand= filter is given.
-const PER_BRAND_LIMIT = 200;
+// Default 500 (raised from 200 on 2026-09-14 — Buenas/TMTCash/ManilaPlay/MCP
+// each exceed 200 active conversations). Callers can pass ?perBrand=N up to
+// PER_BRAND_MAX; the frontend asks for 1000. Raising this makes the JSON
+// response larger on every 20s poll, so don't go beyond what the UI needs.
+const PER_BRAND_LIMIT = 500;
+const PER_BRAND_MAX = 2000;
 
 function hasCsatResponse(payload) {
   return !!payload?.content_attributes?.submitted_values?.csat_survey_response;
@@ -400,7 +405,7 @@ router.get('/conversations', requireAuth, async (req, res) => {
     // (MGK, LuckystacksPH) were being crowded out of the top-200 by Buenas/
     // TMT/MCP volume and vanished from the brand tabs entirely. The frontend
     // should still pass ?limit=1000 explicitly to get the full set.
-    const limit = Math.min(Number(req.query.limit) || 50, 1000);
+    const limit = Math.min(Number(req.query.limit) || 50, PER_BRAND_MAX);
     const brandClause = brand ? 'AND "brand" = :brand' : '';
     // Restricts which conversations are "in scope" for this request, and
     // what counts as their lastActivityAt, to activity that happened within
@@ -420,7 +425,9 @@ router.get('/conversations', requireAuth, async (req, res) => {
     // `perBrand` conversations, so all brands always appear in the tabs.
     // Implemented with ROW_NUMBER() over the per-conversation "latest"
     // rows, partitioned by brand.
-    const perBrand = brand ? limit : PER_BRAND_LIMIT;
+    const perBrand = brand
+      ? limit
+      : Math.min(Number(req.query.perBrand) || PER_BRAND_LIMIT, PER_BRAND_MAX);
     const latestPerConversation = await sequelize.query(`
       SELECT "conversationId", "brand", "inboxName", "status", "lastActivityAt"
       FROM (
