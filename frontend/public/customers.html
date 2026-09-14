@@ -1091,5 +1091,176 @@
     }
   });
 </script>
+<!-- ================================================================
+  TRANSLATE TO ENGLISH (free — MyMemory API, no key/signup needed)
+  Added 2026-09-14 for HypePlay BD Bengali chats on the Customers page.
+
+  HOW TO INSTALL: paste this ENTIRE block into customers.html just
+  BEFORE the closing </body> tag. Nothing else needs to change.
+
+  How it works:
+  - A floating "Translate to English" button appears bottom-right
+    ONLY when Bengali text is visible on screen (e.g. the chat modal).
+  - Click = translates every visible Bengali message in place, with a
+    small "EN" tag so CSRs know they're reading a translation.
+  - Click again ("Show original") = restores the original text.
+  - Translations are cached in localStorage — each unique message is
+    only ever translated once, so the free daily quota lasts long and
+    reopening the same conversation is instant.
+  - Free tier limit: a few thousand words/day anonymous. If you hit
+    "quota" errors, set MYMEMORY_EMAIL below to any real email —
+    that raises the free limit substantially (still free, no signup).
+================================================================= -->
+<style>
+  #btTranslateBtn{
+    position:fixed;bottom:22px;right:22px;z-index:9999;display:none;
+    align-items:center;gap:8px;padding:11px 16px;border:none;cursor:pointer;
+    border-radius:999px;font-family:inherit;font-size:13px;font-weight:700;
+    background:#2563EB;color:#fff;box-shadow:0 4px 14px rgba(37,99,235,.35);
+  }
+  #btTranslateBtn.bt-on{background:#0F172A;}
+  #btTranslateBtn:disabled{opacity:.6;cursor:wait;}
+  .bt-tag{
+    display:inline-block;margin-left:6px;padding:1px 6px;border-radius:8px;
+    background:#EFF4FF;color:#2563EB;font-size:9.5px;font-weight:800;
+    vertical-align:middle;letter-spacing:.02em;
+  }
+</style>
+<button id="btTranslateBtn" type="button">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
+  <span id="btTranslateLabel">Translate to English</span>
+</button>
+<script>
+(function () {
+  // Set to a real email (any) to raise MyMemory's free daily quota. Optional.
+  const MYMEMORY_EMAIL = '';
+
+  const BN_REGEX = /[\u0980-\u09FF]/;            // Bengali unicode block
+  const CACHE_PREFIX = 'bt_bn_en::';
+  const btn = document.getElementById('btTranslateBtn');
+  const label = document.getElementById('btTranslateLabel');
+  let translatedNow = false;   // current view state
+  let working = false;
+
+  // ---- cache (localStorage, survives reloads) ----
+  function cacheGet(text) {
+    try { return localStorage.getItem(CACHE_PREFIX + text); } catch { return null; }
+  }
+  function cacheSet(text, translation) {
+    try { localStorage.setItem(CACHE_PREFIX + text, translation); } catch { /* storage full — skip */ }
+  }
+
+  // ---- find visible text nodes containing Bengali ----
+  function bengaliTextNodes() {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!BN_REGEX.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+        const el = node.parentElement;
+        if (!el) return NodeFilter.FILTER_REJECT;
+        const tag = el.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') return NodeFilter.FILTER_REJECT;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return NodeFilter.FILTER_REJECT; // hidden
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    return nodes;
+  }
+
+  // ---- translate one string via MyMemory (free, CORS-enabled) ----
+  async function translateText(text) {
+    const cached = cacheGet(text);
+    if (cached) return cached;
+    const email = MYMEMORY_EMAIL ? `&de=${encodeURIComponent(MYMEMORY_EMAIL)}` : '';
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=bn|en${email}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`translate HTTP ${res.status}`);
+    const data = await res.json();
+    const out = data?.responseData?.translatedText;
+    if (!out || data.responseStatus === 403) throw new Error(data?.responseDetails || 'translation failed');
+    cacheSet(text, out);
+    return out;
+  }
+
+  // ---- apply / revert ----
+  async function translateVisible() {
+    working = true;
+    btn.disabled = true;
+    const nodes = bengaliTextNodes();
+    let done = 0, failed = 0;
+    for (const node of nodes) {
+      // Skip if this node was already swapped (e.g. new nodes appeared mid-run)
+      if (node.__btOriginal) { done++; continue; }
+      const original = node.nodeValue;
+      const trimmed = original.trim();
+      if (!trimmed) continue;
+      label.textContent = `Translating… ${done + 1}/${nodes.length}`;
+      try {
+        const translated = await translateText(trimmed);
+        node.__btOriginal = original;
+        node.nodeValue = original.replace(trimmed, translated);
+        // add a small EN tag once per parent element
+        const el = node.parentElement;
+        if (el && !el.querySelector(':scope > .bt-tag')) {
+          const tag = document.createElement('span');
+          tag.className = 'bt-tag';
+          tag.textContent = 'EN';
+          el.appendChild(tag);
+        }
+        done++;
+      } catch (e) {
+        console.warn('Translate failed for one message:', e.message);
+        failed++;
+        // Quota/network problem — stop hammering the API, keep what we got.
+        if (/429|quota|403/i.test(e.message)) break;
+      }
+    }
+    translatedNow = true;
+    btn.classList.add('bt-on');
+    label.textContent = failed ? `Show original (${failed} failed)` : 'Show original';
+    btn.disabled = false;
+    working = false;
+  }
+
+  function revertAll() {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (node.__btOriginal) {
+        node.nodeValue = node.__btOriginal;
+        delete node.__btOriginal;
+      }
+    }
+    document.querySelectorAll('.bt-tag').forEach(t => t.remove());
+    translatedNow = false;
+    btn.classList.remove('bt-on');
+    label.textContent = 'Translate to English';
+  }
+
+  btn.addEventListener('click', () => {
+    if (working) return;
+    if (translatedNow) revertAll();
+    else translateVisible();
+  });
+
+  // ---- show the button only when Bengali is actually on screen ----
+  // (checked every 1.5s — covers the modal opening/closing without needing
+  // to hook into the modal's own code at all)
+  setInterval(() => {
+    if (working) return;
+    const hasBengali = BN_REGEX.test(document.body.innerText || '');
+    if (hasBengali) {
+      btn.style.display = 'flex';
+    } else {
+      if (translatedNow) revertAll();
+      btn.style.display = 'none';
+    }
+  }, 1500);
+})();
+</script>
+<!-- ============== END TRANSLATE TO ENGLISH BLOCK ============== -->
+
 </body>
 </html>
