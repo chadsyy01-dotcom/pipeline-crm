@@ -648,9 +648,11 @@
     if (!token) return;
     try {
       const params = new URLSearchParams();
-      // The backend caps per-brand (200 each) when no ?brand= is given, so
-      // this just needs to be high enough not to truncate that set.
+      // No ?brand= → backend returns the most recent `perBrand` conversations
+      // for EVERY brand (exact tab counts come from that set). 1000 covers
+      // the busiest brands (Buenas/TMTCash/ManilaPlay/MCP) comfortably.
       params.set('limit', '1000');
+      params.set('perBrand', '1000');
       const range = getDateRangeParams();
       if (range) {
         params.set('from', range.from);
