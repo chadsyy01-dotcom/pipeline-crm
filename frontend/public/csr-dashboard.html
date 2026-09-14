@@ -10,7 +10,6 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="ticket-data.js?v=5"></script>
 <style>
@@ -152,7 +151,7 @@
   .up{color:var(--success);} .down{color:var(--danger);}
 
   /* GRID PANELS */
-  .grid-4{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;margin-bottom:14px;align-items:start;}
+  .grid-4{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;align-items:start;}
   .grid-3{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin-bottom:20px;align-items:start;}
   .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
   .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
@@ -186,14 +185,6 @@
   .pill.low{background:var(--success-tint);color:var(--success);}
   .pill.brand{background:var(--bg);color:var(--ink-soft);margin:0;}
 
-  .perf-ring-wrap{display:flex;justify-content:center;margin:6px 0 14px;position:relative;}
-  .perf-ring-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
-  .perf-ring-label .num{font-size:26px;font-weight:800;}
-  .perf-ring-label .tag{font-size:11px;color:var(--success);font-weight:700;}
-  .perf-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);}
-  .perf-row:last-of-type{border-bottom:none;}
-  .perf-row .l{font-size:12px;color:var(--ink-soft);font-weight:600;}
-  .perf-row .r{font-size:14px;font-weight:800;text-align:right;}
 
   .alert-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;cursor:pointer;align-items:center;}
   .alert-item:hover{background:#F8FAFC;}
@@ -206,21 +197,8 @@
   .alert-time{margin-left:auto;font-size:12px;font-weight:800;color:var(--danger);white-space:nowrap;}
   .alert-time.warn{color:var(--warning);}
 
-  /* CHARTS ROW */
-  .grid-4b{display:grid;grid-template-columns:1fr 1.3fr 1fr 1.3fr;gap:14px;margin-bottom:14px;}
-  .chart-total{text-align:center;font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:6px;}
-  .chart-legend{display:flex;flex-direction:column;gap:7px;margin-top:10px;}
-  .legend-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);}
-  .legend-row .sw{width:9px;height:9px;border-radius:3px;flex-shrink:0;}
-  .legend-row b{margin-left:auto;color:var(--ink);}
-  .tabs{display:flex;gap:4px;background:#F1F5F9;border-radius:8px;padding:3px;}
-  .tab{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:6px;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;}
+
   .issue-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
-  .tab.active{background:var(--card);color:var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.08);}
-  .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
-  .donut-center .num{font-size:22px;font-weight:800;color:var(--success);}
-  .donut-center .lab{font-size:11px;color:var(--ink-soft);font-weight:600;}
-  .donut-wrap{position:relative;display:flex;justify-content:center;}
 
   /* TEAM */
   .team-table{width:100%;border-collapse:collapse;}
@@ -238,14 +216,12 @@
   @media (max-width:1200px){
     .kpi-row{grid-template-columns:repeat(3,1fr);}
     .grid-3{grid-template-columns:1fr 1fr;}
-    .grid-4b{grid-template-columns:1fr 1fr;}
   }
   @media (max-width:860px){
     .sidebar{display:none;}
     .kpi-row{grid-template-columns:1fr 1fr;}
     .grid-4{grid-template-columns:1fr;}
     .grid-3{grid-template-columns:1fr;}
-    .grid-4b{grid-template-columns:1fr;}
     .main{padding:20px 16px 32px;}
     .search{min-width:0;flex:1;}
   }
@@ -555,40 +531,10 @@
         <a class='view-link' href='/tickets'>View all tickets →</a>
       </div>
 
-      <div class="panel">
-        <div class="panel-head"><h3>Team Performance (Today)</h3></div>
-        <div class="perf-ring-wrap"><canvas id="perfRing" width="140" height="140"></canvas>
-          <div class="perf-ring-label"><div class="num" id="perfRingValue">—</div><div class="tag" id="perfRingTag">Loading…</div></div>
-        </div>
-        <div class="perf-row"><div class="l">Tickets Resolved</div><div class="r" id="perfResolved">—</div></div>
-        <div class="perf-row"><div class="l">Average Handle Time</div><div class="r" id="perfHandleTime">—</div></div>
-        <div class="perf-row"><div class="l">Rejection Rate</div><div class="r" id="perfRejectionRate">—</div></div>
-        <div class="perf-row"><div class="l">Total Handled Today</div><div class="r" id="perfTotalHandled">—</div></div>
-      </div>
-    </div>
-
-    <!-- CHARTS -->
-    <div class="grid-4b">
-      <div class="panel">
-        <div class="panel-head"><h3>Tickets by Channel (Today)</h3></div>
-        <div class="donut-wrap" style="height:150px;"><canvas id="channelDonut"></canvas></div>
-        <div class="chart-legend" id="channelLegend"></div>
-        <div class="chart-total" id="channelTotal">Total: —</div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><h3>Daily Ticket Trend</h3><div class="tabs" id="trendTabs"><button class="tab active" data-range="7">7D</button><button class="tab" data-range="30">30D</button></div></div>
-        <div style="height:190px;"><canvas id="trendLine"></canvas></div>
-      </div>
 
       <div class="panel">
         <div class="panel-head"><h3>Tickets by Brand (Today)</h3></div>
         <div id="ticketByBrand"><div class="empty-note">Loading…</div></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><h3>Avg Resolution Time Trend</h3><div class="tabs" id="restimeTabs"><button class="tab active" data-range="7">7D</button><button class="tab" data-range="30">30D</button></div></div>
-        <div style="height:190px;"><canvas id="resTimeArea"></canvas></div>
       </div>
     </div>
 
@@ -607,7 +553,6 @@
 </div>
 
 <script>
-Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
 setGreeting(null);
 
 const { escapeHtml, relativeTime, compactElapsed, formatDuration, isSameLocalDay, dayKey, colorForName, initialsForName } = TicketData;
@@ -647,10 +592,8 @@ function dayRange(d) {
 }
 
 let allTickets = [];
-let trendChart, resTimeChart, channelChart, perfRingChart;
 let concernsRange = 'today';
 let concernsToggleWired = false;
-let chartTabsWired = false;
 
 function deltaEl(el, current, previous, opts = {}) {
   if (!el) return;
@@ -922,13 +865,8 @@ function renderAll() {
   renderTopConcerns();
   setupConcernsRangeFilter();
   renderQueueBreakdown();
-  renderPerformance(todayTickets);
-  renderChannelDonut(todayTickets);
   renderTicketsByBrand(todayTickets);
-  renderTrendChart(Number(document.querySelector('#trendTabs .tab.active')?.dataset.range || 7));
-  renderResTimeChart(Number(document.querySelector('#restimeTabs .tab.active')?.dataset.range || 7));
   renderTeamTable(now);
-  setupTabs();
 }
 
 // ---------- KPI cards ----------
@@ -1062,63 +1000,6 @@ function renderQueueBreakdown() {
     </a>`).join('');
 }
 
-// ---------- Team performance (aggregate, today) ----------
-function renderPerformance(todayTickets) {
-  const doneToday = todayTickets.filter(t => t.statusCls === 'done');
-  const rejectedToday = todayTickets.filter(t => t.statusCls === 'rejected');
-  const totalHandledToday = doneToday.length + rejectedToday.length;
-
-  const resolutionRate = totalHandledToday > 0 ? Math.round((doneToday.length / totalHandledToday) * 100) : null;
-
-  document.getElementById('perfRingValue').textContent = resolutionRate !== null ? `${resolutionRate}%` : '—';
-  document.getElementById('perfRingTag').textContent = totalHandledToday === 0
-    ? 'No tickets handled yet'
-    : `${doneToday.length.toLocaleString()} of ${totalHandledToday.toLocaleString()} resolved`;
-
-  if (perfRingChart) perfRingChart.destroy();
-  perfRingChart = new Chart(document.getElementById('perfRing'), {
-    type: 'doughnut',
-    data: { datasets: [{ data: [resolutionRate || 0, 100 - (resolutionRate || 0)], backgroundColor: ['#2563EB', '#EEF1F6'], borderWidth: 0 }] },
-    options: { cutout: '78%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
-  });
-
-  document.getElementById('perfResolved').textContent = doneToday.length.toLocaleString();
-
-  const withHandle = doneToday.filter(t => t.resolveDurationSec != null);
-  const avgHandle = withHandle.length ? withHandle.reduce((s, t) => s + t.resolveDurationSec, 0) / withHandle.length : null;
-  document.getElementById('perfHandleTime').textContent = avgHandle != null ? formatDuration(avgHandle) : '—';
-
-  document.getElementById('perfRejectionRate').textContent = totalHandledToday > 0
-    ? `${Math.round((rejectedToday.length / totalHandledToday) * 100)}%`
-    : '—';
-
-  document.getElementById('perfTotalHandled').textContent = totalHandledToday.toLocaleString();
-}
-
-// ---------- Charts ----------
-function renderChannelDonut(todayTickets) {
-  const counts = {};
-  todayTickets.forEach(t => { counts[t.channel] = (counts[t.channel] || 0) + 1; });
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const total = todayTickets.length;
-  const labels = entries.map(e => e[0]);
-  const data = entries.map(e => e[1]);
-  const colors = labels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]);
-
-  if (channelChart) channelChart.destroy();
-  channelChart = new Chart(document.getElementById('channelDonut'), {
-    type: 'doughnut',
-    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
-    options: { cutout: '62%', plugins: { legend: { display: false } } }
-  });
-
-  document.getElementById('channelLegend').innerHTML = entries.length ? entries.map((e, i) => {
-    const pct = total ? Math.round((e[1] / total) * 100) : 0;
-    return `<div class="legend-row"><span class="sw" style="background:${colors[i]};"></span>${escapeHtml(e[0])}<b>${pct}% (${e[1].toLocaleString()})</b></div>`;
-  }).join('') : '<div class="empty-note">No tickets yet today.</div>';
-  document.getElementById('channelTotal').textContent = `Total: ${total.toLocaleString()}`;
-}
-
 function renderTicketsByBrand(todayTickets) {
   const counts = {};
   todayTickets.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || { label: t.brandLabel, n: 0 }); counts[t.brandCode].n++; });
@@ -1126,75 +1007,6 @@ function renderTicketsByBrand(todayTickets) {
     .sort((a, b) => b[1].n - a[1].n)
     .map(([code, v]) => ({ label: v.label, value: v.n, href: `/tickets?date=today` }));
   barList(document.getElementById('ticketByBrand'), rows, { empty: 'No tickets yet today.' });
-}
-
-function lastNDaysData(days, dateSelector, filterFn) {
-  const labels = [];
-  const buckets = [];
-  const today = new Date();
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    labels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
-    const key = dayKey(d);
-    const dayTickets = allTickets.filter(t => {
-      const dt = dateSelector(t);
-      return dt && dayKey(dt) === key && (!filterFn || filterFn(t));
-    });
-    buckets.push(dayTickets);
-  }
-  return { labels, buckets };
-}
-
-function renderTrendChart(days) {
-  const { labels, buckets } = lastNDaysData(days, t => t.submitted);
-  const data = buckets.map(b => b.length);
-  if (trendChart) trendChart.destroy();
-  trendChart = new Chart(document.getElementById('trendLine'), {
-    type: 'line',
-    data: { labels, datasets: [{ data, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,.08)', fill: true, tension: .35, pointRadius: days > 7 ? 0 : 3, pointBackgroundColor: '#2563EB', borderWidth: 2 }] },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: { y: { grid: { color: '#F1F5F9' }, ticks: { color: '#94A3B8', font: { size: 11 } } }, x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 }, maxTicksLimit: 8 } } }
-    }
-  });
-}
-
-function renderResTimeChart(days) {
-  const { labels, buckets } = lastNDaysData(days, t => t.resolvedAt, t => t.resolveDurationSec != null);
-  const data = buckets.map(dayTickets => {
-    if (!dayTickets.length) return null;
-    const avgSec = dayTickets.reduce((s, t) => s + t.resolveDurationSec, 0) / dayTickets.length;
-    return Math.round((avgSec / 60) * 10) / 10; // minutes, 1 decimal
-  });
-  if (resTimeChart) resTimeChart.destroy();
-  resTimeChart = new Chart(document.getElementById('resTimeArea'), {
-    type: 'line',
-    data: { labels, datasets: [{ data, borderColor: '#14B8A6', backgroundColor: 'rgba(20,184,166,.15)', fill: true, tension: .4, pointRadius: days > 7 ? 0 : 3, pointBackgroundColor: '#14B8A6', borderWidth: 2, spanGaps: true }] },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: { y: { grid: { color: '#F1F5F9' }, ticks: { color: '#94A3B8', font: { size: 11 }, callback: v => v + 'm' } }, x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 }, maxTicksLimit: 8 } } }
-    }
-  });
-}
-
-function setupTabs() {
-  if (chartTabsWired) return;
-  document.querySelectorAll('#trendTabs .tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#trendTabs .tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderTrendChart(Number(btn.dataset.range));
-    });
-  });
-  document.querySelectorAll('#restimeTabs .tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#restimeTabs .tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderResTimeChart(Number(btn.dataset.range));
-    });
-  });
-  chartTabsWired = true;
 }
 
 // ---------- Agents active today: real per-agent numbers from the sheet ----------
