@@ -130,8 +130,22 @@
   .profile-name{font-size:13px;font-weight:700;line-height:1.3;}
   .profile-name span{display:block;font-size:11px;color:var(--ink-faint);font-weight:500;}
 
+  /* DATE FILTER (chat section) */
+  .date-filter-wrap{position:relative;display:inline-block;}
+  .date-filter-wrap select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
+  .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:60;width:210px;}
+  .custom-date-pop.open{display:block;}
+  .custom-date-pop label{display:block;font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;}
+  .custom-date-pop label:first-child{margin-top:0;}
+  .custom-date-pop input[type="date"]{width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--line);font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--bg);}
+  .custom-date-actions{display:flex;gap:8px;margin-top:14px;}
+  .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);}
+  #chatDateCancel{background:var(--card);color:var(--ink-soft);}
+  #chatDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
+
   /* SECTION HEADERS */
-  .section-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px;}
+  .section-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px;gap:12px;flex-wrap:wrap;}
+  .section-title .right{display:flex;align-items:center;gap:12px;}
   .section-title h2{margin:0;font-size:15px;font-weight:800;letter-spacing:-.01em;}
   .section-title .sub{font-size:12px;color:var(--ink-faint);font-weight:600;}
   .section-title a{font-size:12px;color:var(--primary);font-weight:700;}
@@ -411,23 +425,45 @@
 
     <!-- ================= CHAT OVERVIEW (Chatwoot + LiveChat) ================= -->
     <div class="section-title">
-      <h2>Live Chat — Today <span class="sub" id="chatLiveIndicator">● Live</span></h2>
-      <a href="/customers">Open Customers →</a>
+      <h2>Live Chat — <span id="chatRangeLabel">Today</span> <span class="sub" id="chatLiveIndicator">● Live</span></h2>
+      <div class="right">
+        <div class="date-filter-wrap" id="chatDateWrap">
+          <select id="chatDateFilter">
+            <option value="today" selected>Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="month">This Month</option>
+            <option value="custom" id="chatCustomDateOption">Custom Date</option>
+          </select>
+          <div class="custom-date-pop" id="chatCustomDatePop">
+            <label for="chatDateFrom">From</label>
+            <input type="date" id="chatDateFrom">
+            <label for="chatDateTo">To</label>
+            <input type="date" id="chatDateTo">
+            <div class="custom-date-actions">
+              <button type="button" id="chatDateCancel">Cancel</button>
+              <button type="button" id="chatDateApply">Apply</button>
+            </div>
+          </div>
+        </div>
+        <a href="/customers">Open Customers →</a>
+      </div>
     </div>
 
     <div class="kpi-row">
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div class="kpi-label">Chats Active Today</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div class="kpi-label">Chats Active <span class="chat-range-tag">Today</span></div></div>
         <div class="kpi-value" id="chatTotalValue">—</div>
         <div class="kpi-delta" id="chatTotalDelta">—</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></div><div class="kpi-label">CSAT Today</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></div><div class="kpi-label">CSAT <span class="chat-range-tag">Today</span></div></div>
         <div class="kpi-value" id="chatCsatValue">—</div>
         <div class="kpi-delta" id="chatCsatDelta">—</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h3a2 2 0 012 2v7a2 2 0 01-2 2h-3"/></svg></div><div class="kpi-label">DSAT Today</div></div>
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h3a2 2 0 012 2v7a2 2 0 01-2 2h-3"/></svg></div><div class="kpi-label">DSAT <span class="chat-range-tag">Today</span></div></div>
         <div class="kpi-value" id="chatDsatValue">—</div>
         <div class="kpi-delta" id="chatDsatDelta">—</div>
       </div>
@@ -454,11 +490,11 @@
         <div id="chatPendingList"><div class="empty-note">Loading…</div></div>
       </div>
       <div class="panel">
-        <div class="panel-head"><h3>Chats by Brand (Today)</h3></div>
+        <div class="panel-head"><h3>Chats by Brand (<span class="chat-range-tag">Today</span>)</h3></div>
         <div id="chatByBrand"><div class="empty-note">Loading…</div></div>
       </div>
       <div class="panel">
-        <div class="panel-head"><h3>DSAT by Brand (Today)</h3></div>
+        <div class="panel-head"><h3>DSAT by Brand (<span class="chat-range-tag">Today</span>)</h3></div>
         <div id="chatDsatByBrand"><div class="empty-note">Loading…</div></div>
       </div>
     </div>
@@ -585,10 +621,45 @@ function chatBrandLabel(slug) {
   return CHAT_BRAND_LABELS[slug] || slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function dayRange(d) {
-  const from = new Date(d); from.setHours(0, 0, 0, 0);
-  const to = new Date(d); to.setHours(23, 59, 59, 999);
-  return { from: from.toISOString(), to: to.toISOString() };
+// ---- Chat section date filter ----
+// Returns { from, to, prevFrom, prevTo, label, prevLabel } as Date objects.
+// The "previous" window is the equal-length period immediately before —
+// yesterday for Today, the 7 days before for Last 7 Days, etc.
+let chatDateFilter = 'today';
+let chatCustomFrom = null;
+let chatCustomTo = null;
+
+function chatRange() {
+  const now = new Date();
+  const startOf = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const endOf = d => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+  let from, to, label;
+  if (chatDateFilter === 'yesterday') {
+    const y = new Date(now); y.setDate(y.getDate() - 1);
+    from = startOf(y); to = endOf(y); label = 'Yesterday';
+  } else if (chatDateFilter === '7d') {
+    from = startOf(now); from.setDate(from.getDate() - 6); to = endOf(now); label = 'Last 7 Days';
+  } else if (chatDateFilter === '30d') {
+    from = startOf(now); from.setDate(from.getDate() - 29); to = endOf(now); label = 'Last 30 Days';
+  } else if (chatDateFilter === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1); to = endOf(now); label = 'This Month';
+  } else if (chatDateFilter === 'custom' && chatCustomFrom && chatCustomTo) {
+    from = chatCustomFrom; to = chatCustomTo;
+    const f = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    label = `${f(from)} – ${f(to)}`;
+  } else {
+    from = startOf(now); to = endOf(now); label = 'Today';
+  }
+  const span = to.getTime() - from.getTime();
+  const prevTo = new Date(from.getTime() - 1);
+  const prevFrom = new Date(prevTo.getTime() - span);
+  const prevLabel = chatDateFilter === 'today' ? 'yesterday' : 'previous period';
+  return { from, to, prevFrom, prevTo, label, prevLabel };
+}
+
+function applyChatRangeLabels(r) {
+  document.getElementById('chatRangeLabel').textContent = r.label;
+  document.querySelectorAll('.chat-range-tag').forEach(el => { el.textContent = r.label; });
 }
 
 let allTickets = [];
@@ -597,9 +668,10 @@ let concernsToggleWired = false;
 
 function deltaEl(el, current, previous, opts = {}) {
   if (!el) return;
+  const vs = opts.vs || 'yesterday';
   const pct = TicketData.pctChange(current, previous);
   if (pct === null) {
-    el.textContent = 'No data yesterday';
+    el.textContent = `No data ${vs}`;
     el.className = 'kpi-delta';
     el.style.color = 'var(--ink-faint)';
     return;
@@ -607,21 +679,22 @@ function deltaEl(el, current, previous, opts = {}) {
   const arrow = pct >= 0 ? '↑' : '↓';
   // lowerIsBetter flips the colour for time metrics.
   const good = opts.lowerIsBetter ? pct <= 0 : pct >= 0;
-  el.textContent = `${arrow} ${Math.abs(pct)}% vs yesterday`;
+  el.textContent = `${arrow} ${Math.abs(pct)}% vs ${vs}`;
   el.className = 'kpi-delta ' + (good ? 'up' : 'down');
   el.style.color = '';
 }
 function pointsDeltaEl(el, current, previous, opts = {}) {
   if (!el) return;
+  const vs = opts.vs || 'yesterday';
   if (current == null || previous == null) {
-    el.textContent = 'No data yesterday';
+    el.textContent = `No data ${vs}`;
     el.className = 'kpi-delta';
     el.style.color = 'var(--ink-faint)';
     return;
   }
   const diff = Math.round((current - previous) * 10) / 10;
   const good = opts.lowerIsBetter ? diff <= 0 : diff >= 0;
-  el.textContent = `${diff >= 0 ? '↑' : '↓'} ${Math.abs(diff)} pts vs yesterday`;
+  el.textContent = `${diff >= 0 ? '↑' : '↓'} ${Math.abs(diff)} pts vs ${vs}`;
   el.className = 'kpi-delta ' + (good ? 'up' : 'down');
   el.style.color = '';
 }
@@ -655,18 +728,20 @@ async function apiGet(path) {
 async function loadChatOverview() {
   const ind = document.getElementById('chatLiveIndicator');
   try {
-    const today = dayRange(new Date());
-    const y = new Date(); y.setDate(y.getDate() - 1);
-    const yesterday = dayRange(y);
-    const q = r => `from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`;
+    const r = chatRange();
+    applyChatRangeLabels(r);
+    const q = (from, to) => `from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+    const cur = q(r.from, r.to);
+    const prev = q(r.prevFrom, r.prevTo);
+    const vs = { vs: r.prevLabel };
 
     const [statsToday, statsYesterday, csatToday, csatYesterday, convToday, convAll] = await Promise.all([
-      apiGet(`/chatwoot/stats?${q(today)}`),
-      apiGet(`/chatwoot/stats?${q(yesterday)}`),
-      apiGet(`/chatwoot/csat?${q(today)}`),
-      apiGet(`/chatwoot/csat?${q(yesterday)}`),
-      apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000&${q(today)}`),   // for FTR/ART averages (today's activity)
-      apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000`),               // for the HH Pending list (any age)
+      apiGet(`/chatwoot/stats?${cur}`),
+      apiGet(`/chatwoot/stats?${prev}`),
+      apiGet(`/chatwoot/csat?${cur}`),
+      apiGet(`/chatwoot/csat?${prev}`),
+      apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000&${cur}`),   // for FTR/ART averages (activity in range)
+      apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000`),           // for the HH Pending list (any age — never date-filtered)
     ]);
 
     // --- KPI: chats active today (exact, from /stats) ---
@@ -674,13 +749,13 @@ async function loadChatOverview() {
     const chatsToday = sum(statsToday.conversationsByBrand);
     const chatsYesterday = sum(statsYesterday.conversationsByBrand);
     document.getElementById('chatTotalValue').textContent = chatsToday.toLocaleString();
-    deltaEl(document.getElementById('chatTotalDelta'), chatsToday, chatsYesterday);
+    deltaEl(document.getElementById('chatTotalDelta'), chatsToday, chatsYesterday, vs);
 
     // --- KPI: CSAT / DSAT today ---
     document.getElementById('chatCsatValue').textContent = csatToday.total ? `${csatToday.csatPercent}%` : '—';
     document.getElementById('chatDsatValue').textContent = csatToday.total ? `${csatToday.dsatPercent}%` : '—';
-    pointsDeltaEl(document.getElementById('chatCsatDelta'), csatToday.total ? csatToday.csatPercent : null, csatYesterday.total ? csatYesterday.csatPercent : null);
-    pointsDeltaEl(document.getElementById('chatDsatDelta'), csatToday.total ? csatToday.dsatPercent : null, csatYesterday.total ? csatYesterday.dsatPercent : null, { lowerIsBetter: true });
+    pointsDeltaEl(document.getElementById('chatCsatDelta'), csatToday.total ? csatToday.csatPercent : null, csatYesterday.total ? csatYesterday.csatPercent : null, vs);
+    pointsDeltaEl(document.getElementById('chatDsatDelta'), csatToday.total ? csatToday.dsatPercent : null, csatYesterday.total ? csatYesterday.dsatPercent : null, { lowerIsBetter: true, ...vs });
     if (csatToday.total) {
       document.getElementById('chatCsatDelta').textContent += ` · ${csatToday.total} rated`;
     }
@@ -692,9 +767,9 @@ async function loadChatOverview() {
     const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
     const avgFtr = avg(ftrVals), avgArt = avg(artVals);
     document.getElementById('chatFtrValue').textContent = avgFtr != null ? formatDuration(avgFtr) : '—';
-    document.getElementById('chatFtrDelta').textContent = ftrVals.length ? `${ftrVals.length} handoff${ftrVals.length === 1 ? '' : 's'} today` : 'No handoffs yet';
+    document.getElementById('chatFtrDelta').textContent = ftrVals.length ? `${ftrVals.length} handoff${ftrVals.length === 1 ? '' : 's'}` : 'No handoffs in range';
     document.getElementById('chatArtValue').textContent = avgArt != null ? formatDuration(avgArt) : '—';
-    document.getElementById('chatArtDelta').textContent = artVals.length ? `${artVals.length} handoff${artVals.length === 1 ? '' : 's'} today` : 'No handoffs yet';
+    document.getElementById('chatArtDelta').textContent = artVals.length ? `${artVals.length} handoff${artVals.length === 1 ? '' : 's'}` : 'No handoffs in range';
 
     // --- KPI + list: HH Pending (waiting for a human, any age) ---
     const pending = (convAll.conversations || [])
@@ -729,7 +804,7 @@ async function loadChatOverview() {
     const byBrand = Object.entries(statsToday.conversationsByBrand)
       .sort((a, b) => b[1] - a[1])
       .map(([brand, n]) => ({ label: chatBrandLabel(brand), value: n, href: '/customers' }));
-    barList(document.getElementById('chatByBrand'), byBrand);
+    barList(document.getElementById('chatByBrand'), byBrand, { empty: 'No chats in this range.' });
 
     // --- DSAT by brand (today) ---
     const dsatRows = Object.entries(statsToday.csatByBrand)
@@ -739,7 +814,7 @@ async function loadChatOverview() {
         sub: `${Math.round((v.dsat / v.total) * 100)}% of ${v.total}`, href: '/customers',
       }))
       .sort((a, b) => b.value - a.value);
-    barList(document.getElementById('chatDsatByBrand'), dsatRows, { empty: 'No ratings yet today.' });
+    barList(document.getElementById('chatDsatByBrand'), dsatRows, { empty: 'No ratings in this range.' });
 
     ind.textContent = `● Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     ind.style.color = 'var(--success)';
@@ -749,6 +824,42 @@ async function loadChatOverview() {
     ind.style.color = 'var(--danger)';
   }
 }
+
+(function setupChatDateFilter() {
+  const select = document.getElementById('chatDateFilter');
+  const pop = document.getElementById('chatCustomDatePop');
+  const fromInput = document.getElementById('chatDateFrom');
+  const toInput = document.getElementById('chatDateTo');
+
+  select.addEventListener('change', (e) => {
+    if (e.target.value === 'custom') { pop.classList.add('open'); fromInput.focus(); return; }
+    pop.classList.remove('open');
+    chatDateFilter = e.target.value;
+    loadChatOverview();
+  });
+  document.getElementById('chatDateApply').addEventListener('click', () => {
+    if (!fromInput.value || !toInput.value) { alert('Please pick both a start and end date.'); return; }
+    if (fromInput.value > toInput.value) { alert('Start date must be before the end date.'); return; }
+    chatCustomFrom = new Date(fromInput.value + 'T00:00:00');
+    chatCustomTo = new Date(toInput.value + 'T23:59:59.999');
+    chatDateFilter = 'custom';
+    select.value = 'custom';
+    const f = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    document.getElementById('chatCustomDateOption').textContent = `${f(chatCustomFrom)} – ${f(chatCustomTo)}`;
+    pop.classList.remove('open');
+    loadChatOverview();
+  });
+  document.getElementById('chatDateCancel').addEventListener('click', () => {
+    pop.classList.remove('open');
+    select.value = chatDateFilter;
+  });
+  document.addEventListener('click', (e) => {
+    if (!pop.classList.contains('open')) return;
+    if (document.getElementById('chatDateWrap').contains(e.target)) return;
+    pop.classList.remove('open');
+    select.value = chatDateFilter;
+  });
+})();
 
 loadChatOverview();
 setInterval(loadChatOverview, Number(localStorage.getItem('csr_refresh_interval')) || 30000);
