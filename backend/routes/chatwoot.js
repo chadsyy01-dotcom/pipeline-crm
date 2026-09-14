@@ -595,6 +595,71 @@ router.get('/csat', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/chatwoot/stats?from=...&to=...
+// Lightweight aggregates for the main dashboard — NOT subject to the
+// per-brand 200 cap of /conversations, so counts are exact. Returns, for the
+// [from,to] window (defaults to all time when either is missing):
+//   conversationsByBrand  { brand: n }  conversations with ANY activity in window
+//   csatByBrand           { brand: { csat, dsat, neutral, total } }  latest rating
+//                         per conversation, submitted within window
+//   handoffPending        n conversations whose LATEST handoff stage is 'pending'
+//                         (no date filter — a pending handoff is pending until
+//                         someone replies, however old it is)
+router.get('/stats', requireAuth, async (req, res) => {
+  try {
+    const from = req.query.from || null;
+    const to = req.query.to || null;
+    const dateClause = (from && to) ? 'AND "createdAt" BETWEEN :from AND :to' : '';
+
+    const convRows = await sequelize.query(`
+      SELECT "brand", COUNT(DISTINCT "conversationId") AS n
+      FROM "ChatwootEvents"
+      WHERE "conversationId" IS NOT NULL ${dateClause}
+      GROUP BY "brand"
+    `, { replacements: { from, to }, type: QueryTypes.SELECT });
+
+    const csatRows = await sequelize.query(`
+      SELECT "brand", "csatRating" FROM (
+        SELECT DISTINCT ON ("conversationId") "brand", "csatRating"
+        FROM "ChatwootEvents"
+        WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${dateClause}
+        ORDER BY "conversationId", "createdAt" DESC
+      ) latest
+    `, { replacements: { from, to }, type: QueryTypes.SELECT });
+
+    const pendingRows = await sequelize.query(`
+      SELECT COUNT(*) AS n FROM (
+        SELECT DISTINCT ON ("conversationId") "handoffStage"
+        FROM "ChatwootEvents"
+        WHERE "conversationId" IS NOT NULL AND "handoffStage" IS NOT NULL
+        ORDER BY "conversationId", "createdAt" DESC
+      ) latest
+      WHERE "handoffStage" = 'pending'
+    `, { type: QueryTypes.SELECT });
+
+    const conversationsByBrand = {};
+    convRows.forEach(r => { conversationsByBrand[r.brand] = Number(r.n); });
+
+    const csatByBrand = {};
+    csatRows.forEach(r => {
+      const b = csatByBrand[r.brand] ??= { csat: 0, dsat: 0, neutral: 0, total: 0 };
+      b.total++;
+      if (r.csatRating >= 4) b.csat++;
+      else if (r.csatRating <= 2) b.dsat++;
+      else b.neutral++;
+    });
+
+    res.json({
+      conversationsByBrand,
+      csatByBrand,
+      handoffPending: Number(pendingRows[0]?.n || 0),
+    });
+  } catch (err) {
+    console.error('Chatwoot stats error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/events', requireAuth, async (req, res) => {
   try {
     const where = {};
