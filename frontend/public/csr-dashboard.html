@@ -152,7 +152,7 @@
   .up{color:var(--success);} .down{color:var(--danger);}
 
   /* GRID PANELS */
-  .grid-4{display:grid;grid-template-columns:1.05fr 1.4fr 1.05fr 1.15fr;gap:14px;margin-bottom:14px;align-items:start;}
+  .grid-4{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;margin-bottom:14px;align-items:start;}
   .grid-3{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin-bottom:20px;align-items:start;}
   .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
   .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
@@ -179,19 +179,12 @@
   .bar-val{font-size:12.5px;font-weight:800;width:44px;text-align:right;font-variant-numeric:tabular-nums;}
   .bar-sub{font-size:11px;color:var(--ink-faint);width:70px;text-align:right;white-space:nowrap;}
 
-  .activity-item{display:flex;align-items:center;gap:11px;padding:10px 6px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;cursor:pointer;}
-  .activity-item:hover{background:#F8FAFC;}
-  .activity-item:last-child{border-bottom:none;}
   .av-sm{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;}
-  .act-name{font-size:13px;font-weight:700;}
-  .act-issue{font-size:12px;color:var(--ink-soft);}
-  .act-right{margin-left:auto;text-align:right;}
   .pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;margin-bottom:4px;}
   .pill.high{background:var(--danger-tint);color:var(--danger);}
   .pill.medium{background:var(--warning-tint);color:var(--warning);}
   .pill.low{background:var(--success-tint);color:var(--success);}
   .pill.brand{background:var(--bg);color:var(--ink-soft);margin:0;}
-  .act-time{font-size:11px;color:var(--ink-faint);display:block;}
 
   .perf-ring-wrap{display:flex;justify-content:center;margin:6px 0 14px;position:relative;}
   .perf-ring-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
@@ -244,7 +237,6 @@
 
   @media (max-width:1200px){
     .kpi-row{grid-template-columns:repeat(3,1fr);}
-    .grid-4{grid-template-columns:1fr 1fr;}
     .grid-3{grid-template-columns:1fr 1fr;}
     .grid-4b{grid-template-columns:1fr 1fr;}
   }
@@ -564,13 +556,6 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Live Activity</h3><a class='view-all' href='/tickets'>View all</a></div>
-        <div id="liveActivity">
-          <div class="activity-item"><div class="act-name" style="color:var(--ink-faint);">Loading…</div></div>
-        </div>
-      </div>
-
-      <div class="panel">
         <div class="panel-head"><h3>Team Performance (Today)</h3></div>
         <div class="perf-ring-wrap"><canvas id="perfRing" width="140" height="140"></canvas>
           <div class="perf-ring-label"><div class="num" id="perfRingValue">—</div><div class="tag" id="perfRingTag">Loading…</div></div>
@@ -579,13 +564,6 @@
         <div class="perf-row"><div class="l">Average Handle Time</div><div class="r" id="perfHandleTime">—</div></div>
         <div class="perf-row"><div class="l">Rejection Rate</div><div class="r" id="perfRejectionRate">—</div></div>
         <div class="perf-row"><div class="l">Total Handled Today</div><div class="r" id="perfTotalHandled">—</div></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><h3>Open Tickets — Longest Waiting</h3><a class='view-all' href='/tickets?status=pending'>View all</a></div>
-        <div id="slaAlerts">
-          <div class="alert-item"><div class="alert-title" style="color:var(--ink-faint);">Loading…</div></div>
-        </div>
       </div>
     </div>
 
@@ -944,9 +922,7 @@ function renderAll() {
   renderTopConcerns();
   setupConcernsRangeFilter();
   renderQueueBreakdown();
-  renderLiveActivity();
   renderPerformance(todayTickets);
-  renderSlaAlerts(now);
   renderChannelDonut(todayTickets);
   renderTicketsByBrand(todayTickets);
   renderTrendChart(Number(document.querySelector('#trendTabs .tab.active')?.dataset.range || 7));
@@ -1086,22 +1062,6 @@ function renderQueueBreakdown() {
     </a>`).join('');
 }
 
-// ---------- Live activity ----------
-function renderLiveActivity() {
-  const items = allTickets.slice(0, 5);
-  const el = document.getElementById('liveActivity');
-  if (items.length === 0) {
-    el.innerHTML = '<div class="activity-item"><div class="act-name" style="color:var(--ink-faint);">No tickets yet.</div></div>';
-    return;
-  }
-  el.innerHTML = items.map(t => `
-    <a class="activity-item" href="/tickets?search=${encodeURIComponent(t.id)}">
-      <div class="av-sm" style="background:${t.color};">${escapeHtml(t.init)}</div>
-      <div><div class="act-name">${escapeHtml(t.name)} <span class="pill brand">${escapeHtml(t.brandLabel)}</span></div><div class="act-issue">${escapeHtml(t.issue)}</div></div>
-      <div class="act-right"><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span><span class="act-time">${relativeTime(t.submitted)}</span></div>
-    </a>`).join('');
-}
-
 // ---------- Team performance (aggregate, today) ----------
 function renderPerformance(todayTickets) {
   const doneToday = todayTickets.filter(t => t.statusCls === 'done');
@@ -1133,31 +1093,6 @@ function renderPerformance(todayTickets) {
     : '—';
 
   document.getElementById('perfTotalHandled').textContent = totalHandledToday.toLocaleString();
-}
-
-// ---------- Open tickets waiting longest ----------
-function renderSlaAlerts(now) {
-  const open = allTickets
-    .filter(t => t.statusCls === 'pending' || t.statusCls === 'checking')
-    .slice()
-    .sort((a, b) => a.submitted - b.submitted)
-    .slice(0, 5);
-
-  const el = document.getElementById('slaAlerts');
-  if (open.length === 0) {
-    el.innerHTML = '<div class="alert-item"><div class="alert-title" style="color:var(--success);">No open tickets waiting — nice!</div></div>';
-    return;
-  }
-
-  el.innerHTML = open.map(t => {
-    const breached = t.statusCls === 'pending' && (now - t.submitted) / 60000 > SLA_ACK_MINUTES;
-    return `
-    <a class="alert-item" href="/tickets?search=${encodeURIComponent(t.id)}">
-      <div class="alert-ico ${breached ? '' : 'warn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
-      <div style="min-width:0;"><div class="alert-title">${escapeHtml(t.id)} <span class="pill brand">${escapeHtml(t.brandLabel)}</span></div><div class="alert-sub">${escapeHtml(t.name)} — ${escapeHtml(t.issue)} · ${escapeHtml(t.statusLabel)}</div></div>
-      <div class="alert-time ${breached ? '' : 'warn'}">${compactElapsed(t.submitted, now)}</div>
-    </a>`;
-  }).join('');
 }
 
 // ---------- Charts ----------
