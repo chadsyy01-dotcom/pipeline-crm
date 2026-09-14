@@ -414,7 +414,7 @@
       <div class="date-filter-wrap" id="dateFilterWrap">
         <select id="dateFilter">
           <option value="all">All Time</option>
-          <option value="today">Today</option>
+          <option value="today" selected>Today</option>
           <option value="yesterday">Yesterday</option>
           <option value="7d">Last 7 Days</option>
           <option value="30d">Last 30 Days</option>
@@ -562,7 +562,7 @@
   let currentHandoff = 'all';
   let currentAdmin = 'all';
   let currentCsatFilter = 'all';
-  let currentDateFilter = 'all';
+  let currentDateFilter = 'today'; // default Today, was 'all' (egress diet, 2026-09-14 — All Time pulled every conversation in retention on every poll)
   let customDateFrom = null;
   let customDateTo = null;
   let currentSearch = '';
@@ -893,8 +893,8 @@
 
   loadConversations();
   loadCsatStats();
-  setInterval(loadConversations, 20000);
-  setInterval(loadCsatStats, 20000);
+  setInterval(loadConversations, 60000); // 60s (egress diet, 2026-09-14)
+  setInterval(loadCsatStats, 60000); // 60s (egress diet, 2026-09-14)
 
   // ---- Date filter ----
   const dateFilterSelect = document.getElementById('dateFilter');
