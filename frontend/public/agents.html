@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agents · CSR Dashboard</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --primary:#2563EB;
+    --primary-dark:#1D4ED8;
+    --primary-tint:#EFF4FF;
+    --success:#22C55E;
+    --success-tint:#EAFBF1;
+    --warning:#F59E0B;
+    --warning-tint:#FEF6E7;
+    --danger:#EF4444;
+    --danger-tint:#FDECEC;
+    --purple:#8B5CF6;
+    --purple-tint:#F3EEFE;
+    --teal:#14B8A6;
+    --teal-tint:#E9FAF8;
+    --bg:#F8FAFC;
+    --card:#FFFFFF;
+    --ink:#0F172A;
+    --ink-soft:#475569;
+    --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-sm:10px;
+    --radius-md:14px;
+    --radius-lg:18px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;}
+
+  .app{display:flex;min-height:100vh;}
+
+  /* SIDEBAR */
+  .sidebar{
+    width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;
+    display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+
+  .nav-group{margin-bottom:6px;}
+  .nav-item{
+    display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
+    font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;
+    margin-bottom:2px;position:relative;
+  }
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+
+  .sidebar-status{
+    margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;
+    display:flex;align-items:center;gap:8px;color:#AEBBD1;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+
+  /* MAIN */
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .search{
+    display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);
+    padding:9px 14px;border-radius:10px;min-width:280px;color:var(--ink-faint);font-size:13px;box-shadow:var(--shadow);
+  }
+  .search svg{width:16px;height:16px;flex-shrink:0;}
+  .search input{border:none;outline:none;background:transparent;font:inherit;color:var(--ink);width:100%;}
+  .search input::placeholder{color:var(--ink-faint);}
+  .profile{display:flex;align-items:center;gap:9px;cursor:pointer;position:relative;}
+  .profile-dropdown{position:absolute;top:calc(100% + 10px);right:0;background:var(--card);border-radius:12px;box-shadow:var(--shadow);width:200px;padding:8px;display:none;z-index:50;}
+  .profile-dropdown.open{display:block;}
+  .profile-dropdown a, .profile-dropdown button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--ink-soft);background:none;border:none;cursor:pointer;font-family:inherit;}
+  .profile-dropdown a:hover, .profile-dropdown button:hover{background:var(--bg);}
+  .profile-dropdown svg{width:16px;height:16px;flex-shrink:0;}
+  .profile-dropdown .divider{height:1px;background:var(--line);margin:6px 4px;}
+  .profile-dropdown .logout-item{color:var(--danger);}
+  .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#EC4899);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;}
+  .profile-name{font-size:13px;font-weight:700;line-height:1.3;}
+  .profile-name span{display:block;font-size:11px;color:var(--ink-faint);font-weight:500;}
+
+  /* KPI CARDS */
+  .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px;}
+  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px 16px 15px;box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s;}
+  .kpi-card:hover{transform:translateY(-1px);}
+  .kpi-card.active{outline:2px solid var(--primary);outline-offset:-2px;}
+  .kpi-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .kpi-icon svg{width:18px;height:18px;}
+  .kpi-label{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .kpi-value{font-size:22px;font-weight:800;letter-spacing:-.01em;}
+  .kpi-sub{font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-top:4px;}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+
+  /* FILTERS */
+  .filter-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  .filter-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+  .ftab{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
+  .ftab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ftab .count{margin-left:6px;opacity:.75;}
+  .sel{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);max-width:260px;}
+  .btn{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;}
+  .btn svg{width:15px;height:15px;}
+
+  /* TABLE */
+  .t-table{width:100%;border-collapse:collapse;}
+  .t-table th{
+    text-align:left;font-size:11px;letter-spacing:.02em;color:var(--ink-faint);font-weight:700;
+    text-transform:uppercase;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  .t-table td{padding:12px 10px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  .t-table tr:last-child td{border-bottom:none;}
+  .t-table tbody tr{cursor:pointer;transition:background .15s;}
+  .t-table tbody tr:hover{background:#F8FAFC;}
+  .t-person{display:flex;align-items:center;gap:9px;min-width:200px;}
+  .t-av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
+  .t-name{font-weight:700;font-size:13px;}
+  .t-sub{font-size:11.5px;color:var(--ink-faint);}
+  .t-muted{color:var(--ink-soft);font-size:12.5px;}
+  .t-mono{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .status{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
+  .status::before{content:'';width:6px;height:6px;border-radius:50%;}
+  .status.active{background:var(--success-tint);color:var(--success);}
+  .status.active::before{background:var(--success);}
+  .status.inactive{background:#F1F5F9;color:var(--ink-faint);}
+  .status.inactive::before{background:var(--ink-faint);}
+  .status.leave{background:var(--warning-tint);color:var(--warning);}
+  .status.leave::before{background:var(--warning);}
+  .pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
+  .pill.regular{background:var(--primary-tint);color:var(--primary);}
+  .pill.probationary{background:var(--purple-tint);color:var(--purple);}
+  .pill.trainee{background:var(--teal-tint);color:var(--teal);}
+  .pill.other{background:#F1F5F9;color:var(--ink-soft);}
+  .pill.company{background:var(--success-tint);color:var(--success);}
+  .pill.personal{background:var(--warning-tint);color:var(--warning);}
+
+  .table-wrap{overflow-x:auto;}
+  .t-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-size:12.5px;color:var(--ink-soft);flex-wrap:wrap;gap:10px;}
+  .pager{display:flex;gap:6px;}
+  .pg-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .pg-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .empty-note{padding:36px 12px;text-align:center;color:var(--ink-faint);font-size:13px;}
+
+  /* MODAL */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:100;align-items:center;justify-content:center;padding:24px;}
+  .modal-overlay.open{display:flex;}
+  .modal-panel{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);width:100%;max-width:640px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .modal-head .t-person{min-width:0;}
+  .modal-head .t-av{width:44px;height:44px;font-size:14px;}
+  .modal-title{font-size:16px;font-weight:800;}
+  .modal-sub{font-size:12px;color:var(--ink-faint);margin-top:2px;}
+  .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .modal-close svg{width:15px;height:15px;color:var(--ink-soft);}
+  .modal-body{padding:18px 20px;overflow-y:auto;}
+  .detail-section{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-faint);margin:14px 0 8px;}
+  .detail-section:first-child{margin-top:0;}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;}
+  .detail-item .k{font-size:11px;color:var(--ink-faint);font-weight:600;margin-bottom:2px;}
+  .detail-item .v{font-size:13px;font-weight:600;word-break:break-word;}
+  .detail-item.wide{grid-column:1 / -1;}
+
+  @media (max-width:1200px){ .kpi-row{grid-template-columns:repeat(3,1fr);} }
+  @media (max-width:860px){
+    .sidebar{display:none;}
+    .main{padding:20px 16px 32px;}
+    .search{min-width:0;flex:1;}
+    .kpi-row{grid-template-columns:1fr 1fr;}
+    .detail-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<script>
+  // ---- Auth check: uses the same pipeline_token + Railway API as the React app ----
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Invalid session");
+      const data = await res.json();
+      const user = data.user || data;
+      if (user) {
+        const nameEl = document.querySelector(".profile-name");
+        if (nameEl && user.name) nameEl.childNodes[0].nodeValue = user.name;
+        const roleEl = document.querySelector(".profile-name span");
+        if (roleEl) {
+          const roleLabels = { admin: 'Administrator', member: 'Team Member' };
+          roleEl.textContent = roleLabels[user.role] || (user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Team Member');
+        }
+        const avatarEl = document.querySelector(".profile .avatar");
+        if (avatarEl && user.name) avatarEl.textContent = user.name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+      }
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+
+  function toggleProfileMenu(e) { e.stopPropagation(); document.getElementById('profileDropdown').classList.toggle('open'); }
+  document.addEventListener('click', () => { const dd = document.getElementById('profileDropdown'); if (dd) dd.classList.remove('open'); });
+  function logoutUser(e) { e.stopPropagation(); localStorage.removeItem('pipeline_token'); window.location.href = LOGIN_PATH; }
+</script>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+
+    <div class="nav-group">
+      <a href="csr-dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="tickets.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+        Tickets
+      </a>
+      <a href="kyc.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M4 17c0-1.5 1.5-3 4.5-3s4.5 1.5 4.5 3"/><path d="M15 10h5M15 14h3"/></svg>
+        KYC
+      </a>
+      <a href="customers.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Customers
+      </a>
+      <a href="reports.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Reports
+      </a>
+      <a href="openai.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        OpenAI
+      </a>
+      <a href="agents.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Agents
+      </a>
+      <a href="settings.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
+      </a>
+    </div>
+
+    <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="greeting">
+        <h1>Agents</h1>
+        <p>CSR Department staff directory. <span id="liveIndicator" style="font-size:11.5px;font-weight:600;color:var(--ink-faint);">● Loading…</span></p>
+      </div>
+      <div class="topbar-right">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" id="searchInput" placeholder="Search name, email, employee ID, role…">
+        </div>
+        <div class="profile" id="profileToggle" onclick="toggleProfileMenu(event)">
+          <div class="avatar">—</div>
+          <div class="profile-name">&nbsp;<span>&nbsp;</span></div>
+          <div class="profile-dropdown" id="profileDropdown">
+            <a href="profile.html">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Profile
+            </a>
+            <div class="divider"></div>
+            <button class="logout-item" onclick="logoutUser(event)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+              Log Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI (clickable = status filter) -->
+    <div class="kpi-row">
+      <div class="kpi-card active" data-status="all">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="kpi-label">Total Staff</div></div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-sub" id="kpiTotalSub">All records</div>
+      </div>
+      <div class="kpi-card" data-status="active">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div><div class="kpi-label">Active</div></div>
+        <div class="kpi-value" id="kpiActive">—</div>
+        <div class="kpi-sub" id="kpiActiveSub"></div>
+      </div>
+      <div class="kpi-card" data-status="inactive">
+        <div class="kpi-top"><div class="kpi-icon" style="background:#F1F5F9;color:var(--ink-faint);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg></div><div class="kpi-label">Inactive</div></div>
+        <div class="kpi-value" id="kpiInactive">—</div>
+        <div class="kpi-sub" id="kpiInactiveSub"></div>
+      </div>
+      <div class="kpi-card" data-status="leave">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">On Leave</div></div>
+        <div class="kpi-value" id="kpiLeave">—</div>
+        <div class="kpi-sub" id="kpiLeaveSub"></div>
+      </div>
+      <div class="kpi-card" data-status="all" id="kpiDevicesCard" style="cursor:default;">
+        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div><div class="kpi-label">Company Devices</div></div>
+        <div class="kpi-value" id="kpiCompanyDevices">—</div>
+        <div class="kpi-sub" id="kpiCompanyDevicesSub"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Staff Directory</h3>
+        <button class="btn" id="exportCsvBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Export CSV
+        </button>
+      </div>
+
+      <div class="filter-row">
+        <div class="filter-tabs" id="statusTabs">
+          <div class="ftab active" data-status="all">All <span class="count">0</span></div>
+          <div class="ftab" data-status="active">Active <span class="count">0</span></div>
+          <div class="ftab" data-status="inactive">Inactive <span class="count">0</span></div>
+          <div class="ftab" data-status="leave">On Leave <span class="count">0</span></div>
+        </div>
+        <select id="roleFilter" class="sel"><option value="all">All Roles</option></select>
+        <select id="teamFilter" class="sel"><option value="all">All Teams / Divisions</option></select>
+        <select id="employmentFilter" class="sel"><option value="all">All Employment Types</option></select>
+        <select id="deviceFilter" class="sel"><option value="all">All Device Ownership</option></select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="t-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Employee ID</th>
+              <th>Role</th>
+              <th>Employment</th>
+              <th>Status</th>
+              <th>Date of Hire</th>
+              <th>Contact</th>
+              <th>Company Email</th>
+              <th>Device</th>
+            </tr>
+          </thead>
+          <tbody id="agentBody">
+            <tr><td colspan="9"><div class="empty-note">Loading staff directory…</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="t-foot">
+        <div id="footText">Loading…</div>
+        <div class="pager" id="pager"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- DETAIL MODAL -->
+  <div class="modal-overlay" id="detailOverlay">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div class="t-person">
+          <div class="t-av" id="mAvatar">—</div>
+          <div style="min-width:0;">
+            <div class="modal-title" id="mName">—</div>
+            <div class="modal-sub" id="mSub">—</div>
+          </div>
+        </div>
+        <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="mBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------------------------------------------------------------------------
+  // DATA SOURCE — "CSR Department Staff Information Collection" (published CSV)
+  //
+  // Only the columns listed in COLS are ever read or shown. The sheet contains
+  // many more (bank details, access codes, emergency contacts…) which this
+  // page deliberately ignores. NOTE: the published link itself still exposes
+  // every column to anyone who has it — see the recommendation to publish a
+  // reduced tab instead.
+  // ---------------------------------------------------------------------------
+  const STAFF_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSlG7YaUmPGAUQGq0bWTUuqcSuIvyeDFPsw6ltPoq6GK_avv5OLtVAByNpFz9WUG4GBdyfaAmqVFYBm/pub?output=csv";
+
+  // Sheet headers have inconsistent spacing ("First  Name", "Active  Contact
+  // Number"), so match on a normalised key: lowercase, collapse whitespace.
+  const COLS = {
+    submitted:      'date',
+    lastName:       'last name',
+    firstName:      'first name',
+    fullName:       'full name (concatenate)',
+    suffix:         'suffix',
+    email:          'email address',
+    dob:            'date of birth',
+    age:            'age',
+    contact:        'active contact number',
+    address:        'home address',
+    role:           'role',
+    team:           'team and division under',
+    employment:     'employment',
+    dateOfHire:     'date of hire',
+    employeeId:     'employee id',
+    companyEmail:   'company email',
+    status:         'employment status',
+    deviceModel:    'device model',
+    deviceType:     'device type',
+    deviceOwnership:'device ownership',
+  };
+  const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const isBlank = v => { const s = norm(v); return !s || ['n/a', 'na', 'n\\a', 'none', 'not available', '-', '#value!'].includes(s); };
+  const clean = v => isBlank(v) ? '' : String(v).replace(/\s+/g, ' ').trim();
+
+  const PAGE_SIZE = 20;
+  let allStaff = [];
+  let filtered = [];
+  let currentStatus = 'all';
+  let currentRole = 'all';
+  let currentTeam = 'all';
+  let currentEmployment = 'all';
+  let currentDevice = 'all';
+  let currentSearch = '';
+  let currentPage = 1;
+
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function colorForName(name) {
+    let hash = 0; const s = name || '';
+    for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
+    const palette = ['#2563EB','#8B5CF6','#EC4899','#F59E0B','#14B8A6','#22C55E','#EF4444','#0EA5E9','#F97316','#64748B'];
+    return palette[Math.abs(hash) % palette.length];
+  }
+  function initialsForName(name) {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  function parseDate(s) {
+    if (isBlank(s)) return null;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function fmtDate(d) {
+    return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  }
+  // Age from DOB (the sheet's own Age column has bad values in places).
+  function ageFrom(dob) {
+    if (!dob) return null;
+    const now = new Date();
+    let a = now.getFullYear() - dob.getFullYear();
+    const m = now.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) a--;
+    return (a >= 15 && a <= 80) ? a : null; // sanity-guard against typos like 0098
+  }
+  function tenure(hire) {
+    if (!hire) return '—';
+    const months = Math.max(0, Math.round((Date.now() - hire.getTime()) / (30.44 * 86400000)));
+    const y = Math.floor(months / 12), mo = months % 12;
+    if (y === 0) return `${mo} mo`;
+    return mo ? `${y} yr ${mo} mo` : `${y} yr`;
+  }
+  function statusKey(raw) {
+    const s = norm(raw);
+    if (s.startsWith('active')) return 'active';
+    if (s.startsWith('leave') || s.includes('on leave')) return 'leave';
+    if (s.startsWith('inactive')) return 'inactive';
+    return s ? 'other' : 'inactive';
+  }
+  function employmentKey(raw) {
+    const s = norm(raw);
+    if (s.includes('regular')) return 'regular';
+    if (s.includes('probation')) return 'probationary';
+    if (s.includes('trainee')) return 'trainee';
+    return 'other';
+  }
+  function ownershipKey(raw) {
+    const s = norm(raw);
+    if (s.includes('company')) return 'company';
+    if (s.includes('personal') || s.includes('pesonal')) return 'personal';
+    return 'other';
+  }
+  function statusLabel(k) { return { active: 'Active', inactive: 'Inactive', leave: 'On Leave', other: 'Unknown' }[k] || k; }
+
+  function mapRow(rawRow) {
+    // Build a normalised-key lookup once per row.
+    const row = {};
+    Object.keys(rawRow).forEach(k => { row[norm(k)] = rawRow[k]; });
+    const get = key => row[COLS[key]] ?? '';
+
+    const last = clean(get('lastName'));
+    const first = clean(get('firstName'));
+    if (!last && !first) return null; // trailing formula rows / blanks
+    const suffix = clean(get('suffix'));
+    const name = `${first} ${last}${suffix && !/^(mr|ms|male|search tab|lanzuela|halili|a\.)$/i.test(suffix) ? ' ' + suffix : ''}`.replace(/\s+/g, ' ').trim();
+
+    const dob = parseDate(get('dob'));
+    const hire = parseDate(get('dateOfHire'));
+    const ageSheet = Number(clean(get('age')));
+    return {
+      key: norm(`${last}|${first}`),
+      submitted: parseDate(get('submitted')),
+      name, first, last,
+      email: clean(get('email')),
+      dob, dobText: clean(get('dob')),
+      age: ageFrom(dob) ?? (ageSheet > 15 && ageSheet < 80 ? ageSheet : null),
+      contact: clean(get('contact')),
+      address: clean(get('address')),
+      role: clean(get('role')) || '—',
+      team: clean(get('team')) || '—',
+      employment: clean(get('employment')) || '—',
+      employmentKey: employmentKey(get('employment')),
+      hire, hireText: clean(get('dateOfHire')),
+      employeeId: clean(get('employeeId')),
+      companyEmail: clean(get('companyEmail')),
+      statusRaw: clean(get('status')),
+      statusKey: statusKey(get('status')),
+      deviceModel: clean(get('deviceModel')),
+      deviceType: clean(get('deviceType')),
+      deviceOwnership: clean(get('deviceOwnership')),
+      ownershipKey: ownershipKey(get('deviceOwnership')),
+    };
+  }
+
+  function loadStaff() {
+    const bust = STAFF_CSV_URL + (STAFF_CSV_URL.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+    Papa.parse(bust, {
+      download: true, header: true, skipEmptyLines: true,
+      complete: (results) => {
+        const rows = (results.data || []).map(mapRow).filter(Boolean);
+        // The same person can submit the form more than once (updates). Keep
+        // the LATEST submission per person so edits win over the original.
+        const byKey = new Map();
+        rows.forEach(r => {
+          const prev = byKey.get(r.key);
+          if (!prev || (r.submitted && prev.submitted && r.submitted > prev.submitted) || (r.submitted && !prev.submitted)) byKey.set(r.key, r);
+        });
+        allStaff = Array.from(byKey.values()).sort((a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first));
+        buildFilterOptions();
+        applyFilters();
+        renderKpis();
+        const ind = document.getElementById('liveIndicator');
+        ind.textContent = `● Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        ind.style.color = 'var(--success)';
+      },
+      error: (err) => {
+        console.error(err);
+        document.getElementById('agentBody').innerHTML = '<tr><td colspan="9"><div class="empty-note" style="color:var(--danger);">Could not load the staff sheet. Check the published link.</div></td></tr>';
+        const ind = document.getElementById('liveIndicator');
+        ind.textContent = '● Error loading'; ind.style.color = 'var(--danger)';
+      }
+    });
+  }
+
+  function buildFilterOptions() {
+    const fill = (id, values, label) => {
+      const sel = document.getElementById(id);
+      const prev = sel.value;
+      const uniq = [...new Set(values.filter(v => v && v !== '—'))].sort();
+      sel.innerHTML = `<option value="all">${label}</option>` + uniq.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      if (uniq.includes(prev)) sel.value = prev;
+    };
+    fill('roleFilter', allStaff.map(s => s.role), 'All Roles');
+    fill('teamFilter', allStaff.map(s => s.team), 'All Teams / Divisions');
+    fill('employmentFilter', allStaff.map(s => s.employment), 'All Employment Types');
+    fill('deviceFilter', allStaff.map(s => s.deviceOwnership), 'All Device Ownership');
+  }
+
+  function matches(s, skip = {}) {
+    if (!skip.status && currentStatus !== 'all' && s.statusKey !== currentStatus) return false;
+    if (currentRole !== 'all' && s.role !== currentRole) return false;
+    if (currentTeam !== 'all' && s.team !== currentTeam) return false;
+    if (currentEmployment !== 'all' && s.employment !== currentEmployment) return false;
+    if (currentDevice !== 'all' && s.deviceOwnership !== currentDevice) return false;
+    if (currentSearch) {
+      const q = currentSearch;
+      const hay = [s.name, s.email, s.companyEmail, s.employeeId, s.role, s.team, s.contact, s.deviceModel].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }
+
+  function applyFilters() {
+    filtered = allStaff.filter(s => matches(s));
+    currentPage = 1;
+    renderTable();
+    renderStatusCounts();
+  }
+
+  function renderKpis() {
+    const c = { active: 0, inactive: 0, leave: 0, other: 0 };
+    allStaff.forEach(s => { c[s.statusKey] = (c[s.statusKey] || 0) + 1; });
+    const total = allStaff.length;
+    const pct = n => total ? `${Math.round((n / total) * 100)}% of staff` : '';
+    document.getElementById('kpiTotal').textContent = total.toLocaleString();
+    document.getElementById('kpiActive').textContent = c.active.toLocaleString();
+    document.getElementById('kpiActiveSub').textContent = pct(c.active);
+    document.getElementById('kpiInactive').textContent = c.inactive.toLocaleString();
+    document.getElementById('kpiInactiveSub').textContent = pct(c.inactive);
+    document.getElementById('kpiLeave').textContent = c.leave.toLocaleString();
+    document.getElementById('kpiLeaveSub').textContent = pct(c.leave);
+    const companyDevices = allStaff.filter(s => s.ownershipKey === 'company').length;
+    const activeCompany = allStaff.filter(s => s.ownershipKey === 'company' && s.statusKey === 'active').length;
+    document.getElementById('kpiCompanyDevices').textContent = companyDevices.toLocaleString();
+    document.getElementById('kpiCompanyDevicesSub').textContent = `${activeCompany} with active staff`;
+  }
+
+  function renderStatusCounts() {
+    const subset = allStaff.filter(s => matches(s, { status: true }));
+    const c = { all: subset.length, active: 0, inactive: 0, leave: 0 };
+    subset.forEach(s => { if (c[s.statusKey] !== undefined) c[s.statusKey]++; });
+    document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
+      const el = tab.querySelector('.count'); if (el) el.textContent = (c[tab.dataset.status] ?? 0).toLocaleString();
+    });
+    document.querySelectorAll('.kpi-card[data-status]').forEach(card => {
+      if (card.id === 'kpiDevicesCard') return;
+      card.classList.toggle('active', card.dataset.status === currentStatus);
+    });
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('agentBody');
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="9"><div class="empty-note">No staff match the current filters.</div></td></tr>';
+      renderFooter(); return;
+    }
+    const start = (currentPage - 1) * PAGE_SIZE;
+    tbody.innerHTML = filtered.slice(start, start + PAGE_SIZE).map((s, i) => `
+      <tr data-idx="${start + i}">
+        <td>
+          <div class="t-person">
+            <div class="t-av" style="background:${colorForName(s.name)};">${escapeHtml(initialsForName(s.name))}</div>
+            <div style="min-width:0;">
+              <div class="t-name">${escapeHtml(s.name)}</div>
+              <div class="t-sub">${escapeHtml(s.team)}</div>
+            </div>
+          </div>
+        </td>
+        <td class="t-mono t-muted">${escapeHtml(s.employeeId || '—')}</td>
+        <td>${escapeHtml(s.role)}</td>
+        <td><span class="pill ${s.employmentKey}">${escapeHtml(s.employment)}</span></td>
+        <td><span class="status ${s.statusKey}">${escapeHtml(statusLabel(s.statusKey))}</span></td>
+        <td class="t-mono t-muted" title="${escapeHtml(tenure(s.hire))}">${escapeHtml(fmtDate(s.hire) === '—' ? (s.hireText || '—') : fmtDate(s.hire))}</td>
+        <td class="t-mono t-muted">${escapeHtml(s.contact || '—')}</td>
+        <td class="t-muted">${escapeHtml(s.companyEmail || '—')}</td>
+        <td>
+          <div class="t-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(s.deviceModel)}">${escapeHtml(s.deviceModel || '—')}</div>
+          <div class="t-sub">${escapeHtml(s.deviceType || '')}${s.deviceOwnership ? ` · <span class="pill ${s.ownershipKey}" style="padding:1px 7px;">${escapeHtml(s.deviceOwnership)}</span>` : ''}</div>
+        </td>
+      </tr>`).join('');
+    renderFooter();
+  }
+
+  function renderFooter() {
+    const total = filtered.length;
+    const start = total ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+    const end = Math.min(currentPage * PAGE_SIZE, total);
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    document.getElementById('footText').textContent = `Showing ${start}–${end} of ${total.toLocaleString()} staff`;
+    const pager = document.getElementById('pager');
+    pager.innerHTML = '';
+    const mk = (label, onClick, active) => { const b = document.createElement('div'); b.className = 'pg-btn' + (active ? ' active' : ''); b.textContent = label; b.onclick = onClick; pager.appendChild(b); };
+    mk('‹', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
+    let s = Math.max(1, currentPage - 2), e = Math.min(totalPages, s + 4); s = Math.max(1, e - 4);
+    for (let p = s; p <= e; p++) mk(p, () => { currentPage = p; renderTable(); }, p === currentPage);
+    mk('›', () => { if (currentPage < totalPages) { currentPage++; renderTable(); } });
+  }
+
+  // ---- Detail modal ----
+  function openDetail(s) {
+    document.getElementById('mAvatar').textContent = initialsForName(s.name);
+    document.getElementById('mAvatar').style.background = colorForName(s.name);
+    document.getElementById('mName').textContent = s.name;
+    document.getElementById('mSub').textContent = [s.role, s.team].filter(v => v && v !== '—').join(' · ');
+    const item = (k, v, wide) => `<div class="detail-item${wide ? ' wide' : ''}"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v || '—')}</div></div>`;
+    document.getElementById('mBody').innerHTML = `
+      <div class="detail-section">Employment</div>
+      <div class="detail-grid">
+        ${item('Employee ID', s.employeeId)}
+        ${item('Status', statusLabel(s.statusKey) + (s.statusRaw && norm(s.statusRaw) !== s.statusKey ? ` (${s.statusRaw})` : ''))}
+        ${item('Role', s.role)}
+        ${item('Employment', s.employment)}
+        ${item('Date of Hire', s.hire ? `${fmtDate(s.hire)} · ${tenure(s.hire)}` : (s.hireText || '—'))}
+        ${item('Team / Division', s.team)}
+      </div>
+      <div class="detail-section">Contact</div>
+      <div class="detail-grid">
+        ${item('Company Email', s.companyEmail)}
+        ${item('Email', s.email)}
+        ${item('Active Contact Number', s.contact)}
+        ${item('Home Address', s.address, true)}
+      </div>
+      <div class="detail-section">Personal</div>
+      <div class="detail-grid">
+        ${item('Date of Birth', s.dob ? fmtDate(s.dob) : (s.dobText || '—'))}
+        ${item('Age', s.age != null ? String(s.age) : '—')}
+      </div>
+      <div class="detail-section">Device</div>
+      <div class="detail-grid">
+        ${item('Device Model', s.deviceModel, true)}
+        ${item('Device Type', s.deviceType)}
+        ${item('Device Ownership', s.deviceOwnership)}
+      </div>`;
+    document.getElementById('detailOverlay').classList.add('open');
+  }
+  function closeDetail() { document.getElementById('detailOverlay').classList.remove('open'); }
+  document.getElementById('agentBody').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-idx]'); if (!tr) return;
+    const s = filtered[Number(tr.dataset.idx)]; if (s) openDetail(s);
+  });
+  document.getElementById('modalCloseBtn').addEventListener('click', closeDetail);
+  document.getElementById('detailOverlay').addEventListener('click', (e) => { if (e.target.id === 'detailOverlay') closeDetail(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
+
+  // ---- Filter wiring ----
+  document.querySelectorAll('#statusTabs .ftab').forEach(tab => tab.addEventListener('click', () => setStatus(tab.dataset.status)));
+  document.querySelectorAll('.kpi-card[data-status]').forEach(card => { if (card.id !== 'kpiDevicesCard') card.addEventListener('click', () => setStatus(card.dataset.status)); });
+  function setStatus(st) {
+    currentStatus = st;
+    document.querySelectorAll('#statusTabs .ftab').forEach(t => t.classList.toggle('active', t.dataset.status === st));
+    applyFilters();
+  }
+  document.getElementById('roleFilter').addEventListener('change', e => { currentRole = e.target.value; applyFilters(); });
+  document.getElementById('teamFilter').addEventListener('change', e => { currentTeam = e.target.value; applyFilters(); });
+  document.getElementById('employmentFilter').addEventListener('change', e => { currentEmployment = e.target.value; applyFilters(); });
+  document.getElementById('deviceFilter').addEventListener('change', e => { currentDevice = e.target.value; applyFilters(); });
+  document.getElementById('searchInput').addEventListener('input', e => { currentSearch = e.target.value.trim().toLowerCase(); applyFilters(); });
+
+  // ---- Export (current filters, only the columns this page shows) ----
+  document.getElementById('exportCsvBtn').addEventListener('click', () => {
+    if (!filtered.length) { alert('No staff to export with the current filters.'); return; }
+    const rows = filtered.map(s => ({
+      'Name': s.name, 'Employee ID': s.employeeId, 'Role': s.role, 'Team / Division': s.team,
+      'Employment': s.employment, 'Status': statusLabel(s.statusKey), 'Date of Hire': s.hire ? fmtDate(s.hire) : s.hireText,
+      'Company Email': s.companyEmail, 'Email': s.email, 'Active Contact Number': s.contact, 'Home Address': s.address,
+      'Date of Birth': s.dob ? fmtDate(s.dob) : s.dobText, 'Age': s.age ?? '',
+      'Device Model': s.deviceModel, 'Device Type': s.deviceType, 'Device Ownership': s.deviceOwnership,
+    }));
+    const blob = new Blob([Papa.unparse(rows)], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `csr-staff-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+  });
+
+  loadStaff();
+  setInterval(loadStaff, 5 * 60 * 1000); // staff data changes slowly — refresh every 5 min
+</script>
+</body>
+</html>
