@@ -248,6 +248,23 @@
         </table>
       </div>
     </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-head">
+        <h3>Agent Conduct — TMTCash &amp; Buenas PH <span id="conductIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;"></span></h3>
+        <button class="qa-refresh" id="conductScanBtn">⚲ Scan agent replies</button>
+      </div>
+      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.5;">
+        Scans <b>real agents'</b> replies (bots excluded) in the selected date range for rude language — insults, cursing, dismissive phrases, and all-caps shouting. Keyword-based: catches the obvious; tone/sarcasm needs human review. Uses the date filter above.
+      </div>
+      <div class="filter-tabs" id="conductAgentTabs" style="display:none;"></div>
+      <div class="table-wrap">
+        <table class="qa-table">
+          <thead><tr><th>Agent</th><th>Brand</th><th>Flagged Message</th><th>Reason</th><th>When</th></tr></thead>
+          <tbody id="conductBody"><tr><td colspan="5"><div class="empty-note">Click “Scan agent replies” to check the current date range.</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </main>
 
   <!-- THREAD MODAL -->
@@ -537,6 +554,115 @@
       body.innerHTML = '<div class="empty-note">Could not load this conversation. Please try again.</div>';
     }
   }
+
+  // ---- AGENT CONDUCT SCANNER (TMTCash + Buenas PH, real agents only) ----
+  // Keyword-based rudeness check on agent replies. Editable pattern list --
+  // each entry: regex + reason label. Obvious rudeness only; sarcasm and
+  // tone need a human (or a future AI upgrade).
+  const CONDUCT_BRANDS = ['buenasph', 'tmtcash'];
+  const RUDE_PATTERNS = [
+    { re: /\b(bobo|tanga|gago|ulol|engot|inutil|abnormal)\b/i, label: 'Insult' },
+    { re: /(tang\s*ina|tangina|putang|punyeta|gagi|bwisit|leche|pakshet|pakyu|fuck|shit|stupid|idiot)/i, label: 'Cursing' },
+    { re: /(edi\s*wow|wag\s+kang?\s+makulit|ang\s+kulit\s+mo|makulit\s+ka|problema\s+mo\s+yan|hindi\s+ko\s+problema|di\s+ko\s+problema|wala\s+akong\s+pakialam|pakialam\s+mo|bahala\s+ka|kaw\s+na\s+bahala|eh\s+ano\s+ngayon|so\s+what|shut\s*up|tumigil\s+ka|ang\s+ingay\s+mo|marunong\s+ka\s+bang?\s+magbasa|hindi\s+ka\s+ba\s+marunong\s+magbasa|nakakainis\s+ka|ang\s+tigas\s+ng\s+ulo|matigas\s+ang\s+ulo|deadma|dedma)/i, label: 'Dismissive' },
+  ];
+  function conductCheck(text) {
+    const t = (text || '').trim();
+    if (!t) return null;
+    const reasons = [];
+    for (const p of RUDE_PATTERNS) {
+      const m = t.match(p.re);
+      if (m) reasons.push({ label: p.label, match: m[0] });
+    }
+    const letters = t.replace(/[^A-Za-z]/g, '');
+    if (letters.length >= 12) {
+      const upper = letters.replace(/[^A-Z]/g, '');
+      if (upper.length / letters.length > 0.8) reasons.push({ label: 'Shouting (all caps)', match: t.slice(0, 30) });
+    }
+    return reasons.length ? reasons : null;
+  }
+
+  let conductAgentFilter = 'all';
+  let conductFlagged = [];
+
+  async function scanConduct() {
+    const token = localStorage.getItem('pipeline_token');
+    const ind = document.getElementById('conductIndicator');
+    const btn = document.getElementById('conductScanBtn');
+    const tbody = document.getElementById('conductBody');
+    btn.disabled = true;
+    ind.textContent = 'Scanning\u2026'; ind.style.color = 'var(--ink-faint)';
+    try {
+      const params = new URLSearchParams({ brands: CONDUCT_BRANDS.join(',') });
+      const range = getDateRangeParams();
+      if (range) { params.set('from', range.from); params.set('to', range.to); }
+      const res = await fetch(`${API_BASE}/chatwoot/agent-messages?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const msgs = data.messages || [];
+      conductFlagged = [];
+      msgs.forEach(m => {
+        const reasons = conductCheck(m.content);
+        if (reasons) conductFlagged.push({ ...m, reasons });
+      });
+      ind.textContent = `\u25CF Scanned ${msgs.length} agent replies \u2014 ${conductFlagged.length} flagged`;
+      ind.style.color = conductFlagged.length ? 'var(--danger)' : 'var(--success)';
+      conductAgentFilter = 'all';
+      renderConduct();
+    } catch (err) {
+      console.error('Conduct scan failed:', err);
+      ind.textContent = '\u25CF Scan failed'; ind.style.color = 'var(--danger)';
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Scan failed \u2014 check that the backend has the /agent-messages endpoint deployed.</div></td></tr>';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderConduct() {
+    const tabs = document.getElementById('conductAgentTabs');
+    const tbody = document.getElementById('conductBody');
+
+    const byAgent = {};
+    conductFlagged.forEach(f => { byAgent[f.agent] = (byAgent[f.agent] || 0) + 1; });
+    if (conductFlagged.length) {
+      tabs.style.display = 'flex';
+      tabs.innerHTML = `<div class="ftab ${conductAgentFilter === 'all' ? 'active' : ''}" data-agent="all">All Agents <span class="count">${conductFlagged.length}</span></div>` +
+        Object.keys(byAgent).sort((a, b) => byAgent[b] - byAgent[a]).map(a =>
+          `<div class="ftab ${conductAgentFilter === a ? 'active' : ''}" data-agent="${escapeHtml(a)}">${escapeHtml(a)} <span class="count">${byAgent[a]}</span></div>`).join('');
+      tabs.querySelectorAll('.ftab').forEach(tab => tab.addEventListener('click', () => {
+        conductAgentFilter = tab.dataset.agent; renderConduct();
+      }));
+    } else {
+      tabs.style.display = 'none';
+    }
+
+    const list = conductAgentFilter === 'all' ? conductFlagged : conductFlagged.filter(f => f.agent === conductAgentFilter);
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">No rude replies flagged in this range \u2014 good conduct! \ud83c\udf89<br><span style="font-size:11.5px;">(Keyword-based scan \u2014 spot-check threads occasionally for tone.)</span></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(f => {
+      let msgHtml = escapeHtml(f.content);
+      const firstMatch = f.reasons[0] ? f.reasons[0].match : null;
+      if (firstMatch) {
+        const escMatch = escapeHtml(firstMatch);
+        msgHtml = msgHtml.replace(escMatch, `<mark style="background:var(--danger-tint);color:var(--danger);font-weight:700;border-radius:3px;padding:0 2px;">${escMatch}</mark>`);
+      }
+      return `<tr data-conversation-id="${f.conversationId}" data-customer-name="Conversation #${f.conversationId}" data-customer-sub="${escapeHtml(brandLabel(f.brand))} \u00B7 agent: ${escapeHtml(f.agent)}">
+        <td><div class="c-customer"><div class="c-av" style="background:${colorForName(f.agent)};">${initialsForName(f.agent)}</div><div class="c-cname">${escapeHtml(f.agent)}</div></div></td>
+        <td><span class="c-brand">${escapeHtml(brandLabel(f.brand))}</span></td>
+        <td><div class="qa-remarks">${msgHtml}</div></td>
+        <td>${f.reasons.map(r => `<span class="sev-pill high" style="margin-right:4px;">${escapeHtml(r.label)}</span>`).join('')}</td>
+        <td><div class="c-time">${timeAgo(f.createdAt)}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('conductScanBtn').addEventListener('click', scanConduct);
+  document.getElementById('conductBody').addEventListener('click', (e) => {
+    const row = e.target.closest('tr[data-conversation-id]');
+    if (!row) return;
+    openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
+  });
 
   loadDsats();
 </script>
