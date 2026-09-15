@@ -780,6 +780,55 @@ router.get('/pending', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/chatwoot/dismiss-pending  body: { conversationId, brand }
+// Manual escape hatch for the Waiting-for-Agent widget (added 2026-09-14):
+// writes a synthetic 'closed' handoff event for the conversation, so the
+// latest-handoff-wins logic drops it from /pending and /stats for EVERYONE,
+// permanently. If a genuinely NEW handoff happens on the same conversation
+// later, its newer 'pending' event outranks this row and the chat correctly
+// reappears. Audited: logs and stores who dismissed it.
+router.post('/dismiss-pending', requireAuth, async (req, res) => {
+  try {
+    const conversationId = Number(req.body?.conversationId);
+    const brand = String(req.body?.brand || '').trim();
+    if (!conversationId || !brand) return res.status(400).json({ error: 'conversationId and brand required' });
+    const by = req.user?.name || req.user?.email || 'unknown';
+    // Inherit the conversation's last known status/inbox — this synthetic
+    // row becomes its LATEST row, and a null status here would make the
+    // Customers page show "Unknown" for an otherwise-fine conversation.
+    const lastKnown = await sequelize.query(`
+      SELECT
+        (SELECT "status" FROM "ChatwootEvents" WHERE "conversationId" = :cid AND "status" IS NOT NULL ORDER BY "createdAt" DESC LIMIT 1) AS status,
+        (SELECT "inboxName" FROM "ChatwootEvents" WHERE "conversationId" = :cid AND "inboxName" IS NOT NULL ORDER BY "createdAt" DESC LIMIT 1) AS "inboxName"
+    `, { replacements: { cid: conversationId }, type: QueryTypes.SELECT });
+    await ChatwootEvent.create({
+      brand,
+      event: 'manual_dismiss',
+      conversationId,
+      messageId: null,
+      status: lastKnown[0]?.status ?? null,
+      inboxId: null,
+      inboxName: lastKnown[0]?.inboxName ?? null,
+      contactName: null,
+      contactEmail: null,
+      content: null,
+      senderName: by,
+      senderType: null,
+      isPrivate: false,
+      labels: null,
+      csatRating: null,
+      csatFeedback: null,
+      handoffStage: 'closed',
+      payload: { source: 'manual-dismiss', by, at: new Date().toISOString() },
+    });
+    console.log(`Waiting-for-Agent: conversation ${conversationId} (${brand}) manually dismissed by ${by}.`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Chatwoot dismiss-pending error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/chatwoot/agent-messages?brands=buenasph,tmtcash&from=...&to=...
 // Feed for the QA page's Agent Conduct scanner (added 2026-09-14): returns
 // REAL human agents' outbound messages (senderType='user', excluding the
