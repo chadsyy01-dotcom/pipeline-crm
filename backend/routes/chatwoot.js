@@ -69,9 +69,11 @@ const AI_BOT_SENDER_NAMES = new Set([
   'TMTPlay Admin',        // admin@tmtplay88.online
   'Buenas88 Admin',       // admin@buenas88.vip
   // added 2026-09-13 from CSAT reports (assigned agent on nearly every
-  // survey for the brand — same pattern as Admin Joy / Mona). Remove if
-  // either turns out to be a real person.
-  'Admin Heart',          // tmtcash-love@buenas.ph (tmtcash)
+  // survey for the brand — same pattern as Admin Joy / Mona).
+  // 'Admin Heart' was REMOVED from this list 2026-09-14: confirmed a REAL
+  // agent on TMTCash — her replies now count as human handoffs/FTR and are
+  // included in the QA conduct scan. Maya remains listed as a suspected
+  // bot persona (manilaplayph) until confirmed either way.
   'Maya',                 // maya@manilaplay.ph (manilaplayph)
 ]);
 
