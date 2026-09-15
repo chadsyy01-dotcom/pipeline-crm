@@ -921,36 +921,50 @@ router.post('/import-csat', requireAuth, async (req, res) => {
 // that same conversation. Safe to run more than once.
 router.post('/backfill', requireAuth, async (req, res) => {
   try {
-    const allEvents = await ChatwootEvent.findAll();
+    // Only rows whose payload is a REAL webhook capture can be re-derived.
+    // Two guards (2026-09-14, after a failed run):
+    //   1. payload must contain an 'event' key — synthetic rows (e.g. the
+    //      CSAT import's {source:'csat-import'} payload) would re-derive to
+    //      all-nulls and WIPE their own ratings if processed.
+    //   2. Fetch only id+payload for candidate rows via raw SQL instead of
+    //      findAll()-ing the entire table into memory — the old version
+    //      could time out / OOM, which is what "Failed — try again" was.
+    const candidates = await sequelize.query(`
+      SELECT "id", "payload"
+      FROM "ChatwootEvents"
+      WHERE "payload" IS NOT NULL
+        AND "payload" <> '{}'::jsonb
+        AND "payload" ? 'event'
+    `, { type: QueryTypes.SELECT });
+
     let updated = 0;
     let skipped = 0;
-    for (const row of allEvents) {
-      // Rows whose payload was pruned to {} (or migrated without one) have
-      // nothing to re-derive from — re-running extractFields on them would
-      // overwrite good columns with nulls. Leave them exactly as they are.
-      if (!row.payload || typeof row.payload !== 'object' || Object.keys(row.payload).length === 0) {
+    for (const row of candidates) {
+      const payload = row.payload;
+      if (!payload || typeof payload !== 'object' || Object.keys(payload).length === 0) {
         skipped++;
         continue;
       }
-      const fields = extractFields(row.payload);
-      await row.update({
-        conversationId: fields.conversationId,
-        messageId: fields.messageId,
-        status: fields.status,
-        inboxId: fields.inboxId,
-        inboxName: fields.inboxName,
-        contactName: fields.contactName,
-        contactEmail: fields.contactEmail,
-        senderName: fields.senderName,
-        senderType: fields.senderType,
-        isPrivate: fields.isPrivate,
-        labels: fields.labels,
-        handoffStage: fields.handoffStage,
-        csatRating: fields.csatRating,
-        csatFeedback: fields.csatFeedback,
-      });
+      const f = extractFields(payload);
+      await sequelize.query(`
+        UPDATE "ChatwootEvents" SET
+          "conversationId" = :conversationId, "messageId" = :messageId, "status" = :status,
+          "inboxId" = :inboxId, "inboxName" = :inboxName, "contactName" = :contactName,
+          "contactEmail" = :contactEmail, "senderName" = :senderName, "senderType" = :senderType,
+          "isPrivate" = :isPrivate, "labels" = :labels, "handoffStage" = :handoffStage,
+          "csatRating" = :csatRating, "csatFeedback" = :csatFeedback
+        WHERE "id" = :id
+      `, { replacements: {
+        id: row.id,
+        conversationId: f.conversationId, messageId: f.messageId, status: f.status,
+        inboxId: f.inboxId, inboxName: f.inboxName, contactName: f.contactName,
+        contactEmail: f.contactEmail, senderName: f.senderName, senderType: f.senderType,
+        isPrivate: f.isPrivate, labels: f.labels ? `{${f.labels.map(l => '"' + String(l).replace(/"/g, '') + '"').join(',')}}` : null,
+        handoffStage: f.handoffStage, csatRating: f.csatRating, csatFeedback: f.csatFeedback,
+      } });
       updated++;
     }
+    console.log(`Chatwoot backfill: ${updated} updated, ${skipped} skipped, ${candidates.length} candidates (imports & blank payloads excluded by query).`);
     res.json({ ok: true, updated, skipped });
   } catch (err) {
     console.error('Chatwoot backfill error:', err);
