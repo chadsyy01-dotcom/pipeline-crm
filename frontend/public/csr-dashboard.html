@@ -854,16 +854,44 @@ async function loadChatOverview() {
         const waitedMin = (now - new Date(c.lastActivityAt)) / 60000;
         const severe = waitedMin >= 15;
         return `
-        <a class="alert-item" href="/customers">
-          <div class="alert-ico ${severe ? '' : 'warn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
-          <div style="min-width:0;">
-            <div class="alert-title">${escapeHtml(c.contactName || 'Unknown')} <span class="pill brand">${escapeHtml(chatBrandLabel(c.brand))}</span></div>
-            <div class="alert-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">${escapeHtml(c.lastMessage || '—')}</div>
-          </div>
-          <div class="alert-time ${severe ? '' : 'warn'}">${compactElapsed(c.lastActivityAt, now)}</div>
-        </a>`;
+        <div class="alert-item" style="position:relative;">
+          <a href="/customers" style="display:flex;align-items:center;gap:inherit;flex:1;min-width:0;text-decoration:none;color:inherit;">
+            <div class="alert-ico ${severe ? '' : 'warn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+            <div style="min-width:0;">
+              <div class="alert-title">${escapeHtml(c.contactName || 'Unknown')} <span class="pill brand">${escapeHtml(chatBrandLabel(c.brand))}</span></div>
+              <div class="alert-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px;">${escapeHtml(c.lastMessage || '—')}</div>
+            </div>
+          </a>
+          <div class="alert-time ${severe ? '' : 'warn'}" style="margin-right:26px;">${compactElapsed(c.lastActivityAt, now)}</div>
+          <button class="hh-dismiss" data-conv-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-name="${escapeHtml(c.contactName || 'Unknown')}"
+            title="Clear this entry (manual override for stuck chats)"
+            style="position:absolute;top:50%;right:8px;transform:translateY(-50%);width:20px;height:20px;border:none;background:none;color:var(--ink-faint);cursor:pointer;font-size:14px;line-height:1;padding:0;border-radius:5px;">✕</button>
+        </div>`;
       }).join('');
       if (pending.length > 6) listEl.innerHTML += `<a class="view-link" href="/customers">+${pending.length - 6} more waiting →</a>`;
+      // Manual clear (2026-09-14): server-side dismiss — writes a 'closed'
+      // handoff event, so the entry disappears for ALL users and stays gone.
+      listEl.querySelectorAll('.hh-dismiss').forEach(btn => btn.addEventListener('click', async (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const { convId, brand, name } = e.currentTarget.dataset;
+        if (!confirm(`Clear "${name}" from Waiting for Agent?\n\nUse this only for stuck/bugged entries — if the customer is genuinely waiting, reply in Chatwoot instead.`)) return;
+        e.currentTarget.disabled = true;
+        try {
+          const token = localStorage.getItem('pipeline_token');
+          const res = await fetch(`${API_BASE}/chatwoot/dismiss-pending`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ conversationId: Number(convId), brand }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'dismiss failed');
+          loadChatOverview(); // refresh the widget + KPI immediately
+        } catch (err) {
+          console.error('Dismiss failed:', err);
+          alert('Could not clear the entry: ' + err.message);
+          e.currentTarget.disabled = false;
+        }
+      }));
     }
 
     // --- Chats by brand (today) ---
