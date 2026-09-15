@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quality Assurance · CSR Dashboard</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#2563EB; --primary-dark:#1D4ED8; --primary-tint:#EFF4FF;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --danger:#EF4444; --danger-tint:#FDECEC;
+    --purple:#8B5CF6; --purple-tint:#F3EEFE;
+    --teal:#14B8A6; --teal-tint:#E9FAF8;
+    --bg:#F8FAFC; --card:#FFFFFF; --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6; --radius-sm:10px; --radius-md:14px; --radius-lg:18px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;}
+  .app{display:flex;min-height:100vh;}
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-group{margin-bottom:6px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;margin-bottom:2px;position:relative;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+
+  .qa-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  @media (max-width:1000px){.qa-cards{grid-template-columns:1fr 1fr;}}
+  .qa-card{background:var(--card);border-radius:var(--radius-md);padding:16px;box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s;border:2px solid transparent;}
+  .qa-card:hover{transform:translateY(-1px);}
+  .qa-card.active{border-color:var(--primary);}
+  .qa-card .qa-label{font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;}
+  .qa-card .qa-value{font-size:24px;font-weight:800;letter-spacing:-.01em;}
+  .qa-card .qa-sub{font-size:11.5px;color:var(--ink-faint);margin-top:4px;}
+
+  .filter-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .ftab{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
+  .ftab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ftab .count{margin-left:6px;opacity:.75;}
+  .date-filter-wrap{position:relative;display:inline-block;margin-bottom:10px;}
+  .date-filter-wrap select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
+  .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:60;width:210px;}
+  .custom-date-pop.open{display:block;}
+  .custom-date-pop label{display:block;font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;}
+  .custom-date-pop label:first-child{margin-top:0;}
+  .custom-date-pop input[type="date"]{width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--line);font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--bg);}
+  .custom-date-actions{display:flex;gap:8px;margin-top:14px;}
+  .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);}
+  #customDateCancel{background:var(--card);color:var(--ink-soft);}
+  #customDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+  .qa-table{width:100%;border-collapse:collapse;}
+  .qa-table th{text-align:left;font-size:11.5px;letter-spacing:.02em;color:var(--ink-faint);font-weight:700;text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--line);}
+  .qa-table td{padding:12px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:top;}
+  .qa-table tr:last-child td{border-bottom:none;}
+  .qa-table tbody tr{cursor:pointer;transition:background .15s;}
+  .qa-table tbody tr:hover{background:#F8FAFC;}
+  .c-customer{display:flex;align-items:center;gap:9px;}
+  .c-av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
+  .c-cname{font-weight:700;font-size:13px;white-space:nowrap;}
+  .c-brand{font-size:11px;font-weight:700;color:var(--ink-soft);background:var(--bg);padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
+  .sev-pill{font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
+  .sev-pill.high{background:var(--danger-tint);color:var(--danger);}
+  .sev-pill.medium{background:var(--warning-tint);color:var(--warning);}
+  .sev-pill.low{background:var(--bg);color:var(--ink-faint);}
+  .qa-remarks{font-size:12.5px;color:var(--ink-soft);line-height:1.5;max-width:420px;word-break:break-word;}
+  .qa-remarks.empty{color:var(--ink-faint);font-style:italic;}
+  .qa-star{font-weight:800;font-size:12px;white-space:nowrap;}
+  .c-time{color:var(--ink-faint);font-size:12px;white-space:nowrap;}
+  .empty-note{padding:40px 12px;text-align:center;color:var(--ink-faint);font-size:13px;}
+  .table-wrap{overflow-x:auto;}
+  .qa-refresh{font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);}
+
+  /* THREAD MODAL (same as customers.html) */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:100;align-items:center;justify-content:center;padding:24px;}
+  .modal-overlay.open{display:flex;}
+  .modal-panel{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .modal-title{font-size:15px;font-weight:800;}
+  .modal-sub{font-size:12px;color:var(--ink-faint);margin-top:2px;}
+  .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .modal-close svg{width:15px;height:15px;color:var(--ink-soft);}
+  .modal-body{padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px;}
+  .msg-row{display:flex;flex-direction:column;max-width:82%;}
+  .msg-row.from-customer{align-self:flex-start;align-items:flex-start;}
+  .msg-row.from-agent{align-self:flex-end;align-items:flex-end;}
+  .msg-meta{font-size:11px;color:var(--ink-faint);margin-bottom:3px;padding:0 3px;}
+  .msg-bubble{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+  .from-customer .msg-bubble{background:var(--bg);color:var(--ink);border-bottom-left-radius:4px;}
+  .from-agent .msg-bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px;}
+  .from-agent.is-bot .msg-bubble{background:var(--purple);}
+  .msg-row.from-system{align-self:center;align-items:center;max-width:90%;}
+  .from-system .msg-bubble{background:#F1F5F9;color:var(--ink-faint);font-size:12px;font-style:italic;text-align:center;border-radius:10px;}
+
+  @media (max-width:860px){.sidebar{display:none;}.main{padding:20px 16px 32px;}}
+</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Invalid session");
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <div class="nav-group">
+      <a href="csr-dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="tickets.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+        Tickets
+      </a>
+      <a href="kyc.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M4 17c0-1.5 1.5-3 4.5-3s4.5 1.5 4.5 3"/><path d="M15 10h5M15 14h3"/></svg>
+        KYC
+      </a>
+      <a href="customers.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Customers
+      </a>
+      <a href="qa.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        Quality Assurance
+      </a>
+      <a href="reports.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Reports
+      </a>
+      <a href="openai.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        OpenAI
+      </a>
+      <a href="agents.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Agents
+      </a>
+      <a href="settings.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
+      </a>
+    </div>
+    <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="greeting">
+        <h1>Quality Assurance</h1>
+        <p>DSAT remarks review — tagged by severity so the legit service complaints surface first.</p>
+      </div>
+      <button class="qa-refresh" id="qaRefreshBtn">↻ Refresh</button>
+    </div>
+
+    <div class="qa-cards">
+      <div class="qa-card" data-sev="all">
+        <div class="qa-label">Total DSATs</div>
+        <div class="qa-value" id="qaTotal">—</div>
+        <div class="qa-sub" id="qaTotalSub"></div>
+      </div>
+      <div class="qa-card" data-sev="high">
+        <div class="qa-label" style="color:var(--danger);">High — Legit Complaints</div>
+        <div class="qa-value" style="color:var(--danger);" id="qaHigh">—</div>
+        <div class="qa-sub">Service/payment issues + may remarks</div>
+      </div>
+      <div class="qa-card" data-sev="medium">
+        <div class="qa-label" style="color:var(--warning);">Medium — Venting</div>
+        <div class="qa-value" style="color:var(--warning);" id="qaMed">—</div>
+        <div class="qa-sub">Mura/insulto, walang specific na aayusin</div>
+      </div>
+      <div class="qa-card" data-sev="low">
+        <div class="qa-label">Low — No Remarks</div>
+        <div class="qa-value" id="qaLow">—</div>
+        <div class="qa-sub">Rating lang, walang paliwanag</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>DSAT Remarks <span id="liveIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;">Loading…</span></h3>
+      </div>
+      <div class="filter-tabs" id="brandTabs"></div>
+      <div class="date-filter-wrap" id="dateFilterWrap">
+        <select id="dateFilter">
+          <option value="today" selected>Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+          <option value="month">This Month</option>
+          <option value="custom" id="customDateOption">Custom Date</option>
+        </select>
+        <div class="custom-date-pop" id="customDatePop">
+          <label for="customDateFrom">From</label>
+          <input type="date" id="customDateFrom">
+          <label for="customDateTo">To</label>
+          <input type="date" id="customDateTo">
+          <div class="custom-date-actions">
+            <button type="button" id="customDateCancel">Cancel</button>
+            <button type="button" id="customDateApply">Apply</button>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="qa-table">
+          <thead><tr><th>Customer</th><th>Brand</th><th>Severity</th><th>Rating</th><th>Remarks</th><th>When</th></tr></thead>
+          <tbody id="qaBody"><tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- THREAD MODAL -->
+  <div class="modal-overlay" id="convModalOverlay">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="modalCustomerName">—</div>
+          <div class="modal-sub" id="modalCustomerSub">—</div>
+        </div>
+        <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody"><div class="empty-note">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- shared helpers (mirrors customers.html conventions) ----
+  const BRAND_LABELS = {
+    buenasph: 'Buenas PH', tmtcash: 'TMTCash', mcp: 'Mobile Casino Play', manilaplayph: 'Manila Play PH',
+    HypleplayPH: 'HypePlay PH', HypeplayBD: 'HypePlay BD', Tmtplay: 'TMTPLAY', MGK: '88MGK',
+    BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH',
+    casinyeam: 'Casinyeam', manilacasino: 'Manila Casino', superscatterph: 'SuperScatter PH',
+    'livechat-general': 'LC General',
+  };
+  function brandLabel(slug) {
+    if (!slug) return 'Unknown';
+    return BRAND_LABELS[slug] || slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function colorForName(name) {
+    let hash = 0; const s = name || '';
+    for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
+    const palette = ['#2563EB','#8B5CF6','#EC4899','#F59E0B','#14B8A6','#22C55E','#EF4444','#0EA5E9'];
+    return palette[Math.abs(hash) % palette.length];
+  }
+  function initialsForName(name) {
+    if (!name) return '?';
+    return name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  }
+  function timeAgo(dateStr) {
+    if (!dateStr) return '—';
+    const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+  }
+  function stripHtmlClient(html) {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  const AI_BOT_NAMES_CLIENT = new Set([
+    'Admin Joy','Admin Love','Agent Jem','Manila Play Admin','Mona','Hype Play PH Admin','Bogchi',
+    'Lucky Stacks Admin','Admin May','TMTPlay Admin','Buenas88 Admin','Admin Heart','Maya',
+  ]);
+
+  // ---- DSAT severity classifier — KEEP IN SYNC with customers.html ----
+  // HIGH = legit service/payment complaints + any unmatched written remark
+  // MEDIUM = pure venting (mura/insulto/blanket scam) ; LOW = no remarks
+  const DSAT_SERVICE_WORDS = [
+    'slow','mabagal','matagal','bagal','late','delay','no response','walang sagot','hindi sinagot','di sinagot',
+    'hindi sumagot','poor','bad service','not helpful','walang tulong','hindi nakatulong','unresolved','hindi naayos',
+    'di naayos','paulit ulit','paulit-ulit','ignored','dedma',
+    'refund','hindi binayaran','di binayaran','not paid','no payout','walang payout','hindi na withdraw','di na withdraw',
+    'খারাপ','বাজে','সমস্যা','দেরি','ধীর','টাকা মেরে','টাকা খেয়ে',
+  ];
+  const DSAT_VENT_WORDS = [
+    'scam','fraud','estafa','budol','niloko','nloko','panloloko','manloloko','nakaw','magnanakaw',
+    'putang','tang ina','tangina','tanga','bobo','gago','ulol','walang kwenta','walangkwenta','basura',
+    'প্রতারণা','ধোকা','চিটার','বাটপার',
+  ];
+  function dsatSeverity(feedback) {
+    const t = (feedback || '').toLowerCase().trim();
+    if (!t) return 'low';
+    if (DSAT_SERVICE_WORDS.some(w => t.includes(w))) return 'high';
+    if (DSAT_VENT_WORDS.some(w => t.includes(w))) return 'medium';
+    return 'high';
+  }
+  const SEV_LABEL = { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
+
+  // ---- state ----
+  let allDsats = [];
+  let currentBrand = 'all';
+  let currentSev = 'all';
+  let currentDateFilter = 'today';
+  let customDateFrom = null;
+  let customDateTo = null;
+
+  function getDateRangeParams() {
+    const now = new Date();
+    let from, to;
+    if (currentDateFilter === 'today') { from = new Date(now); from.setHours(0,0,0,0); to = new Date(now); to.setHours(23,59,59,999); }
+    else if (currentDateFilter === 'yesterday') { const y = new Date(now); y.setDate(y.getDate()-1); from = new Date(y); from.setHours(0,0,0,0); to = new Date(y); to.setHours(23,59,59,999); }
+    else if (currentDateFilter === '7d') { from = new Date(now); from.setDate(from.getDate()-7); from.setHours(0,0,0,0); to = new Date(now); to.setHours(23,59,59,999); }
+    else if (currentDateFilter === '30d') { from = new Date(now); from.setDate(from.getDate()-30); from.setHours(0,0,0,0); to = new Date(now); to.setHours(23,59,59,999); }
+    else if (currentDateFilter === 'month') { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now); to.setHours(23,59,59,999); }
+    else if (currentDateFilter === 'custom' && customDateFrom && customDateTo) { from = customDateFrom; to = customDateTo; }
+    else return null;
+    return { from: from.toISOString(), to: to.toISOString() };
+  }
+
+  // Loads DSATs from the CSAT endpoint (small payload: ratings + feedback
+  // only). No auto-poll — QA is a review page, loaded on open / on filter
+  // change / on the Refresh button (egress-friendly by design).
+  async function loadDsats() {
+    const token = localStorage.getItem('pipeline_token');
+    if (!token) return;
+    const ind = document.getElementById('liveIndicator');
+    ind.textContent = 'Loading…'; ind.style.color = 'var(--ink-faint)';
+    try {
+      const params = new URLSearchParams();
+      const range = getDateRangeParams();
+      if (range) { params.set('from', range.from); params.set('to', range.to); }
+      // /csat responses lack brand+name, so pull rated conversations from
+      // /conversations instead (has contact, brand, feedback, thread link).
+      params.set('limit', '1000'); params.set('perBrand', '1000');
+      const res = await fetch(`${API_BASE}/chatwoot/conversations?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      allDsats = (data.conversations || [])
+        .filter(c => c.csatRating != null && c.csatRating <= 2)
+        .map(c => ({ ...c, severity: dsatSeverity(c.csatFeedback) }))
+        .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
+      ind.textContent = '● Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      ind.style.color = 'var(--success)';
+      renderAll();
+    } catch (err) {
+      console.error('QA load failed:', err);
+      ind.textContent = '● Error loading'; ind.style.color = 'var(--danger)';
+    }
+  }
+
+  function renderAll() {
+    // cards
+    const counts = { high: 0, medium: 0, low: 0 };
+    const scoped = currentBrand === 'all' ? allDsats : allDsats.filter(c => c.brand === currentBrand);
+    scoped.forEach(c => counts[c.severity]++);
+    document.getElementById('qaTotal').textContent = scoped.length;
+    document.getElementById('qaTotalSub').textContent = currentBrand === 'all' ? 'All brands' : brandLabel(currentBrand);
+    document.getElementById('qaHigh').textContent = counts.high;
+    document.getElementById('qaMed').textContent = counts.medium;
+    document.getElementById('qaLow').textContent = counts.low;
+    document.querySelectorAll('.qa-card').forEach(card => card.classList.toggle('active', card.dataset.sev === currentSev));
+
+    // brand tabs
+    const brandCounts = {};
+    allDsats.forEach(c => { brandCounts[c.brand] = (brandCounts[c.brand] || 0) + 1; });
+    const tabs = document.getElementById('brandTabs');
+    tabs.innerHTML = `<div class="ftab ${currentBrand === 'all' ? 'active' : ''}" data-brand="all">All Brands <span class="count">${allDsats.length}</span></div>` +
+      Object.keys(brandCounts).sort((a, b) => brandCounts[b] - brandCounts[a]).map(b =>
+        `<div class="ftab ${currentBrand === b ? 'active' : ''}" data-brand="${escapeHtml(b)}">${escapeHtml(brandLabel(b))} <span class="count">${brandCounts[b]}</span></div>`).join('');
+    tabs.querySelectorAll('.ftab').forEach(tab => tab.addEventListener('click', () => {
+      currentBrand = tab.dataset.brand; renderAll();
+    }));
+
+    // table
+    const list = scoped.filter(c => currentSev === 'all' || c.severity === currentSev);
+    const tbody = document.getElementById('qaBody');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-note">No DSATs match this view — nice!</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(c => {
+      const name = c.contactName || 'Unknown';
+      return `<tr data-conversation-id="${c.conversationId}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
+        <td><div class="c-customer"><div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div><div class="c-cname">${escapeHtml(name)}</div></div></td>
+        <td><span class="c-brand">${escapeHtml(brandLabel(c.brand))}</span></td>
+        <td><span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span></td>
+        <td><span class="qa-star" style="color:var(--danger);">★ ${c.csatRating}/5</span></td>
+        <td><div class="qa-remarks ${c.csatFeedback ? '' : 'empty'}">${c.csatFeedback ? escapeHtml(c.csatFeedback) : 'No remarks'}</div></td>
+        <td><div class="c-time">${timeAgo(c.lastActivityAt)}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ---- interactions ----
+  document.querySelectorAll('.qa-card').forEach(card => card.addEventListener('click', () => {
+    const sev = card.dataset.sev;
+    currentSev = (currentSev === sev || sev === 'all') ? 'all' : sev;
+    if (sev === 'all') currentSev = 'all';
+    renderAll();
+  }));
+  document.getElementById('qaRefreshBtn').addEventListener('click', loadDsats);
+
+  // date filter (chat retention cap: 70 days — see backend EVENT_RETENTION_DAYS)
+  (function setupDateFilter() {
+    const select = document.getElementById('dateFilter');
+    const pop = document.getElementById('customDatePop');
+    const fromInput = document.getElementById('customDateFrom');
+    const toInput = document.getElementById('customDateTo');
+    const RETENTION_DAYS = 70;
+    const minD = new Date(); minD.setDate(minD.getDate() - RETENTION_DAYS);
+    const minStr = minD.toISOString().slice(0, 10);
+    fromInput.min = minStr; toInput.min = minStr;
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:10.5px;color:var(--ink-faint);margin-top:8px;';
+    note.textContent = `Chat data available: last ${RETENTION_DAYS} days`;
+    pop.appendChild(note);
+
+    select.addEventListener('change', (e) => {
+      if (e.target.value === 'custom') { pop.classList.add('open'); fromInput.focus(); return; }
+      pop.classList.remove('open');
+      currentDateFilter = e.target.value;
+      loadDsats();
+    });
+    document.getElementById('customDateApply').addEventListener('click', () => {
+      if (!fromInput.value || !toInput.value) { alert('Please pick both a start and end date.'); return; }
+      if (fromInput.value > toInput.value) { alert('Start date must be before the end date.'); return; }
+      customDateFrom = new Date(fromInput.value + 'T00:00:00');
+      customDateTo = new Date(toInput.value + 'T23:59:59.999');
+      currentDateFilter = 'custom';
+      select.value = 'custom';
+      const f = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      document.getElementById('customDateOption').textContent = `${f(customDateFrom)} – ${f(customDateTo)}`;
+      pop.classList.remove('open');
+      loadDsats();
+    });
+    document.getElementById('customDateCancel').addEventListener('click', () => {
+      pop.classList.remove('open');
+      select.value = currentDateFilter;
+    });
+    document.addEventListener('click', (e) => {
+      if (!pop.classList.contains('open')) return;
+      if (document.getElementById('dateFilterWrap').contains(e.target)) return;
+      pop.classList.remove('open');
+      select.value = currentDateFilter;
+    });
+  })();
+
+  // ---- thread modal (same behavior as customers.html) ----
+  document.getElementById('qaBody').addEventListener('click', (e) => {
+    const row = e.target.closest('tr[data-conversation-id]');
+    if (!row) return;
+    openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
+  });
+  document.getElementById('modalCloseBtn').addEventListener('click', closeConversationModal);
+  document.getElementById('convModalOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'convModalOverlay') closeConversationModal();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeConversationModal(); });
+  function closeConversationModal() { document.getElementById('convModalOverlay').classList.remove('open'); }
+
+  async function openConversationModal(conversationId, customerName, customerSub) {
+    const overlay = document.getElementById('convModalOverlay');
+    const body = document.getElementById('modalBody');
+    document.getElementById('modalCustomerName').textContent = customerName || 'Unknown';
+    document.getElementById('modalCustomerSub').textContent = customerSub || '';
+    body.innerHTML = '<div class="empty-note">Loading…</div>';
+    overlay.classList.add('open');
+    const token = localStorage.getItem('pipeline_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&limit=200`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const messages = (data.events || []).slice().reverse();
+      const byMessageId = new Map();
+      let syntheticKey = 0;
+      messages.filter(m => m.content).forEach(m => { byMessageId.set(m.messageId ?? `__no_id_${syntheticKey++}`, m); });
+      const withContent = [...byMessageId.values()];
+      if (!withContent.length) {
+        body.innerHTML = '<div class="empty-note">No messages found for this conversation. (Common for imported ratings whose full thread predates the current database — the rating is real, the thread lives in the old DB until the history restore.)</div>';
+        return;
+      }
+      body.innerHTML = withContent.map(m => {
+        let cls, who;
+        if (m.senderType === 'contact') { cls = 'from-customer'; who = m.contactName || 'Customer'; }
+        else if (m.senderType === 'user') {
+          const isBot = AI_BOT_NAMES_CLIENT.has(m.senderName);
+          cls = 'from-agent' + (isBot ? ' is-bot' : '');
+          who = m.senderName || 'Agent';
+        } else { cls = 'from-system'; who = 'Automated Message'; }
+        const when = m.createdAt ? new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+        return `<div class="msg-row ${cls}"><div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div><div class="msg-bubble">${escapeHtml(stripHtmlClient(m.content))}</div></div>`;
+      }).join('');
+      body.scrollTop = body.scrollHeight;
+    } catch (err) {
+      console.error('Failed to load thread:', err);
+      body.innerHTML = '<div class="empty-note">Could not load this conversation. Please try again.</div>';
+    }
+  }
+
+  loadDsats();
+</script>
+
+<!-- ================================================================
+  TRANSLATE TO ENGLISH (free — MyMemory) — same widget as customers.html,
+  for reading Bengali (HypePlay BD) remarks and threads on this page.
+================================================================= -->
+<style>
+  #btTranslateBtn{position:fixed;bottom:22px;right:22px;z-index:9999;display:none;align-items:center;gap:8px;padding:11px 16px;border:none;cursor:pointer;border-radius:999px;font-family:inherit;font-size:13px;font-weight:700;background:#2563EB;color:#fff;box-shadow:0 4px 14px rgba(37,99,235,.35);}
+  #btTranslateBtn.bt-on{background:#0F172A;}
+  #btTranslateBtn:disabled{opacity:.6;cursor:wait;}
+  .bt-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:8px;background:#EFF4FF;color:#2563EB;font-size:9.5px;font-weight:800;vertical-align:middle;letter-spacing:.02em;}
+</style>
+<button id="btTranslateBtn" type="button">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
+  <span id="btTranslateLabel">Translate to English</span>
+</button>
+<script>
+(function () {
+  const MYMEMORY_EMAIL = '';
+  const BN_REGEX = /[\u0980-\u09FF]/;
+  const CACHE_PREFIX = 'bt_bn_en::';
+  const btn = document.getElementById('btTranslateBtn');
+  const label = document.getElementById('btTranslateLabel');
+  let translatedNow = false;
+  let working = false;
+
+  function cacheGet(text) { try { return localStorage.getItem(CACHE_PREFIX + text); } catch { return null; } }
+  function cacheSet(text, translation) { try { localStorage.setItem(CACHE_PREFIX + text, translation); } catch { /* full */ } }
+
+  function translationRoot() {
+    const modal = document.querySelector('#convModalOverlay.open .modal-body');
+    return modal || document.body;
+  }
+  function bengaliTextNodes() {
+    const walker = document.createTreeWalker(translationRoot(), NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!BN_REGEX.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+        const el = node.parentElement;
+        if (!el) return NodeFilter.FILTER_REJECT;
+        const tag = el.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') return NodeFilter.FILTER_REJECT;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    return nodes;
+  }
+
+  async function translateText(text) {
+    const cached = cacheGet(text);
+    if (cached) return cached;
+    const email = MYMEMORY_EMAIL ? `&de=${encodeURIComponent(MYMEMORY_EMAIL)}` : '';
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=bn|en${email}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`translate HTTP ${res.status}`);
+    const data = await res.json();
+    const out = data?.responseData?.translatedText;
+    if (!out || Number(data.responseStatus) !== 200 || /MYMEMORY WARNING|USED ALL AVAILABLE/i.test(out)) {
+      throw new Error(data?.responseDetails || out || 'translation failed');
+    }
+    cacheSet(text, out);
+    return out;
+  }
+
+  async function translateVisible() {
+    working = true;
+    btn.disabled = true;
+    const nodes = bengaliTextNodes();
+    let done = 0, failed = 0, quotaHit = false;
+    for (const node of nodes) {
+      if (node.__btOriginal) { done++; continue; }
+      const original = node.nodeValue;
+      const trimmed = original.trim();
+      if (!trimmed) continue;
+      label.textContent = `Translating… ${done + 1}/${nodes.length}`;
+      try {
+        const translated = await translateText(trimmed);
+        node.__btOriginal = original;
+        node.nodeValue = original.replace(trimmed, translated);
+        const el = node.parentElement;
+        if (el && !el.querySelector(':scope > .bt-tag')) {
+          const tag = document.createElement('span');
+          tag.className = 'bt-tag';
+          tag.textContent = 'EN';
+          el.appendChild(tag);
+        }
+        done++;
+        await new Promise(r => setTimeout(r, 350));
+      } catch (e) {
+        console.warn('Translate failed for one message:', e.message);
+        failed++;
+        if (/429|quota|403|TOO MANY|USED ALL/i.test(e.message)) { quotaHit = true; break; }
+      }
+    }
+    translatedNow = true;
+    btn.classList.add('bt-on');
+    if (quotaHit) {
+      label.textContent = done ? `Show original (limit hit after ${done})` : 'Show original';
+      alert('The free translation service hit its rate/daily limit.\n\n' +
+            (done ? `${done} message(s) were translated before it stopped. ` : 'Nothing was translated. ') +
+            'Wait a minute and try again — or ask the admin to set MYMEMORY_EMAIL in qa.html to raise the free daily limit.');
+    } else {
+      label.textContent = failed ? `Show original (${failed} failed)` : 'Show original';
+    }
+    btn.disabled = false;
+    working = false;
+  }
+
+  function revertAll() {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (node.__btOriginal) { node.nodeValue = node.__btOriginal; delete node.__btOriginal; }
+    }
+    document.querySelectorAll('.bt-tag').forEach(t => t.remove());
+    translatedNow = false;
+    btn.classList.remove('bt-on');
+    label.textContent = 'Translate to English';
+  }
+
+  btn.addEventListener('click', () => {
+    if (working) return;
+    if (translatedNow) revertAll();
+    else translateVisible();
+  });
+
+  setInterval(() => {
+    if (working) return;
+    const hasBengali = BN_REGEX.test(document.body.innerText || '');
+    if (hasBengali) { btn.style.display = 'flex'; }
+    else { if (translatedNow) revertAll(); btn.style.display = 'none'; }
+  }, 1500);
+})();
+</script>
+<!-- ============== END TRANSLATE TO ENGLISH BLOCK ============== -->
+</body>
+</html>
