@@ -778,6 +778,49 @@ router.get('/pending', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/chatwoot/agent-messages?brands=buenasph,tmtcash&from=...&to=...
+// Feed for the QA page's Agent Conduct scanner (added 2026-09-14): returns
+// REAL human agents' outbound messages (senderType='user', excluding the
+// AI bot personas) for the given brands and window — just the columns the
+// scanner needs, so each scan stays small. Classification itself happens
+// client-side so the wordlists can be tuned without redeploying the backend.
+router.get('/agent-messages', requireAuth, async (req, res) => {
+  try {
+    const brands = String(req.query.brands || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!brands.length) return res.status(400).json({ error: 'brands required (csv)' });
+    const from = req.query.from || null;
+    const to = req.query.to || null;
+    const limit = Math.min(Number(req.query.limit) || 2000, 5000);
+    const dateClause = (from && to) ? 'AND "createdAt" BETWEEN :from AND :to' : '';
+    const botNames = [...AI_BOT_SENDER_NAMES];
+
+    const rows = await sequelize.query(`
+      SELECT "conversationId", "brand", "senderName", "content", "createdAt"
+      FROM "ChatwootEvents"
+      WHERE event = 'message_created'
+        AND "senderType" = 'user'
+        AND "content" IS NOT NULL
+        AND "senderName" IS NOT NULL
+        AND "senderName" NOT IN (:botNames)
+        AND "brand" IN (:brands)
+        ${dateClause}
+      ORDER BY "createdAt" DESC
+      LIMIT :limit
+    `, { replacements: { brands, botNames, from, to, limit }, type: QueryTypes.SELECT });
+
+    res.json({ messages: rows.map(r => ({
+      conversationId: r.conversationId,
+      brand: r.brand,
+      agent: r.senderName,
+      content: stripHtml(r.content),
+      createdAt: r.createdAt,
+    })) });
+  } catch (err) {
+    console.error('Chatwoot agent-messages error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/events', requireAuth, async (req, res) => {
   try {
     const where = {};
