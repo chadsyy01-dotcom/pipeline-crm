@@ -252,10 +252,17 @@
     <div class="panel" style="margin-top:18px;">
       <div class="panel-head">
         <h3>Agent Conduct — TMTCash &amp; Buenas PH <span id="conductIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;"></span></h3>
-        <button class="qa-refresh" id="conductScanBtn">⚲ Scan agent replies</button>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <select id="conductDateSelect" style="font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);background:var(--card);cursor:pointer;">
+            <option value="today" selected>Today</option>
+            <option value="yesterday">Yesterday</option>
+          </select>
+          <button class="qa-refresh" id="conductScanBtn">⚲ Scan agent replies</button>
+          <button class="qa-refresh" id="conductClearBtn" style="display:none;color:var(--success);border-color:var(--success-tint);">✓ Clear — done checking</button>
+        </div>
       </div>
       <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.5;">
-        Scans <b>real agents'</b> replies (bots excluded) in the selected date range for rude language — insults, cursing, dismissive phrases, and all-caps shouting. Keyword-based: catches the obvious; tone/sarcasm needs human review. Uses the date filter above.
+        Scans <b>real agents'</b> replies (bots excluded) in the selected date range for rude language — insults, cursing, dismissive phrases, and all-caps shouting. Keyword-based: catches the obvious; tone/sarcasm needs human review. Pick Today or Yesterday, scan, then Clear once reviewed.
       </div>
       <div class="filter-tabs" id="conductAgentTabs" style="display:none;"></div>
       <div class="table-wrap">
@@ -326,7 +333,7 @@
   }
   const AI_BOT_NAMES_CLIENT = new Set([
     'Admin Joy','Admin Love','Agent Jem','Manila Play Admin','Mona','Hype Play PH Admin','Bogchi',
-    'Lucky Stacks Admin','Admin May','TMTPlay Admin','Buenas88 Admin','Admin Heart','Maya',
+    'Lucky Stacks Admin','Admin May','TMTPlay Admin','Buenas88 Admin','Maya',
   ]);
 
   // ---- DSAT severity classifier — KEEP IN SYNC with customers.html ----
@@ -564,14 +571,26 @@
     { re: /\b(bobo|tanga|gago|ulol|engot|inutil|abnormal)\b/i, label: 'Insult' },
     { re: /(tang\s*ina|tangina|putang|punyeta|gagi|bwisit|leche|pakshet|pakyu|fuck|shit|stupid|idiot)/i, label: 'Cursing' },
     { re: /(edi\s*wow|wag\s+kang?\s+makulit|ang\s+kulit\s+mo|makulit\s+ka|problema\s+mo\s+yan|hindi\s+ko\s+problema|di\s+ko\s+problema|wala\s+akong\s+pakialam|pakialam\s+mo|bahala\s+ka|kaw\s+na\s+bahala|eh\s+ano\s+ngayon|so\s+what|shut\s*up|tumigil\s+ka|ang\s+ingay\s+mo|marunong\s+ka\s+bang?\s+magbasa|hindi\s+ka\s+ba\s+marunong\s+magbasa|nakakainis\s+ka|ang\s+tigas\s+ng\s+ulo|matigas\s+ang\s+ulo|deadma|dedma)/i, label: 'Dismissive' },
+    // Pabalang na walang mura (added 2026-09-14 after Admin Heart example:
+    // "Hindi ba kayo makapag hintay?" / "Hintayin niyo nalang").
+    { re: /((hindi|di)\s+(ba\s+)?(kayo|ka)\s+(ba\s+)?maka(pag)?\s*hintay|(hindi|di)\s+ba\s+(kayo|ka)\s+marunong|ang\s+dami\s+(niyong|nyong|mong)\s+(tanong|reklamo|arte|satsat)|sabi\s+ko\s+na\s+nga\s+ba|kaya\s+nga\s+sinabi\s+ko|paulit[\s-]*ulit\s+(ka|kayo)|inuulit\s+ko\s+na|kanina\s+pa\s+sinabi)/i, label: 'Impatient' },
+    // Curt brush-offs — SKIPPED kapag may politeness marker (po/paki/please),
+    // para hindi ma-flag ang magalang na "paki-hintay na lang po".
+    { re: /(hintayin\s+(niyo|nyo|mo)\s+na\s*lang|maghintay\s+(ka|kayo)\s+na\s*lang|antayin\s+(niyo|nyo|mo)\s+na\s*lang|antay\s+(ka|kayo)\s+na\s*lang|bahala\s+na\s+kayo|ayusin\s+(niyo|nyo|mo)\s+na\s*lang\s+sarili)/i, label: 'Curt', politenessSoftened: true },
   ];
+  const POLITE_RE = /\b(po|paki|please|pls|opo)\b/i;
   function conductCheck(text) {
     const t = (text || '').trim();
     if (!t) return null;
     const reasons = [];
     for (const p of RUDE_PATTERNS) {
       const m = t.match(p.re);
-      if (m) reasons.push({ label: p.label, match: m[0] });
+      if (m) {
+        // A curt phrase said with po/paki/please reads as normal service
+        // language, not rudeness — skip only those softened categories.
+        if (p.politenessSoftened && POLITE_RE.test(t)) continue;
+        reasons.push({ label: p.label, match: m[0] });
+      }
     }
     const letters = t.replace(/[^A-Za-z]/g, '');
     if (letters.length >= 12) {
@@ -584,6 +603,23 @@
   let conductAgentFilter = 'all';
   let conductFlagged = [];
 
+  // Conduct panel keeps its OWN Today/Yesterday range — the shift-review
+  // rhythm — independent of the page-wide DSAT date filter above.
+  function conductRange() {
+    const sel = document.getElementById('conductDateSelect').value;
+    const now = new Date();
+    let from, to;
+    if (sel === 'yesterday') {
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      from = new Date(y); from.setHours(0, 0, 0, 0);
+      to = new Date(y); to.setHours(23, 59, 59, 999);
+    } else {
+      from = new Date(now); from.setHours(0, 0, 0, 0);
+      to = new Date(now); to.setHours(23, 59, 59, 999);
+    }
+    return { from: from.toISOString(), to: to.toISOString() };
+  }
+
   async function scanConduct() {
     const token = localStorage.getItem('pipeline_token');
     const ind = document.getElementById('conductIndicator');
@@ -593,8 +629,8 @@
     ind.textContent = 'Scanning\u2026'; ind.style.color = 'var(--ink-faint)';
     try {
       const params = new URLSearchParams({ brands: CONDUCT_BRANDS.join(',') });
-      const range = getDateRangeParams();
-      if (range) { params.set('from', range.from); params.set('to', range.to); }
+      const range = conductRange();
+      params.set('from', range.from); params.set('to', range.to);
       const res = await fetch(`${API_BASE}/chatwoot/agent-messages?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -604,9 +640,11 @@
         const reasons = conductCheck(m.content);
         if (reasons) conductFlagged.push({ ...m, reasons });
       });
-      ind.textContent = `\u25CF Scanned ${msgs.length} agent replies \u2014 ${conductFlagged.length} flagged`;
+      const rangeName = document.getElementById('conductDateSelect').value === 'yesterday' ? 'Yesterday' : 'Today';
+      ind.textContent = `\u25CF ${rangeName}: scanned ${msgs.length} agent replies \u2014 ${conductFlagged.length} flagged`;
       ind.style.color = conductFlagged.length ? 'var(--danger)' : 'var(--success)';
       conductAgentFilter = 'all';
+      document.getElementById('conductClearBtn').style.display = '';
       renderConduct();
     } catch (err) {
       console.error('Conduct scan failed:', err);
@@ -658,6 +696,27 @@
   }
 
   document.getElementById('conductScanBtn').addEventListener('click', scanConduct);
+  document.getElementById('conductClearBtn').addEventListener('click', () => {
+    const rangeName = document.getElementById('conductDateSelect').value === 'yesterday' ? 'Yesterday' : 'Today';
+    const when = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    conductFlagged = [];
+    conductAgentFilter = 'all';
+    document.getElementById('conductAgentTabs').style.display = 'none';
+    document.getElementById('conductBody').innerHTML =
+      `<tr><td colspan="5"><div class="empty-note" style="color:var(--success);font-weight:600;">\u2713 ${rangeName} check complete \u2014 cleared at ${when}.<br><span style="font-weight:500;color:var(--ink-faint);font-size:11.5px;">Run a new scan anytime.</span></div></td></tr>`;
+    const ind = document.getElementById('conductIndicator');
+    ind.textContent = `\u2713 ${rangeName} \u2014 done checking (${when})`;
+    ind.style.color = 'var(--success)';
+    document.getElementById('conductClearBtn').style.display = 'none';
+  });
+  document.getElementById('conductDateSelect').addEventListener('change', () => {
+    document.getElementById('conductClearBtn').style.display = 'none';
+    document.getElementById('conductIndicator').textContent = '';
+    document.getElementById('conductAgentTabs').style.display = 'none';
+    conductFlagged = [];
+    document.getElementById('conductBody').innerHTML =
+      '<tr><td colspan="5"><div class="empty-note">Click \u201CScan agent replies\u201D to check the selected day.</div></td></tr>';
+  });
   document.getElementById('conductBody').addEventListener('click', (e) => {
     const row = e.target.closest('tr[data-conversation-id]');
     if (!row) return;
