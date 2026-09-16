@@ -433,6 +433,24 @@ function exportBillingCsv() {
 fetchPhpRate().then(() => { if (lastBillingData) renderBilling(lastBillingData); });
 loadAccounts();
 </script>
+<!-- ================================================================
+  CONSOLIDATED BILLING (MONTHLY) — v4 EDITABLE + LIVE OPEN AI (2026-09-15)
+  v4: the "Open AI" column is now a LIVE overlay — pulled from this page's
+  own /api/openai-billing (this month, per account, USD→PHP at the live
+  rate) and folded into every TOTAL automatically. It is never stored in
+  the DB and can't be hand-edited (shown as "auto (live)" in Edit mode).
+  v3: sheet TOTAL/NOTE header columns are stripped (they doubled the
+  totals); the note now renders as a footnote under the table.
+  Source of truth: our own DB via /api/billing/consolidated (editable
+  in-dashboard, saved with the Save button). The Google Sheet is only
+  offered as a one-time import seed the first time the page loads with
+  no saved data. TOTAL column and footer are always auto-computed.
+
+  HOW TO INSTALL: in frontend/public/openai.html, DELETE the previous
+  "CONSOLIDATED BILLING" block (everything from its opening comment to
+  "END CONSOLIDATED BILLING BLOCK") if it was already pasted, then paste
+  this ENTIRE block just BEFORE </body>.
+================================================================= -->
 <style>
   .cb-section{margin-top:24px;}
   .cb-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px;gap:12px;flex-wrap:wrap;}
@@ -477,6 +495,79 @@ loadAccounts();
   let cbData = null;      // { services, dates, divisions:[{name, vals[]}] }
   let cbEditing = false;
   let cbMeta = {};
+
+  // ---- LIVE OPEN AI column (v4) ----
+  // Pulled from this page's own OpenAI billing backend: this-month spend
+  // per account, converted USD->PHP at the live rate. Matched to division
+  // rows by normalized name; add manual pairs below when an OpenAI account
+  // name doesn't match its division name.
+  //   key = OpenAI account name (as shown in the account dropdown)
+  //   value = division row name in this table
+  const OPENAI_ACCOUNT_TO_DIVISION = {
+    // 'Buenas OpenAI': 'BUENAS CASH',
+    // 'MCP': 'MOBILE PLAY CASINO',
+  };
+  let liveOpenAi = { ok: false, byDivision: new Map(), unmatched: [], rate: null, asOf: null };
+  function cbNorm(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
+  async function loadLiveOpenAi() {
+    try {
+      const [sumRes, rateRes] = await Promise.all([
+        fetch(`${CB_API}/openai-billing/summary?range=month&account=all&compare=false`, { headers: authHeaders() }),
+        fetch('https://open.er-api.com/v6/latest/USD').catch(() => null),
+      ]);
+      if (!sumRes.ok) throw new Error('openai-billing HTTP ' + sumRes.status);
+      const sum = await sumRes.json();
+      let rate = null;
+      if (rateRes && rateRes.ok) {
+        const r = await rateRes.json();
+        rate = r && r.rates && r.rates.PHP ? r.rates.PHP : null;
+      }
+      if (!rate) throw new Error('no USD->PHP rate');
+      // Single-account setups return no byAccount — treat the org total as
+      // one entry named by the account, so it can still alias to a division.
+      const accounts = (sum.byAccount && sum.byAccount.length)
+        ? sum.byAccount
+        : [{ name: sum.account || 'OpenAI', totalUsd: sum.totalUsd || 0 }];
+      const divNorms = new Map(cbData ? cbData.divisions.map(d => [cbNorm(d.name), d.name]) : []);
+      const byDivision = new Map();
+      const unmatched = [];
+      for (const a of accounts) {
+        const aliased = OPENAI_ACCOUNT_TO_DIVISION[a.name];
+        let divName = aliased && divNorms.get(cbNorm(aliased)) ? divNorms.get(cbNorm(aliased)) : null;
+        if (!divName) {
+          const n = cbNorm(a.name);
+          divName = divNorms.get(n) || null;
+          if (!divName) { // containment fallback: "BUENAS CASH OPENAI" ~ "BUENAS CASH"
+            for (const [dn, orig] of divNorms) {
+              if (dn && n && (n.includes(dn) || dn.includes(n))) { divName = orig; break; }
+            }
+          }
+        }
+        const php = Math.round((a.totalUsd || 0) * rate * 100) / 100;
+        if (divName) byDivision.set(divName, (byDivision.get(divName) || 0) + php);
+        else if ((a.totalUsd || 0) > 0) unmatched.push(a.name + ' ($' + (a.totalUsd || 0).toFixed(2) + ')');
+      }
+      liveOpenAi = { ok: true, byDivision, unmatched, rate, asOf: new Date() };
+    } catch (err) {
+      console.warn('Live Open AI column unavailable:', err.message);
+      liveOpenAi = { ok: false, byDivision: new Map(), unmatched: [], rate: null, asOf: null };
+    }
+  }
+
+  function openAiColIdx() {
+    if (!cbData) return -1;
+    return cbData.services.findIndex(s => /open\s*ai/i.test(String(s || '')));
+  }
+  // Division vals with the live Open AI figure overlaid (render-time only —
+  // never persisted).
+  function effectiveVals(div) {
+    const idx = openAiColIdx();
+    if (idx < 0) return div.vals;
+    const out = div.vals.slice();
+    out[idx] = liveOpenAi.ok ? (liveOpenAi.byDivision.get(div.name) ?? null) : div.vals[idx];
+    return out;
+  }
 
   // ---- helpers ----
   function parseCsv(text) {
@@ -638,11 +729,15 @@ loadAccounts();
     rows.forEach(tr => {
       const name = tr.querySelector('.cb-name')?.value.trim();
       if (!name) return; // blank name = drop row
-      const vals = [...tr.querySelectorAll('.cb-val')].map(inp => {
+      // Open AI column is live-only: its cell has no input, so rebuild vals
+      // by service index and keep that slot null in storage.
+      const vals = cbData.services.map(() => null);
+      tr.querySelectorAll('.cb-val').forEach(inp => {
+        const k = Number(inp.dataset.k);
         const v = inp.value.trim();
-        if (v === '') return null;
+        if (v === '') { vals[k] = null; return; }
         const n = parseFloat(v.replace(/[₱,\s]/g, ''));
-        return isNaN(n) ? null : Math.round(n * 100) / 100;
+        vals[k] = isNaN(n) ? null : Math.round(n * 100) / 100;
       });
       divisions.push({ name, vals });
     });
@@ -679,9 +774,10 @@ loadAccounts();
     editBtn.style.display = cbEditing ? 'none' : '';
     editBar.classList.toggle('on', cbEditing);
 
-    const totals = d.divisions.map(rowTotal);
+    const effAll = d.divisions.map(div => effectiveVals(div));
+    const totals = effAll.map(vals => { const n = vals.filter(v => v != null); return n.length ? n.reduce((a, b) => a + b, 0) : null; });
     const svcTotals = d.services.map((_, k) => {
-      const nums = d.divisions.map(x => x.vals[k]).filter(v => v != null);
+      const nums = effAll.map(vals => vals[k]).filter(v => v != null);
       return nums.length ? nums.reduce((a, b) => a + b, 0) : null;
     });
     const grand = totals.filter(v => v != null).reduce((a, b) => a + b, 0);
@@ -700,30 +796,43 @@ loadAccounts();
     }
 
     // Table
+    const oaIdx = openAiColIdx();
     const head = '<tr><th>Division</th>' + d.services.map((s, k) =>
-      `<th>${esc(s)}${d.dates[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : ''}</th>`).join('')
+      `<th>${esc(s)}${k === oaIdx
+        ? `<span class="cb-date">${liveOpenAi.ok ? 'live · this month' : 'live · unavailable'}</span>`
+        : (d.dates[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : '')}</th>`).join('')
       + '<th>Total</th>' + (cbEditing ? '<th></th>' : '') + '</tr>';
 
     const body = d.divisions.map((div, i) => {
+      const eff = effAll[i];
+      const effTotal = totals[i];
       if (cbEditing) {
         return `<tr>
           <td><input class="cb-input cb-name" value="${esc(div.name)}"></td>
-          ${div.vals.map(v => `<td><input class="cb-input cb-val" inputmode="decimal" value="${v == null ? '' : v}"></td>`).join('')}
-          <td class="cb-total cb-rowtotal">${fmt(rowTotal(div))}</td>
+          ${div.vals.map((v, k) => k === oaIdx
+            ? `<td class="cb-oa-auto" style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(eff[k])}<br>auto (live)</td>`
+            : `<td><input class="cb-input cb-val" data-k="${k}" inputmode="decimal" value="${v == null ? '' : v}"></td>`).join('')}
+          <td class="cb-total cb-rowtotal">${fmt(effTotal)}</td>
           <td><button class="cb-rowdel" title="Remove division" data-i="${i}">✕</button></td>
         </tr>`;
       }
-      return `<tr><td>${esc(div.name)}</td>${div.vals.map(v => `<td>${fmt(v)}</td>`).join('')}<td class="cb-total">${fmt(rowTotal(div))}</td></tr>`;
+      return `<tr><td>${esc(div.name)}</td>${eff.map(v => `<td>${fmt(v)}</td>`).join('')}<td class="cb-total">${fmt(effTotal)}</td></tr>`;
     }).join('');
 
     const foot = `<tr><td>ALL DIVISIONS</td>${svcTotals.map(v => `<td>${fmt(v)}</td>`).join('')}<td>${fmt(grand || null)}</td>${cbEditing ? '<td></td>' : ''}</tr>`;
 
+    const liveNote = liveOpenAi.ok
+      ? (liveOpenAi.unmatched.length
+          ? `<div class="cb-note" style="margin-top:8px;color:var(--warning,#F59E0B);">Open AI accounts not matched to a division: ${esc(liveOpenAi.unmatched.join(', '))} — add them to OPENAI_ACCOUNT_TO_DIVISION in openai.html.</div>`
+          : '')
+      : `<div class="cb-note" style="margin-top:8px;">Open AI live column unavailable right now — totals shown without it.</div>`;
     const noteHtml = cbEditing
       ? `<div style="margin-top:12px;"><input class="cb-input" id="cbNoteInput" style="width:100%;text-align:left;font-weight:500;" placeholder="Optional note shown under the table" value="${esc(d.note || '')}"></div>`
       : (d.note ? `<div class="cb-note" style="margin-top:12px;">${esc(d.note)}</div>` : '');
+    const notesCombined = noteHtml + liveNote;
     wrap.innerHTML = (d.divisions.length || cbEditing
       ? `<table class="cb-table"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`
-      : '<div class="cb-empty">No billing data yet — click Edit to add divisions.</div>') + noteHtml;
+      : '<div class="cb-empty">No billing data yet — click Edit to add divisions.</div>') + notesCombined;
 
     if (cbEditing) {
       // live row totals while typing + row delete
@@ -732,6 +841,9 @@ loadAccounts();
         const nums = [...tr.querySelectorAll('.cb-val')]
           .map(x => parseFloat(x.value.replace(/[₱,\s]/g, '')))
           .filter(n => !isNaN(n));
+        // include this row's live Open AI figure so the total matches view mode
+        const oaCell = tr.querySelector('.cb-oa-auto');
+        if (oaCell) { const oa = parseFloat(oaCell.textContent.replace(/[₱,\s]/g, '')); if (!isNaN(oa)) nums.push(oa); }
         tr.querySelector('.cb-rowtotal').innerHTML = nums.length ? money(nums.reduce((a, b) => a + b, 0)) : '<span class="cb-dim">—</span>';
       }));
       wrap.querySelectorAll('.cb-rowdel').forEach(btn => btn.addEventListener('click', (e) => {
@@ -747,10 +859,11 @@ loadAccounts();
   }
 
   buildSection();
-  loadFromDb();
+  loadLiveOpenAi().finally(loadFromDb);
+  // Live Open AI refresh — billing moves slowly; 10 minutes is plenty.
+  setInterval(() => { loadLiveOpenAi().then(() => { if (!cbEditing && cbData) render(); }); }, 10 * 60 * 1000);
 })();
 </script>
-<!-- ============== END CONSOLIDATED BILLING BLOCK v3 ============== -->
-
+<!-- ============== END CONSOLIDATED BILLING BLOCK v4 ============== -->
 </body>
 </html>
