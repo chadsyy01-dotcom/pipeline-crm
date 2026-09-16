@@ -185,6 +185,19 @@
       </table>
     </div>
 
+    <div class="panel" id="tokensPanel">
+      <div class="panel-head"><h3>Token Usage by Brand <span id="tokensRangeTag" style="font-size:11px;font-weight:600;color:var(--ink-faint);"></span></h3></div>
+      <table class="li-table">
+        <thead><tr><th>Brand / Account</th><th class="num">Input</th><th class="num">Output</th><th class="num">Total Tokens</th><th class="num">Requests</th></tr></thead>
+        <tbody id="tokensByBrandBody"><tr><td colspan="5"><div class="empty-note">Loading token usage…</div></td></tr></tbody>
+      </table>
+      <div style="font-size:12px;font-weight:700;color:var(--ink-soft);margin:16px 0 6px;">Top Models (tokens)</div>
+      <table class="li-table">
+        <thead><tr><th>Model</th><th class="num">Input</th><th class="num">Output</th><th class="num">Total</th></tr></thead>
+        <tbody id="tokensByModelBody"><tr><td colspan="4"><div class="empty-note">—</div></td></tr></tbody>
+      </table>
+    </div>
+
     <div class="panel">
       <div class="panel-head"><h3>Cost by Line Item</h3></div>
       <table class="li-table">
@@ -217,6 +230,75 @@ function phpEquivalent(usd) {
 }
 let dailyChart = null;
 let lastBillingData = null;
+let lastTokensData = null;
+
+// ---- Token usage by brand (added 2026-09-15) ----
+// Same ranges/account selection as the cost summary; served by the new
+// /openai-billing/tokens endpoint (official Usage API, per-model breakdown).
+const fmtTok = n => (n == null ? '—' : Number(n).toLocaleString());
+
+function loadTokens() {
+  if (currentRange === 'custom' && !document.getElementById('customStart').value) return;
+  const token = localStorage.getItem('pipeline_token');
+  let url = `${API_BASE}/openai-billing/tokens?range=${currentRange}&account=${currentAccount}`;
+  if (currentRange === 'custom') {
+    const start = document.getElementById('customStart').value;
+    const end = document.getElementById('customEnd').value;
+    url += `&start=${start}`;
+    if (end) url += `&end=${end}`;
+  }
+  document.getElementById('tokensByBrandBody').innerHTML = '<tr><td colspan="5"><div class="empty-note">Loading token usage…</div></td></tr>';
+  fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    .then(async res => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    })
+    .then(data => { lastTokensData = data; renderTokens(data); })
+    .catch(err => {
+      console.error('Token usage failed:', err);
+      lastTokensData = null;
+      document.getElementById('tokensByBrandBody').innerHTML =
+        `<tr><td colspan="5"><div class="empty-note">Could not load token usage — ${err.message}. (Needs the updated openaiBilling.js deployed.)</div></td></tr>`;
+      document.getElementById('tokensByModelBody').innerHTML = '<tr><td colspan="4"><div class="empty-note">—</div></td></tr>';
+    });
+}
+
+function renderTokens(data) {
+  document.getElementById('tokensRangeTag').textContent = `— ${rangeLabelText(data.range)}`;
+  const brandBody = document.getElementById('tokensByBrandBody');
+  const rows = data.byAccount && data.byAccount.length
+    ? data.byAccount
+    : [{ name: data.account, inputTokens: data.inputTokens, outputTokens: data.outputTokens, totalTokens: data.totalTokens, requests: data.requests }];
+  const anyTokens = rows.some(r => (r.totalTokens || 0) > 0);
+  brandBody.innerHTML = anyTokens
+    ? rows.map(a => `
+      <tr>
+        <td>${a.name}</td>
+        <td class="num">${fmtTok(a.inputTokens)}</td>
+        <td class="num">${fmtTok(a.outputTokens)}</td>
+        <td class="num">${fmtTok(a.totalTokens)}</td>
+        <td class="num">${fmtTok(a.requests)}</td>
+      </tr>`).join('') + `
+      <tr style="font-weight:800;">
+        <td>TOTAL</td>
+        <td class="num">${fmtTok(data.inputTokens)}</td>
+        <td class="num">${fmtTok(data.outputTokens)}</td>
+        <td class="num">${fmtTok(data.totalTokens)}</td>
+        <td class="num">${fmtTok(data.requests)}</td>
+      </tr>`
+    : '<tr><td colspan="5"><div class="empty-note">No token usage in this period</div></td></tr>';
+  const modelBody = document.getElementById('tokensByModelBody');
+  modelBody.innerHTML = (data.topModels && data.topModels.length)
+    ? data.topModels.map(m => `
+      <tr>
+        <td>${m.model}</td>
+        <td class="num">${fmtTok(m.inputTokens)}</td>
+        <td class="num">${fmtTok(m.outputTokens)}</td>
+        <td class="num">${fmtTok(m.totalTokens)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4"><div class="empty-note">No model data in this period</div></td></tr>';
+}
 
 document.getElementById('rangeSelect').addEventListener('change', (e) => {
   currentRange = e.target.value;
@@ -282,6 +364,7 @@ function loadBilling() {
     return; // wait for the user to pick a start date and click Apply
   }
   document.getElementById('kpiLabel').textContent = `Total spend — ${rangeLabelText(currentRange)}`;
+  loadTokens(); // token panel follows the same range + account selection
   const token = localStorage.getItem('pipeline_token');
   const compare = document.getElementById('compareToggle').checked;
 
@@ -416,6 +499,18 @@ function exportBillingCsv() {
 
   sections.push('Cost by Line Item');
   sections.push(Papa.unparse((data.topLineItems || []).map(li => ({ 'Line Item': li.label, 'Amount (USD)': li.amount.toFixed(4) }))));
+
+  if (lastTokensData) {
+    sections.push('');
+    sections.push('Token Usage by Brand');
+    const tokRows = (lastTokensData.byAccount && lastTokensData.byAccount.length)
+      ? lastTokensData.byAccount
+      : [{ name: lastTokensData.account, inputTokens: lastTokensData.inputTokens, outputTokens: lastTokensData.outputTokens, totalTokens: lastTokensData.totalTokens, requests: lastTokensData.requests }];
+    sections.push(Papa.unparse(tokRows.map(a => ({ Brand: a.name, 'Input Tokens': a.inputTokens, 'Output Tokens': a.outputTokens, 'Total Tokens': a.totalTokens, Requests: a.requests }))));
+    sections.push('');
+    sections.push('Token Usage by Model');
+    sections.push(Papa.unparse((lastTokensData.topModels || []).map(m => ({ Model: m.model, 'Input Tokens': m.inputTokens, 'Output Tokens': m.outputTokens, 'Total Tokens': m.totalTokens }))));
+  }
 
   const csv = sections.join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
