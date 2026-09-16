@@ -155,6 +155,7 @@
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <span class="kb-meta" id="kbMeta"></span>
           <div class="kb-actions" id="kbViewActions">
+            <button class="kb-btn" id="kbSyncBtn" title="Pull the latest published content from the linked Google Doc" style="display:none;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync from Google Doc</button>
             <button class="kb-btn" id="kbCopyBtn" title="Copy the full KB text">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
               Copy
@@ -183,6 +184,10 @@
       </div>
 
       <div id="kbViewWrap"><div class="kb-empty">Loading…</div></div>
+      <div id="kbSourceRow" style="display:none;margin-bottom:10px;">
+        <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Google Doc published link (optional — enables one-click Sync)</label>
+        <input type="url" id="kbSourceUrl" placeholder="https://docs.google.com/document/d/e/…/pub" style="width:100%;max-width:640px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:12.5px;">
+      </div>
       <textarea class="kb-editor" id="kbEditor" style="display:none;" spellcheck="false"></textarea>
     </div>
   </main>
@@ -214,6 +219,7 @@
   let currentBrand = 'general';
   let currentContent = '';       // content of the open brand (view state)
   let currentMeta = null;        // { updatedAt, updatedBy }
+  let currentSourceUrl = null;   // published Google Doc /pub link, if set
   let kbIndex = {};              // brand -> { chars, updatedAt, updatedBy }
   let editing = false;
 
@@ -262,6 +268,7 @@
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
       currentContent = body.content || '';
+      currentSourceUrl = body.sourceUrl || null;
       currentMeta = body.updatedAt ? { updatedAt: body.updatedAt, updatedBy: body.updatedBy } : null;
       renderView();
     } catch (e) {
@@ -280,6 +287,7 @@
 
   function renderView(searchTerm) {
     $('kbMeta').textContent = metaText();
+    $('kbSyncBtn').style.display = currentSourceUrl ? '' : 'none';
     const wrap = $('kbViewWrap');
     if (!currentContent) {
       wrap.innerHTML = `<div class="kb-empty">Walang laman pa ang KB ng ${esc(brandLabel(currentBrand))}.<br>Click <b>Edit</b> to paste it, or <b>Upload .txt</b> inside Edit mode.</div>`;
@@ -310,7 +318,8 @@
     $('kbSearchRow').style.display = on ? 'none' : 'flex';
     $('kbViewWrap').style.display = on ? 'none' : '';
     $('kbEditor').style.display = on ? '' : 'none';
-    if (on) { $('kbEditor').value = currentContent; $('kbEditor').focus(); }
+    $('kbSourceRow').style.display = on ? '' : 'none';
+    if (on) { $('kbEditor').value = currentContent; $('kbSourceUrl').value = currentSourceUrl || ''; $('kbEditor').focus(); }
   }
 
   // ---- actions ----
@@ -361,14 +370,16 @@
     const content = $('kbEditor').value;
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
+      const srcUrl = $('kbSourceUrl').value.trim();
       const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, sourceUrl: srcUrl }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
       currentContent = content;
+      currentSourceUrl = $('kbSourceUrl').value.trim() || null;
       currentMeta = { updatedAt: new Date().toISOString(), updatedBy: 'you' };
       kbIndex[currentBrand] = { brand: currentBrand, chars: content.length, updatedAt: currentMeta.updatedAt };
       setEditing(false);
@@ -378,6 +389,36 @@
       alert('Could not save: ' + e.message);
     } finally {
       btn.disabled = false; btn.textContent = 'Save';
+    }
+  });
+
+  $('kbSyncBtn').addEventListener('click', async () => {
+    if (!currentSourceUrl) return;
+    const btn = $('kbSyncBtn');
+    btn.disabled = true; btn.textContent = '⟳ Syncing…';
+    try {
+      const res = await fetch(`${API_BASE}/kb/doc-proxy?url=${encodeURIComponent(currentSourceUrl)}`, { headers: authHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
+      const text = body.text || '';
+      if (!text) throw new Error('Doc came back empty.');
+      // save the synced text so every teammate sees it without re-syncing
+      const save = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ content: text, sourceUrl: currentSourceUrl }),
+      });
+      const saveBody = await save.json().catch(() => ({}));
+      if (!save.ok || !saveBody.ok) throw new Error(saveBody.error || 'save failed');
+      currentContent = text;
+      currentMeta = { updatedAt: new Date().toISOString(), updatedBy: 'you (sync)' };
+      kbIndex[currentBrand] = { brand: currentBrand, chars: text.length, updatedAt: currentMeta.updatedAt };
+      renderTabs();
+      renderView();
+    } catch (e) {
+      alert('Sync failed: ' + e.message + '\n\nTandaan: ang published docs ay may ~5 minutong lag pagkatapos ng edit, at kailangang naka-Publish to web pa rin ang doc.');
+    } finally {
+      btn.disabled = false; btn.textContent = '⟳ Sync from Google Doc';
     }
   });
 
