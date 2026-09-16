@@ -85,4 +85,48 @@ router.put('/consolidated', requireAuth, async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// OpenAI credit baselines (added 2026-09-15). OpenAI exposes no balance API,
+// so the dashboard computes balance = entered baseline - live spend since
+// its date. This stores the baselines under key 'openai-credits'.
+// Shape: { accounts: { "<account name>": { balance: 5.83, asOf: "2026-09-15" } } }
+// ---------------------------------------------------------------------------
+router.get('/openai-credits', requireAuth, async (req, res) => {
+  try {
+    await TABLE_READY;
+    const rows = await sequelize.query(`
+      SELECT "data", "updatedAt", "updatedBy" FROM "BillingConfig" WHERE "key" = 'openai-credits'
+    `, { type: QueryTypes.SELECT });
+    if (!rows.length) return res.json({ data: null });
+    res.json({ data: rows[0].data, updatedAt: rows[0].updatedAt, updatedBy: rows[0].updatedBy });
+  } catch (err) {
+    console.error('Billing openai-credits get error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/openai-credits', requireAuth, async (req, res) => {
+  try {
+    await TABLE_READY;
+    const data = req.body?.data;
+    if (!data || typeof data.accounts !== 'object' || data.accounts === null
+        || !Object.values(data.accounts).every(v => v && typeof v.balance === 'number'
+             && typeof v.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.asOf))) {
+      return res.status(400).json({ error: 'Invalid credit baseline shape.' });
+    }
+    const updatedBy = req.user?.name || req.user?.email || null;
+    await sequelize.query(`
+      INSERT INTO "BillingConfig" ("key", "data", "updatedAt", "updatedBy")
+      VALUES ('openai-credits', :data::jsonb, NOW(), :updatedBy)
+      ON CONFLICT ("key") DO UPDATE
+        SET "data" = EXCLUDED."data", "updatedAt" = NOW(), "updatedBy" = EXCLUDED."updatedBy"
+    `, { replacements: { data: JSON.stringify(data), updatedBy } });
+    console.log(`Billing: openai-credits saved by ${updatedBy || 'unknown'} \u2014 ${Object.keys(data.accounts).length} accounts.`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Billing openai-credits save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
