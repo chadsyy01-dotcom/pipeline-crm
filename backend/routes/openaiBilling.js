@@ -149,6 +149,55 @@ async function fetchCostSummary({ startTime, endTime }, adminKey) {
   return { totalUsd, dailyTotals, topLineItems };
 }
 
+// ---------------------------------------------------------------------------
+// TOKEN USAGE (added 2026-09-15) — official Usage API, same Admin keys as the
+// Costs API. /v1/organization/usage/completions returns per-bucket token
+// counts; grouped by model so the dashboard can show which models eat the
+// tokens. NOTE: this endpoint caps `limit` at 31 buckets per page for 1d
+// width (unlike Costs' 180) — pagination + the fetchAllPages rate-limit
+// spacing above handles longer ranges automatically.
+// ---------------------------------------------------------------------------
+async function fetchTokenUsage({ startTime, endTime }, adminKey) {
+  const params = { start_time: startTime, bucket_width: '1d', limit: 31, 'group_by[]': 'model' };
+  if (endTime) params.end_time = endTime;
+  const buckets = await fetchAllPages('https://api.openai.com/v1/organization/usage/completions', params, adminKey);
+
+  let inputTokens = 0, outputTokens = 0, cachedTokens = 0, requests = 0;
+  const byModel = {};
+  buckets.forEach(bucket => {
+    (bucket.results || []).forEach(r => {
+      const it = r.input_tokens || 0;
+      const ot = r.output_tokens || 0;
+      inputTokens += it;
+      outputTokens += ot;
+      cachedTokens += r.input_cached_tokens || 0;
+      requests += r.num_model_requests || 0;
+      const m = r.model || 'unknown';
+      const e = byModel[m] || (byModel[m] = { inputTokens: 0, outputTokens: 0, requests: 0 });
+      e.inputTokens += it;
+      e.outputTokens += ot;
+      e.requests += r.num_model_requests || 0;
+    });
+  });
+  return { inputTokens, outputTokens, cachedTokens, requests, byModel };
+}
+
+function mergeByModel(target, source) {
+  Object.entries(source).forEach(([m, v]) => {
+    const e = target[m] || (target[m] = { inputTokens: 0, outputTokens: 0, requests: 0 });
+    e.inputTokens += v.inputTokens;
+    e.outputTokens += v.outputTokens;
+    e.requests += v.requests;
+  });
+}
+
+function topModelsList(byModel) {
+  return Object.entries(byModel)
+    .map(([model, v]) => ({ model, ...v, totalTokens: v.inputTokens + v.outputTokens }))
+    .sort((a, b) => b.totalTokens - a.totalTokens)
+    .slice(0, 10);
+}
+
 // Merges multiple accounts' cost summaries into one aggregate view, and
 // keeps a per-account breakdown so the caller can see each one's share.
 function aggregateAccounts(perAccountResults, accounts) {
@@ -239,6 +288,73 @@ router.get('/summary', require('../middleware/auth').requireAuth, async (req, re
     });
   } catch (err) {
     console.error('OpenAI billing summary error:', err);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// GET /api/openai-billing/tokens?account=<index>|all&range=today|7d|month|prev_month|all|custom
+//   &start=YYYY-MM-DD&end=YYYY-MM-DD (custom range only)
+// Token usage per brand/account (and per model), from the official Usage
+// API. Same ranges and account selection as /summary.
+router.get('/tokens', require('../middleware/auth').requireAuth, async (req, res) => {
+  try {
+    const accounts = getAccounts();
+    if (accounts.length === 0) {
+      return res.status(500).json({ error: 'OPENAI_ACCOUNTS is not configured on this server yet.' });
+    }
+
+    const resolved = resolveRange(req);
+    const isAllAccounts = req.query.account === 'all';
+
+    let totals = { inputTokens: 0, outputTokens: 0, cachedTokens: 0, requests: 0 };
+    let byAccount = null;
+    const mergedModels = {};
+    let accountLabel;
+
+    if (isAllAccounts) {
+      const perAccount = await Promise.all(accounts.map(a => fetchTokenUsage(resolved, a.key)));
+      byAccount = perAccount.map((r, i) => ({
+        name: accounts[i].name || `Account ${i + 1}`,
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        totalTokens: r.inputTokens + r.outputTokens,
+        cachedTokens: r.cachedTokens,
+        requests: r.requests,
+      })).sort((a, b) => b.totalTokens - a.totalTokens);
+      perAccount.forEach(r => {
+        totals.inputTokens += r.inputTokens;
+        totals.outputTokens += r.outputTokens;
+        totals.cachedTokens += r.cachedTokens;
+        totals.requests += r.requests;
+        mergeByModel(mergedModels, r.byModel);
+      });
+      accountLabel = `All Accounts (${accounts.length})`;
+    } else {
+      const accountIndex = Number(req.query.account) || 0;
+      const account = accounts[accountIndex];
+      if (!account || !account.key) {
+        return res.status(400).json({ error: 'Unknown account.' });
+      }
+      const r = await fetchTokenUsage(resolved, account.key);
+      totals = { inputTokens: r.inputTokens, outputTokens: r.outputTokens, cachedTokens: r.cachedTokens, requests: r.requests };
+      mergeByModel(mergedModels, r.byModel);
+      accountLabel = account.name || 'Account';
+    }
+
+    res.json({
+      range: req.query.range || 'month',
+      rangeLabel: resolved.label,
+      account: accountLabel,
+      inputTokens: totals.inputTokens,
+      outputTokens: totals.outputTokens,
+      totalTokens: totals.inputTokens + totals.outputTokens,
+      cachedTokens: totals.cachedTokens,
+      requests: totals.requests,
+      byAccount,
+      topModels: topModelsList(mergedModels),
+    });
+  } catch (err) {
+    console.error('OpenAI token usage error:', err);
     res.status(502).json({ error: err.message });
   }
 });
