@@ -655,6 +655,20 @@ loadAccounts();
       cbData.divisions.forEach(d => { d.vals = d.vals.filter((_, i) => keep(i)); });
       changed = true;
     }
+    // Ensure a LiveChat column exists between Supabase and Open AI (added
+    // 2026-09-15 per ops request): a NORMAL editable/stored column like
+    // Netlify/N8N — blank until amounts are typed in via Edit. This is a
+    // one-time self-migration: it inserts the column into the saved data
+    // and the standard sanitize->persist flow saves it back.
+    if (!cbData.services.some(s => /live\s*chat/i.test(String(s || '')))) {
+      let at = cbData.services.findIndex(s => /open\s*ai/i.test(String(s || '')));
+      if (at < 0) at = cbData.services.length;
+      cbData.services.splice(at, 0, 'LiveChat');
+      cbData.dates = cbData.dates || [];
+      cbData.dates.splice(at, 0, '');
+      cbData.divisions.forEach(d => d.vals.splice(at, 0, null));
+      changed = true;
+    }
     return changed;
   }
 
