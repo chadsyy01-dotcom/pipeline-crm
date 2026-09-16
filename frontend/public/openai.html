@@ -172,6 +172,24 @@
       <div id="kpiCompare" style="font-size:12.5px;font-weight:600;margin-top:8px;display:none;"></div>
     </div>
 
+    <div class="panel" id="creditsPanel">
+      <div class="panel-head">
+        <h3>API Credit Balance by Brand <span id="creditsStatus" style="font-size:11px;font-weight:600;color:var(--ink-faint);"></span></h3>
+        <div style="display:flex;gap:8px;">
+          <button id="creditsEditBtn" style="font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-family:inherit;">Edit balances</button>
+          <button id="creditsSaveBtn" style="display:none;font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-family:inherit;">Save</button>
+          <button id="creditsCancelBtn" style="display:none;font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-family:inherit;">Cancel</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:10px;line-height:1.5;">
+        OpenAI has no public API for credit balance, so this is computed: enter each brand's balance (from platform.openai.com) once with its date — the dashboard then subtracts live spend since that date. Re-enter after every top-up.
+      </div>
+      <table class="li-table">
+        <thead><tr><th>Brand / Account</th><th class="num">Entered Balance</th><th>As of</th><th class="num">Spend Since</th><th class="num">Current Balance (est.)</th></tr></thead>
+        <tbody id="creditsBody"><tr><td colspan="5"><div class="empty-note">Loading…</div></td></tr></tbody>
+      </table>
+    </div>
+
     <div class="panel">
       <div class="panel-head"><h3>Daily Spend</h3></div>
       <canvas id="dailyChart" height="90"></canvas>
@@ -182,19 +200,6 @@
       <table class="li-table">
         <thead><tr><th>Account</th><th class="num">Cost</th></tr></thead>
         <tbody id="byAccountBody"></tbody>
-      </table>
-    </div>
-
-    <div class="panel" id="tokensPanel">
-      <div class="panel-head"><h3>Token Usage by Brand <span id="tokensRangeTag" style="font-size:11px;font-weight:600;color:var(--ink-faint);"></span></h3></div>
-      <table class="li-table">
-        <thead><tr><th>Brand / Account</th><th class="num">Input</th><th class="num">Output</th><th class="num">Total Tokens</th><th class="num">Requests</th></tr></thead>
-        <tbody id="tokensByBrandBody"><tr><td colspan="5"><div class="empty-note">Loading token usage…</div></td></tr></tbody>
-      </table>
-      <div style="font-size:12px;font-weight:700;color:var(--ink-soft);margin:16px 0 6px;">Top Models (tokens)</div>
-      <table class="li-table">
-        <thead><tr><th>Model</th><th class="num">Input</th><th class="num">Output</th><th class="num">Total</th></tr></thead>
-        <tbody id="tokensByModelBody"><tr><td colspan="4"><div class="empty-note">—</div></td></tr></tbody>
       </table>
     </div>
 
@@ -230,76 +235,6 @@ function phpEquivalent(usd) {
 }
 let dailyChart = null;
 let lastBillingData = null;
-let lastTokensData = null;
-
-// ---- Token usage by brand (added 2026-09-15) ----
-// Same ranges/account selection as the cost summary; served by the new
-// /openai-billing/tokens endpoint (official Usage API, per-model breakdown).
-const fmtTok = n => (n == null ? '—' : Number(n).toLocaleString());
-
-function loadTokens() {
-  if (currentRange === 'custom' && !document.getElementById('customStart').value) return;
-  const token = localStorage.getItem('pipeline_token');
-  let url = `${API_BASE}/openai-billing/tokens?range=${currentRange}&account=${currentAccount}`;
-  if (currentRange === 'custom') {
-    const start = document.getElementById('customStart').value;
-    const end = document.getElementById('customEnd').value;
-    url += `&start=${start}`;
-    if (end) url += `&end=${end}`;
-  }
-  document.getElementById('tokensByBrandBody').innerHTML = '<tr><td colspan="5"><div class="empty-note">Loading token usage…</div></td></tr>';
-  fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(async res => {
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      return data;
-    })
-    .then(data => { lastTokensData = data; renderTokens(data); })
-    .catch(err => {
-      console.error('Token usage failed:', err);
-      lastTokensData = null;
-      document.getElementById('tokensByBrandBody').innerHTML =
-        `<tr><td colspan="5"><div class="empty-note">Could not load token usage — ${err.message}. (Needs the updated openaiBilling.js deployed.)</div></td></tr>`;
-      document.getElementById('tokensByModelBody').innerHTML = '<tr><td colspan="4"><div class="empty-note">—</div></td></tr>';
-    });
-}
-
-function renderTokens(data) {
-  document.getElementById('tokensRangeTag').textContent = `— ${rangeLabelText(data.range)}`;
-  const brandBody = document.getElementById('tokensByBrandBody');
-  const rows = data.byAccount && data.byAccount.length
-    ? data.byAccount
-    : [{ name: data.account, inputTokens: data.inputTokens, outputTokens: data.outputTokens, totalTokens: data.totalTokens, requests: data.requests }];
-  const anyTokens = rows.some(r => (r.totalTokens || 0) > 0);
-  brandBody.innerHTML = anyTokens
-    ? rows.map(a => `
-      <tr>
-        <td>${a.name}</td>
-        <td class="num">${fmtTok(a.inputTokens)}</td>
-        <td class="num">${fmtTok(a.outputTokens)}</td>
-        <td class="num">${fmtTok(a.totalTokens)}</td>
-        <td class="num">${fmtTok(a.requests)}</td>
-      </tr>`).join('') + `
-      <tr style="font-weight:800;">
-        <td>TOTAL</td>
-        <td class="num">${fmtTok(data.inputTokens)}</td>
-        <td class="num">${fmtTok(data.outputTokens)}</td>
-        <td class="num">${fmtTok(data.totalTokens)}</td>
-        <td class="num">${fmtTok(data.requests)}</td>
-      </tr>`
-    : '<tr><td colspan="5"><div class="empty-note">No token usage in this period</div></td></tr>';
-  const modelBody = document.getElementById('tokensByModelBody');
-  modelBody.innerHTML = (data.topModels && data.topModels.length)
-    ? data.topModels.map(m => `
-      <tr>
-        <td>${m.model}</td>
-        <td class="num">${fmtTok(m.inputTokens)}</td>
-        <td class="num">${fmtTok(m.outputTokens)}</td>
-        <td class="num">${fmtTok(m.totalTokens)}</td>
-      </tr>`).join('')
-    : '<tr><td colspan="4"><div class="empty-note">No model data in this period</div></td></tr>';
-}
-
 document.getElementById('rangeSelect').addEventListener('change', (e) => {
   currentRange = e.target.value;
   document.getElementById('customRangeRow').style.display = currentRange === 'custom' ? 'flex' : 'none';
@@ -318,6 +253,8 @@ function loadAccounts() {
     .then(data => {
       const select = document.getElementById('accountSelect');
       const accounts = data.accounts || [];
+      creditAccounts = accounts;
+      loadCredits();
       if (accounts.length === 0) {
         select.innerHTML = '<option value="0">No accounts configured</option>';
         return;
@@ -364,7 +301,6 @@ function loadBilling() {
     return; // wait for the user to pick a start date and click Apply
   }
   document.getElementById('kpiLabel').textContent = `Total spend — ${rangeLabelText(currentRange)}`;
-  loadTokens(); // token panel follows the same range + account selection
   const token = localStorage.getItem('pipeline_token');
   const compare = document.getElementById('compareToggle').checked;
 
@@ -500,18 +436,6 @@ function exportBillingCsv() {
   sections.push('Cost by Line Item');
   sections.push(Papa.unparse((data.topLineItems || []).map(li => ({ 'Line Item': li.label, 'Amount (USD)': li.amount.toFixed(4) }))));
 
-  if (lastTokensData) {
-    sections.push('');
-    sections.push('Token Usage by Brand');
-    const tokRows = (lastTokensData.byAccount && lastTokensData.byAccount.length)
-      ? lastTokensData.byAccount
-      : [{ name: lastTokensData.account, inputTokens: lastTokensData.inputTokens, outputTokens: lastTokensData.outputTokens, totalTokens: lastTokensData.totalTokens, requests: lastTokensData.requests }];
-    sections.push(Papa.unparse(tokRows.map(a => ({ Brand: a.name, 'Input Tokens': a.inputTokens, 'Output Tokens': a.outputTokens, 'Total Tokens': a.totalTokens, Requests: a.requests }))));
-    sections.push('');
-    sections.push('Token Usage by Model');
-    sections.push(Papa.unparse((lastTokensData.topModels || []).map(m => ({ Model: m.model, 'Input Tokens': m.inputTokens, 'Output Tokens': m.outputTokens, 'Total Tokens': m.totalTokens }))));
-  }
-
   const csv = sections.join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -524,6 +448,147 @@ function exportBillingCsv() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// ---- API Credit Balance by Brand (added 2026-09-15) ----
+// No official balance API exists (see openaiBilling.js header), so balances
+// are computed: user-entered baseline (balance + as-of date, stored in the
+// BillingConfig table via /api/billing/openai-credits) minus LIVE spend
+// since that date (Costs API, per account). Refreshes every 10 minutes.
+let creditAccounts = [];
+let creditBaselines = { accounts: {} };
+let creditsEditing = false;
+
+const usd = n => '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+async function loadCredits() {
+  try {
+    const token = localStorage.getItem('pipeline_token');
+    const res = await fetch(`${API_BASE}/billing/openai-credits`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      const body = await res.json();
+      if (body.data && body.data.accounts) creditBaselines = body.data;
+    }
+  } catch (e) { console.warn('Credit baselines load failed:', e.message); }
+  renderCredits();
+  computeCredits();
+}
+
+function renderCredits() {
+  const body = document.getElementById('creditsBody');
+  if (!creditAccounts.length) {
+    body.innerHTML = '<tr><td colspan="5"><div class="empty-note">No OpenAI accounts configured.</div></td></tr>';
+    return;
+  }
+  body.innerHTML = creditAccounts.map(a => {
+    const base = creditBaselines.accounts[a.name];
+    if (creditsEditing) {
+      return `<tr data-name="${a.name}">
+        <td>${a.name}</td>
+        <td class="num"><input class="cr-bal" data-name="${a.name}" inputmode="decimal" placeholder="0.00" value="${base ? base.balance : ''}" style="width:90px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12px;text-align:right;"></td>
+        <td><input class="cr-date" type="date" data-name="${a.name}" value="${base ? base.asOf : ''}" style="padding:5px 7px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12px;"></td>
+        <td class="num" style="color:var(--ink-faint);">\u2014</td>
+        <td class="num" style="color:var(--ink-faint);">\u2014</td>
+      </tr>`;
+    }
+    if (!base) {
+      return `<tr data-name="${a.name}">
+        <td>${a.name}</td>
+        <td class="num" style="color:var(--ink-faint);">not set</td>
+        <td style="color:var(--ink-faint);">\u2014</td>
+        <td class="num" style="color:var(--ink-faint);">\u2014</td>
+        <td class="num" style="color:var(--ink-faint);">\u2014</td>
+      </tr>`;
+    }
+    return `<tr data-name="${a.name}">
+      <td>${a.name}</td>
+      <td class="num">${usd(base.balance)}</td>
+      <td style="font-size:12px;color:var(--ink-soft);">${base.asOf}</td>
+      <td class="num cr-spend" style="color:var(--ink-faint);">computing\u2026</td>
+      <td class="num cr-current" style="color:var(--ink-faint);">computing\u2026</td>
+    </tr>`;
+  }).join('');
+}
+
+async function computeCredits() {
+  if (creditsEditing) return;
+  const token = localStorage.getItem('pipeline_token');
+  const withBase = creditAccounts.filter(a => creditBaselines.accounts[a.name]);
+  document.getElementById('creditsStatus').textContent = withBase.length ? '\u25CF computing live\u2026' : 'Click \u201CEdit balances\u201D to set each brand\u2019s starting balance.';
+  await Promise.all(withBase.map(async a => {
+    const base = creditBaselines.accounts[a.name];
+    const row = document.querySelector(`#creditsBody tr[data-name="${CSS.escape(a.name)}"]`);
+    if (!row) return;
+    try {
+      const res = await fetch(`${API_BASE}/openai-billing/summary?range=custom&start=${base.asOf}&account=${a.index}&compare=false`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const spend = data.totalUsd || 0;
+      const current = base.balance - spend;
+      row.querySelector('.cr-spend').textContent = usd(spend);
+      row.querySelector('.cr-spend').style.color = '';
+      const curEl = row.querySelector('.cr-current');
+      curEl.textContent = usd(current);
+      curEl.style.fontWeight = '800';
+      curEl.style.color = current < 10 ? 'var(--danger)' : (current < 25 ? 'var(--warning)' : 'var(--success)');
+    } catch (e) {
+      const sp = row.querySelector('.cr-spend'); if (sp) { sp.textContent = 'error'; sp.title = e.message; }
+      console.warn('Credit compute failed for', a.name, e.message);
+    }
+  }));
+  if (withBase.length) {
+    document.getElementById('creditsStatus').textContent = `\u25CF live \u00B7 updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+}
+
+document.getElementById('creditsEditBtn').addEventListener('click', () => {
+  creditsEditing = true;
+  document.getElementById('creditsEditBtn').style.display = 'none';
+  document.getElementById('creditsSaveBtn').style.display = '';
+  document.getElementById('creditsCancelBtn').style.display = '';
+  renderCredits();
+});
+document.getElementById('creditsCancelBtn').addEventListener('click', () => {
+  creditsEditing = false;
+  document.getElementById('creditsEditBtn').style.display = '';
+  document.getElementById('creditsSaveBtn').style.display = 'none';
+  document.getElementById('creditsCancelBtn').style.display = 'none';
+  renderCredits();
+  computeCredits();
+});
+document.getElementById('creditsSaveBtn').addEventListener('click', async () => {
+  const accountsOut = {};
+  document.querySelectorAll('#creditsBody .cr-bal').forEach(inp => {
+    const name = inp.dataset.name;
+    const bal = parseFloat(inp.value.replace(/[$,\s]/g, ''));
+    const dateInp = document.querySelector(`#creditsBody .cr-date[data-name="${CSS.escape(name)}"]`);
+    const asOf = dateInp ? dateInp.value : '';
+    if (!isNaN(bal) && asOf) accountsOut[name] = { balance: Math.round(bal * 100) / 100, asOf };
+  });
+  const btn = document.getElementById('creditsSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving\u2026';
+  try {
+    const token = localStorage.getItem('pipeline_token');
+    const res = await fetch(`${API_BASE}/billing/openai-credits`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ data: { accounts: accountsOut } }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
+    creditBaselines = { accounts: accountsOut };
+    creditsEditing = false;
+    document.getElementById('creditsEditBtn').style.display = '';
+    btn.style.display = 'none';
+    document.getElementById('creditsCancelBtn').style.display = 'none';
+    renderCredits();
+    computeCredits();
+  } catch (e) {
+    alert('Could not save balances: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save';
+  }
+});
+setInterval(() => { if (!creditsEditing && creditAccounts.length) computeCredits(); }, 10 * 60 * 1000);
 
 fetchPhpRate().then(() => { if (lastBillingData) renderBilling(lastBillingData); });
 loadAccounts();
