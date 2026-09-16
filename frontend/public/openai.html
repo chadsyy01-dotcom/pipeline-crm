@@ -504,8 +504,13 @@ loadAccounts();
   //   key = OpenAI account name (as shown in the account dropdown)
   //   value = division row name in this table
   const OPENAI_ACCOUNT_TO_DIVISION = {
-    // 'Buenas OpenAI': 'BUENAS CASH',
-    // 'MCP': 'MOBILE PLAY CASINO',
+    // Filled 2026-09-15 from the live unmatched list vs the division rows:
+    'BUENAS PH': 'BUENAS CASH',
+    'MOBILE CASINO PLAY': 'MOBILE PLAY CASINO',
+    'HYPE BD': 'HYPEPLAY BDT',
+    'LUCKSTACKS': 'LUCKYSTACKS PH',   // add a LUCKYSTACKS PH division row via Edit for this to land
+    // The rest (TMTCASH, TMTPLAY, MANILAPLAY, HYPEPLAY PH, MGK, BUENAS
+    // CREDIT) match automatically by normalized name.
   };
   let liveOpenAi = { ok: false, byDivision: new Map(), unmatched: [], rate: null, asOf: null };
   function cbNorm(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
@@ -755,6 +760,7 @@ loadAccounts();
       await persist();
       cbEditing = false;
       cbMeta = { updatedAt: new Date().toISOString(), updatedBy: 'you' };
+      await loadLiveOpenAi();   // re-pair accounts (a new/renamed row may now match)
       render();
     } catch (err) {
       console.error('Billing save failed:', err);
@@ -859,7 +865,14 @@ loadAccounts();
   }
 
   buildSection();
-  loadLiveOpenAi().finally(loadFromDb);
+  // ORDER MATTERS (fixed 2026-09-15): the divisions table must load FIRST —
+  // account->division matching needs the division names, so running the
+  // live fetch before the data left everything "unmatched" on first paint.
+  (async () => {
+    await loadFromDb();                 // renders once with data
+    await loadLiveOpenAi();             // now matching has divisions to pair with
+    if (cbData && !cbEditing) render(); // repaint with the live column filled
+  })();
   // Live Open AI refresh — billing moves slowly; 10 minutes is plenty.
   setInterval(() => { loadLiveOpenAi().then(() => { if (!cbEditing && cbData) render(); }); }, 10 * 60 * 1000);
 })();
