@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knowledge Base — CSR Dashboard</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#2563EB; --primary-tint:#EFF4FF;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --danger:#EF4444; --danger-tint:#FDECEC;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-md:14px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;margin-bottom:2px;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+
+  .brand-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .brand-tab{font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;}
+  .brand-tab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .brand-tab .kb-has{width:7px;height:7px;border-radius:50%;background:var(--success);}
+  .brand-tab.active .kb-has{background:#fff;}
+  .brand-tab .kb-none{width:7px;height:7px;border-radius:50%;background:var(--line);}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+  .kb-meta{font-size:11.5px;font-weight:600;color:var(--ink-faint);}
+  .kb-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .kb-btn{font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-family:inherit;display:flex;align-items:center;gap:6px;}
+  .kb-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .kb-btn:disabled{opacity:.55;cursor:wait;}
+
+  .kb-search{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .kb-search input{flex:1;max-width:380px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:13px;background:#fff;color:var(--ink);}
+  .kb-search input:focus{outline:2px solid var(--primary);outline-offset:-1px;}
+  .kb-hits{font-size:12px;font-weight:600;color:var(--ink-faint);}
+
+  .kb-view{white-space:pre-wrap;overflow-wrap:break-word;font-size:13px;line-height:1.65;color:var(--ink);background:#FBFCFE;border:1px solid var(--line);border-radius:10px;padding:16px 18px;max-height:65vh;overflow-y:auto;}
+  .kb-view mark{background:#FDE68A;border-radius:3px;padding:0 1px;}
+  .kb-empty{color:var(--ink-faint);font-size:13px;padding:36px 12px;text-align:center;}
+  .kb-editor{width:100%;min-height:56vh;padding:14px 16px;border:1px solid var(--line);border-radius:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;color:var(--ink);background:#fff;resize:vertical;}
+  .kb-editor:focus{outline:2px solid var(--primary);outline-offset:-1px;}
+
+  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Invalid session");
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <a href="csr-dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a href="tickets.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+      Tickets
+    </a>
+    <a href="kyc.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M4 17c0-1.5 1.5-3 4.5-3s4.5 1.5 4.5 3"/><path d="M15 10h5M15 14h3"/></svg>
+      KYC
+    </a>
+    <a href="customers.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Customers
+    </a>
+    <a href="qa.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      Quality Assurance
+    </a>
+    <a href="kb.html" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+      Knowledge Base
+    </a>
+    <a href="reports.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      Reports
+    </a>
+    <a href="openai.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      OpenAI
+    </a>
+    <a href="agents.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Agents
+    </a>
+    <a href="settings.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </a>
+    <div class="sidebar-status"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="greeting">
+        <h1>Knowledge Base</h1>
+        <p>The Chatwoot KB for every brand — one shared, editable source of truth for the whole team.</p>
+      </div>
+    </div>
+
+    <div class="brand-tabs" id="brandTabs"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3 id="kbTitle">—</h3>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span class="kb-meta" id="kbMeta"></span>
+          <div class="kb-actions" id="kbViewActions">
+            <button class="kb-btn" id="kbCopyBtn" title="Copy the full KB text">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+            <button class="kb-btn" id="kbDownloadBtn" title="Download as .txt">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+              .txt
+            </button>
+            <button class="kb-btn primary" id="kbEditBtn">Edit</button>
+          </div>
+          <div class="kb-actions" id="kbEditActions" style="display:none;">
+            <label class="kb-btn" title="Load a .txt file into the editor" style="margin:0;">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+              Upload .txt
+              <input type="file" id="kbFileInput" accept=".txt,text/plain" style="display:none;">
+            </label>
+            <button class="kb-btn primary" id="kbSaveBtn">Save</button>
+            <button class="kb-btn" id="kbCancelBtn">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="kb-search" id="kbSearchRow">
+        <input type="text" id="kbSearch" placeholder="Search inside this KB…">
+        <span class="kb-hits" id="kbHits"></span>
+      </div>
+
+      <div id="kbViewWrap"><div class="kb-empty">Loading…</div></div>
+      <textarea class="kb-editor" id="kbEditor" style="display:none;" spellcheck="false"></textarea>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  // Brand tabs: 'general' for content shared by every brand, then the 10
+  // Chatwoot brands and the 4 LiveChat brands (included so any future bot
+  // KB there has a home — unused tabs just stay empty and cost nothing).
+  const BRANDS = [
+    { key: 'general',        label: '📌 General (All Brands)' },
+    { key: 'buenasph',       label: 'Buenas PH' },
+    { key: 'tmtcash',        label: 'TMTCash' },
+    { key: 'mcp',            label: 'Mobile Casino Play' },
+    { key: 'manilaplayph',   label: 'Manila Play PH' },
+    { key: 'HypleplayPH',    label: 'HypePlay PH' },
+    { key: 'HypeplayBD',     label: 'HypePlay BD' },
+    { key: 'Tmtplay',        label: 'TMTPlay' },
+    { key: 'MGK',            label: '88MGK' },
+    { key: 'BuenasCredit',   label: 'Buenas Credit' },
+    { key: 'LuckystacksPH',  label: 'LuckyStacks PH' },
+    { key: 'casinyeam',      label: 'Casinyeam' },
+    { key: 'manilacasino',   label: 'Manila Casino' },
+    { key: 'superscatterph', label: 'SuperScatter PH' },
+    { key: 'livechat-general', label: 'LC General' },
+  ];
+
+  let currentBrand = 'general';
+  let currentContent = '';       // content of the open brand (view state)
+  let currentMeta = null;        // { updatedAt, updatedBy }
+  let kbIndex = {};              // brand -> { chars, updatedAt, updatedBy }
+  let editing = false;
+
+  const $ = id => document.getElementById(id);
+  const authHeaders = () => ({ Authorization: 'Bearer ' + localStorage.getItem('pipeline_token') });
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const brandLabel = key => (BRANDS.find(b => b.key === key) || { label: key }).label;
+
+  function renderTabs() {
+    $('brandTabs').innerHTML = BRANDS.map(b => {
+      const has = kbIndex[b.key] && kbIndex[b.key].chars > 0;
+      return `<button class="brand-tab${b.key === currentBrand ? ' active' : ''}" data-brand="${b.key}">
+        <span class="${has ? 'kb-has' : 'kb-none'}"></span>${esc(b.label)}
+      </button>`;
+    }).join('');
+    document.querySelectorAll('.brand-tab').forEach(btn => btn.addEventListener('click', () => {
+      if (editing && !confirm('Discard unsaved changes?')) return;
+      setEditing(false);
+      currentBrand = btn.dataset.brand;
+      renderTabs();
+      loadBrand();
+    }));
+  }
+
+  async function loadIndex() {
+    try {
+      const res = await fetch(`${API_BASE}/kb`, { headers: authHeaders() });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const body = await res.json();
+      kbIndex = {};
+      (body.brands || []).forEach(r => { kbIndex[r.brand] = r; });
+    } catch (e) {
+      console.warn('KB index load failed:', e.message);
+    }
+    renderTabs();
+  }
+
+  async function loadBrand() {
+    $('kbTitle').textContent = brandLabel(currentBrand);
+    $('kbViewWrap').innerHTML = '<div class="kb-empty">Loading…</div>';
+    $('kbMeta').textContent = '';
+    $('kbSearch').value = '';
+    $('kbHits').textContent = '';
+    try {
+      const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}`, { headers: authHeaders() });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
+      currentContent = body.content || '';
+      currentMeta = body.updatedAt ? { updatedAt: body.updatedAt, updatedBy: body.updatedBy } : null;
+      renderView();
+    } catch (e) {
+      $('kbViewWrap').innerHTML = `<div class="kb-empty">Could not load — ${esc(e.message)}.<br>If the backend was just updated, confirm the /api/kb route is wired in server.js.</div>`;
+    }
+  }
+
+  function metaText() {
+    const chars = currentContent.length;
+    const words = currentContent.trim() ? currentContent.trim().split(/\s+/).length : 0;
+    const upd = currentMeta
+      ? ` · saved ${new Date(currentMeta.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${currentMeta.updatedBy ? ' by ' + currentMeta.updatedBy : ''}`
+      : '';
+    return chars ? `${chars.toLocaleString()} chars · ${words.toLocaleString()} words${upd}` : '';
+  }
+
+  function renderView(searchTerm) {
+    $('kbMeta').textContent = metaText();
+    const wrap = $('kbViewWrap');
+    if (!currentContent) {
+      wrap.innerHTML = `<div class="kb-empty">Walang laman pa ang KB ng ${esc(brandLabel(currentBrand))}.<br>Click <b>Edit</b> to paste it, or <b>Upload .txt</b> inside Edit mode.</div>`;
+      $('kbHits').textContent = '';
+      return;
+    }
+    let html = esc(currentContent);
+    if (searchTerm) {
+      const safe = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(safe.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), 'gi');
+      let hits = 0;
+      html = html.replace(re, m => { hits++; return '<mark>' + m + '</mark>'; });
+      $('kbHits').textContent = hits ? `${hits} match${hits === 1 ? '' : 'es'}` : 'No matches';
+    } else {
+      $('kbHits').textContent = '';
+    }
+    wrap.innerHTML = `<div class="kb-view">${html}</div>`;
+    if (searchTerm) {
+      const first = wrap.querySelector('mark');
+      if (first) first.scrollIntoView({ block: 'center' });
+    }
+  }
+
+  function setEditing(on) {
+    editing = on;
+    $('kbViewActions').style.display = on ? 'none' : 'flex';
+    $('kbEditActions').style.display = on ? 'flex' : 'none';
+    $('kbSearchRow').style.display = on ? 'none' : 'flex';
+    $('kbViewWrap').style.display = on ? 'none' : '';
+    $('kbEditor').style.display = on ? '' : 'none';
+    if (on) { $('kbEditor').value = currentContent; $('kbEditor').focus(); }
+  }
+
+  // ---- actions ----
+  let searchTimer = null;
+  $('kbSearch').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderView(e.target.value.trim()), 200);
+  });
+
+  $('kbCopyBtn').addEventListener('click', async () => {
+    if (!currentContent) return;
+    try {
+      await navigator.clipboard.writeText(currentContent);
+      $('kbCopyBtn').innerHTML = '✓ Copied';
+      setTimeout(() => { $('kbCopyBtn').innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy'; }, 1600);
+    } catch (e) { alert('Copy failed — select the text manually.'); }
+  });
+
+  $('kbDownloadBtn').addEventListener('click', () => {
+    if (!currentContent) return;
+    const blob = new Blob([currentContent], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kb-${currentBrand}-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  $('kbEditBtn').addEventListener('click', () => setEditing(true));
+  $('kbCancelBtn').addEventListener('click', () => { setEditing(false); renderView(); });
+
+  $('kbFileInput').addEventListener('change', e => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const existing = $('kbEditor').value.trim();
+      if (existing && !confirm('Replace the current editor content with this file?')) { e.target.value = ''; return; }
+      $('kbEditor').value = reader.result;
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  $('kbSaveBtn').addEventListener('click', async () => {
+    const btn = $('kbSaveBtn');
+    const content = $('kbEditor').value;
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ content }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
+      currentContent = content;
+      currentMeta = { updatedAt: new Date().toISOString(), updatedBy: 'you' };
+      kbIndex[currentBrand] = { brand: currentBrand, chars: content.length, updatedAt: currentMeta.updatedAt };
+      setEditing(false);
+      renderTabs();
+      renderView();
+    } catch (e) {
+      alert('Could not save: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  });
+
+  // warn before leaving with unsaved edits
+  window.addEventListener('beforeunload', e => {
+    if (editing && $('kbEditor').value !== currentContent) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  // ---- boot: one metadata call + the default tab's content. No polling. ----
+  loadIndex().then(loadBrand);
+})();
+</script>
+</body>
+</html>
