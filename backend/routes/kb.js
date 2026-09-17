@@ -70,7 +70,25 @@ const REF_NEAR_RE = /\b(before|earlier than|prior to|since|starting|starts?\s+(?
 const EXPIRY_CTX_RE = /\b(until|hanggang|valid(?:ity)?|expir\w*|ends?|ending|end date|deadline|last day|matatapos|katapusan|maintenance|promo(?:tion)?s?\b[^.\n]{0,25}(?:period|runs?|window)|runs? until|available until|claim(?:able)? until|from \d{1,2}:\d{2} to \d{1,2}:\d{2})\b/i;
 const TIMEBOUND_TITLE_RE = /(maintenance|promo|bonus|event|schedule|announce)/i;
 
+// A paragraph that declares itself finished ("Status: Completed", "ended",
+// "tapos na") is deliberate HISTORY — the doc already says it's over, so
+// there is nothing stale to warn about (added 2026-09-17 after a completed
+// promo's coverage period got flagged). "Status: Active" with a past end
+// date still flags — that IS the stale case.
+const COMPLETED_CTX_RE = /\b(status\s*[:=]?\s*(completed|ended|expired|inactive|closed|done|finished|tapos)|concluded|natapos na|tapos na po|already ended|nag-?end na)\b/i;
+
+// Window bounded by blank lines so one promo's status can't bleed into
+// the next block's dates.
+function paragraphWindow(text, idx) {
+  const prevBreak = text.lastIndexOf('\n\n', idx);
+  const s = Math.max(prevBreak === -1 ? 0 : prevBreak, idx - 300);
+  const nextBreak = text.indexOf('\n\n', idx);
+  const e = Math.min(nextBreak === -1 ? text.length : nextBreak, idx + 200);
+  return text.slice(s, e);
+}
+
 function classifyDateAt(text, matchStart, matchEnd, title) {
+  if (COMPLETED_CTX_RE.test(paragraphWindow(text, matchStart))) return false; // declared finished — history, not stale
   const beforeNear = text.slice(Math.max(0, matchStart - 32), matchStart);
   if (REF_NEAR_RE.test(beforeNear)) return false;          // reference date — ignore
   const ctx = text.slice(Math.max(0, matchStart - 90), Math.min(text.length, matchEnd + 60));
@@ -121,7 +139,8 @@ function extractDates(content, title) {
     if (isRange) {
       // ref words before the whole range (e.g. "integration window X - Y") still veto it
       const beforeRange = text.slice(Math.max(0, A.start - 32), A.start);
-      if (!REF_NEAR_RE.test(beforeRange)) out.add(B.iso); // duration => its end matters
+      const declaredDone = COMPLETED_CTX_RE.test(paragraphWindow(text, A.start));
+      if (!REF_NEAR_RE.test(beforeRange) && !declaredDone) out.add(B.iso); // duration => its end matters
       i++; // consume both tokens
     } else if (classifyDateAt(text, A.start, A.end, title)) {
       out.add(A.iso);
@@ -317,11 +336,11 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
     // one-time lazy backfill: sections saved before date-detection existed
     const nullDateRows = await sequelize.query(`
       SELECT "id", "title", "content" FROM "KnowledgeBaseSections"
-      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 3 AND LENGTH("content") > 0
+      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 4 AND LENGTH("content") > 0
     `, { replacements: { brand }, type: QueryTypes.SELECT });
     for (const r of nullDateRows) {
       await sequelize.query(`
-        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "datesVer" = 3 WHERE "id" = :id
+        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "datesVer" = 4 WHERE "id" = :id
       `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content, r.title)) } });
     }
     const rows = await sequelize.query(`
@@ -362,7 +381,7 @@ router.post('/:brand/sections', requireAuth, async (req, res) => {
     const updatedBy = req.user?.name || req.user?.email || null;
     const rows = await sequelize.query(`
       INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "datesVer", "updatedAt", "updatedBy")
-      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, 3, NOW(), :updatedBy)
+      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, 4, NOW(), :updatedBy)
       RETURNING "id"
     `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content, title)), updatedBy }, type: QueryTypes.SELECT });
     console.log(`KB: section '${title}' created for '${brand}' by ${updatedBy || 'unknown'}.`);
@@ -420,7 +439,7 @@ router.put('/section/:id', requireAuth, async (req, res) => {
         titleForDates = tRow.length ? tRow[0].title : '';
       }
       sets.push('"detectedDates" = :detectedDates::jsonb'); repl.detectedDates = JSON.stringify(extractDates(req.body.content, titleForDates));
-      sets.push('"datesVer" = 3');
+      sets.push('"datesVer" = 4');
     }
     if (req.body?.sourceUrl !== undefined) {
       let sourceUrl = req.body.sourceUrl || null;
