@@ -255,7 +255,7 @@
 
     <div class="panel" style="margin-top:18px;">
       <div class="panel-head">
-        <h3>Agent Conduct — TMTCash &amp; Buenas PH <span id="conductIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;"></span></h3>
+        <h3>Agent Conduct — TMTCash, Buenas PH &amp; LiveChat Brands <span id="conductIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;"></span></h3>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <select id="conductDateSelect" style="font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);background:var(--card);cursor:pointer;">
             <option value="today" selected>Today</option>
@@ -266,7 +266,7 @@
         </div>
       </div>
       <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.5;">
-        Scans <b>real agents'</b> replies (bots excluded) in the selected date range for rude language — insults, cursing, dismissive phrases, and all-caps shouting. Keyword-based: catches the obvious; tone/sarcasm needs human review. Pick Today or Yesterday, scan, then Clear once reviewed.
+        Scans <b>real agents'</b> replies in the selected date range for rude language — insults, cursing, dismissive phrases, and all-caps shouting. Covers TMTCash, Buenas PH (bots excluded) + Casinyeam, Manila Casino &amp; SuperScatter PH (all human agents). Keyword-based: catches the obvious; tone/sarcasm needs human review. Pick Today or Yesterday, scan, then Clear once reviewed.
       </div>
       <div class="filter-tabs" id="conductAgentTabs" style="display:none;"></div>
       <div class="table-wrap">
@@ -566,11 +566,14 @@
     }
   }
 
-  // ---- AGENT CONDUCT SCANNER (TMTCash + Buenas PH, real agents only) ----
+  // ---- AGENT CONDUCT SCANNER (TMTCash + Buenas PH + LiveChat brands, real agents only) ----
   // Keyword-based rudeness check on agent replies. Editable pattern list --
   // each entry: regex + reason label. Obvious rudeness only; sarcasm and
   // tone need a human (or a future AI upgrade).
-  const CONDUCT_BRANDS = ['buenasph', 'tmtcash'];
+  // LiveChat brands added 2026-09-17 — all LiveChat agents are real humans
+  // (Admin-Eve, Jen, Jace, Barbie, Astrid), so no bot exclusion needed there.
+  // ('livechat-general' / LC General intentionally NOT included.)
+  const CONDUCT_BRANDS = ['buenasph', 'tmtcash', 'casinyeam', 'manilacasino', 'superscatterph'];
   const RUDE_PATTERNS = [
     { re: /\b(bobo|tanga|gago|ulol|engot|inutil|abnormal)\b/i, label: 'Insult' },
     { re: /(tang\s*ina|tangina|putang|punyeta|gagi|bwisit|leche|pakshet|pakyu|fuck|shit|stupid|idiot)/i, label: 'Cursing' },
