@@ -83,6 +83,14 @@
   .kb-secitem.active{background:var(--primary-tint);color:var(--primary);}
   .kb-secitem.active svg{color:var(--primary);}
   .kb-secitem .kb-link-dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;margin-left:auto;}
+  .kb-alert-badge{font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;flex-shrink:0;margin-left:auto;}
+  .kb-alert-badge.expired{background:var(--danger-tint);color:var(--danger);}
+  .kb-alert-badge.soon{background:var(--warning-tint);color:#92620A;}
+  .brand-tab .kb-dot-expired{width:7px;height:7px;border-radius:50%;background:var(--danger);box-shadow:0 0 0 2.5px var(--danger-tint);}
+  .brand-tab .kb-dot-soon{width:7px;height:7px;border-radius:50%;background:var(--warning);box-shadow:0 0 0 2.5px var(--warning-tint);}
+  .kb-warn-banner{border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;line-height:1.6;margin-bottom:12px;}
+  .kb-warn-banner.expired{background:var(--danger-tint);color:#9B1C1C;}
+  .kb-warn-banner.soon{background:var(--warning-tint);color:#92620A;}
   .kb-content{flex:1;min-width:0;}
   .kb-empty-side{color:var(--ink-faint);font-size:12.5px;padding:18px 6px;text-align:center;line-height:1.6;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .kb-layout{flex-direction:column;} .kb-seclist{width:100%;border-right:none;border-bottom:1px solid var(--line);padding:0 0 12px;margin:0 0 14px;} }
@@ -256,9 +264,13 @@
   // ---- brand tabs ----
   function renderTabs() {
     $('brandTabs').innerHTML = BRANDS.map(b => {
-      const has = kbIndex[b.key] && kbIndex[b.key].sections > 0;
-      return `<button class="brand-tab${b.key === currentBrand ? ' active' : ''}" data-brand="${b.key}">
-        <span class="${has ? 'kb-has' : 'kb-none'}"></span>${esc(b.label)}
+      const meta = kbIndex[b.key];
+      const has = meta && meta.sections > 0;
+      const dot = meta && meta.alert === 'expired' ? 'kb-dot-expired'
+        : meta && meta.alert === 'soon' ? 'kb-dot-soon'
+        : has ? 'kb-has' : 'kb-none';
+      return `<button class="brand-tab${b.key === currentBrand ? ' active' : ''}" data-brand="${b.key}" ${meta && meta.alert ? 'title="May petsang expired/malapit nang matapos sa KB ng brand na ito"' : ''}>
+        <span class="${dot}"></span>${esc(b.label)}
       </button>`;
     }).join('');
     document.querySelectorAll('.brand-tab').forEach(btn => btn.addEventListener('click', () => {
@@ -297,7 +309,9 @@
     wrap.innerHTML = sections.map(s => `
       <button class="kb-secitem${currentSection && currentSection.id === s.id ? ' active' : ''}" data-id="${s.id}">
         ${FILE_ICON}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.title)}</span>
-        ${s.linked ? '<span class="kb-link-dot" title="Linked to a Google Doc tab"></span>' : ''}
+        ${s.alert && s.alert.level === 'expired' ? '<span class="kb-alert-badge expired" title="May lumipas nang petsa sa laman">EXPIRED</span>'
+          : s.alert && s.alert.level === 'soon' ? '<span class="kb-alert-badge soon" title="May petsang matatapos sa loob ng 7 araw">SOON</span>'
+          : (s.linked ? '<span class="kb-link-dot" title="Linked to a Google Doc tab"></span>' : '')}
       </button>`).join('');
     wrap.querySelectorAll('.kb-secitem').forEach(btn => btn.addEventListener('click', () => {
       if (editing && !confirm('Discard unsaved changes?')) return;
@@ -362,6 +376,11 @@
     $('kbSyncBtn').style.display = (currentSection.sourceUrl || brandSourceUrl) ? '' : 'none';
     const wrap = $('kbViewWrap');
     const content = currentSection.content || '';
+    const a = currentSection.alert;
+    const fmtD = iso => new Date(iso + 'T00:00:00').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+    const banner = !a ? '' : a.level === 'expired'
+      ? `<div class="kb-warn-banner expired">\u26A0\uFE0F <b>MAY LUMIPAS NANG PETSA sa section na ito:</b> ${a.expired.map(fmtD).join(', ')}${a.soon.length ? ` \u00B7 malapit nang matapos: ${a.soon.map(fmtD).join(', ')}` : ''}.<br>I-update ang doc (promo/maintenance na tapos na) at mag-\u27F3 Sync ulit.</div>`
+      : `<div class="kb-warn-banner soon">\u23F3 <b>May petsang matatapos sa loob ng ${7} araw:</b> ${a.soon.map(fmtD).join(', ')} \u2014 ihanda na ang kapalit na laman.</div>`;
     if (!content) {
       wrap.innerHTML = `<div class="kb-empty">Walang laman pa ang "${esc(currentSection.title)}".<br>Click <b>Edit</b> to paste it, o i-link ang Google Doc tab at i-<b>⟳ Sync</b>.</div>`;
       $('kbHits').textContent = '';
@@ -377,7 +396,7 @@
     } else {
       $('kbHits').textContent = '';
     }
-    wrap.innerHTML = `<div class="kb-view">${html}</div>`;
+    wrap.innerHTML = banner + `<div class="kb-view">${html}</div>`;
     if (searchTerm) {
       const first = wrap.querySelector('mark');
       if (first) first.scrollIntoView({ block: 'center' });
