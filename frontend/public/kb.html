@@ -411,6 +411,7 @@
     $('kbTitle').textContent = brandLabel(currentBrand) + ' — ' + currentSection.title;
     $('kbMeta').textContent = metaText();
     $('kbSyncBtn').style.display = (currentSection.sourceUrl || brandSourceUrl) ? '' : 'none';
+    $('kbEditBtn').textContent = brandSourceUrl ? '\u2699\uFE0F Manage' : 'Edit';
     const wrap = $('kbViewWrap');
     const content = currentSection.content || '';
     const a = currentSection.alert;
@@ -420,7 +421,9 @@
       ? `<div class="kb-warn-banner expired">\u26A0\uFE0F <b>MAY LUMIPAS NANG PETSA sa section na ito:</b> ${a.expired.map(chip).join(', ')}${a.soon.length ? ` \u00B7 malapit nang matapos: ${a.soon.map(chip).join(', ')}` : ''}.<br>Naka-highlight ang petsa sa text sa ibaba \u2014 i-update ang doc at mag-\u27F3 Sync ulit.</div>`
       : `<div class="kb-warn-banner soon">\u23F3 <b>May petsang matatapos sa loob ng ${7} araw:</b> ${a.soon.map(chip).join(', ')} \u2014 ihanda na ang kapalit na laman.</div>`;
     if (!content) {
-      wrap.innerHTML = `<div class="kb-empty">Walang laman pa ang "${esc(currentSection.title)}".<br>Click <b>Edit</b> to paste it, o i-link ang Google Doc tab at i-<b>⟳ Sync</b>.</div>`;
+      wrap.innerHTML = brandSourceUrl
+        ? `<div class="kb-empty">Walang laman pa ang "${esc(currentSection.title)}".<br>Mapupuno ito sa susunod na <b>\u27F3 Sync All</b> \u2014 siguraduhing ang title ay EKSAKTONG tugma sa tab name sa doc.</div>`
+        : `<div class="kb-empty">Walang laman pa ang "${esc(currentSection.title)}".<br>Click <b>Edit</b> to paste it.</div>`;
       $('kbHits').textContent = '';
       return;
     }
@@ -460,11 +463,15 @@
     $('kbSearchRow').style.display = on ? 'none' : 'flex';
     $('kbEditFields').style.display = on ? '' : 'none';
     $('kbViewWrap').style.display = on ? 'none' : '';
-    $('kbEditor').style.display = on ? '' : 'none';
+    // Doc-linked brands: content comes ONLY from the Google Doc (any manual
+    // text would be overwritten by the next sync), so the content editor is
+    // hidden — Manage mode covers title / advanced link / delete.
+    const docDriven = !!brandSourceUrl;
+    $('kbEditor').style.display = (on && !docDriven) ? '' : 'none';
     $('kbDeleteBtn').style.display = (on && !isNew) ? '' : 'none';
     if (on) {
       if (isNew) {
-        $('kbTitle').textContent = brandLabel(currentBrand) + ' — bagong section';
+        $('kbTitle').textContent = brandLabel(currentBrand) + ' — bagong section' + (docDriven ? ' (title = tab name sa doc)' : '');
         $('kbSecTitle').value = '';
         $('kbSourceUrl').value = '';
         $('kbEditor').value = '';
@@ -520,17 +527,20 @@
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       let res, body;
+      const docDriven = !!brandSourceUrl;
       if (creating) {
+        const payload = docDriven ? { title, sourceUrl: sourceUrl || null } : { title, content, sourceUrl: sourceUrl || null };
         res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/sections`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ title, content, sourceUrl: sourceUrl || null }),
+          body: JSON.stringify(payload),
         });
       } else {
+        const payload = docDriven ? { title, sourceUrl } : { title, content, sourceUrl };
         res = await fetch(`${API_BASE}/kb/section/${currentSection.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ title, content, sourceUrl }),
+          body: JSON.stringify(payload),
         });
       }
       body = await res.json().catch(() => ({}));
