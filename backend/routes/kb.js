@@ -105,6 +105,51 @@ router.get('/doc-proxy', requireAuth, async (req, res) => {
   }
 });
 
+// GET/PUT /api/kb/:brand/source — ONE published Google Doc link per brand.
+// The published page always renders the WHOLE doc (Google ignores ?tab=
+// on /pub — verified 2026-09-16), so the dashboard stores a single base
+// link per brand and splits the fetched text into sections client-side
+// using the section titles as delimiters. Stored in the v1 KnowledgeBase
+// table (brand PK, sourceUrl column) which now serves as brand settings.
+router.get('/:brand/source', requireAuth, async (req, res) => {
+  try {
+    await TABLE_READY;
+    const brand = req.params.brand;
+    if (!BRAND_RE.test(brand)) return res.status(400).json({ error: 'Invalid brand key.' });
+    const rows = await sequelize.query(`
+      SELECT "sourceUrl" FROM "KnowledgeBase" WHERE "brand" = :brand
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    res.json({ brand, sourceUrl: rows.length ? rows[0].sourceUrl : null });
+  } catch (err) {
+    console.error('KB source get error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/:brand/source', requireAuth, async (req, res) => {
+  try {
+    await TABLE_READY;
+    const brand = req.params.brand;
+    if (!BRAND_RE.test(brand)) return res.status(400).json({ error: 'Invalid brand key.' });
+    let sourceUrl = req.body?.sourceUrl || null;
+    if (sourceUrl && !DOC_URL_RE.test(sourceUrl)) {
+      return res.status(400).json({ error: 'sourceUrl must be a published Google Doc /pub link (or empty).' });
+    }
+    const updatedBy = req.user?.name || req.user?.email || null;
+    await sequelize.query(`
+      INSERT INTO "KnowledgeBase" ("brand", "content", "sourceUrl", "updatedAt", "updatedBy")
+      VALUES (:brand, '', :sourceUrl, NOW(), :updatedBy)
+      ON CONFLICT ("brand") DO UPDATE
+        SET "sourceUrl" = EXCLUDED."sourceUrl", "updatedAt" = NOW(), "updatedBy" = EXCLUDED."updatedBy"
+    `, { replacements: { brand, sourceUrl, updatedBy } });
+    console.log(`KB: brand doc link for '${brand}' set by ${updatedBy || 'unknown'}.`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('KB source save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/kb  ->  { brands: [{ brand, sections, chars, updatedAt }] }
 // Metadata only, aggregated per brand — powers the green dots on the tabs.
 router.get('/', requireAuth, async (req, res) => {
@@ -163,7 +208,10 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
       FROM "KnowledgeBaseSections" WHERE "brand" = :brand
       ORDER BY "title" ASC, "id" ASC
     `, { replacements: { brand }, type: QueryTypes.SELECT });
-    res.json({ brand, sections: rows });
+    const srcRow = await sequelize.query(`
+      SELECT "sourceUrl" FROM "KnowledgeBase" WHERE "brand" = :brand
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    res.json({ brand, sections: rows, brandSourceUrl: srcRow.length ? srcRow[0].sourceUrl : null });
   } catch (err) {
     console.error('KB sections list error:', err);
     res.status(500).json({ error: err.message });
