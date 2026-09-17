@@ -77,6 +77,18 @@ const TIMEBOUND_TITLE_RE = /(maintenance|promo|bonus|event|schedule|announce)/i;
 // date still flags — that IS the stale case.
 const COMPLETED_CTX_RE = /\b(status\s*[:=]?\s*(completed|ended|expired|inactive|closed|done|finished|tapos)|concluded|natapos na|tapos na po|already ended|nag-?end na)\b/i;
 
+// Topics whose dates should NEVER be flagged (added 2026-09-17): recurring
+// backward-looking promos — e.g. "Weekly Top Fan Winners" whose coverage
+// period is always LAST week, so its dates are permanently in the past by
+// design even while the promo is active. Add more topics with | inside
+// the group, e.g. /\b(top fan|weekly winners|hall of fame)\b/i
+const IGNORE_TOPICS_RE = /\b(top fan)\b/i;
+
+// Version marker so Railway deploy logs show exactly which extraction
+// logic is live (deployment mix-ups cost us an afternoon on 2026-09-17).
+const EXTRACTION_VER = 5;
+console.log(`KB: routes loaded — extraction v${EXTRACTION_VER} (topic-skip, completed-status, ranges, reference-dates).`);
+
 // Window bounded by blank lines so one promo's status can't bleed into
 // the next block's dates.
 function paragraphWindow(text, idx) {
@@ -87,8 +99,22 @@ function paragraphWindow(text, idx) {
   return text.slice(s, e);
 }
 
+// Like paragraphWindow but reaches ONE paragraph further up, so a promo's
+// TITLE line ("Promotion 22: Weekly Top Fan Winners"), which sits in its
+// own paragraph above the details, is included for topic checks.
+function topicWindow(text, idx) {
+  const p1 = text.lastIndexOf('\n\n', idx);
+  const p2 = p1 > 0 ? text.lastIndexOf('\n\n', p1 - 1) : -1;
+  const s = Math.max(p2 === -1 ? 0 : p2, idx - 400);
+  const nextBreak = text.indexOf('\n\n', idx);
+  const e = Math.min(nextBreak === -1 ? text.length : nextBreak, idx + 200);
+  return text.slice(s, e);
+}
+
 function classifyDateAt(text, matchStart, matchEnd, title) {
-  if (COMPLETED_CTX_RE.test(paragraphWindow(text, matchStart))) return false; // declared finished — history, not stale
+  if (IGNORE_TOPICS_RE.test(topicWindow(text, matchStart))) return false; // ignored topic (e.g. Top Fan) — never flag
+  const para = paragraphWindow(text, matchStart);
+  if (COMPLETED_CTX_RE.test(para)) return false; // declared finished — history, not stale
   const beforeNear = text.slice(Math.max(0, matchStart - 32), matchStart);
   if (REF_NEAR_RE.test(beforeNear)) return false;          // reference date — ignore
   const ctx = text.slice(Math.max(0, matchStart - 90), Math.min(text.length, matchEnd + 60));
@@ -139,8 +165,9 @@ function extractDates(content, title) {
     if (isRange) {
       // ref words before the whole range (e.g. "integration window X - Y") still veto it
       const beforeRange = text.slice(Math.max(0, A.start - 32), A.start);
-      const declaredDone = COMPLETED_CTX_RE.test(paragraphWindow(text, A.start));
-      if (!REF_NEAR_RE.test(beforeRange) && !declaredDone) out.add(B.iso); // duration => its end matters
+      const rangePara = paragraphWindow(text, A.start);
+      const vetoed = COMPLETED_CTX_RE.test(rangePara) || IGNORE_TOPICS_RE.test(topicWindow(text, A.start));
+      if (!REF_NEAR_RE.test(beforeRange) && !vetoed) out.add(B.iso); // duration => its end matters
       i++; // consume both tokens
     } else if (classifyDateAt(text, A.start, A.end, title)) {
       out.add(A.iso);
@@ -336,11 +363,11 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
     // one-time lazy backfill: sections saved before date-detection existed
     const nullDateRows = await sequelize.query(`
       SELECT "id", "title", "content" FROM "KnowledgeBaseSections"
-      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 4 AND LENGTH("content") > 0
+      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 5 AND LENGTH("content") > 0
     `, { replacements: { brand }, type: QueryTypes.SELECT });
     for (const r of nullDateRows) {
       await sequelize.query(`
-        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "datesVer" = 4 WHERE "id" = :id
+        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "datesVer" = 5 WHERE "id" = :id
       `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content, r.title)) } });
     }
     const rows = await sequelize.query(`
@@ -381,7 +408,7 @@ router.post('/:brand/sections', requireAuth, async (req, res) => {
     const updatedBy = req.user?.name || req.user?.email || null;
     const rows = await sequelize.query(`
       INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "datesVer", "updatedAt", "updatedBy")
-      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, 4, NOW(), :updatedBy)
+      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, 5, NOW(), :updatedBy)
       RETURNING "id"
     `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content, title)), updatedBy }, type: QueryTypes.SELECT });
     console.log(`KB: section '${title}' created for '${brand}' by ${updatedBy || 'unknown'}.`);
@@ -439,7 +466,7 @@ router.put('/section/:id', requireAuth, async (req, res) => {
         titleForDates = tRow.length ? tRow[0].title : '';
       }
       sets.push('"detectedDates" = :detectedDates::jsonb'); repl.detectedDates = JSON.stringify(extractDates(req.body.content, titleForDates));
-      sets.push('"datesVer" = 4');
+      sets.push('"datesVer" = 5');
     }
     if (req.body?.sourceUrl !== undefined) {
       let sourceUrl = req.body.sourceUrl || null;
