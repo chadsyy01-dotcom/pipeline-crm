@@ -217,10 +217,9 @@
           </div>
 
           <div id="kbEditFields" style="display:none;margin-bottom:10px;">
+            <input type="hidden" id="kbSourceUrl" value="">
             <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Section title</label>
             <input type="text" id="kbSecTitle" maxlength="120" placeholder="e.g. 02 deposits" style="width:100%;max-width:420px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:13px;font-weight:700;margin-bottom:10px;">
-            <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Sariling published link ng section na ito (ADVANCED — iwanang blanko; ang 🔗 Doc link ng brand ang normal na gamit)</label>
-            <input type="url" id="kbSourceUrl" placeholder="https://docs.google.com/document/d/e/…/pub?tab=t.xxxx" style="width:100%;max-width:640px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:12.5px;">
           </div>
 
           <div id="kbViewWrap"><div class="kb-empty">Pumili ng section sa kaliwa.</div></div>
@@ -303,7 +302,7 @@
   // ---- section list (left column) ----
   function renderSectionList() {
     const wrap = $('kbSecItems');
-    $('kbSyncAllBtn').style.display = (brandSourceUrl || sections.some(s => s.linked)) ? '' : 'none';
+    $('kbSyncAllBtn').style.display = brandSourceUrl ? '' : 'none';
     $('kbDocLinkBtn').style.color = brandSourceUrl ? 'var(--success)' : '';
     $('kbDocLinkBtn').textContent = brandSourceUrl ? '🔗 Doc linked ✓' : '🔗 Doc link';
     if (!sections.length) {
@@ -315,7 +314,7 @@
         ${FILE_ICON}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.title)}</span>
         ${s.alert && s.alert.level === 'expired' ? '<span class="kb-alert-badge expired" title="May lumipas nang petsa sa laman">EXPIRED</span>'
           : s.alert && s.alert.level === 'soon' ? '<span class="kb-alert-badge soon" title="May petsang matatapos sa loob ng 7 araw">SOON</span>'
-          : (s.linked ? '<span class="kb-link-dot" title="Linked to a Google Doc tab"></span>' : '')}
+          : ''}
       </button>`).join('');
     wrap.querySelectorAll('.kb-secitem').forEach(btn => btn.addEventListener('click', () => {
       if (editing && !confirm('Discard unsaved changes?')) return;
@@ -410,7 +409,7 @@
     if (!currentSection) return;
     $('kbTitle').textContent = brandLabel(currentBrand) + ' — ' + currentSection.title;
     $('kbMeta').textContent = metaText();
-    $('kbSyncBtn').style.display = (currentSection.sourceUrl || brandSourceUrl) ? '' : 'none';
+    $('kbSyncBtn').style.display = brandSourceUrl ? '' : 'none';
     $('kbEditBtn').textContent = brandSourceUrl ? '\u2699\uFE0F Manage' : 'Edit';
     const wrap = $('kbViewWrap');
     const content = currentSection.content || '';
@@ -478,7 +477,7 @@
         $('kbSecTitle').focus();
       } else {
         $('kbSecTitle').value = currentSection.title;
-        $('kbSourceUrl').value = currentSection.sourceUrl || '';
+        $('kbSourceUrl').value = ''; // per-section links retired 2026-09-17 — brand 🔗 Doc link only
         $('kbEditor').value = currentSection.content || '';
         $('kbEditor').focus();
       }
@@ -580,10 +579,7 @@
     btn.disabled = true; btn.textContent = '⟳ Syncing…';
     try {
       let content;
-      if (currentSection.sourceUrl) {
-        // advanced: section has its own link — take that page's whole text
-        content = await fetchDocText(currentSection.sourceUrl);
-      } else if (brandSourceUrl) {
+      if (brandSourceUrl) {
         // normal: fetch the brand doc once, cut out just this section
         const text = await fetchDocText(brandSourceUrl);
         const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
