@@ -79,26 +79,52 @@ function classifyDateAt(text, matchStart, matchEnd, title) {
 }
 
 function extractDates(content, title) {
-  const out = new Set();
   const text = String(content || '');
-  const push = (d, s, e) => {
-    if (!isNaN(d) && classifyDateAt(text, s, e, title)) out.add(d.toISOString().slice(0, 10));
+  // Pass 1: tokenize every date in the text as { iso, start, end }
+  const tokens = [];
+  const spans = [];
+  const overlaps = (s, e) => spans.some(sp => s < sp[1] && e > sp[0]);
+  const addTok = (d, s, e) => {
+    if (isNaN(d) || overlaps(s, e)) return;
+    tokens.push({ iso: d.toISOString().slice(0, 10), start: s, end: e });
+    spans.push([s, e]);
   };
-  const reFull = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gi;
   let m;
+  const reFull = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gi;
   while ((m = reFull.exec(text)) !== null) {
     const mo = KB_MONTHS[m[1].slice(0, 4).toLowerCase()] ?? KB_MONTHS[m[1].slice(0, 3).toLowerCase()];
-    push(new Date(Date.UTC(Number(m[3]), mo, Number(m[2]))), m.index, m.index + m[0].length);
-  }
-  const reMonthYear = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{4})\b/gi;
-  while ((m = reMonthYear.exec(text)) !== null) {
-    const mo = KB_MONTHS[m[1].slice(0, 4).toLowerCase()] ?? KB_MONTHS[m[1].slice(0, 3).toLowerCase()];
-    push(new Date(Date.UTC(Number(m[2]), mo + 1, 0)), m.index, m.index + m[0].length);
+    addTok(new Date(Date.UTC(Number(m[3]), mo, Number(m[2]))), m.index, m.index + m[0].length);
   }
   const reIso = /\b(20\d{2})-(\d{2})-(\d{2})\b/g;
   while ((m = reIso.exec(text)) !== null) {
     if (Number(m[2]) >= 1 && Number(m[2]) <= 12) {
-      push(new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))), m.index, m.index + m[0].length);
+      addTok(new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))), m.index, m.index + m[0].length);
+    }
+  }
+  const reMonthYear = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{4})\b/gi;
+  while ((m = reMonthYear.exec(text)) !== null) {
+    const mo = KB_MONTHS[m[1].slice(0, 4).toLowerCase()] ?? KB_MONTHS[m[1].slice(0, 3).toLowerCase()];
+    addTok(new Date(Date.UTC(Number(m[2]), mo + 1, 0)), m.index, m.index + m[0].length);
+  }
+  tokens.sort((a, b) => a.start - b.start);
+
+  // Pass 2: pair consecutive tokens into RANGES ("Sept 15, 2026 - Oct 15,
+  // 2026", "Sept 1 to Sept 19"): a range is a DURATION — its START date
+  // never expires anything, only its END date counts (added 2026-09-17
+  // after a promo's start date got flagged as expired).
+  const out = new Set();
+  for (let i = 0; i < tokens.length; i++) {
+    const A = tokens[i];
+    const B = tokens[i + 1];
+    const between = B ? text.slice(A.end, B.start) : '';
+    const isRange = B && B.start - A.end <= 15 && /^\s*(?:[-\u2013\u2014]|to|hanggang|until)\s*$/i.test(between);
+    if (isRange) {
+      // ref words before the whole range (e.g. "integration window X - Y") still veto it
+      const beforeRange = text.slice(Math.max(0, A.start - 32), A.start);
+      if (!REF_NEAR_RE.test(beforeRange)) out.add(B.iso); // duration => its end matters
+      i++; // consume both tokens
+    } else if (classifyDateAt(text, A.start, A.end, title)) {
+      out.add(A.iso);
     }
   }
   return [...out].sort().slice(0, 30);
@@ -291,11 +317,11 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
     // one-time lazy backfill: sections saved before date-detection existed
     const nullDateRows = await sequelize.query(`
       SELECT "id", "title", "content" FROM "KnowledgeBaseSections"
-      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 2 AND LENGTH("content") > 0
+      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 3 AND LENGTH("content") > 0
     `, { replacements: { brand }, type: QueryTypes.SELECT });
     for (const r of nullDateRows) {
       await sequelize.query(`
-        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "datesVer" = 2 WHERE "id" = :id
+        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "datesVer" = 3 WHERE "id" = :id
       `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content, r.title)) } });
     }
     const rows = await sequelize.query(`
@@ -336,7 +362,7 @@ router.post('/:brand/sections', requireAuth, async (req, res) => {
     const updatedBy = req.user?.name || req.user?.email || null;
     const rows = await sequelize.query(`
       INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "datesVer", "updatedAt", "updatedBy")
-      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, 2, NOW(), :updatedBy)
+      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, 3, NOW(), :updatedBy)
       RETURNING "id"
     `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content, title)), updatedBy }, type: QueryTypes.SELECT });
     console.log(`KB: section '${title}' created for '${brand}' by ${updatedBy || 'unknown'}.`);
@@ -394,7 +420,7 @@ router.put('/section/:id', requireAuth, async (req, res) => {
         titleForDates = tRow.length ? tRow[0].title : '';
       }
       sets.push('"detectedDates" = :detectedDates::jsonb'); repl.detectedDates = JSON.stringify(extractDates(req.body.content, titleForDates));
-      sets.push('"datesVer" = 2');
+      sets.push('"datesVer" = 3');
     }
     if (req.body?.sourceUrl !== undefined) {
       let sourceUrl = req.body.sourceUrl || null;
