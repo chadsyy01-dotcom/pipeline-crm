@@ -180,6 +180,7 @@
           </div>
           <button class="kb-btn" id="kbDocLinkBtn" style="width:100%;justify-content:center;margin-bottom:6px;" title="Set this brand's published Google Doc link (File → Share → Publish to web)">🔗 Doc link</button>
           <button class="kb-btn" id="kbSyncAllBtn" style="display:none;width:100%;justify-content:center;margin-bottom:8px;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync All</button>
+          <div id="kbSyncStatus" style="font-size:10.5px;font-weight:600;color:var(--ink-faint);text-align:center;margin-bottom:8px;min-height:14px;"></div>
           <div class="kb-secitems" id="kbSecItems"><div class="kb-empty-side">Loading…</div></div>
         </div>
         <div class="kb-content">
@@ -251,6 +252,8 @@
   let kbIndex = {};            // brand -> { sections, chars, updatedAt }
   let sections = [];           // current brand's section list (metadata)
   let brandSourceUrl = null;   // ONE published doc link per brand (whole doc)
+  let brandDocHash = null;     // fingerprint of the last-synced doc text
+  let autoSyncing = false;     // guard vs overlapping auto-syncs
   let currentSection = null;   // { id, title, content, sourceUrl, updatedAt, updatedBy }
   let editing = false;
   let creating = false;        // Add-section mode (no id yet)
@@ -328,7 +331,9 @@
       if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
       sections = body.sections || [];
       brandSourceUrl = body.brandSourceUrl || null;
+      brandDocHash = body.brandDocHash || null;
       renderSectionList();
+      if (openFirst) setTimeout(autoSyncBrand, 50); // fresh view first, sync in background
       if (sections.length && openFirst) openSection(sections[0].id);
       else if (!sections.length) {
         currentSection = null;
@@ -595,6 +600,84 @@
     if (!save.ok || !body.ok) throw new Error(body.error || 'save failed');
   }
 
+  // djb2 + length: cheap, stable fingerprint of the fetched doc text
+  function docHash(text) {
+    let h = 5381;
+    for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) >>> 0;
+    return h.toString(36) + '-' + text.length;
+  }
+
+  async function saveDocHash(hash) {
+    try {
+      await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/source`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ docHash: hash }),
+      });
+      brandDocHash = hash;
+    } catch (e) { console.warn('KB: hash save failed', e); }
+  }
+
+  // Fetch the brand doc, split by titles, save every matched section.
+  // Returns { done, failures, missing, hash } — shared by manual + auto sync.
+  async function runBrandSync(progress) {
+    const text = await fetchDocText(brandSourceUrl);
+    const hash = docHash(text);
+    const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
+    let done = 0;
+    const failures = [];
+    for (const sec of sections) {
+      if (!bodies.has(sec.title)) continue;
+      done++;
+      if (progress) progress(done, bodies.size, sec.title);
+      try { await saveSectionContent(sec.id, bodies.get(sec.title)); }
+      catch (e) { failures.push(`${sec.title}: ${e.message}`); }
+    }
+    if (!failures.length) await saveDocHash(hash);
+    return { done, failures, missing, hash };
+  }
+
+  // Auto-sync on brand open (added 2026-09-17): one Google fetch; if the
+  // doc's fingerprint matches the last sync, NOTHING is written — the KB
+  // is already fresh. Only a changed doc triggers the split + saves, so
+  // the expiry warnings stay current without anyone pressing Sync.
+  async function autoSyncBrand() {
+    if (!brandSourceUrl || !sections.length || editing || autoSyncing) return;
+    const brandAtStart = currentBrand;
+    autoSyncing = true;
+    const st = $('kbSyncStatus');
+    try {
+      st.textContent = 'Checking doc for updates…';
+      const text = await fetchDocText(brandSourceUrl);
+      if (currentBrand !== brandAtStart) return; // user switched tabs mid-fetch
+      const hash = docHash(text);
+      if (brandDocHash && hash === brandDocHash) {
+        st.textContent = 'Up to date ✓';
+        return;
+      }
+      st.textContent = 'Auto-syncing…';
+      const { bodies } = splitDocByTitles(text, sections.map(s => s.title));
+      let saved = 0;
+      for (const sec of sections) {
+        if (!bodies.has(sec.title)) continue;
+        try { await saveSectionContent(sec.id, bodies.get(sec.title)); saved++; }
+        catch (e) { console.warn('KB auto-sync save failed:', sec.title, e); }
+      }
+      await saveDocHash(hash);
+      if (currentBrand !== brandAtStart) return;
+      const openId = currentSection ? currentSection.id : null;
+      await loadIndex();
+      await loadSections(false);
+      if (openId) openSection(openId);
+      st.textContent = `Auto-synced ${saved} section${saved === 1 ? '' : 's'} ✓ ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } catch (e) {
+      console.warn('KB auto-sync failed:', e);
+      st.textContent = 'Auto-sync failed — use ⟳ Sync All';
+    } finally {
+      autoSyncing = false;
+    }
+  }
+
   $('kbSyncAllBtn').addEventListener('click', async () => {
     if (editing) { alert('Tapusin muna ang edit bago mag-Sync All.'); return; }
     if (!sections.length) { alert('Gumawa muna ng sections \u2014 isang section kada tab, EKSAKTONG pangalan ng tab (hal. "02 deposits").'); return; }
@@ -602,17 +685,9 @@
     const btn = $('kbSyncAllBtn');
     btn.disabled = true; btn.textContent = '\u27F3 Fetching doc\u2026';
     try {
-      const text = await fetchDocText(brandSourceUrl);
-      const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
-      let done = 0;
-      const failures = [];
-      for (const sec of sections) {
-        if (!bodies.has(sec.title)) continue;
-        done++;
-        btn.textContent = `\u27F3 Saving ${done}/${bodies.size} \u2014 ${sec.title.slice(0, 16)}\u2026`;
-        try { await saveSectionContent(sec.id, bodies.get(sec.title)); }
-        catch (e) { failures.push(`${sec.title}: ${e.message}`); }
-      }
+      const { done, failures, missing } = await runBrandSync(
+        (n, total, title) => { btn.textContent = `\u27F3 Saving ${n}/${total} \u2014 ${title.slice(0, 16)}\u2026`; }
+      );
       const openId = currentSection ? currentSection.id : null;
       await loadIndex();
       await loadSections(false);
