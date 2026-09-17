@@ -129,10 +129,32 @@ function computeForeignBrands(content, ownBrandKey) {
   return hits.sort((a, b) => b.count - a.count).slice(0, 10);
 }
 
+// Strict doc-ownership verification (added 2026-09-17 after a chain of
+// wrong doc links cross-contaminated several brands): a brand's doc link
+// is only accepted when the published doc's TITLE (its first line, e.g.
+// "TMTCash KB") names THAT brand — another brand's name is rejected
+// outright, and a title with no recognizable brand is rejected too, so
+// there is never a doubt about which file belongs to which brand.
+function verifyDocHead(brandKey, headLine) {
+  const head = String(headLine || '').toLowerCase();
+  const escV = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  const own = BRAND_NAME_VARIANTS[brandKey] || [];
+  for (const v of own) {
+    if (new RegExp('\\b' + escV(v) + '\\b', 'i').test(head)) return { status: 'ok' };
+  }
+  for (const [key, variants] of Object.entries(BRAND_NAME_VARIANTS)) {
+    if (key === brandKey) continue;
+    for (const v of variants) {
+      if (new RegExp('\\b' + escV(v) + '\\b', 'i').test(head)) return { status: 'foreign', name: variants[0] };
+    }
+  }
+  return { status: 'unknown' };
+}
+
 // Version marker so Railway deploy logs show exactly which extraction
 // logic is live (deployment mix-ups cost us an afternoon on 2026-09-17).
 const EXTRACTION_VER = 6;
-console.log(`KB: routes loaded — extraction v${EXTRACTION_VER} (brand-leak check, topic-skip, completed-status, ranges, reference-dates).`);
+console.log(`KB: routes loaded — extraction v${EXTRACTION_VER} + STRICT doc-link verification (brand-leak check, topic-skip, completed-status, ranges, reference-dates).`);
 
 // Window bounded by blank lines so one promo's status can't bleed into
 // the next block's dates.
@@ -326,6 +348,27 @@ router.put('/:brand/source', requireAuth, async (req, res) => {
     let sourceUrl = req.body?.sourceUrl || null;
     if (sourceUrl && !DOC_URL_RE.test(sourceUrl)) {
       return res.status(400).json({ error: 'sourceUrl must be a published Google Doc /pub link (or empty).' });
+    }
+    // STRICT ownership check: fetch the doc NOW and verify its title names
+    // this brand, before anything is stored.
+    if (sourceUrl) {
+      let head = '';
+      try {
+        const r = await fetch(sourceUrl, { redirect: 'follow' });
+        if (!r.ok) return res.status(400).json({ error: `Hindi ma-fetch ang doc (HTTP ${r.status}) — naka-Publish to web pa ba ito?` });
+        const text = docHtmlToText(await r.text());
+        head = (text.split('\n')[0] || '').slice(0, 120);
+      } catch (e) {
+        return res.status(400).json({ error: 'Hindi ma-fetch ang doc para i-verify: ' + e.message });
+      }
+      const check = verifyDocHead(brand, head);
+      if (check.status === 'foreign') {
+        return res.status(400).json({ error: `TINANGGIHAN: ang doc na iyan ay kay "${check.name}" (title: "${head}") — hindi ito pwedeng i-link sa ibang brand.` });
+      }
+      if (check.status === 'unknown') {
+        return res.status(400).json({ error: `Hindi ma-verify: walang brand name sa doc title ("${head}"). Ilagay ang brand name sa title ng Google Doc (hal. "TMTCash KB"), i-republish, at subukan ulit.` });
+      }
+      console.log(`KB: doc link for '${brand}' VERIFIED via title "${head}".`);
     }
     await sequelize.query(`
       INSERT INTO "KnowledgeBase" ("brand", "content", "sourceUrl", "updatedAt", "updatedBy")
