@@ -101,7 +101,7 @@ const BRAND_NAME_VARIANTS = {
   HypeplayBD:     ['HypePlay BD', 'Hypeplay BD', 'Hypeplay BDT', 'Hype BD'],
   Tmtplay:        ['TMTPlay', 'TMT Play'],
   MGK:            ['88MGK'],
-  BuenasCredit:   ['Buenas Credit', 'Buenas VIP'],
+  BuenasCredit:   ['Buenas Credit'], // 'Buenas VIP' inalis: promotion ito ng Buenas PH, hindi Credit alias (2026-09-17)
   LuckystacksPH:  ['LuckyStacks', 'Luckstacks'],
   casinyeam:      ['Casinyeam'],
   manilacasino:   ['Manila Casino'],
@@ -141,10 +141,18 @@ function computeForeignBrands(content, ownBrandKey) {
 // "TMTCash KB") names THAT brand — another brand's name is rejected
 // outright, and a title with no recognizable brand is rejected too, so
 // there is never a doubt about which file belongs to which brand.
+// Doc-name-only aliases: accepted when VERIFYING a doc's ownership but
+// deliberately NOT used as foreign-leak markers (e.g. "MOBA" is the MCP
+// doc's file name, but it's also a generic gaming term — flagging it in
+// other brands' content would false-positive on game references).
+const DOC_NAME_EXTRA = {
+  mcp: ['MOBA'],
+};
+
 function verifyDocHead(brandKey, headLine) {
   const head = String(headLine || '').toLowerCase();
   const escV = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-  const own = BRAND_NAME_VARIANTS[brandKey] || [];
+  const own = [...(BRAND_NAME_VARIANTS[brandKey] || []), ...(DOC_NAME_EXTRA[brandKey] || [])];
   for (const v of own) {
     if (new RegExp('\\b' + escV(v) + '\\b', 'i').test(head)) return { status: 'ok' };
   }
@@ -159,7 +167,7 @@ function verifyDocHead(brandKey, headLine) {
 
 // Version marker so Railway deploy logs show exactly which extraction
 // logic is live (deployment mix-ups cost us an afternoon on 2026-09-17).
-const EXTRACTION_VER = 8;
+const EXTRACTION_VER = 9;
 console.log(`KB: routes loaded — extraction v${EXTRACTION_VER} + STRICT doc-link verification (brand-leak check, topic-skip, completed-status, ranges, reference-dates).`);
 
 // Window bounded by blank lines so one promo's status can't bleed into
@@ -470,11 +478,11 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
     // one-time lazy backfill: sections saved before date-detection existed
     const nullDateRows = await sequelize.query(`
       SELECT "id", "title", "content" FROM "KnowledgeBaseSections"
-      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 8 AND LENGTH("content") > 0
+      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 9 AND LENGTH("content") > 0
     `, { replacements: { brand }, type: QueryTypes.SELECT });
     for (const r of nullDateRows) {
       await sequelize.query(`
-        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "foreignBrands" = :fb::jsonb, "datesVer" = 8 WHERE "id" = :id
+        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "foreignBrands" = :fb::jsonb, "datesVer" = 9 WHERE "id" = :id
       `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content, r.title)), fb: JSON.stringify(computeForeignBrands(r.content, brand)) } });
     }
     const rows = await sequelize.query(`
@@ -519,7 +527,7 @@ router.post('/:brand/sections', requireAuth, async (req, res) => {
     const updatedBy = req.user?.name || req.user?.email || null;
     const rows = await sequelize.query(`
       INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "foreignBrands", "datesVer", "updatedAt", "updatedBy")
-      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, :foreignBrands::jsonb, 8, NOW(), :updatedBy)
+      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, :foreignBrands::jsonb, 9, NOW(), :updatedBy)
       RETURNING "id"
     `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content, title)), foreignBrands: JSON.stringify(computeForeignBrands(content, brand)), updatedBy }, type: QueryTypes.SELECT });
     console.log(`KB: section '${title}' created for '${brand}' by ${updatedBy || 'unknown'}.`);
@@ -579,7 +587,7 @@ router.put('/section/:id', requireAuth, async (req, res) => {
       const brandKey = tRow.length ? tRow[0].brand : '';
       sets.push('"detectedDates" = :detectedDates::jsonb'); repl.detectedDates = JSON.stringify(extractDates(req.body.content, titleForDates));
       sets.push('"foreignBrands" = :foreignBrands::jsonb'); repl.foreignBrands = JSON.stringify(computeForeignBrands(req.body.content, brandKey));
-      sets.push('"datesVer" = 8');
+      sets.push('"datesVer" = 9');
     }
     if (req.body?.sourceUrl !== undefined) {
       let sourceUrl = req.body.sourceUrl || null;
