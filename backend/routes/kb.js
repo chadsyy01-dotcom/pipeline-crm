@@ -178,16 +178,25 @@ router.put('/:brand/source', requireAuth, async (req, res) => {
     await TABLE_READY;
     const brand = req.params.brand;
     if (!BRAND_RE.test(brand)) return res.status(400).json({ error: 'Invalid brand key.' });
+    const updatedBy = req.user?.name || req.user?.email || null;
+    // Mode A: docHash-only update (auto-sync bookkeeping; no URL change)
+    if (req.body?.sourceUrl === undefined && typeof req.body?.docHash === 'string') {
+      const docHash = req.body.docHash.slice(0, 64);
+      await sequelize.query(`
+        UPDATE "KnowledgeBase" SET "content" = :docHash, "updatedAt" = NOW() WHERE "brand" = :brand
+      `, { replacements: { brand, docHash } });
+      return res.json({ ok: true });
+    }
+    // Mode B: set/replace the doc link (resets the hash so next open resyncs)
     let sourceUrl = req.body?.sourceUrl || null;
     if (sourceUrl && !DOC_URL_RE.test(sourceUrl)) {
       return res.status(400).json({ error: 'sourceUrl must be a published Google Doc /pub link (or empty).' });
     }
-    const updatedBy = req.user?.name || req.user?.email || null;
     await sequelize.query(`
       INSERT INTO "KnowledgeBase" ("brand", "content", "sourceUrl", "updatedAt", "updatedBy")
       VALUES (:brand, '', :sourceUrl, NOW(), :updatedBy)
       ON CONFLICT ("brand") DO UPDATE
-        SET "sourceUrl" = EXCLUDED."sourceUrl", "updatedAt" = NOW(), "updatedBy" = EXCLUDED."updatedBy"
+        SET "sourceUrl" = EXCLUDED."sourceUrl", "content" = '', "updatedAt" = NOW(), "updatedBy" = EXCLUDED."updatedBy"
     `, { replacements: { brand, sourceUrl, updatedBy } });
     console.log(`KB: brand doc link for '${brand}' set by ${updatedBy || 'unknown'}.`);
     res.json({ ok: true });
@@ -279,9 +288,15 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
     `, { replacements: { brand }, type: QueryTypes.SELECT });
     rows.forEach(r => { r.alert = computeAlert(r.detectedDates); delete r.detectedDates; });
     const srcRow = await sequelize.query(`
-      SELECT "sourceUrl" FROM "KnowledgeBase" WHERE "brand" = :brand
+      SELECT "sourceUrl", "content" FROM "KnowledgeBase" WHERE "brand" = :brand
     `, { replacements: { brand }, type: QueryTypes.SELECT });
-    res.json({ brand, sections: rows, brandSourceUrl: srcRow.length ? srcRow[0].sourceUrl : null });
+    // v1 row's content column doubles as the last-synced doc fingerprint,
+    // letting auto-sync skip all writes when the doc hasn't changed.
+    res.json({
+      brand, sections: rows,
+      brandSourceUrl: srcRow.length ? srcRow[0].sourceUrl : null,
+      brandDocHash: srcRow.length && srcRow[0].content ? srcRow[0].content : null,
+    });
   } catch (err) {
     console.error('KB sections list error:', err);
     res.status(500).json({ error: err.message });
