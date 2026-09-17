@@ -182,7 +182,7 @@
             <button class="kb-addbtn" id="kbAddBtn" title="Add a new section">+</button>
           </div>
           <button class="kb-btn" id="kbDocLinkBtn" style="width:100%;justify-content:center;margin-bottom:6px;" title="Set this brand's published Google Doc link (File → Share → Publish to web)">🔗 Doc link</button>
-          <button class="kb-btn" id="kbSyncAllBtn" style="display:none;width:100%;justify-content:center;margin-bottom:8px;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync All</button>
+          <button class="kb-btn" id="kbSyncAllBtn" title="I-sync LAHAT ng sections ng brand na ito mula sa doc" style="display:none;width:100%;justify-content:center;margin-bottom:8px;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync All</button>
           <div id="kbSyncStatus" style="font-size:10.5px;font-weight:600;color:var(--ink-faint);text-align:center;margin-bottom:8px;min-height:14px;"></div>
           <div class="kb-secitems" id="kbSecItems"><div class="kb-empty-side">Loading…</div></div>
         </div>
@@ -192,7 +192,7 @@
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
               <span class="kb-meta" id="kbMeta"></span>
               <div class="kb-actions" id="kbViewActions">
-                <button class="kb-btn" id="kbSyncBtn" title="Pull the latest published content from this section's Google Doc tab link" style="display:none;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync</button>
+                <button class="kb-btn" id="kbSyncBtn" title="I-sync LANG ang bukas na section na ito mula sa doc — hindi galaw ang ibang sections" style="display:none;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync section</button>
                 <button class="kb-btn" id="kbCopyBtn" title="Copy this section's text">
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                   Copy
@@ -594,7 +594,7 @@
     } catch (e) {
       alert('Sync failed: ' + e.message + '\n\nTandaan: ~5 minutong lag ang published docs pagkatapos ng edit.');
     } finally {
-      btn.disabled = false; btn.textContent = '⟳ Sync';
+      btn.disabled = false; btn.textContent = '⟳ Sync section';
     }
   });
 
