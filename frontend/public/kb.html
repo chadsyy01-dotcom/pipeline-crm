@@ -421,7 +421,11 @@
     const fmtD = iso => new Date(iso + 'T00:00:00').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
     const chip = iso => `<span class="kb-jump" data-jump="${iso}" title="I-click para tumalon sa petsang ito sa text">${fmtD(iso)}</span>`;
     const leaks = currentSection.brandLeaks || null;
-    const leakChip = l => `<span class="kb-jump" data-bjump="${esc(l.name)}" title="I-click para tumalon sa unang banggit">${esc(l.name)} (${l.count}x)</span>`;
+    const leakChip = l => {
+      const terms = (l.terms && l.terms.length ? l.terms : [l.name]);
+      const aka = terms.filter(t => t.toLowerCase() !== l.name.toLowerCase());
+      return `<span class="kb-jump" data-bjump="${esc(l.name)}" title="I-click para tumalon sa unang banggit">${esc(l.name)} (${l.count}x${aka.length ? ' bilang \u201C' + esc(aka.join('\u201D, \u201C')) + '\u201D' : ''})</span>`;
+    };
     const leakBanner = !leaks ? '' :
       `<div class="kb-warn-banner mixed">\ud83d\udd00 <b>May IBANG BRAND na nabanggit sa KB ng ${esc(brandLabel(currentBrand))}:</b> ${leaks.map(leakChip).join(', ')}.<br>Malamang copy-paste leftover \u2014 linisin sa doc at mag-\u27F3 Sync ulit. Naka-highlight (violet) sa text sa ibaba.</div>`;
     const banner = !a ? '' : a.level === 'expired'
@@ -439,9 +443,13 @@
     if (a && !searchTerm) html = markAlertDates(html, a);
     if (leaks && !searchTerm) {
       for (const l of leaks) {
-        const safe = l.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-        html = html.replace(new RegExp('\\b(' + safe + ')\\b(?![^<]*</mark>)', 'gi'),
-          `<mark class="kb-mark-brand" data-brand="${esc(l.name)}">$1</mark>`);
+        // i-highlight ang mga AKTWAL na tumamang termino (aliases kasama),
+        // hindi lang ang display name
+        for (const term of (l.terms && l.terms.length ? l.terms : [l.name])) {
+          const safe = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+          html = html.replace(new RegExp('\\b(' + safe + ')\\b(?![^<]*</mark>)', 'gi'),
+            `<mark class="kb-mark-brand" data-brand="${esc(l.name)}">$1</mark>`);
+        }
       }
     }
     if (searchTerm) {
