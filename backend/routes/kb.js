@@ -140,7 +140,14 @@ async function migrateV1IfNeeded(brand) {
     INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "updatedAt", "updatedBy")
     VALUES (:brand, '(imported from v1)', :content, :sourceUrl, NOW(), :updatedBy)
   `, { replacements: { brand, content: v1[0].content, sourceUrl: v1[0].sourceUrl || null, updatedBy: v1[0].updatedBy || null } });
-  console.log(`KB: migrated v1 blob for '${brand}' into a section.`);
+  // Consume the v1 blob so this migration can only ever run ONCE per brand.
+  // Without this, deleting the imported section left the v1 row intact and
+  // the next sections-load "helpfully" re-imported it — an undeletable
+  // zombie section (found 2026-09-16).
+  await sequelize.query(`
+    UPDATE "KnowledgeBase" SET "content" = '' WHERE "brand" = :brand
+  `, { replacements: { brand } });
+  console.log(`KB: migrated v1 blob for '${brand}' into a section (v1 row consumed).`);
 }
 
 // GET /api/kb/:brand/sections -> section list (metadata only, no content)
