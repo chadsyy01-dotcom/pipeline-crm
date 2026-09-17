@@ -65,7 +65,7 @@
   .kb-search input:focus{outline:2px solid var(--primary);outline-offset:-1px;}
   .kb-hits{font-size:12px;font-weight:600;color:var(--ink-faint);}
 
-  .kb-view{white-space:pre-wrap;overflow-wrap:break-word;font-size:13px;line-height:1.65;color:var(--ink);background:#FBFCFE;border:1px solid var(--line);border-radius:10px;padding:16px 18px;max-height:65vh;overflow-y:auto;}
+  .kb-view{position:relative;white-space:pre-wrap;overflow-wrap:break-word;font-size:13px;line-height:1.65;color:var(--ink);background:#FBFCFE;border:1px solid var(--line);border-radius:10px;padding:16px 18px;max-height:65vh;overflow-y:auto;}
   .kb-view mark{background:#FDE68A;border-radius:3px;padding:0 1px;}
   .kb-empty{color:var(--ink-faint);font-size:13px;padding:36px 12px;text-align:center;}
   .kb-editor{width:100%;min-height:56vh;padding:14px 16px;border:1px solid var(--line);border-radius:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;color:var(--ink);background:#fff;resize:vertical;}
@@ -454,19 +454,29 @@
       $('kbHits').textContent = '';
     }
     wrap.innerHTML = banners + `<div class="kb-view">${html}</div>`;
+    // Scroll the CONTENT BOX itself (deterministic — scrollIntoView can
+    // silently no-op on nested scroll containers), one frame after layout.
+    const view = wrap.querySelector('.kb-view');
+    const centerOn = (el, smooth) => {
+      if (!el || !view) return;
+      const top = Math.max(0, el.offsetTop - view.clientHeight / 2);
+      if (smooth) view.scrollTo({ top, behavior: 'smooth' });
+      else view.scrollTop = top;
+    };
     if (searchTerm) {
-      const first = wrap.querySelector('mark');
-      if (first) first.scrollIntoView({ block: 'center' });
+      requestAnimationFrame(() => centerOn(wrap.querySelector('mark'), false));
     } else if (a || leaks) {
       // jump straight to the offending data: expired > soon > foreign brand
-      const target = wrap.querySelector('.kb-mark-exp') || wrap.querySelector('.kb-mark-soon') || wrap.querySelector('.kb-mark-brand');
-      if (target) target.scrollIntoView({ block: 'center' });
+      requestAnimationFrame(() => centerOn(
+        wrap.querySelector('.kb-mark-exp') || wrap.querySelector('.kb-mark-soon') || wrap.querySelector('.kb-mark-brand'),
+        false
+      ));
       // banner chips jump to their own first occurrence
       wrap.querySelectorAll('.kb-jump').forEach(el => el.addEventListener('click', () => {
         const t = el.dataset.jump
           ? wrap.querySelector(`mark[data-iso="${el.dataset.jump}"]`)
           : wrap.querySelector(`mark[data-brand="${el.dataset.bjump}"]`);
-        if (t) t.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        centerOn(t, true);
       }));
     }
   }
