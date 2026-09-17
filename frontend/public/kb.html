@@ -610,6 +610,8 @@
       if (brandSourceUrl) {
         // normal: fetch the brand doc once, cut out just this section
         const text = await fetchDocText(brandSourceUrl);
+        const mm = docBrandMismatch(text);
+        if (mm) throw new Error(`Ang naka-link na doc ay mukhang sa "${mm}" \u2014 i-check ang \ud83d\udd17 Doc link ng ${brandLabel(currentBrand)}.`);
         const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
         if (!bodies.has(currentSection.title)) {
           throw new Error(`Hindi nakita ang "${currentSection.title}" sa doc — dapat EKSAKTONG tugma sa tab title.${missing.length ? ' Wala rin: ' + missing.join(', ') : ''}`);
@@ -677,6 +679,19 @@
     if (!save.ok || !body.ok) throw new Error(body.error || 'save failed');
   }
 
+  // Doc identity guard (added 2026-09-17 after the TMTCash brand link was
+  // accidentally set to the Buenas PH doc and a sync cross-contaminated
+  // matching sections): the published page's first line is the doc title
+  // ("TMTCash KB") — if it names a DIFFERENT brand, the sync is stopped.
+  function docBrandMismatch(text) {
+    const head = (String(text).split('\n')[0] || '').slice(0, 120).toLowerCase();
+    for (const b of BRANDS) {
+      if (b.key === currentBrand) continue;
+      if (head.includes(b.label.toLowerCase())) return b.label;
+    }
+    return null;
+  }
+
   // djb2 + length: cheap, stable fingerprint of the fetched doc text
   function docHash(text) {
     let h = 5381;
@@ -699,6 +714,10 @@
   // Returns { done, failures, missing, hash } — shared by manual + auto sync.
   async function runBrandSync(progress) {
     const text = await fetchDocText(brandSourceUrl);
+    const mm = docBrandMismatch(text);
+    if (mm && !confirm(`\u26A0\uFE0F Ang naka-link na doc ay mukhang sa "${mm}" (title: "${text.split('\n')[0].slice(0, 60)}").\n\nItutuloy pa rin ba ang sync papunta sa ${brandLabel(currentBrand)}? Papatungan nito ang mga sections dito.`)) {
+      throw new Error(`Kinansela \u2014 ang naka-link na doc ay mukhang sa "${mm}". I-check ang \ud83d\udd17 Doc link.`);
+    }
     const hash = docHash(text);
     const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
     let done = 0;
@@ -727,6 +746,11 @@
       st.textContent = 'Checking doc for updates…';
       const text = await fetchDocText(brandSourceUrl);
       if (currentBrand !== brandAtStart) return; // user switched tabs mid-fetch
+      const mm = docBrandMismatch(text);
+      if (mm) {
+        st.textContent = `\u26A0 Doc mismatch \u2014 mukhang sa "${mm}" ang naka-link. I-check ang \ud83d\udd17`;
+        return; // walang isusulat — protektahan ang sections
+      }
       const hash = docHash(text);
       if (brandDocHash && hash === brandDocHash) {
         st.textContent = 'Up to date ✓';
