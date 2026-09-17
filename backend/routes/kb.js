@@ -290,6 +290,18 @@ function docHtmlToText(html) {
   return s;
 }
 
+// The doc's NAME is read from the published page's <title> tag — the
+// first text line is unreliable (some docs start straight at a tab
+// heading like "LLM Instruction"; found 2026-09-17).
+function docTitleFromHtml(html) {
+  const m = String(html).match(/<title>([^<]*)<\/title>/i);
+  if (!m) return '';
+  return m[1]
+    .replace(/\s*-\s*Google\s*(Docs|Drive)\s*$/i, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+    .trim().slice(0, 120);
+}
+
 // GET /api/kb/doc-proxy?url=...  (registered before parameterized routes)
 router.get('/doc-proxy', requireAuth, async (req, res) => {
   try {
@@ -302,7 +314,7 @@ router.get('/doc-proxy', requireAuth, async (req, res) => {
     const html = await r.text();
     const text = docHtmlToText(html);
     if (!text) return res.status(502).json({ error: 'The published page had no readable content.' });
-    res.json({ text, chars: text.length, fetchedAt: new Date().toISOString() });
+    res.json({ text, chars: text.length, docTitle: docTitleFromHtml(html), fetchedAt: new Date().toISOString() });
   } catch (err) {
     console.error('KB doc-proxy error:', err);
     res.status(502).json({ error: err.message });
@@ -356,8 +368,9 @@ router.put('/:brand/source', requireAuth, async (req, res) => {
       try {
         const r = await fetch(sourceUrl, { redirect: 'follow' });
         if (!r.ok) return res.status(400).json({ error: `Hindi ma-fetch ang doc (HTTP ${r.status}) — naka-Publish to web pa ba ito?` });
-        const text = docHtmlToText(await r.text());
-        head = (text.split('\n')[0] || '').slice(0, 120);
+        const html = await r.text();
+        head = docTitleFromHtml(html);
+        if (!head) head = (docHtmlToText(html).split('\n')[0] || '').slice(0, 120);
       } catch (e) {
         return res.status(400).json({ error: 'Hindi ma-fetch ang doc para i-verify: ' + e.message });
       }
@@ -366,7 +379,7 @@ router.put('/:brand/source', requireAuth, async (req, res) => {
         return res.status(400).json({ error: `TINANGGIHAN: ang doc na iyan ay kay "${check.name}" (title: "${head}") — hindi ito pwedeng i-link sa ibang brand.` });
       }
       if (check.status === 'unknown') {
-        return res.status(400).json({ error: `Hindi ma-verify: walang brand name sa doc title ("${head}"). Ilagay ang brand name sa title ng Google Doc (hal. "TMTCash KB"), i-republish, at subukan ulit.` });
+        return res.status(400).json({ error: `Hindi ma-verify: walang brand name sa PANGALAN ng doc ("${head}"). Palitan ang FILE NAME ng Google Doc sa kaliwang itaas ng editor (hal. "TMTCash KB"), hintayin ~5 min, at subukan ulit.` });
       }
       console.log(`KB: doc link for '${brand}' VERIFIED via title "${head}".`);
     }
