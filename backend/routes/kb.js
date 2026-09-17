@@ -45,11 +45,58 @@ const TABLE_READY = (async () => {
       )
     `);
     await sequelize.query(`CREATE INDEX IF NOT EXISTS "kbs_brand_idx" ON "KnowledgeBaseSections" ("brand")`);
+    await sequelize.query(`ALTER TABLE "KnowledgeBaseSections" ADD COLUMN IF NOT EXISTS "detectedDates" JSONB`);
     console.log('KB: KnowledgeBaseSections table ready.');
   } catch (err) {
     console.error('KB: table init failed:', err.message);
   }
 })();
+
+// ---- Date detection for expiry warnings (added 2026-09-16) ----
+// Finds explicit dates in KB text ("February 21, 2026", "Feb 21 2026",
+// "June 2026" [treated as end of that month], "2026-09-30") so the
+// dashboard can flag sections whose promos/maintenance windows have
+// already passed or are about to end. Month-only mentions without a year
+// ("last December") are deliberately ignored — too noisy.
+const KB_MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
+function extractDates(content) {
+  const out = new Set();
+  const text = String(content || '');
+  // "February 21, 2026" / "Feb 21 2026" / "February 21st, 2026"
+  const reFull = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gi;
+  let m;
+  while ((m = reFull.exec(text)) !== null) {
+    const mo = KB_MONTHS[m[1].slice(0, 4).toLowerCase()] ?? KB_MONTHS[m[1].slice(0, 3).toLowerCase()];
+    const d = new Date(Date.UTC(Number(m[3]), mo, Number(m[2])));
+    if (!isNaN(d)) out.add(d.toISOString().slice(0, 10));
+  }
+  // "June 2026" (month + year, no day) -> last day of that month
+  const reMonthYear = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{4})\b/gi;
+  while ((m = reMonthYear.exec(text)) !== null) {
+    const mo = KB_MONTHS[m[1].slice(0, 4).toLowerCase()] ?? KB_MONTHS[m[1].slice(0, 3).toLowerCase()];
+    const d = new Date(Date.UTC(Number(m[2]), mo + 1, 0)); // last day of month
+    if (!isNaN(d)) out.add(d.toISOString().slice(0, 10));
+  }
+  // ISO "2026-09-30"
+  const reIso = /\b(20\d{2})-(\d{2})-(\d{2})\b/g;
+  while ((m = reIso.exec(text)) !== null) {
+    const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    if (!isNaN(d) && Number(m[2]) >= 1 && Number(m[2]) <= 12) out.add(d.toISOString().slice(0, 10));
+  }
+  return [...out].sort().slice(0, 30);
+}
+
+const SOON_DAYS = 7;
+function computeAlert(dates) {
+  if (!Array.isArray(dates) || !dates.length) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const soonCut = new Date(Date.now() + SOON_DAYS * 86400000).toISOString().slice(0, 10);
+  const expired = dates.filter(d => d < today);
+  const soon = dates.filter(d => d >= today && d <= soonCut);
+  if (expired.length) return { level: 'expired', expired, soon };
+  if (soon.length) return { level: 'soon', expired, soon };
+  return null;
+}
 
 const BRAND_RE = /^[A-Za-z0-9_-]{1,40}$/;
 const MAX_CONTENT = 1_000_000; // ~1 MB per section — far above any real KB
@@ -163,6 +210,18 @@ router.get('/', requireAuth, async (req, res) => {
       FROM "KnowledgeBaseSections"
       GROUP BY "brand" ORDER BY "brand"
     `, { type: QueryTypes.SELECT });
+    // worst date-alert per brand, from the tiny detectedDates arrays only
+    const dateRows = await sequelize.query(`
+      SELECT "brand", "detectedDates" FROM "KnowledgeBaseSections" WHERE "detectedDates" IS NOT NULL
+    `, { type: QueryTypes.SELECT });
+    const worst = {};
+    for (const r of dateRows) {
+      const a = computeAlert(r.detectedDates);
+      if (!a) continue;
+      if (a.level === 'expired') worst[r.brand] = 'expired';
+      else if (a.level === 'soon' && worst[r.brand] !== 'expired') worst[r.brand] = 'soon';
+    }
+    rows.forEach(r => { r.alert = worst[r.brand] || null; });
     res.json({ brands: rows });
   } catch (err) {
     console.error('KB list error:', err);
@@ -202,12 +261,23 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
     const brand = req.params.brand;
     if (!BRAND_RE.test(brand)) return res.status(400).json({ error: 'Invalid brand key.' });
     await migrateV1IfNeeded(brand);
+    // one-time lazy backfill: sections saved before date-detection existed
+    const nullDateRows = await sequelize.query(`
+      SELECT "id", "content" FROM "KnowledgeBaseSections"
+      WHERE "brand" = :brand AND "detectedDates" IS NULL AND LENGTH("content") > 0
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    for (const r of nullDateRows) {
+      await sequelize.query(`
+        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb WHERE "id" = :id
+      `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content)) } });
+    }
     const rows = await sequelize.query(`
       SELECT "id", "title", LENGTH("content") AS "chars",
-             ("sourceUrl" IS NOT NULL) AS "linked", "updatedAt", "updatedBy"
+             ("sourceUrl" IS NOT NULL) AS "linked", "detectedDates", "updatedAt", "updatedBy"
       FROM "KnowledgeBaseSections" WHERE "brand" = :brand
       ORDER BY "title" ASC, "id" ASC
     `, { replacements: { brand }, type: QueryTypes.SELECT });
+    rows.forEach(r => { r.alert = computeAlert(r.detectedDates); delete r.detectedDates; });
     const srcRow = await sequelize.query(`
       SELECT "sourceUrl" FROM "KnowledgeBase" WHERE "brand" = :brand
     `, { replacements: { brand }, type: QueryTypes.SELECT });
@@ -232,10 +302,10 @@ router.post('/:brand/sections', requireAuth, async (req, res) => {
     if (sourceUrl && !DOC_URL_RE.test(sourceUrl)) return res.status(400).json({ error: 'sourceUrl must be a published Google Doc link (or empty).' });
     const updatedBy = req.user?.name || req.user?.email || null;
     const rows = await sequelize.query(`
-      INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "updatedAt", "updatedBy")
-      VALUES (:brand, :title, :content, :sourceUrl, NOW(), :updatedBy)
+      INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "updatedAt", "updatedBy")
+      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, NOW(), :updatedBy)
       RETURNING "id"
-    `, { replacements: { brand, title, content, sourceUrl, updatedBy }, type: QueryTypes.SELECT });
+    `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content)), updatedBy }, type: QueryTypes.SELECT });
     console.log(`KB: section '${title}' created for '${brand}' by ${updatedBy || 'unknown'}.`);
     res.json({ ok: true, id: rows[0].id });
   } catch (err) {
@@ -251,11 +321,14 @@ router.get('/section/:id', requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid section id.' });
     const rows = await sequelize.query(`
-      SELECT "id", "brand", "title", "content", "sourceUrl", "updatedAt", "updatedBy"
+      SELECT "id", "brand", "title", "content", "sourceUrl", "detectedDates", "updatedAt", "updatedBy"
       FROM "KnowledgeBaseSections" WHERE "id" = :id
     `, { replacements: { id }, type: QueryTypes.SELECT });
     if (!rows.length) return res.status(404).json({ error: 'Section not found.' });
-    res.json(rows[0]);
+    const row = rows[0];
+    row.alert = computeAlert(row.detectedDates);
+    delete row.detectedDates;
+    res.json(row);
   } catch (err) {
     console.error('KB section get error:', err);
     res.status(500).json({ error: err.message });
@@ -279,6 +352,7 @@ router.put('/section/:id', requireAuth, async (req, res) => {
       if (typeof req.body.content !== 'string') return res.status(400).json({ error: 'content must be a string.' });
       if (req.body.content.length > MAX_CONTENT) return res.status(400).json({ error: 'Content too large (max 1 MB).' });
       sets.push('"content" = :content'); repl.content = req.body.content;
+      sets.push('"detectedDates" = :detectedDates::jsonb'); repl.detectedDates = JSON.stringify(extractDates(req.body.content));
     }
     if (req.body?.sourceUrl !== undefined) {
       let sourceUrl = req.body.sourceUrl || null;
