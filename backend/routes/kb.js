@@ -46,6 +46,7 @@ const TABLE_READY = (async () => {
     `);
     await sequelize.query(`CREATE INDEX IF NOT EXISTS "kbs_brand_idx" ON "KnowledgeBaseSections" ("brand")`);
     await sequelize.query(`ALTER TABLE "KnowledgeBaseSections" ADD COLUMN IF NOT EXISTS "detectedDates" JSONB`);
+    await sequelize.query(`ALTER TABLE "KnowledgeBaseSections" ADD COLUMN IF NOT EXISTS "datesVer" INTEGER`);
     console.log('KB: KnowledgeBaseSections table ready.');
   } catch (err) {
     console.error('KB: table init failed:', err.message);
@@ -59,29 +60,46 @@ const TABLE_READY = (async () => {
 // already passed or are about to end. Month-only mentions without a year
 // ("last December") are deliberately ignored — too noisy.
 const KB_MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
-function extractDates(content) {
+
+// Context classification (added 2026-09-17 after a false positive: a
+// Gcashwebpay INTEGRATION date "deposits made before 2025-11-18" was
+// flagged as expired). A date only counts toward expiry warnings when its
+// surrounding text says it's an END of something — reference dates
+// (before/since/as of/integration/...) are ignored.
+const REF_NEAR_RE = /\b(before|earlier than|prior to|since|starting|starts?\s+(?:on|from)|started|as of|effective|integration|launch(?:ed)?|created|registered|updated|posted|noong|simula|mula|on or after|after)\b[^.\n]{0,30}$/i;
+const EXPIRY_CTX_RE = /\b(until|hanggang|valid(?:ity)?|expir\w*|ends?|ending|end date|deadline|last day|matatapos|katapusan|maintenance|promo(?:tion)?s?\b[^.\n]{0,25}(?:period|runs?|window)|runs? until|available until|claim(?:able)? until|from \d{1,2}:\d{2} to \d{1,2}:\d{2})\b/i;
+const TIMEBOUND_TITLE_RE = /(maintenance|promo|bonus|event|schedule|announce)/i;
+
+function classifyDateAt(text, matchStart, matchEnd, title) {
+  const beforeNear = text.slice(Math.max(0, matchStart - 32), matchStart);
+  if (REF_NEAR_RE.test(beforeNear)) return false;          // reference date — ignore
+  const ctx = text.slice(Math.max(0, matchStart - 90), Math.min(text.length, matchEnd + 60));
+  if (EXPIRY_CTX_RE.test(ctx)) return true;                // clearly an end date
+  return TIMEBOUND_TITLE_RE.test(title || '');             // bare date: only in time-bound sections
+}
+
+function extractDates(content, title) {
   const out = new Set();
   const text = String(content || '');
-  // "February 21, 2026" / "Feb 21 2026" / "February 21st, 2026"
+  const push = (d, s, e) => {
+    if (!isNaN(d) && classifyDateAt(text, s, e, title)) out.add(d.toISOString().slice(0, 10));
+  };
   const reFull = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gi;
   let m;
   while ((m = reFull.exec(text)) !== null) {
     const mo = KB_MONTHS[m[1].slice(0, 4).toLowerCase()] ?? KB_MONTHS[m[1].slice(0, 3).toLowerCase()];
-    const d = new Date(Date.UTC(Number(m[3]), mo, Number(m[2])));
-    if (!isNaN(d)) out.add(d.toISOString().slice(0, 10));
+    push(new Date(Date.UTC(Number(m[3]), mo, Number(m[2]))), m.index, m.index + m[0].length);
   }
-  // "June 2026" (month + year, no day) -> last day of that month
   const reMonthYear = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{4})\b/gi;
   while ((m = reMonthYear.exec(text)) !== null) {
     const mo = KB_MONTHS[m[1].slice(0, 4).toLowerCase()] ?? KB_MONTHS[m[1].slice(0, 3).toLowerCase()];
-    const d = new Date(Date.UTC(Number(m[2]), mo + 1, 0)); // last day of month
-    if (!isNaN(d)) out.add(d.toISOString().slice(0, 10));
+    push(new Date(Date.UTC(Number(m[2]), mo + 1, 0)), m.index, m.index + m[0].length);
   }
-  // ISO "2026-09-30"
   const reIso = /\b(20\d{2})-(\d{2})-(\d{2})\b/g;
   while ((m = reIso.exec(text)) !== null) {
-    const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-    if (!isNaN(d) && Number(m[2]) >= 1 && Number(m[2]) <= 12) out.add(d.toISOString().slice(0, 10));
+    if (Number(m[2]) >= 1 && Number(m[2]) <= 12) {
+      push(new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))), m.index, m.index + m[0].length);
+    }
   }
   return [...out].sort().slice(0, 30);
 }
@@ -272,13 +290,13 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
     await migrateV1IfNeeded(brand);
     // one-time lazy backfill: sections saved before date-detection existed
     const nullDateRows = await sequelize.query(`
-      SELECT "id", "content" FROM "KnowledgeBaseSections"
-      WHERE "brand" = :brand AND "detectedDates" IS NULL AND LENGTH("content") > 0
+      SELECT "id", "title", "content" FROM "KnowledgeBaseSections"
+      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 2 AND LENGTH("content") > 0
     `, { replacements: { brand }, type: QueryTypes.SELECT });
     for (const r of nullDateRows) {
       await sequelize.query(`
-        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb WHERE "id" = :id
-      `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content)) } });
+        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "datesVer" = 2 WHERE "id" = :id
+      `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content, r.title)) } });
     }
     const rows = await sequelize.query(`
       SELECT "id", "title", LENGTH("content") AS "chars",
@@ -317,10 +335,10 @@ router.post('/:brand/sections', requireAuth, async (req, res) => {
     if (sourceUrl && !DOC_URL_RE.test(sourceUrl)) return res.status(400).json({ error: 'sourceUrl must be a published Google Doc link (or empty).' });
     const updatedBy = req.user?.name || req.user?.email || null;
     const rows = await sequelize.query(`
-      INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "updatedAt", "updatedBy")
-      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, NOW(), :updatedBy)
+      INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "datesVer", "updatedAt", "updatedBy")
+      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, 2, NOW(), :updatedBy)
       RETURNING "id"
-    `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content)), updatedBy }, type: QueryTypes.SELECT });
+    `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content, title)), updatedBy }, type: QueryTypes.SELECT });
     console.log(`KB: section '${title}' created for '${brand}' by ${updatedBy || 'unknown'}.`);
     res.json({ ok: true, id: rows[0].id });
   } catch (err) {
@@ -367,7 +385,16 @@ router.put('/section/:id', requireAuth, async (req, res) => {
       if (typeof req.body.content !== 'string') return res.status(400).json({ error: 'content must be a string.' });
       if (req.body.content.length > MAX_CONTENT) return res.status(400).json({ error: 'Content too large (max 1 MB).' });
       sets.push('"content" = :content'); repl.content = req.body.content;
-      sets.push('"detectedDates" = :detectedDates::jsonb'); repl.detectedDates = JSON.stringify(extractDates(req.body.content));
+      // classification reads the title; use the incoming one or the stored one
+      let titleForDates = req.body?.title !== undefined ? String(req.body.title) : null;
+      if (titleForDates === null) {
+        const tRow = await sequelize.query(`
+          SELECT "title" FROM "KnowledgeBaseSections" WHERE "id" = :id
+        `, { replacements: { id }, type: QueryTypes.SELECT });
+        titleForDates = tRow.length ? tRow[0].title : '';
+      }
+      sets.push('"detectedDates" = :detectedDates::jsonb'); repl.detectedDates = JSON.stringify(extractDates(req.body.content, titleForDates));
+      sets.push('"datesVer" = 2');
     }
     if (req.body?.sourceUrl !== undefined) {
       let sourceUrl = req.body.sourceUrl || null;
