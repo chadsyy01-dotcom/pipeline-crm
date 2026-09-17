@@ -234,7 +234,6 @@
 <script>
 (function () {
   const BRANDS = [
-    { key: 'general',        label: '📌 General (All Brands)' },
     { key: 'buenasph',       label: 'Buenas PH' },
     { key: 'tmtcash',        label: 'TMTCash' },
     { key: 'mcp',            label: 'Mobile Casino Play' },
@@ -248,10 +247,9 @@
     { key: 'casinyeam',      label: 'Casinyeam' },
     { key: 'manilacasino',   label: 'Manila Casino' },
     { key: 'superscatterph', label: 'SuperScatter PH' },
-    { key: 'livechat-general', label: 'LC General' },
   ];
 
-  let currentBrand = 'general';
+  let currentBrand = 'buenasph';
   let kbIndex = {};            // brand -> { sections, chars, updatedAt }
   let sections = [];           // current brand's section list (metadata)
   let brandSourceUrl = null;   // ONE published doc link per brand (whole doc)
