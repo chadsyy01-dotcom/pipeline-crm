@@ -94,6 +94,9 @@
   .kb-warn-banner .kb-jump{cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:800;}
   .kb-mark-exp{background:#FDE2E2;color:#B91C1C;font-weight:800;padding:0 4px;border-radius:4px;box-shadow:0 0 0 1.5px var(--danger);}
   .kb-mark-soon{background:var(--warning-tint);color:#92620A;font-weight:800;padding:0 4px;border-radius:4px;box-shadow:0 0 0 1.5px var(--warning);}
+  .kb-alert-badge.mixed{background:#F3E8FF;color:#7E22CE;}
+  .kb-warn-banner.mixed{background:#F3E8FF;color:#6B21A8;}
+  .kb-mark-brand{background:#F3E8FF;color:#7E22CE;font-weight:800;padding:0 4px;border-radius:4px;box-shadow:0 0 0 1.5px #A855F7;}
   .kb-content{flex:1;min-width:0;}
   .kb-empty-side{color:var(--ink-faint);font-size:12.5px;padding:18px 6px;text-align:center;line-height:1.6;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .kb-layout{flex-direction:column;} .kb-seclist{width:100%;border-right:none;border-bottom:1px solid var(--line);padding:0 0 12px;margin:0 0 14px;} }
@@ -314,6 +317,7 @@
         ${FILE_ICON}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.title)}</span>
         ${s.alert && s.alert.level === 'expired' ? '<span class="kb-alert-badge expired" title="May lumipas nang petsa sa laman">EXPIRED</span>'
           : s.alert && s.alert.level === 'soon' ? '<span class="kb-alert-badge soon" title="May petsang matatapos sa loob ng 7 araw">SOON</span>'
+          : s.brandLeaks ? '<span class="kb-alert-badge mixed" title="May IBANG brand na nabanggit sa laman — posibleng copy-paste leftover">IBANG BRAND</span>'
           : ''}
       </button>`).join('');
     wrap.querySelectorAll('.kb-secitem').forEach(btn => btn.addEventListener('click', () => {
@@ -416,9 +420,14 @@
     const a = currentSection.alert;
     const fmtD = iso => new Date(iso + 'T00:00:00').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
     const chip = iso => `<span class="kb-jump" data-jump="${iso}" title="I-click para tumalon sa petsang ito sa text">${fmtD(iso)}</span>`;
+    const leaks = currentSection.brandLeaks || null;
+    const leakChip = l => `<span class="kb-jump" data-bjump="${esc(l.name)}" title="I-click para tumalon sa unang banggit">${esc(l.name)} (${l.count}x)</span>`;
+    const leakBanner = !leaks ? '' :
+      `<div class="kb-warn-banner mixed">\ud83d\udd00 <b>May IBANG BRAND na nabanggit sa KB ng ${esc(brandLabel(currentBrand))}:</b> ${leaks.map(leakChip).join(', ')}.<br>Malamang copy-paste leftover \u2014 linisin sa doc at mag-\u27F3 Sync ulit. Naka-highlight (violet) sa text sa ibaba.</div>`;
     const banner = !a ? '' : a.level === 'expired'
       ? `<div class="kb-warn-banner expired">\u26A0\uFE0F <b>MAY LUMIPAS NANG PETSA sa section na ito:</b> ${a.expired.map(chip).join(', ')}${a.soon.length ? ` \u00B7 malapit nang matapos: ${a.soon.map(chip).join(', ')}` : ''}.<br>Naka-highlight ang petsa sa text sa ibaba \u2014 i-update ang doc at mag-\u27F3 Sync ulit.</div>`
       : `<div class="kb-warn-banner soon">\u23F3 <b>May petsang matatapos sa loob ng ${7} araw:</b> ${a.soon.map(chip).join(', ')} \u2014 ihanda na ang kapalit na laman.</div>`;
+    const banners = banner + leakBanner;
     if (!content) {
       wrap.innerHTML = brandSourceUrl
         ? `<div class="kb-empty">Walang laman pa ang "${esc(currentSection.title)}".<br>Mapupuno ito sa susunod na <b>\u27F3 Sync All</b> \u2014 siguraduhing ang title ay EKSAKTONG tugma sa tab name sa doc.</div>`
@@ -428,6 +437,13 @@
     }
     let html = esc(content);
     if (a && !searchTerm) html = markAlertDates(html, a);
+    if (leaks && !searchTerm) {
+      for (const l of leaks) {
+        const safe = l.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+        html = html.replace(new RegExp('\\b(' + safe + ')\\b(?![^<]*</mark>)', 'gi'),
+          `<mark class="kb-mark-brand" data-brand="${esc(l.name)}">$1</mark>`);
+      }
+    }
     if (searchTerm) {
       const safe = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const re = new RegExp(safe.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), 'gi');
@@ -437,17 +453,19 @@
     } else {
       $('kbHits').textContent = '';
     }
-    wrap.innerHTML = banner + `<div class="kb-view">${html}</div>`;
+    wrap.innerHTML = banners + `<div class="kb-view">${html}</div>`;
     if (searchTerm) {
       const first = wrap.querySelector('mark');
       if (first) first.scrollIntoView({ block: 'center' });
-    } else if (a) {
-      // jump straight to the offending data: first expired, else first soon
-      const target = wrap.querySelector('.kb-mark-exp') || wrap.querySelector('.kb-mark-soon');
+    } else if (a || leaks) {
+      // jump straight to the offending data: expired > soon > foreign brand
+      const target = wrap.querySelector('.kb-mark-exp') || wrap.querySelector('.kb-mark-soon') || wrap.querySelector('.kb-mark-brand');
       if (target) target.scrollIntoView({ block: 'center' });
-      // banner chips jump to their own date's first occurrence
+      // banner chips jump to their own first occurrence
       wrap.querySelectorAll('.kb-jump').forEach(el => el.addEventListener('click', () => {
-        const t = wrap.querySelector(`mark[data-iso="${el.dataset.jump}"]`);
+        const t = el.dataset.jump
+          ? wrap.querySelector(`mark[data-iso="${el.dataset.jump}"]`)
+          : wrap.querySelector(`mark[data-brand="${el.dataset.bjump}"]`);
         if (t) t.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }));
     }
