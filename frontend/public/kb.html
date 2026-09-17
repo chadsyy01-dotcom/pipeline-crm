@@ -514,7 +514,7 @@
 
   $('kbDocLinkBtn').addEventListener('click', async () => {
     const url = prompt(
-      'I-paste ang PUBLISHED link ng buong KB doc ng brand na ito\n(File \u2192 Share \u2192 Publish to web \u2014 nagsisimula sa docs.google.com/document/d/e/2PACX\u2026/pub).\n\nIwanang blanko para tanggalin.',
+      'I-paste ang PUBLISHED link ng buong KB doc ng brand na ito\n(File \u2192 Share \u2192 Publish to web \u2014 nagsisimula sa docs.google.com/document/d/e/2PACX\u2026/pub).\n\nVE-VERIFY-HIN ito: tatanggapin LANG kung ang doc title ay may pangalan ng brand na ito (hal. "TMTCash KB").\n\nIwanang blanko para tanggalin.',
       brandSourceUrl || ''
     );
     if (url === null) return;
@@ -715,8 +715,9 @@
   async function runBrandSync(progress) {
     const text = await fetchDocText(brandSourceUrl);
     const mm = docBrandMismatch(text);
-    if (mm && !confirm(`\u26A0\uFE0F Ang naka-link na doc ay mukhang sa "${mm}" (title: "${text.split('\n')[0].slice(0, 60)}").\n\nItutuloy pa rin ba ang sync papunta sa ${brandLabel(currentBrand)}? Papatungan nito ang mga sections dito.`)) {
-      throw new Error(`Kinansela \u2014 ang naka-link na doc ay mukhang sa "${mm}". I-check ang \ud83d\udd17 Doc link.`);
+    if (mm) {
+      // STRICT: walang override — ang maling doc ay hindi kailanman isusulat
+      throw new Error(`HINARANG: ang naka-link na doc ay kay "${mm}" (title: "${text.split('\n')[0].slice(0, 60)}"). Palitan ang \ud83d\udd17 Doc link ng tamang doc ng ${brandLabel(currentBrand)}.`);
     }
     const hash = docHash(text);
     const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
