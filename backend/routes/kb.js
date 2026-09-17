@@ -93,7 +93,7 @@ const IGNORE_TOPICS_RE = /\b(top fan)\b/i;
 // stems like "Buenas", "TMT", "HypePlay" alone are never matched, so
 // sibling brands don't false-positive on their common family name.
 const BRAND_NAME_VARIANTS = {
-  buenasph:       ['Buenas PH'],
+  buenasph:       ['Buenas PH', 'Buenas Cash'], // "BUENAS CASH" = Buenas PH alias (same as billing)
   tmtcash:        ['TMTCash', 'TMT Cash'],
   mcp:            ['Mobile Casino Play'],
   manilaplayph:   ['Manila Play', 'ManilaPlay'],
@@ -153,7 +153,7 @@ function verifyDocHead(brandKey, headLine) {
 
 // Version marker so Railway deploy logs show exactly which extraction
 // logic is live (deployment mix-ups cost us an afternoon on 2026-09-17).
-const EXTRACTION_VER = 6;
+const EXTRACTION_VER = 7;
 console.log(`KB: routes loaded — extraction v${EXTRACTION_VER} + STRICT doc-link verification (brand-leak check, topic-skip, completed-status, ranges, reference-dates).`);
 
 // Window bounded by blank lines so one promo's status can't bleed into
@@ -464,11 +464,11 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
     // one-time lazy backfill: sections saved before date-detection existed
     const nullDateRows = await sequelize.query(`
       SELECT "id", "title", "content" FROM "KnowledgeBaseSections"
-      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 6 AND LENGTH("content") > 0
+      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 7 AND LENGTH("content") > 0
     `, { replacements: { brand }, type: QueryTypes.SELECT });
     for (const r of nullDateRows) {
       await sequelize.query(`
-        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "foreignBrands" = :fb::jsonb, "datesVer" = 6 WHERE "id" = :id
+        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "foreignBrands" = :fb::jsonb, "datesVer" = 7 WHERE "id" = :id
       `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content, r.title)), fb: JSON.stringify(computeForeignBrands(r.content, brand)) } });
     }
     const rows = await sequelize.query(`
@@ -513,7 +513,7 @@ router.post('/:brand/sections', requireAuth, async (req, res) => {
     const updatedBy = req.user?.name || req.user?.email || null;
     const rows = await sequelize.query(`
       INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "foreignBrands", "datesVer", "updatedAt", "updatedBy")
-      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, :foreignBrands::jsonb, 6, NOW(), :updatedBy)
+      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, :foreignBrands::jsonb, 7, NOW(), :updatedBy)
       RETURNING "id"
     `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content, title)), foreignBrands: JSON.stringify(computeForeignBrands(content, brand)), updatedBy }, type: QueryTypes.SELECT });
     console.log(`KB: section '${title}' created for '${brand}' by ${updatedBy || 'unknown'}.`);
@@ -573,7 +573,7 @@ router.put('/section/:id', requireAuth, async (req, res) => {
       const brandKey = tRow.length ? tRow[0].brand : '';
       sets.push('"detectedDates" = :detectedDates::jsonb'); repl.detectedDates = JSON.stringify(extractDates(req.body.content, titleForDates));
       sets.push('"foreignBrands" = :foreignBrands::jsonb'); repl.foreignBrands = JSON.stringify(computeForeignBrands(req.body.content, brandKey));
-      sets.push('"datesVer" = 6');
+      sets.push('"datesVer" = 7');
     }
     if (req.body?.sourceUrl !== undefined) {
       let sourceUrl = req.body.sourceUrl || null;
