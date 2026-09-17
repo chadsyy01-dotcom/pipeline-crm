@@ -170,6 +170,8 @@
             <span>Sections</span>
             <button class="kb-addbtn" id="kbAddBtn" title="Add a new section">+</button>
           </div>
+          <button class="kb-btn" id="kbDocLinkBtn" style="width:100%;justify-content:center;margin-bottom:6px;" title="Set this brand's published Google Doc link (File → Share → Publish to web)">🔗 Doc link</button>
+          <button class="kb-btn" id="kbSyncAllBtn" style="display:none;width:100%;justify-content:center;margin-bottom:8px;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync All</button>
           <div class="kb-secitems" id="kbSecItems"><div class="kb-empty-side">Loading…</div></div>
         </div>
         <div class="kb-content">
@@ -190,11 +192,6 @@
                 <button class="kb-btn primary" id="kbEditBtn">Edit</button>
               </div>
               <div class="kb-actions" id="kbEditActions" style="display:none;">
-                <label class="kb-btn" title="Load a .txt file into the editor" style="margin:0;">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-                  Upload .txt
-                  <input type="file" id="kbFileInput" accept=".txt,text/plain" style="display:none;">
-                </label>
                 <button class="kb-btn" id="kbDeleteBtn" style="color:var(--danger);border-color:var(--danger-tint);">Delete</button>
                 <button class="kb-btn primary" id="kbSaveBtn">Save</button>
                 <button class="kb-btn" id="kbCancelBtn">Cancel</button>
@@ -210,7 +207,7 @@
           <div id="kbEditFields" style="display:none;margin-bottom:10px;">
             <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Section title</label>
             <input type="text" id="kbSecTitle" maxlength="120" placeholder="e.g. 02 deposits" style="width:100%;max-width:420px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:13px;font-weight:700;margin-bottom:10px;">
-            <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Google Doc published link for THIS tab (optional — enables ⟳ Sync)</label>
+            <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Sariling published link ng section na ito (ADVANCED — iwanang blanko; ang 🔗 Doc link ng brand ang normal na gamit)</label>
             <input type="url" id="kbSourceUrl" placeholder="https://docs.google.com/document/d/e/…/pub?tab=t.xxxx" style="width:100%;max-width:640px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:12.5px;">
           </div>
 
@@ -245,6 +242,7 @@
   let currentBrand = 'general';
   let kbIndex = {};            // brand -> { sections, chars, updatedAt }
   let sections = [];           // current brand's section list (metadata)
+  let brandSourceUrl = null;   // ONE published doc link per brand (whole doc)
   let currentSection = null;   // { id, title, content, sourceUrl, updatedAt, updatedBy }
   let editing = false;
   let creating = false;        // Add-section mode (no id yet)
@@ -289,6 +287,9 @@
   // ---- section list (left column) ----
   function renderSectionList() {
     const wrap = $('kbSecItems');
+    $('kbSyncAllBtn').style.display = (brandSourceUrl || sections.some(s => s.linked)) ? '' : 'none';
+    $('kbDocLinkBtn').style.color = brandSourceUrl ? 'var(--success)' : '';
+    $('kbDocLinkBtn').textContent = brandSourceUrl ? '🔗 Doc linked ✓' : '🔗 Doc link';
     if (!sections.length) {
       wrap.innerHTML = '<div class="kb-empty-side">Wala pang sections.<br>I-click ang <b>+</b> para magdagdag<br>(hal. "00 admin persona").</div>';
       return;
@@ -312,6 +313,7 @@
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
       sections = body.sections || [];
+      brandSourceUrl = body.brandSourceUrl || null;
       renderSectionList();
       if (sections.length && openFirst) openSection(sections[0].id);
       else if (!sections.length) {
@@ -357,7 +359,7 @@
     if (!currentSection) return;
     $('kbTitle').textContent = brandLabel(currentBrand) + ' — ' + currentSection.title;
     $('kbMeta').textContent = metaText();
-    $('kbSyncBtn').style.display = currentSection.sourceUrl ? '' : 'none';
+    $('kbSyncBtn').style.display = (currentSection.sourceUrl || brandSourceUrl) ? '' : 'none';
     const wrap = $('kbViewWrap');
     const content = currentSection.content || '';
     if (!content) {
@@ -409,26 +411,38 @@
     }
   }
 
+  $('kbDocLinkBtn').addEventListener('click', async () => {
+    const url = prompt(
+      'I-paste ang PUBLISHED link ng buong KB doc ng brand na ito\n(File \u2192 Share \u2192 Publish to web \u2014 nagsisimula sa docs.google.com/document/d/e/2PACX\u2026/pub).\n\nIwanang blanko para tanggalin.',
+      brandSourceUrl || ''
+    );
+    if (url === null) return;
+    const trimmed = url.trim();
+    if (trimmed && !/^https:\/\/docs\.google\.com\/document\/d\/e\/[A-Za-z0-9_-]+\/pub(\?.*)?$/.test(trimmed)) {
+      alert('Hindi published link ang na-paste. Kunin ito sa File \u2192 Share \u2192 Publish to web (may /pub sa dulo), hindi ang /edit link.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/source`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ sourceUrl: trimmed || null }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
+      brandSourceUrl = trimmed || null;
+      renderSectionList();
+    } catch (e) {
+      alert('Could not save doc link: ' + e.message);
+    }
+  });
+
   $('kbAddBtn').addEventListener('click', () => {
     if (editing && !confirm('Discard unsaved changes?')) return;
     setEditing(true, true);
   });
   $('kbEditBtn').addEventListener('click', () => { if (currentSection) setEditing(true); });
   $('kbCancelBtn').addEventListener('click', () => { setEditing(false); if (currentSection) renderView(); });
-
-  $('kbFileInput').addEventListener('change', e => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const existing = $('kbEditor').value.trim();
-      if (existing && !confirm('Replace the current editor content with this file?')) { e.target.value = ''; return; }
-      $('kbEditor').value = reader.result;
-      if (!$('kbSecTitle').value.trim()) $('kbSecTitle').value = file.name.replace(/\.txt$/i, '');
-      e.target.value = '';
-    };
-    reader.readAsText(file);
-  });
 
   $('kbSaveBtn').addEventListener('click', async () => {
     const btn = $('kbSaveBtn');
@@ -484,32 +498,114 @@
 
   // ---- sync (per section, from its own tab link) ----
   $('kbSyncBtn').addEventListener('click', async () => {
-    if (!currentSection || !currentSection.sourceUrl) return;
+    if (!currentSection) return;
     const btn = $('kbSyncBtn');
     btn.disabled = true; btn.textContent = '⟳ Syncing…';
     try {
-      const res = await fetch(`${API_BASE}/kb/doc-proxy?url=${encodeURIComponent(currentSection.sourceUrl)}`, { headers: authHeaders() });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
-      const text = body.text || '';
-      if (!text) throw new Error('Doc tab came back empty.');
-      const save = await fetch(`${API_BASE}/kb/section/${currentSection.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ content: text }),
-      });
-      const saveBody = await save.json().catch(() => ({}));
-      if (!save.ok || !saveBody.ok) throw new Error(saveBody.error || 'save failed');
-      currentSection.content = text;
+      let content;
+      if (currentSection.sourceUrl) {
+        // advanced: section has its own link — take that page's whole text
+        content = await fetchDocText(currentSection.sourceUrl);
+      } else if (brandSourceUrl) {
+        // normal: fetch the brand doc once, cut out just this section
+        const text = await fetchDocText(brandSourceUrl);
+        const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
+        if (!bodies.has(currentSection.title)) {
+          throw new Error(`Hindi nakita ang "${currentSection.title}" sa doc — dapat EKSAKTONG tugma sa tab title.${missing.length ? ' Wala rin: ' + missing.join(', ') : ''}`);
+        }
+        content = bodies.get(currentSection.title);
+      } else {
+        throw new Error('Walang doc link — i-set muna ang 🔗 Doc link ng brand.');
+      }
+      await saveSectionContent(currentSection.id, content);
+      currentSection.content = content;
       currentSection.updatedAt = new Date().toISOString();
       currentSection.updatedBy = 'you (sync)';
       await loadSections(false);
       renderSectionList();
       renderView();
     } catch (e) {
-      alert('Sync failed: ' + e.message + '\n\nTandaan: ~5 minutong lag ang published docs pagkatapos ng edit, at dapat naka-Publish to web pa rin ang doc.');
+      alert('Sync failed: ' + e.message + '\n\nTandaan: ~5 minutong lag ang published docs pagkatapos ng edit.');
     } finally {
       btn.disabled = false; btn.textContent = '⟳ Sync';
+    }
+  });
+
+  // ---- Doc split sync (v3, 2026-09-16) ----
+  // Google's published page always renders the WHOLE doc (?tab= is
+  // ignored), so sync fetches the doc ONCE and splits it into sections
+  // using the section TITLES as delimiters: each title must appear in the
+  // doc as its tab's own standalone heading line (which published tabs do).
+  const normLine = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+  function splitDocByTitles(text, titles) {
+    const lines = text.split('\n');
+    const wanted = new Map(titles.map(t => [normLine(t), t]));
+    const found = []; // { title, lineIdx } in document order
+    lines.forEach((line, idx) => {
+      const n = normLine(line);
+      if (wanted.has(n)) {
+        found.push({ title: wanted.get(n), lineIdx: idx });
+        wanted.delete(n); // first standalone occurrence wins
+      }
+    });
+    const bodies = new Map();
+    found.forEach((f, k) => {
+      const from = f.lineIdx + 1;
+      const to = k + 1 < found.length ? found[k + 1].lineIdx : lines.length;
+      bodies.set(f.title, lines.slice(from, to).join('\n').trim());
+    });
+    return { bodies, missing: [...wanted.values()] };
+  }
+
+  async function fetchDocText(url) {
+    const res = await fetch(`${API_BASE}/kb/doc-proxy?url=${encodeURIComponent(url)}`, { headers: authHeaders() });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
+    if (!body.text) throw new Error('Doc came back empty.');
+    return body.text;
+  }
+
+  async function saveSectionContent(id, content) {
+    const save = await fetch(`${API_BASE}/kb/section/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ content }),
+    });
+    const body = await save.json().catch(() => ({}));
+    if (!save.ok || !body.ok) throw new Error(body.error || 'save failed');
+  }
+
+  $('kbSyncAllBtn').addEventListener('click', async () => {
+    if (editing) { alert('Tapusin muna ang edit bago mag-Sync All.'); return; }
+    if (!sections.length) { alert('Gumawa muna ng sections \u2014 isang section kada tab, EKSAKTONG pangalan ng tab (hal. "02 deposits").'); return; }
+    if (!brandSourceUrl) { alert('I-set muna ang \ud83d\udd17 Doc link ng brand na ito.'); return; }
+    const btn = $('kbSyncAllBtn');
+    btn.disabled = true; btn.textContent = '\u27F3 Fetching doc\u2026';
+    try {
+      const text = await fetchDocText(brandSourceUrl);
+      const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
+      let done = 0;
+      const failures = [];
+      for (const sec of sections) {
+        if (!bodies.has(sec.title)) continue;
+        done++;
+        btn.textContent = `\u27F3 Saving ${done}/${bodies.size} \u2014 ${sec.title.slice(0, 16)}\u2026`;
+        try { await saveSectionContent(sec.id, bodies.get(sec.title)); }
+        catch (e) { failures.push(`${sec.title}: ${e.message}`); }
+      }
+      const openId = currentSection ? currentSection.id : null;
+      await loadIndex();
+      await loadSections(false);
+      if (openId) openSection(openId);
+      let msg = `Sync All: ${done - failures.length}/${sections.length} sections na-update.`;
+      if (missing.length) msg += `\n\nHINDI NAKITA sa doc (dapat eksaktong tugma sa tab title):\n\u2022 ` + missing.join('\n\u2022 ');
+      if (failures.length) msg += `\n\nHindi na-save:\n\u2022 ` + failures.join('\n\u2022 ');
+      if (missing.length || failures.length) alert(msg);
+    } catch (e) {
+      alert('Sync All failed: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '\u27F3 Sync All';
     }
   });
 
