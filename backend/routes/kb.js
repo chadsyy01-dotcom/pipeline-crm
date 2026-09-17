@@ -1,18 +1,16 @@
-// backend/routes/kb.js
+// backend/routes/kb.js  (v2 — sections)
 //
-// Knowledge Base storage (added 2026-09-16). One KB document per brand —
-// the same KB text the team maintains for Chatwoot bots across all brands —
-// editable from the dashboard's Knowledge Base page so it lives in ONE
-// shared place instead of scattered .txt files.
+// Knowledge Base storage (v2, 2026-09-16). Each brand's KB is a set of
+// SECTIONS — separate titled documents (like Google Docs document tabs:
+// "LLM Instruction", "00 admin persona", "01 about", "02 deposits", ...)
+// instead of one long text blob. Each section holds its own content and,
+// optionally, its own published Google Doc link (a /pub or /pub?tab=t.xxx
+// per-tab link) for one-click sync.
 //
-// Storage: own tiny table, one row per brand, created on demand (raw SQL,
-// no Sequelize model — same pattern as billing.js / BillingConfig).
+// Egress-friendly: list endpoints return metadata only; full content is
+// fetched one section at a time. No polling anywhere.
 //
-// Egress-friendly by design: the list endpoint returns metadata only
-// (name, size, updated info) — full content is fetched one brand at a
-// time, only when its tab is opened. No polling anywhere.
-//
-// WIRING (one line, backend/server.js, next to the other route mounts):
+// WIRING (one line, backend/server.js — already added for v1, unchanged):
 //   app.use('/api/kb', require('./routes/kb'));
 
 const express = require('express');
@@ -23,6 +21,8 @@ const { requireAuth } = require('../middleware/auth');
 
 const TABLE_READY = (async () => {
   try {
+    // v1 table kept (read-only) so any already-saved brand blob can be
+    // auto-migrated into a section the first time the brand is opened.
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "KnowledgeBase" (
         "brand" TEXT PRIMARY KEY,
@@ -32,29 +32,30 @@ const TABLE_READY = (async () => {
         "updatedBy" TEXT
       )
     `);
-    // In case the table was created by an earlier version without the column.
     await sequelize.query(`ALTER TABLE "KnowledgeBase" ADD COLUMN IF NOT EXISTS "sourceUrl" TEXT`);
-    console.log('KB: KnowledgeBase table ready.');
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "KnowledgeBaseSections" (
+        "id" SERIAL PRIMARY KEY,
+        "brand" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "content" TEXT NOT NULL DEFAULT '',
+        "sourceUrl" TEXT,
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        "updatedBy" TEXT
+      )
+    `);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS "kbs_brand_idx" ON "KnowledgeBaseSections" ("brand")`);
+    console.log('KB: KnowledgeBaseSections table ready.');
   } catch (err) {
     console.error('KB: table init failed:', err.message);
   }
 })();
 
-// Brand keys are short slugs chosen by the frontend (e.g. 'general',
-// 'buenasph', 'tmtcash'). Validated loosely so new brands need no backend
-// change — but tight enough to reject junk/injection attempts.
 const BRAND_RE = /^[A-Za-z0-9_-]{1,40}$/;
+const MAX_CONTENT = 1_000_000; // ~1 MB per section — far above any real KB
+const MAX_TITLE = 120;
 
-// Content cap: KB text files are tens of KB; 1 MB is far above any real
-// KB and still tiny for Postgres — this only guards against accidents
-// (e.g. someone pasting a binary file).
-const MAX_CONTENT = 1_000_000;
-
-// GET /api/kb/doc-proxy?url=<published Google Doc /pub link>
-// Published Docs don't send CORS headers, so the browser can't fetch them
-// directly — this proxies the fetch server-side and converts the published
-// HTML into clean plain text (headings/paragraphs become line breaks).
-// Registered BEFORE '/:brand' so that route doesn't swallow the path.
+// Published Google Doc link — base /pub or a per-tab /pub?tab=t.xxx link.
 const DOC_URL_RE = /^https:\/\/docs\.google\.com\/document\/d\/e\/[A-Za-z0-9_-]+\/pub(\?.*)?$/;
 
 function docHtmlToText(html) {
@@ -68,12 +69,10 @@ function docHtmlToText(html) {
   if (fi >= 0) s = s.slice(0, fi);
   s = s.replace(/<style[\s\S]*?<\/style>/gi, '')
        .replace(/<script[\s\S]*?<\/script>/gi, '')
-       // block-level closers become line breaks so structure survives
        .replace(/<\/(p|div|h[1-6]|li|tr|table|ul|ol|blockquote)>/gi, '\n')
        .replace(/<(br|hr)\s*\/?>(?!\n)/gi, '\n')
        .replace(/<li[^>]*>/gi, '\u2022 ')
        .replace(/<[^>]+>/g, '')
-       // entities (the common ones published docs emit)
        .replace(/&nbsp;/g, ' ')
        .replace(/&amp;/g, '&')
        .replace(/&lt;/g, '<')
@@ -81,18 +80,18 @@ function docHtmlToText(html) {
        .replace(/&quot;/g, '"')
        .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
        .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
-  // tidy whitespace: no trailing spaces, max one blank line in a row
   s = s.split('\n').map(l => l.replace(/\s+$/g, '').replace(/^\s+/g, '')).join('\n')
        .replace(/\n{3,}/g, '\n\n')
        .trim();
   return s;
 }
 
+// GET /api/kb/doc-proxy?url=...  (registered before parameterized routes)
 router.get('/doc-proxy', requireAuth, async (req, res) => {
   try {
     const url = req.query.url || '';
     if (!DOC_URL_RE.test(url)) {
-      return res.status(400).json({ error: 'URL must be a published Google Doc link (docs.google.com/document/d/e/…/pub).' });
+      return res.status(400).json({ error: 'URL must be a published Google Doc link (docs.google.com/document/d/e/…/pub, optionally with ?tab=…).' });
     }
     const r = await fetch(url, { redirect: 'follow' });
     if (!r.ok) return res.status(502).json({ error: `Google returned HTTP ${r.status} — is the doc still published to web?` });
@@ -106,14 +105,18 @@ router.get('/doc-proxy', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/kb -> { brands: [{ brand, chars, updatedAt, updatedBy }] }
-// Metadata only — no content — so the page opens light.
+// GET /api/kb  ->  { brands: [{ brand, sections, chars, updatedAt }] }
+// Metadata only, aggregated per brand — powers the green dots on the tabs.
 router.get('/', requireAuth, async (req, res) => {
   try {
     await TABLE_READY;
     const rows = await sequelize.query(`
-      SELECT "brand", LENGTH("content") AS "chars", "updatedAt", "updatedBy"
-      FROM "KnowledgeBase" ORDER BY "brand"
+      SELECT "brand",
+             COUNT(*)::int AS "sections",
+             SUM(LENGTH("content"))::bigint AS "chars",
+             MAX("updatedAt") AS "updatedAt"
+      FROM "KnowledgeBaseSections"
+      GROUP BY "brand" ORDER BY "brand"
     `, { type: QueryTypes.SELECT });
     res.json({ brands: rows });
   } catch (err) {
@@ -122,49 +125,140 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/kb/:brand -> { brand, content, updatedAt, updatedBy } | { content: null }
-router.get('/:brand', requireAuth, async (req, res) => {
+// One-time migration: if a brand has no sections yet but the v1 table has a
+// saved blob for it, move that blob into a starter section.
+async function migrateV1IfNeeded(brand) {
+  const existing = await sequelize.query(`
+    SELECT 1 FROM "KnowledgeBaseSections" WHERE "brand" = :brand LIMIT 1
+  `, { replacements: { brand }, type: QueryTypes.SELECT });
+  if (existing.length) return;
+  const v1 = await sequelize.query(`
+    SELECT "content", "sourceUrl", "updatedBy" FROM "KnowledgeBase" WHERE "brand" = :brand AND LENGTH("content") > 0
+  `, { replacements: { brand }, type: QueryTypes.SELECT });
+  if (!v1.length) return;
+  await sequelize.query(`
+    INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "updatedAt", "updatedBy")
+    VALUES (:brand, '(imported from v1)', :content, :sourceUrl, NOW(), :updatedBy)
+  `, { replacements: { brand, content: v1[0].content, sourceUrl: v1[0].sourceUrl || null, updatedBy: v1[0].updatedBy || null } });
+  console.log(`KB: migrated v1 blob for '${brand}' into a section.`);
+}
+
+// GET /api/kb/:brand/sections -> section list (metadata only, no content)
+router.get('/:brand/sections', requireAuth, async (req, res) => {
   try {
     await TABLE_READY;
     const brand = req.params.brand;
     if (!BRAND_RE.test(brand)) return res.status(400).json({ error: 'Invalid brand key.' });
+    await migrateV1IfNeeded(brand);
     const rows = await sequelize.query(`
-      SELECT "brand", "content", "sourceUrl", "updatedAt", "updatedBy"
-      FROM "KnowledgeBase" WHERE "brand" = :brand
+      SELECT "id", "title", LENGTH("content") AS "chars",
+             ("sourceUrl" IS NOT NULL) AS "linked", "updatedAt", "updatedBy"
+      FROM "KnowledgeBaseSections" WHERE "brand" = :brand
+      ORDER BY "title" ASC, "id" ASC
     `, { replacements: { brand }, type: QueryTypes.SELECT });
-    if (!rows.length) return res.json({ brand, content: null });
-    res.json(rows[0]);
+    res.json({ brand, sections: rows });
   } catch (err) {
-    console.error('KB get error:', err);
+    console.error('KB sections list error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// PUT /api/kb/:brand  body: { content: "..." }
-router.put('/:brand', requireAuth, async (req, res) => {
+// POST /api/kb/:brand/sections  body: { title, content?, sourceUrl? }
+router.post('/:brand/sections', requireAuth, async (req, res) => {
   try {
     await TABLE_READY;
     const brand = req.params.brand;
     if (!BRAND_RE.test(brand)) return res.status(400).json({ error: 'Invalid brand key.' });
-    const content = req.body?.content;
-    if (typeof content !== 'string') return res.status(400).json({ error: 'content (string) is required.' });
+    const title = (req.body?.title || '').trim();
+    if (!title || title.length > MAX_TITLE) return res.status(400).json({ error: 'A title (max 120 chars) is required.' });
+    const content = typeof req.body?.content === 'string' ? req.body.content : '';
     if (content.length > MAX_CONTENT) return res.status(400).json({ error: 'Content too large (max 1 MB).' });
-    let sourceUrl = req.body?.sourceUrl;
-    if (sourceUrl != null && sourceUrl !== '' && !DOC_URL_RE.test(sourceUrl)) {
-      return res.status(400).json({ error: 'sourceUrl must be a published Google Doc /pub link (or empty).' });
-    }
-    if (sourceUrl === '') sourceUrl = null;
+    let sourceUrl = req.body?.sourceUrl || null;
+    if (sourceUrl && !DOC_URL_RE.test(sourceUrl)) return res.status(400).json({ error: 'sourceUrl must be a published Google Doc link (or empty).' });
     const updatedBy = req.user?.name || req.user?.email || null;
-    await sequelize.query(`
-      INSERT INTO "KnowledgeBase" ("brand", "content", "sourceUrl", "updatedAt", "updatedBy")
-      VALUES (:brand, :content, :sourceUrl, NOW(), :updatedBy)
-      ON CONFLICT ("brand") DO UPDATE
-        SET "content" = EXCLUDED."content", "sourceUrl" = EXCLUDED."sourceUrl", "updatedAt" = NOW(), "updatedBy" = EXCLUDED."updatedBy"
-    `, { replacements: { brand, content, sourceUrl: sourceUrl ?? null, updatedBy } });
-    console.log(`KB: '${brand}' saved by ${updatedBy || 'unknown'} — ${content.length} chars.`);
+    const rows = await sequelize.query(`
+      INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "updatedAt", "updatedBy")
+      VALUES (:brand, :title, :content, :sourceUrl, NOW(), :updatedBy)
+      RETURNING "id"
+    `, { replacements: { brand, title, content, sourceUrl, updatedBy }, type: QueryTypes.SELECT });
+    console.log(`KB: section '${title}' created for '${brand}' by ${updatedBy || 'unknown'}.`);
+    res.json({ ok: true, id: rows[0].id });
+  } catch (err) {
+    console.error('KB section create error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/kb/section/:id -> full section
+router.get('/section/:id', requireAuth, async (req, res) => {
+  try {
+    await TABLE_READY;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid section id.' });
+    const rows = await sequelize.query(`
+      SELECT "id", "brand", "title", "content", "sourceUrl", "updatedAt", "updatedBy"
+      FROM "KnowledgeBaseSections" WHERE "id" = :id
+    `, { replacements: { id }, type: QueryTypes.SELECT });
+    if (!rows.length) return res.status(404).json({ error: 'Section not found.' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('KB section get error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/kb/section/:id  body: { title?, content?, sourceUrl? }
+router.put('/section/:id', requireAuth, async (req, res) => {
+  try {
+    await TABLE_READY;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid section id.' });
+    const sets = [];
+    const repl = { id, updatedBy: req.user?.name || req.user?.email || null };
+    if (req.body?.title !== undefined) {
+      const title = String(req.body.title).trim();
+      if (!title || title.length > MAX_TITLE) return res.status(400).json({ error: 'Title must be 1-120 chars.' });
+      sets.push('"title" = :title'); repl.title = title;
+    }
+    if (req.body?.content !== undefined) {
+      if (typeof req.body.content !== 'string') return res.status(400).json({ error: 'content must be a string.' });
+      if (req.body.content.length > MAX_CONTENT) return res.status(400).json({ error: 'Content too large (max 1 MB).' });
+      sets.push('"content" = :content'); repl.content = req.body.content;
+    }
+    if (req.body?.sourceUrl !== undefined) {
+      let sourceUrl = req.body.sourceUrl || null;
+      if (sourceUrl && !DOC_URL_RE.test(sourceUrl)) return res.status(400).json({ error: 'sourceUrl must be a published Google Doc link (or empty).' });
+      sets.push('"sourceUrl" = :sourceUrl'); repl.sourceUrl = sourceUrl;
+    }
+    if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
+    const result = await sequelize.query(`
+      UPDATE "KnowledgeBaseSections"
+      SET ${sets.join(', ')}, "updatedAt" = NOW(), "updatedBy" = :updatedBy
+      WHERE "id" = :id
+      RETURNING "id"
+    `, { replacements: repl, type: QueryTypes.SELECT });
+    if (!result.length) return res.status(404).json({ error: 'Section not found.' });
     res.json({ ok: true });
   } catch (err) {
-    console.error('KB save error:', err);
+    console.error('KB section update error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/kb/section/:id
+router.delete('/section/:id', requireAuth, async (req, res) => {
+  try {
+    await TABLE_READY;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid section id.' });
+    const rows = await sequelize.query(`
+      DELETE FROM "KnowledgeBaseSections" WHERE "id" = :id RETURNING "brand", "title"
+    `, { replacements: { id }, type: QueryTypes.SELECT });
+    if (!rows.length) return res.status(404).json({ error: 'Section not found.' });
+    console.log(`KB: section '${rows[0].title}' (${rows[0].brand}) deleted by ${req.user?.name || req.user?.email || 'unknown'}.`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('KB section delete error:', err);
     res.status(500).json({ error: err.message });
   }
 });
