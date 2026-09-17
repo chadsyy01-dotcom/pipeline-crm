@@ -661,11 +661,13 @@
     return { bodies, missing: [...wanted.values()] };
   }
 
+  let lastFetchedDocTitle = null; // <title> ng huling na-fetch na doc
   async function fetchDocText(url) {
     const res = await fetch(`${API_BASE}/kb/doc-proxy?url=${encodeURIComponent(url)}`, { headers: authHeaders() });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
     if (!body.text) throw new Error('Doc came back empty.');
+    lastFetchedDocTitle = body.docTitle || null;
     return body.text;
   }
 
@@ -684,7 +686,7 @@
   // matching sections): the published page's first line is the doc title
   // ("TMTCash KB") — if it names a DIFFERENT brand, the sync is stopped.
   function docBrandMismatch(text) {
-    const head = (String(text).split('\n')[0] || '').slice(0, 120).toLowerCase();
+    const head = (lastFetchedDocTitle || String(text).split('\n')[0] || '').slice(0, 120).toLowerCase();
     for (const b of BRANDS) {
       if (b.key === currentBrand) continue;
       if (head.includes(b.label.toLowerCase())) return b.label;
