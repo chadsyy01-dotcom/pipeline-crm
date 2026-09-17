@@ -47,6 +47,7 @@ const TABLE_READY = (async () => {
     await sequelize.query(`CREATE INDEX IF NOT EXISTS "kbs_brand_idx" ON "KnowledgeBaseSections" ("brand")`);
     await sequelize.query(`ALTER TABLE "KnowledgeBaseSections" ADD COLUMN IF NOT EXISTS "detectedDates" JSONB`);
     await sequelize.query(`ALTER TABLE "KnowledgeBaseSections" ADD COLUMN IF NOT EXISTS "datesVer" INTEGER`);
+    await sequelize.query(`ALTER TABLE "KnowledgeBaseSections" ADD COLUMN IF NOT EXISTS "foreignBrands" JSONB`);
     console.log('KB: KnowledgeBaseSections table ready.');
   } catch (err) {
     console.error('KB: table init failed:', err.message);
@@ -84,10 +85,54 @@ const COMPLETED_CTX_RE = /\b(status\s*[:=]?\s*(completed|ended|expired|inactive|
 // the group, e.g. /\b(top fan|weekly winners|hall of fame)\b/i
 const IGNORE_TOPICS_RE = /\b(top fan)\b/i;
 
+// ---- Foreign-brand contamination check (added 2026-09-17) ----
+// Each brand's KB must only ever mention ITS OWN brand. Any other brand's
+// name appearing in a section is almost always a copy-paste leftover from
+// another brand's KB — confusing for agents and dangerous for the bot.
+// Full distinctive names only (word-boundary, case-insensitive): shared
+// stems like "Buenas", "TMT", "HypePlay" alone are never matched, so
+// sibling brands don't false-positive on their common family name.
+const BRAND_NAME_VARIANTS = {
+  buenasph:       ['Buenas PH'],
+  tmtcash:        ['TMTCash', 'TMT Cash'],
+  mcp:            ['Mobile Casino Play'],
+  manilaplayph:   ['Manila Play', 'ManilaPlay'],
+  HypleplayPH:    ['HypePlay PH', 'Hypeplay PH'],
+  HypeplayBD:     ['HypePlay BD', 'Hypeplay BD', 'Hypeplay BDT', 'Hype BD'],
+  Tmtplay:        ['TMTPlay', 'TMT Play'],
+  MGK:            ['88MGK'],
+  BuenasCredit:   ['Buenas Credit', 'Buenas VIP'],
+  LuckystacksPH:  ['LuckyStacks', 'Luckstacks'],
+  casinyeam:      ['Casinyeam'],
+  manilacasino:   ['Manila Casino'],
+  superscatterph: ['SuperScatter'],
+};
+
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function computeForeignBrands(content, ownBrandKey) {
+  const text = String(content || '');
+  if (!text) return [];
+  const hits = [];
+  for (const [key, variants] of Object.entries(BRAND_NAME_VARIANTS)) {
+    if (key === ownBrandKey) continue;
+    // unique start positions, so case-variants of the same name ("HypePlay
+    // BD" / "Hypeplay BD") can't double-count one occurrence
+    const positions = new Set();
+    for (const v of variants) {
+      const re = new RegExp('\\b' + escRe(v).replace(/\s+/g, '\\s+') + '\\b', 'gi');
+      let mm;
+      while ((mm = re.exec(text)) !== null) positions.add(mm.index);
+    }
+    if (positions.size > 0) hits.push({ name: variants[0], count: positions.size });
+  }
+  return hits.sort((a, b) => b.count - a.count).slice(0, 10);
+}
+
 // Version marker so Railway deploy logs show exactly which extraction
 // logic is live (deployment mix-ups cost us an afternoon on 2026-09-17).
-const EXTRACTION_VER = 5;
-console.log(`KB: routes loaded — extraction v${EXTRACTION_VER} (topic-skip, completed-status, ranges, reference-dates).`);
+const EXTRACTION_VER = 6;
+console.log(`KB: routes loaded — extraction v${EXTRACTION_VER} (brand-leak check, topic-skip, completed-status, ranges, reference-dates).`);
 
 // Window bounded by blank lines so one promo's status can't bleed into
 // the next block's dates.
@@ -363,20 +408,24 @@ router.get('/:brand/sections', requireAuth, async (req, res) => {
     // one-time lazy backfill: sections saved before date-detection existed
     const nullDateRows = await sequelize.query(`
       SELECT "id", "title", "content" FROM "KnowledgeBaseSections"
-      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 5 AND LENGTH("content") > 0
+      WHERE "brand" = :brand AND "datesVer" IS DISTINCT FROM 6 AND LENGTH("content") > 0
     `, { replacements: { brand }, type: QueryTypes.SELECT });
     for (const r of nullDateRows) {
       await sequelize.query(`
-        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "datesVer" = 5 WHERE "id" = :id
-      `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content, r.title)) } });
+        UPDATE "KnowledgeBaseSections" SET "detectedDates" = :dates::jsonb, "foreignBrands" = :fb::jsonb, "datesVer" = 6 WHERE "id" = :id
+      `, { replacements: { id: r.id, dates: JSON.stringify(extractDates(r.content, r.title)), fb: JSON.stringify(computeForeignBrands(r.content, brand)) } });
     }
     const rows = await sequelize.query(`
       SELECT "id", "title", LENGTH("content") AS "chars",
-             ("sourceUrl" IS NOT NULL) AS "linked", "detectedDates", "updatedAt", "updatedBy"
+             ("sourceUrl" IS NOT NULL) AS "linked", "detectedDates", "foreignBrands", "updatedAt", "updatedBy"
       FROM "KnowledgeBaseSections" WHERE "brand" = :brand
       ORDER BY "title" ASC, "id" ASC
     `, { replacements: { brand }, type: QueryTypes.SELECT });
-    rows.forEach(r => { r.alert = computeAlert(r.detectedDates); delete r.detectedDates; });
+    rows.forEach(r => {
+      r.alert = computeAlert(r.detectedDates); delete r.detectedDates;
+      r.brandLeaks = Array.isArray(r.foreignBrands) && r.foreignBrands.length ? r.foreignBrands : null;
+      delete r.foreignBrands;
+    });
     const srcRow = await sequelize.query(`
       SELECT "sourceUrl", "content" FROM "KnowledgeBase" WHERE "brand" = :brand
     `, { replacements: { brand }, type: QueryTypes.SELECT });
@@ -407,10 +456,10 @@ router.post('/:brand/sections', requireAuth, async (req, res) => {
     if (sourceUrl && !DOC_URL_RE.test(sourceUrl)) return res.status(400).json({ error: 'sourceUrl must be a published Google Doc link (or empty).' });
     const updatedBy = req.user?.name || req.user?.email || null;
     const rows = await sequelize.query(`
-      INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "datesVer", "updatedAt", "updatedBy")
-      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, 5, NOW(), :updatedBy)
+      INSERT INTO "KnowledgeBaseSections" ("brand", "title", "content", "sourceUrl", "detectedDates", "foreignBrands", "datesVer", "updatedAt", "updatedBy")
+      VALUES (:brand, :title, :content, :sourceUrl, :detectedDates::jsonb, :foreignBrands::jsonb, 6, NOW(), :updatedBy)
       RETURNING "id"
-    `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content, title)), updatedBy }, type: QueryTypes.SELECT });
+    `, { replacements: { brand, title, content, sourceUrl, detectedDates: JSON.stringify(extractDates(content, title)), foreignBrands: JSON.stringify(computeForeignBrands(content, brand)), updatedBy }, type: QueryTypes.SELECT });
     console.log(`KB: section '${title}' created for '${brand}' by ${updatedBy || 'unknown'}.`);
     res.json({ ok: true, id: rows[0].id });
   } catch (err) {
@@ -426,13 +475,15 @@ router.get('/section/:id', requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid section id.' });
     const rows = await sequelize.query(`
-      SELECT "id", "brand", "title", "content", "sourceUrl", "detectedDates", "updatedAt", "updatedBy"
+      SELECT "id", "brand", "title", "content", "sourceUrl", "detectedDates", "foreignBrands", "updatedAt", "updatedBy"
       FROM "KnowledgeBaseSections" WHERE "id" = :id
     `, { replacements: { id }, type: QueryTypes.SELECT });
     if (!rows.length) return res.status(404).json({ error: 'Section not found.' });
     const row = rows[0];
     row.alert = computeAlert(row.detectedDates);
     delete row.detectedDates;
+    row.brandLeaks = Array.isArray(row.foreignBrands) && row.foreignBrands.length ? row.foreignBrands : null;
+    delete row.foreignBrands;
     res.json(row);
   } catch (err) {
     console.error('KB section get error:', err);
@@ -459,14 +510,14 @@ router.put('/section/:id', requireAuth, async (req, res) => {
       sets.push('"content" = :content'); repl.content = req.body.content;
       // classification reads the title; use the incoming one or the stored one
       let titleForDates = req.body?.title !== undefined ? String(req.body.title) : null;
-      if (titleForDates === null) {
-        const tRow = await sequelize.query(`
-          SELECT "title" FROM "KnowledgeBaseSections" WHERE "id" = :id
-        `, { replacements: { id }, type: QueryTypes.SELECT });
-        titleForDates = tRow.length ? tRow[0].title : '';
-      }
+      const tRow = await sequelize.query(`
+        SELECT "title", "brand" FROM "KnowledgeBaseSections" WHERE "id" = :id
+      `, { replacements: { id }, type: QueryTypes.SELECT });
+      if (titleForDates === null) titleForDates = tRow.length ? tRow[0].title : '';
+      const brandKey = tRow.length ? tRow[0].brand : '';
       sets.push('"detectedDates" = :detectedDates::jsonb'); repl.detectedDates = JSON.stringify(extractDates(req.body.content, titleForDates));
-      sets.push('"datesVer" = 5');
+      sets.push('"foreignBrands" = :foreignBrands::jsonb'); repl.foreignBrands = JSON.stringify(computeForeignBrands(req.body.content, brandKey));
+      sets.push('"datesVer" = 6');
     }
     if (req.body?.sourceUrl !== undefined) {
       let sourceUrl = req.body.sourceUrl || null;
