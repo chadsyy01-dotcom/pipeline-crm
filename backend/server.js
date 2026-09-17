@@ -9,7 +9,10 @@ app.use(cors());
 // parsed req.body — needed by routes/chatwoot.js to check the Chatwoot
 // webhook signature, since that has to be computed over the exact raw JSON
 // as sent, not a re-serialized copy (which can differ in key order/spacing).
+// limit raised to 2mb (2026-09-16) so large Knowledge Base docs can be saved
+// — the Express default is only 100kb.
 app.use(express.json({
+  limit: '2mb',
   verify: (req, res, buf) => { req.rawBody = buf; }
 }));
 
@@ -22,6 +25,7 @@ app.use('/api/openai-billing', require('./routes/openaiBilling'));
 app.use('/api/chatwoot', require('./routes/chatwoot'));
 app.use('/api/livechat', require('./routes/livechat'));
 app.use('/api/billing', require('./routes/billing'));
+app.use('/api/kb', require('./routes/kb'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
