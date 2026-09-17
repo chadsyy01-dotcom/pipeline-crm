@@ -71,7 +71,21 @@
   .kb-editor{width:100%;min-height:56vh;padding:14px 16px;border:1px solid var(--line);border-radius:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;color:var(--ink);background:#fff;resize:vertical;}
   .kb-editor:focus{outline:2px solid var(--primary);outline-offset:-1px;}
 
-  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+  .kb-layout{display:flex;gap:0;min-height:60vh;}
+  .kb-seclist{width:252px;flex-shrink:0;border-right:1px solid var(--line);padding-right:14px;margin-right:16px;display:flex;flex-direction:column;}
+  .kb-seclist-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .kb-seclist-head span{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-faint);}
+  .kb-addbtn{border:none;background:var(--primary-tint);color:var(--primary);font-size:15px;font-weight:800;width:26px;height:26px;border-radius:8px;cursor:pointer;line-height:1;}
+  .kb-secitems{overflow-y:auto;max-height:62vh;display:flex;flex-direction:column;gap:2px;}
+  .kb-secitem{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;text-align:left;font-family:inherit;width:100%;}
+  .kb-secitem svg{width:15px;height:15px;flex-shrink:0;color:var(--ink-faint);}
+  .kb-secitem:hover{background:#F1F5F9;}
+  .kb-secitem.active{background:var(--primary-tint);color:var(--primary);}
+  .kb-secitem.active svg{color:var(--primary);}
+  .kb-secitem .kb-link-dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;margin-left:auto;}
+  .kb-content{flex:1;min-width:0;}
+  .kb-empty-side{color:var(--ink-faint);font-size:12.5px;padding:18px 6px;text-align:center;line-height:1.6;}
+  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .kb-layout{flex-direction:column;} .kb-seclist{width:100%;border-right:none;border-bottom:1px solid var(--line);padding:0 0 12px;margin:0 0 14px;} }
 </style>
 </head>
 <body>
@@ -150,54 +164,66 @@
     <div class="brand-tabs" id="brandTabs"></div>
 
     <div class="panel">
-      <div class="panel-head">
-        <h3 id="kbTitle">—</h3>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <span class="kb-meta" id="kbMeta"></span>
-          <div class="kb-actions" id="kbViewActions">
-            <button class="kb-btn" id="kbSyncBtn" title="Pull the latest published content from the linked Google Doc" style="display:none;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync from Google Doc</button>
-            <button class="kb-btn" id="kbCopyBtn" title="Copy the full KB text">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-              Copy
-            </button>
-            <button class="kb-btn" id="kbDownloadBtn" title="Download as .txt">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-              .txt
-            </button>
-            <button class="kb-btn primary" id="kbEditBtn">Edit</button>
+      <div class="kb-layout">
+        <div class="kb-seclist">
+          <div class="kb-seclist-head">
+            <span>Sections</span>
+            <button class="kb-addbtn" id="kbAddBtn" title="Add a new section">+</button>
           </div>
-          <div class="kb-actions" id="kbEditActions" style="display:none;">
-            <label class="kb-btn" title="Load a .txt file into the editor" style="margin:0;">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-              Upload .txt
-              <input type="file" id="kbFileInput" accept=".txt,text/plain" style="display:none;">
-            </label>
-            <button class="kb-btn primary" id="kbSaveBtn">Save</button>
-            <button class="kb-btn" id="kbCancelBtn">Cancel</button>
+          <div class="kb-secitems" id="kbSecItems"><div class="kb-empty-side">Loading…</div></div>
+        </div>
+        <div class="kb-content">
+          <div class="panel-head">
+            <h3 id="kbTitle">—</h3>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <span class="kb-meta" id="kbMeta"></span>
+              <div class="kb-actions" id="kbViewActions">
+                <button class="kb-btn" id="kbSyncBtn" title="Pull the latest published content from this section's Google Doc tab link" style="display:none;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync</button>
+                <button class="kb-btn" id="kbCopyBtn" title="Copy this section's text">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                  Copy
+                </button>
+                <button class="kb-btn" id="kbDownloadBtn" title="Download this section as .txt">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                  .txt
+                </button>
+                <button class="kb-btn primary" id="kbEditBtn">Edit</button>
+              </div>
+              <div class="kb-actions" id="kbEditActions" style="display:none;">
+                <label class="kb-btn" title="Load a .txt file into the editor" style="margin:0;">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                  Upload .txt
+                  <input type="file" id="kbFileInput" accept=".txt,text/plain" style="display:none;">
+                </label>
+                <button class="kb-btn" id="kbDeleteBtn" style="color:var(--danger);border-color:var(--danger-tint);">Delete</button>
+                <button class="kb-btn primary" id="kbSaveBtn">Save</button>
+                <button class="kb-btn" id="kbCancelBtn">Cancel</button>
+              </div>
+            </div>
           </div>
+
+          <div class="kb-search" id="kbSearchRow">
+            <input type="text" id="kbSearch" placeholder="Search inside this section…">
+            <span class="kb-hits" id="kbHits"></span>
+          </div>
+
+          <div id="kbEditFields" style="display:none;margin-bottom:10px;">
+            <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Section title</label>
+            <input type="text" id="kbSecTitle" maxlength="120" placeholder="e.g. 02 deposits" style="width:100%;max-width:420px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:13px;font-weight:700;margin-bottom:10px;">
+            <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Google Doc published link for THIS tab (optional — enables ⟳ Sync)</label>
+            <input type="url" id="kbSourceUrl" placeholder="https://docs.google.com/document/d/e/…/pub?tab=t.xxxx" style="width:100%;max-width:640px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:12.5px;">
+          </div>
+
+          <div id="kbViewWrap"><div class="kb-empty">Pumili ng section sa kaliwa.</div></div>
+          <textarea class="kb-editor" id="kbEditor" style="display:none;" spellcheck="false"></textarea>
         </div>
       </div>
-
-      <div class="kb-search" id="kbSearchRow">
-        <input type="text" id="kbSearch" placeholder="Search inside this KB…">
-        <span class="kb-hits" id="kbHits"></span>
-      </div>
-
-      <div id="kbViewWrap"><div class="kb-empty">Loading…</div></div>
-      <div id="kbSourceRow" style="display:none;margin-bottom:10px;">
-        <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Google Doc published link (optional — enables one-click Sync)</label>
-        <input type="url" id="kbSourceUrl" placeholder="https://docs.google.com/document/d/e/…/pub" style="width:100%;max-width:640px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:12.5px;">
-      </div>
-      <textarea class="kb-editor" id="kbEditor" style="display:none;" spellcheck="false"></textarea>
     </div>
   </main>
 </div>
 
 <script>
 (function () {
-  // Brand tabs: 'general' for content shared by every brand, then the 10
-  // Chatwoot brands and the 4 LiveChat brands (included so any future bot
-  // KB there has a home — unused tabs just stay empty and cost nothing).
   const BRANDS = [
     { key: 'general',        label: '📌 General (All Brands)' },
     { key: 'buenasph',       label: 'Buenas PH' },
@@ -217,20 +243,22 @@
   ];
 
   let currentBrand = 'general';
-  let currentContent = '';       // content of the open brand (view state)
-  let currentMeta = null;        // { updatedAt, updatedBy }
-  let currentSourceUrl = null;   // published Google Doc /pub link, if set
-  let kbIndex = {};              // brand -> { chars, updatedAt, updatedBy }
+  let kbIndex = {};            // brand -> { sections, chars, updatedAt }
+  let sections = [];           // current brand's section list (metadata)
+  let currentSection = null;   // { id, title, content, sourceUrl, updatedAt, updatedBy }
   let editing = false;
+  let creating = false;        // Add-section mode (no id yet)
 
   const $ = id => document.getElementById(id);
   const authHeaders = () => ({ Authorization: 'Bearer ' + localStorage.getItem('pipeline_token') });
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const brandLabel = key => (BRANDS.find(b => b.key === key) || { label: key }).label;
+  const FILE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>';
 
+  // ---- brand tabs ----
   function renderTabs() {
     $('brandTabs').innerHTML = BRANDS.map(b => {
-      const has = kbIndex[b.key] && kbIndex[b.key].chars > 0;
+      const has = kbIndex[b.key] && kbIndex[b.key].sections > 0;
       return `<button class="brand-tab${b.key === currentBrand ? ' active' : ''}" data-brand="${b.key}">
         <span class="${has ? 'kb-has' : 'kb-none'}"></span>${esc(b.label)}
       </button>`;
@@ -239,8 +267,9 @@
       if (editing && !confirm('Discard unsaved changes?')) return;
       setEditing(false);
       currentBrand = btn.dataset.brand;
+      currentSection = null;
       renderTabs();
-      loadBrand();
+      loadSections();
     }));
   }
 
@@ -257,44 +286,86 @@
     renderTabs();
   }
 
-  async function loadBrand() {
-    $('kbTitle').textContent = brandLabel(currentBrand);
-    $('kbViewWrap').innerHTML = '<div class="kb-empty">Loading…</div>';
-    $('kbMeta').textContent = '';
-    $('kbSearch').value = '';
-    $('kbHits').textContent = '';
+  // ---- section list (left column) ----
+  function renderSectionList() {
+    const wrap = $('kbSecItems');
+    if (!sections.length) {
+      wrap.innerHTML = '<div class="kb-empty-side">Wala pang sections.<br>I-click ang <b>+</b> para magdagdag<br>(hal. "00 admin persona").</div>';
+      return;
+    }
+    wrap.innerHTML = sections.map(s => `
+      <button class="kb-secitem${currentSection && currentSection.id === s.id ? ' active' : ''}" data-id="${s.id}">
+        ${FILE_ICON}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.title)}</span>
+        ${s.linked ? '<span class="kb-link-dot" title="Linked to a Google Doc tab"></span>' : ''}
+      </button>`).join('');
+    wrap.querySelectorAll('.kb-secitem').forEach(btn => btn.addEventListener('click', () => {
+      if (editing && !confirm('Discard unsaved changes?')) return;
+      setEditing(false);
+      openSection(Number(btn.dataset.id));
+    }));
+  }
+
+  async function loadSections(openFirst = true) {
+    $('kbSecItems').innerHTML = '<div class="kb-empty-side">Loading…</div>';
     try {
-      const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/sections`, { headers: authHeaders() });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
-      currentContent = body.content || '';
-      currentSourceUrl = body.sourceUrl || null;
-      currentMeta = body.updatedAt ? { updatedAt: body.updatedAt, updatedBy: body.updatedBy } : null;
-      renderView();
+      sections = body.sections || [];
+      renderSectionList();
+      if (sections.length && openFirst) openSection(sections[0].id);
+      else if (!sections.length) {
+        currentSection = null;
+        $('kbTitle').textContent = brandLabel(currentBrand);
+        $('kbMeta').textContent = '';
+        $('kbSyncBtn').style.display = 'none';
+        $('kbViewWrap').innerHTML = `<div class="kb-empty">Walang sections pa ang ${esc(brandLabel(currentBrand))}.<br>I-click ang <b>+</b> sa kaliwa para gumawa — isang section kada topic/tab (LLM Instruction, 00 admin persona, 01 about, …).</div>`;
+      }
     } catch (e) {
+      $('kbSecItems').innerHTML = `<div class="kb-empty-side">Error: ${esc(e.message)}</div>`;
       $('kbViewWrap').innerHTML = `<div class="kb-empty">Could not load — ${esc(e.message)}.<br>If the backend was just updated, confirm the /api/kb route is wired in server.js.</div>`;
     }
   }
 
+  async function openSection(id) {
+    $('kbViewWrap').innerHTML = '<div class="kb-empty">Loading…</div>';
+    $('kbSearch').value = ''; $('kbHits').textContent = '';
+    try {
+      const res = await fetch(`${API_BASE}/kb/section/${id}`, { headers: authHeaders() });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
+      currentSection = body;
+      renderSectionList();
+      renderView();
+    } catch (e) {
+      $('kbViewWrap').innerHTML = `<div class="kb-empty">Could not load section — ${esc(e.message)}</div>`;
+    }
+  }
+
+  // ---- view ----
   function metaText() {
-    const chars = currentContent.length;
-    const words = currentContent.trim() ? currentContent.trim().split(/\s+/).length : 0;
-    const upd = currentMeta
-      ? ` · saved ${new Date(currentMeta.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${currentMeta.updatedBy ? ' by ' + currentMeta.updatedBy : ''}`
+    if (!currentSection) return '';
+    const chars = (currentSection.content || '').length;
+    const words = (currentSection.content || '').trim() ? currentSection.content.trim().split(/\s+/).length : 0;
+    const upd = currentSection.updatedAt
+      ? ` · saved ${new Date(currentSection.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${currentSection.updatedBy ? ' by ' + currentSection.updatedBy : ''}`
       : '';
     return chars ? `${chars.toLocaleString()} chars · ${words.toLocaleString()} words${upd}` : '';
   }
 
   function renderView(searchTerm) {
+    if (!currentSection) return;
+    $('kbTitle').textContent = brandLabel(currentBrand) + ' — ' + currentSection.title;
     $('kbMeta').textContent = metaText();
-    $('kbSyncBtn').style.display = currentSourceUrl ? '' : 'none';
+    $('kbSyncBtn').style.display = currentSection.sourceUrl ? '' : 'none';
     const wrap = $('kbViewWrap');
-    if (!currentContent) {
-      wrap.innerHTML = `<div class="kb-empty">Walang laman pa ang KB ng ${esc(brandLabel(currentBrand))}.<br>Click <b>Edit</b> to paste it, or <b>Upload .txt</b> inside Edit mode.</div>`;
+    const content = currentSection.content || '';
+    if (!content) {
+      wrap.innerHTML = `<div class="kb-empty">Walang laman pa ang "${esc(currentSection.title)}".<br>Click <b>Edit</b> to paste it, o i-link ang Google Doc tab at i-<b>⟳ Sync</b>.</div>`;
       $('kbHits').textContent = '';
       return;
     }
-    let html = esc(currentContent);
+    let html = esc(content);
     if (searchTerm) {
       const safe = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const re = new RegExp(safe.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), 'gi');
@@ -311,46 +382,39 @@
     }
   }
 
-  function setEditing(on) {
+  // ---- edit / create ----
+  function setEditing(on, isNew = false) {
     editing = on;
+    creating = on && isNew;
     $('kbViewActions').style.display = on ? 'none' : 'flex';
     $('kbEditActions').style.display = on ? 'flex' : 'none';
     $('kbSearchRow').style.display = on ? 'none' : 'flex';
+    $('kbEditFields').style.display = on ? '' : 'none';
     $('kbViewWrap').style.display = on ? 'none' : '';
     $('kbEditor').style.display = on ? '' : 'none';
-    $('kbSourceRow').style.display = on ? '' : 'none';
-    if (on) { $('kbEditor').value = currentContent; $('kbSourceUrl').value = currentSourceUrl || ''; $('kbEditor').focus(); }
+    $('kbDeleteBtn').style.display = (on && !isNew) ? '' : 'none';
+    if (on) {
+      if (isNew) {
+        $('kbTitle').textContent = brandLabel(currentBrand) + ' — bagong section';
+        $('kbSecTitle').value = '';
+        $('kbSourceUrl').value = '';
+        $('kbEditor').value = '';
+        $('kbSecTitle').focus();
+      } else {
+        $('kbSecTitle').value = currentSection.title;
+        $('kbSourceUrl').value = currentSection.sourceUrl || '';
+        $('kbEditor').value = currentSection.content || '';
+        $('kbEditor').focus();
+      }
+    }
   }
 
-  // ---- actions ----
-  let searchTimer = null;
-  $('kbSearch').addEventListener('input', e => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => renderView(e.target.value.trim()), 200);
+  $('kbAddBtn').addEventListener('click', () => {
+    if (editing && !confirm('Discard unsaved changes?')) return;
+    setEditing(true, true);
   });
-
-  $('kbCopyBtn').addEventListener('click', async () => {
-    if (!currentContent) return;
-    try {
-      await navigator.clipboard.writeText(currentContent);
-      $('kbCopyBtn').innerHTML = '✓ Copied';
-      setTimeout(() => { $('kbCopyBtn').innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy'; }, 1600);
-    } catch (e) { alert('Copy failed — select the text manually.'); }
-  });
-
-  $('kbDownloadBtn').addEventListener('click', () => {
-    if (!currentContent) return;
-    const blob = new Blob([currentContent], { type: 'text/plain;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kb-${currentBrand}-${new Date().toISOString().slice(0, 10)}.txt`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  $('kbEditBtn').addEventListener('click', () => setEditing(true));
-  $('kbCancelBtn').addEventListener('click', () => { setEditing(false); renderView(); });
+  $('kbEditBtn').addEventListener('click', () => { if (currentSection) setEditing(true); });
+  $('kbCancelBtn').addEventListener('click', () => { setEditing(false); if (currentSection) renderView(); });
 
   $('kbFileInput').addEventListener('change', e => {
     const file = e.target.files && e.target.files[0];
@@ -360,6 +424,7 @@
       const existing = $('kbEditor').value.trim();
       if (existing && !confirm('Replace the current editor content with this file?')) { e.target.value = ''; return; }
       $('kbEditor').value = reader.result;
+      if (!$('kbSecTitle').value.trim()) $('kbSecTitle').value = file.name.replace(/\.txt$/i, '');
       e.target.value = '';
     };
     reader.readAsText(file);
@@ -367,24 +432,33 @@
 
   $('kbSaveBtn').addEventListener('click', async () => {
     const btn = $('kbSaveBtn');
+    const title = $('kbSecTitle').value.trim();
+    if (!title) { alert('Lagyan ng title ang section (hal. "02 deposits").'); return; }
     const content = $('kbEditor').value;
+    const sourceUrl = $('kbSourceUrl').value.trim();
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      const srcUrl = $('kbSourceUrl').value.trim();
-      const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ content, sourceUrl: srcUrl }),
-      });
-      const body = await res.json().catch(() => ({}));
+      let res, body;
+      if (creating) {
+        res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/sections`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ title, content, sourceUrl: sourceUrl || null }),
+        });
+      } else {
+        res = await fetch(`${API_BASE}/kb/section/${currentSection.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ title, content, sourceUrl }),
+        });
+      }
+      body = await res.json().catch(() => ({}));
       if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
-      currentContent = content;
-      currentSourceUrl = $('kbSourceUrl').value.trim() || null;
-      currentMeta = { updatedAt: new Date().toISOString(), updatedBy: 'you' };
-      kbIndex[currentBrand] = { brand: currentBrand, chars: content.length, updatedAt: currentMeta.updatedAt };
+      const openId = creating ? body.id : currentSection.id;
       setEditing(false);
-      renderTabs();
-      renderView();
+      await loadIndex();
+      await loadSections(false);
+      openSection(openId);
     } catch (e) {
       alert('Could not save: ' + e.message);
     } finally {
@@ -392,43 +466,87 @@
     }
   });
 
-  $('kbSyncBtn').addEventListener('click', async () => {
-    if (!currentSourceUrl) return;
-    const btn = $('kbSyncBtn');
-    btn.disabled = true; btn.textContent = '⟳ Syncing…';
+  $('kbDeleteBtn').addEventListener('click', async () => {
+    if (!currentSection) return;
+    if (!confirm(`Delete section "${currentSection.title}"? Hindi ito maibabalik.`)) return;
     try {
-      const res = await fetch(`${API_BASE}/kb/doc-proxy?url=${encodeURIComponent(currentSourceUrl)}`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/kb/section/${currentSection.id}`, { method: 'DELETE', headers: authHeaders() });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
-      const text = body.text || '';
-      if (!text) throw new Error('Doc came back empty.');
-      // save the synced text so every teammate sees it without re-syncing
-      const save = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ content: text, sourceUrl: currentSourceUrl }),
-      });
-      const saveBody = await save.json().catch(() => ({}));
-      if (!save.ok || !saveBody.ok) throw new Error(saveBody.error || 'save failed');
-      currentContent = text;
-      currentMeta = { updatedAt: new Date().toISOString(), updatedBy: 'you (sync)' };
-      kbIndex[currentBrand] = { brand: currentBrand, chars: text.length, updatedAt: currentMeta.updatedAt };
-      renderTabs();
-      renderView();
+      if (!res.ok || !body.ok) throw new Error(body.error || 'delete failed');
+      setEditing(false);
+      currentSection = null;
+      await loadIndex();
+      loadSections();
     } catch (e) {
-      alert('Sync failed: ' + e.message + '\n\nTandaan: ang published docs ay may ~5 minutong lag pagkatapos ng edit, at kailangang naka-Publish to web pa rin ang doc.');
-    } finally {
-      btn.disabled = false; btn.textContent = '⟳ Sync from Google Doc';
+      alert('Could not delete: ' + e.message);
     }
   });
 
-  // warn before leaving with unsaved edits
-  window.addEventListener('beforeunload', e => {
-    if (editing && $('kbEditor').value !== currentContent) { e.preventDefault(); e.returnValue = ''; }
+  // ---- sync (per section, from its own tab link) ----
+  $('kbSyncBtn').addEventListener('click', async () => {
+    if (!currentSection || !currentSection.sourceUrl) return;
+    const btn = $('kbSyncBtn');
+    btn.disabled = true; btn.textContent = '⟳ Syncing…';
+    try {
+      const res = await fetch(`${API_BASE}/kb/doc-proxy?url=${encodeURIComponent(currentSection.sourceUrl)}`, { headers: authHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
+      const text = body.text || '';
+      if (!text) throw new Error('Doc tab came back empty.');
+      const save = await fetch(`${API_BASE}/kb/section/${currentSection.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ content: text }),
+      });
+      const saveBody = await save.json().catch(() => ({}));
+      if (!save.ok || !saveBody.ok) throw new Error(saveBody.error || 'save failed');
+      currentSection.content = text;
+      currentSection.updatedAt = new Date().toISOString();
+      currentSection.updatedBy = 'you (sync)';
+      await loadSections(false);
+      renderSectionList();
+      renderView();
+    } catch (e) {
+      alert('Sync failed: ' + e.message + '\n\nTandaan: ~5 minutong lag ang published docs pagkatapos ng edit, at dapat naka-Publish to web pa rin ang doc.');
+    } finally {
+      btn.disabled = false; btn.textContent = '⟳ Sync';
+    }
   });
 
-  // ---- boot: one metadata call + the default tab's content. No polling. ----
-  loadIndex().then(loadBrand);
+  // ---- copy / download / search ----
+  $('kbCopyBtn').addEventListener('click', async () => {
+    if (!currentSection || !currentSection.content) return;
+    try {
+      await navigator.clipboard.writeText(currentSection.content);
+      $('kbCopyBtn').innerHTML = '✓ Copied';
+      setTimeout(() => { $('kbCopyBtn').innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy'; }, 1600);
+    } catch (e) { alert('Copy failed — select the text manually.'); }
+  });
+
+  $('kbDownloadBtn').addEventListener('click', () => {
+    if (!currentSection || !currentSection.content) return;
+    const slug = currentSection.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'section';
+    const blob = new Blob([currentSection.content], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kb-${currentBrand}-${slug}.txt`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  let searchTimer = null;
+  $('kbSearch').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderView(e.target.value.trim()), 200);
+  });
+
+  window.addEventListener('beforeunload', e => {
+    if (editing) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  // ---- boot: metadata + default brand's sections. No polling. ----
+  loadIndex().then(() => loadSections());
 })();
 </script>
 </body>
