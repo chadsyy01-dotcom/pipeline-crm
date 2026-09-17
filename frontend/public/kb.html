@@ -91,6 +91,9 @@
   .kb-warn-banner{border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;line-height:1.6;margin-bottom:12px;}
   .kb-warn-banner.expired{background:var(--danger-tint);color:#9B1C1C;}
   .kb-warn-banner.soon{background:var(--warning-tint);color:#92620A;}
+  .kb-warn-banner .kb-jump{cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:800;}
+  .kb-mark-exp{background:#FDE2E2;color:#B91C1C;font-weight:800;padding:0 4px;border-radius:4px;box-shadow:0 0 0 1.5px var(--danger);}
+  .kb-mark-soon{background:var(--warning-tint);color:#92620A;font-weight:800;padding:0 4px;border-radius:4px;box-shadow:0 0 0 1.5px var(--warning);}
   .kb-content{flex:1;min-width:0;}
   .kb-empty-side{color:var(--ink-faint);font-size:12.5px;padding:18px 6px;text-align:center;line-height:1.6;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .kb-layout{flex-direction:column;} .kb-seclist{width:100%;border-right:none;border-bottom:1px solid var(--line);padding:0 0 12px;margin:0 0 14px;} }
@@ -374,6 +377,37 @@
     return chars ? `${chars.toLocaleString()} chars · ${words.toLocaleString()} words${upd}` : '';
   }
 
+  // Locate the actual date strings in the text that produced the alert,
+  // mark them inline (red = expired, orange = soon) and enable jumping.
+  const KB_MONTHS_C = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
+  const MONTH_RE_SRC = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+  function isoOfMonth(name) { return KB_MONTHS_C[name.slice(0, 4).toLowerCase()] ?? KB_MONTHS_C[name.slice(0, 3).toLowerCase()]; }
+  function markAlertDates(html, alert) {
+    const expired = new Set(alert.expired || []);
+    const soon = new Set(alert.soon || []);
+    const wrapMatch = (matched, iso) => {
+      if (expired.has(iso)) return `<mark class="kb-mark-exp" data-iso="${iso}">${matched}</mark>`;
+      if (soon.has(iso)) return `<mark class="kb-mark-soon" data-iso="${iso}">${matched}</mark>`;
+      return matched;
+    };
+    // "February 21, 2026" / "Feb 21 2026"
+    html = html.replace(new RegExp('\\b' + MONTH_RE_SRC + '\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})\\b', 'gi'), (m0, mon, day, yr) => {
+      const d = new Date(Date.UTC(Number(yr), isoOfMonth(mon), Number(day)));
+      return isNaN(d) ? m0 : wrapMatch(m0, d.toISOString().slice(0, 10));
+    });
+    // "June 2026" -> end of month (only when not already inside a mark from above)
+    html = html.replace(new RegExp('\\b' + MONTH_RE_SRC + '\\.?\\s+(\\d{4})\\b(?![^<]*</mark>)', 'gi'), (m0, mon, yr) => {
+      const d = new Date(Date.UTC(Number(yr), isoOfMonth(mon) + 1, 0));
+      return isNaN(d) ? m0 : wrapMatch(m0, d.toISOString().slice(0, 10));
+    });
+    // ISO 2026-09-30 (guard: skip matches sitting inside an already-made mark's attributes)
+    html = html.replace(/\b(20\d{2})-(\d{2})-(\d{2})\b(?![^<]*<\/mark>)/g, (m0, y, mo, dd) => {
+      if (Number(mo) < 1 || Number(mo) > 12) return m0;
+      return wrapMatch(m0, `${y}-${mo}-${dd}`);
+    });
+    return html;
+  }
+
   function renderView(searchTerm) {
     if (!currentSection) return;
     $('kbTitle').textContent = brandLabel(currentBrand) + ' — ' + currentSection.title;
@@ -383,15 +417,17 @@
     const content = currentSection.content || '';
     const a = currentSection.alert;
     const fmtD = iso => new Date(iso + 'T00:00:00').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+    const chip = iso => `<span class="kb-jump" data-jump="${iso}" title="I-click para tumalon sa petsang ito sa text">${fmtD(iso)}</span>`;
     const banner = !a ? '' : a.level === 'expired'
-      ? `<div class="kb-warn-banner expired">\u26A0\uFE0F <b>MAY LUMIPAS NANG PETSA sa section na ito:</b> ${a.expired.map(fmtD).join(', ')}${a.soon.length ? ` \u00B7 malapit nang matapos: ${a.soon.map(fmtD).join(', ')}` : ''}.<br>I-update ang doc (promo/maintenance na tapos na) at mag-\u27F3 Sync ulit.</div>`
-      : `<div class="kb-warn-banner soon">\u23F3 <b>May petsang matatapos sa loob ng ${7} araw:</b> ${a.soon.map(fmtD).join(', ')} \u2014 ihanda na ang kapalit na laman.</div>`;
+      ? `<div class="kb-warn-banner expired">\u26A0\uFE0F <b>MAY LUMIPAS NANG PETSA sa section na ito:</b> ${a.expired.map(chip).join(', ')}${a.soon.length ? ` \u00B7 malapit nang matapos: ${a.soon.map(chip).join(', ')}` : ''}.<br>Naka-highlight ang petsa sa text sa ibaba \u2014 i-update ang doc at mag-\u27F3 Sync ulit.</div>`
+      : `<div class="kb-warn-banner soon">\u23F3 <b>May petsang matatapos sa loob ng ${7} araw:</b> ${a.soon.map(chip).join(', ')} \u2014 ihanda na ang kapalit na laman.</div>`;
     if (!content) {
       wrap.innerHTML = `<div class="kb-empty">Walang laman pa ang "${esc(currentSection.title)}".<br>Click <b>Edit</b> to paste it, o i-link ang Google Doc tab at i-<b>⟳ Sync</b>.</div>`;
       $('kbHits').textContent = '';
       return;
     }
     let html = esc(content);
+    if (a && !searchTerm) html = markAlertDates(html, a);
     if (searchTerm) {
       const safe = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const re = new RegExp(safe.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), 'gi');
@@ -405,6 +441,15 @@
     if (searchTerm) {
       const first = wrap.querySelector('mark');
       if (first) first.scrollIntoView({ block: 'center' });
+    } else if (a) {
+      // jump straight to the offending data: first expired, else first soon
+      const target = wrap.querySelector('.kb-mark-exp') || wrap.querySelector('.kb-mark-soon');
+      if (target) target.scrollIntoView({ block: 'center' });
+      // banner chips jump to their own date's first occurrence
+      wrap.querySelectorAll('.kb-jump').forEach(el => el.addEventListener('click', () => {
+        const t = wrap.querySelector(`mark[data-iso="${el.dataset.jump}"]`);
+        if (t) t.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }));
     }
   }
 
