@@ -1,19 +1,33 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
 // Supabase's Postgres requires SSL. DATABASE_URL comes from your Supabase
-// project settings -> Database -> Connection string (use the "Transaction"
-// pooler URI on port 6543 if you deploy somewhere serverless; the direct
-// URI on port 5432 works fine for a normal long-running Express server).
+// project settings -> Database -> Connection string.
+// UPDATED 2026-09-18: switched from Transaction pooler (6543) to SESSION
+// pooler (5432, same host) — transaction mode kept exhausting Supavisor
+// connections under our long-running Express server (ECHECKOUTTIMEOUT
+// crashes, Sep 17-18). Session mode = 1 dedicated DB connection per pool
+// slot, so pool.max below MUST stay small: max 5. Supabase free tier
+// allows ~15 session-mode pooler clients; leave headroom for restarts
+// (old connections linger a few seconds) and any other tools connected.
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: 'postgres',
   protocol: 'postgres',
   logging: false,
+  pool: {
+    max: 5,        // hard cap — keep small in session mode (see note above)
+    min: 0,        // release everything when idle
+    acquire: 30000,
+    idle: 10000,   // close connections idle >10s
+    evict: 10000,
+  },
   dialectOptions: {
     ssl: {
       require: true,
       rejectUnauthorized: false, // Supabase uses a trusted but non-standard CA chain
     },
+    keepAlive: true, // stop idle sockets being silently dropped en route to Supabase
   },
+  retry: { max: 2 }, // one-off transient connection blips get retried, not crashed
 });
 
 const User = sequelize.define('User', {
