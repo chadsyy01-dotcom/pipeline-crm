@@ -106,6 +106,12 @@ const ChatwootEvent = sequelize.define('ChatwootEvent', {
   content: DataTypes.TEXT,
   senderName: DataTypes.STRING,
   senderType: DataTypes.STRING,
+  // Customer IP (added 2026-09-18). Kept in its own column because
+  // slimPayload() strips conversation.additional_attributes and
+  // prunePayloads() blanks payload entirely after 3 days — an IP left in the
+  // raw payload would be gone by the time anyone looked for it. Only fills in
+  // from this deploy onward; older rows stay NULL and can't be recovered.
+  customerIp: DataTypes.STRING,
   isPrivate: { type: DataTypes.BOOLEAN, defaultValue: false },
   labels: DataTypes.ARRAY(DataTypes.STRING),
   handoffStage: DataTypes.STRING,
