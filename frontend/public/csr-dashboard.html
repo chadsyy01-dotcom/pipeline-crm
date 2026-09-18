@@ -227,6 +227,29 @@
 
   .empty-note{color:var(--ink-faint);font-size:12.5px;padding:14px 4px;text-align:center;}
 
+  /* THREAD MODAL (added 2026-09-18) — same markup/behaviour as qa.html and
+     customers.html, so clicking a Waiting-for-Agent row opens the actual
+     conversation right here instead of dumping the user on /customers. */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:100;align-items:center;justify-content:center;padding:24px;}
+  .modal-overlay.open{display:flex;}
+  .modal-panel{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .modal-title{font-size:15px;font-weight:800;}
+  .modal-sub{font-size:12px;color:var(--ink-faint);margin-top:2px;}
+  .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .modal-close svg{width:15px;height:15px;color:var(--ink-soft);}
+  .modal-body{padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px;}
+  .msg-row{display:flex;flex-direction:column;max-width:82%;}
+  .msg-row.from-customer{align-self:flex-start;align-items:flex-start;}
+  .msg-row.from-agent{align-self:flex-end;align-items:flex-end;}
+  .msg-meta{font-size:11px;color:var(--ink-faint);margin-bottom:3px;padding:0 3px;}
+  .msg-bubble{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+  .from-customer .msg-bubble{background:var(--bg);color:var(--ink);border-bottom-left-radius:4px;}
+  .from-agent .msg-bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px;}
+  .from-agent.is-bot .msg-bubble{background:var(--purple);}
+  .msg-row.from-system{align-self:center;align-items:center;max-width:90%;}
+  .from-system .msg-bubble{background:#F1F5F9;color:var(--ink-faint);font-size:12px;font-style:italic;text-align:center;border-radius:10px;}
+
   @media (max-width:1200px){
     .kpi-row{grid-template-columns:repeat(3,1fr);}
     .grid-3{grid-template-columns:1fr 1fr;}
@@ -612,6 +635,22 @@
     </div>
 
   </main>
+
+  <!-- THREAD MODAL (added 2026-09-18) -->
+  <div class="modal-overlay" id="convModalOverlay">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="modalCustomerName">—</div>
+          <div class="modal-sub" id="modalCustomerSub">—</div>
+        </div>
+        <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody"><div class="empty-note">Loading…</div></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -645,6 +684,68 @@ const CHAT_BRAND_LABELS = {
 function chatBrandLabel(slug) {
   if (!slug) return 'Unknown';
   return CHAT_BRAND_LABELS[slug] || slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ---------------------------------------------------------------------------
+// THREAD MODAL (added 2026-09-18) — same behaviour as qa.html / customers.html.
+// Clicking a Waiting-for-Agent row now opens that exact conversation here,
+// instead of sending the user to /customers to hunt for it by hand.
+// ---------------------------------------------------------------------------
+const AI_BOT_NAMES_CLIENT = new Set([
+  'Admin Joy','Admin Love','Agent Jem','Manila Play Admin','Mona','Hype Play PH Admin','Bogchi',
+  'Lucky Stacks Admin','Admin May','TMTPlay Admin','Buenas88 Admin','Maya',
+]);
+function stripHtmlClient(html) {
+  if (!html) return '';
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+function closeConversationModal() {
+  document.getElementById('convModalOverlay').classList.remove('open');
+}
+document.getElementById('modalCloseBtn').addEventListener('click', closeConversationModal);
+document.getElementById('convModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'convModalOverlay') closeConversationModal();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeConversationModal(); });
+
+async function openConversationModal(conversationId, customerName, customerSub) {
+  const overlay = document.getElementById('convModalOverlay');
+  const body = document.getElementById('modalBody');
+  document.getElementById('modalCustomerName').textContent = customerName || 'Unknown';
+  document.getElementById('modalCustomerSub').textContent = customerSub || '';
+  body.innerHTML = '<div class="empty-note">Loading…</div>';
+  overlay.classList.add('open');
+  const token = localStorage.getItem('pipeline_token');
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&limit=200`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const messages = (data.events || []).slice().reverse();
+    const byMessageId = new Map();
+    let syntheticKey = 0;
+    messages.filter(m => m.content).forEach(m => { byMessageId.set(m.messageId ?? `__no_id_${syntheticKey++}`, m); });
+    const withContent = [...byMessageId.values()];
+    if (!withContent.length) {
+      body.innerHTML = '<div class="empty-note">No messages found for this conversation.</div>';
+      return;
+    }
+    body.innerHTML = withContent.map(m => {
+      let cls, who;
+      if (m.senderType === 'contact') { cls = 'from-customer'; who = m.contactName || 'Customer'; }
+      else if (m.senderType === 'user') {
+        const isBot = AI_BOT_NAMES_CLIENT.has(m.senderName);
+        cls = 'from-agent' + (isBot ? ' is-bot' : '');
+        who = m.senderName || 'Agent';
+      } else { cls = 'from-system'; who = 'Automated Message'; }
+      const when = m.createdAt ? new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+      return `<div class="msg-row ${cls}"><div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div><div class="msg-bubble">${escapeHtml(stripHtmlClient(m.content))}</div></div>`;
+    }).join('');
+    body.scrollTop = body.scrollHeight;
+  } catch (err) {
+    console.error('Failed to load thread:', err);
+    body.innerHTML = '<div class="empty-note">Could not load this conversation. Please try again.</div>';
+  }
 }
 
 // ---- Chat section date filter ----
@@ -833,7 +934,7 @@ async function loadChatOverview() {
     document.getElementById('chatArtValue').textContent = avgArt != null ? formatDuration(avgArt) : '—';
     document.getElementById('chatArtDelta').textContent = artVals.length ? `${artVals.length} handoff${artVals.length === 1 ? '' : 's'}` : 'No handoffs in range';
 
-    // --- KPI + list: HH Pending (waiting for a human, any age) ---
+    // --- KPI + list: HH Pending (waiting for a human) ---
     // Brands watched by the Waiting-for-Agent widget (decision 2026-09-14):
     // all LiveChat brands + ONLY Buenas PH and TMTCash on the Chatwoot side
     // (bot -> human handoffs). Other Chatwoot brands still record 'pending'
@@ -842,30 +943,63 @@ async function loadChatOverview() {
       'buenasph', 'tmtcash',                                             // Chatwoot
       'casinyeam', 'manilacasino', 'superscatterph', 'livechat-general', // LiveChat (all)
     ]);
-    const pending = (pendingResp.pending || [])
-      .filter(c => WAITING_BRANDS.has(c.brand))
+
+    // STALE-PENDING GUARD (added 2026-09-18)
+    // Why: Chatwoot never removes a bot's handoff label (e.g.
+    // "pending_humanhandoff"), so a chat only stops being 'pending' when a
+    // real agent replies OR the conversation is marked resolved. If the
+    // closing event never arrives — e.g. the backend was down (Sep 17-18 DB
+    // outage) or the chat just ended without being resolved — the entry sits
+    // in Waiting-for-Agent forever, counting up (4h 2m, 1h 42m...).
+    // Two heuristics hide those without touching the database:
+    //   1. AGE — a genuine waiting customer is a minutes-old problem, not an
+    //      hours-old one. Past PENDING_STALE_HOURS it's noise, not a queue.
+    //   2. CSAT PROMPT — if the last message is the "Rate our support"
+    //      survey, the conversation already reached its ending.
+    // Both are display-only: nothing is deleted, and the X button still
+    // writes a real server-side dismissal. Tune the age via localStorage key
+    // csr_pending_stale_hours (default 4).
+    const PENDING_STALE_HOURS = Number(localStorage.getItem('csr_pending_stale_hours')) || 4;
+    const CSAT_PROMPT_RE = /rate our support|rate your support|rate this conversation|paki-?rate/i;
+
+    const pendingAll = (pendingResp.pending || []).filter(c => WAITING_BRANDS.has(c.brand));
+    const staleCutoff = Date.now() - PENDING_STALE_HOURS * 60 * 60 * 1000;
+    const pending = pendingAll
+      .filter(c => {
+        const t = c.lastActivityAt ? new Date(c.lastActivityAt).getTime() : 0;
+        if (t && t < staleCutoff) return false;                       // 1. too old to be a live queue item
+        if (CSAT_PROMPT_RE.test(c.lastMessage || '')) return false;   // 2. survey sent = chat already ended
+        return true;
+      })
       .sort((a, b) => new Date(a.lastActivityAt) - new Date(b.lastActivityAt)); // oldest first
+    const hiddenStale = pendingAll.length - pending.length;
     const pendingCount = pending.length;
     document.getElementById('chatPendingValue').textContent = pendingCount.toLocaleString();
     document.getElementById('chatPendingCard').classList.toggle('alert', pendingCount > 0);
 
     const now = new Date();
     const listEl = document.getElementById('chatPendingList');
+    const staleNote = hiddenStale
+      ? `<div class="empty-note" style="padding:8px 4px;font-size:11px;">${hiddenStale} finished/stale chat${hiddenStale === 1 ? '' : 's'} hidden (older than ${PENDING_STALE_HOURS}h or already surveyed).</div>`
+      : '';
     if (!pending.length) {
-      listEl.innerHTML = '<div class="empty-note" style="color:var(--success);">No chats waiting for an agent — nice!</div>';
+      listEl.innerHTML = '<div class="empty-note" style="color:var(--success);">No chats waiting for an agent — nice!</div>' + staleNote;
     } else {
       listEl.innerHTML = pending.slice(0, 6).map(c => {
         const waitedMin = (now - new Date(c.lastActivityAt)) / 60000;
         const severe = waitedMin >= 15;
+        const sub = `${chatBrandLabel(c.brand)} · conversation #${c.conversationId}`;
         return `
-        <div class="alert-item" style="position:relative;">
-          <a href="/customers" style="display:flex;align-items:center;gap:inherit;flex:1;min-width:0;text-decoration:none;color:inherit;">
-            <div class="alert-ico ${severe ? '' : 'warn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
-            <div style="min-width:0;">
-              <div class="alert-title">${escapeHtml(c.contactName || 'Unknown')} <span class="pill brand">${escapeHtml(chatBrandLabel(c.brand))}</span></div>
-              <div class="alert-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px;">${escapeHtml(c.lastMessage || '—')}</div>
-            </div>
-          </a>
+        <div class="alert-item hh-row" style="position:relative;"
+             data-conv-id="${c.conversationId}"
+             data-name="${escapeHtml(c.contactName || 'Unknown')}"
+             data-sub="${escapeHtml(sub)}"
+             title="Open this conversation">
+          <div class="alert-ico ${severe ? '' : 'warn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+          <div style="min-width:0;flex:1;">
+            <div class="alert-title">${escapeHtml(c.contactName || 'Unknown')} <span class="pill brand">${escapeHtml(chatBrandLabel(c.brand))}</span></div>
+            <div class="alert-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px;">${escapeHtml(c.lastMessage || '—')}</div>
+          </div>
           <div class="alert-time ${severe ? '' : 'warn'}" style="margin-right:26px;">${compactElapsed(c.lastActivityAt, now)}</div>
           <button class="hh-dismiss" data-conv-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-name="${escapeHtml(c.contactName || 'Unknown')}"
             title="Clear this entry (manual override for stuck chats)"
@@ -873,6 +1007,14 @@ async function loadChatOverview() {
         </div>`;
       }).join('');
       if (pending.length > 6) listEl.innerHTML += `<a class="view-link" href="/customers">+${pending.length - 6} more waiting →</a>`;
+      listEl.innerHTML += staleNote;
+
+      // Open the actual thread on click (added 2026-09-18) — the X button
+      // stops propagation below, so dismissing never opens the modal.
+      listEl.querySelectorAll('.hh-row').forEach(row => row.addEventListener('click', () => {
+        openConversationModal(row.dataset.convId, row.dataset.name, row.dataset.sub);
+      }));
+
       // Manual clear (2026-09-14): server-side dismiss — writes a 'closed'
       // handoff event, so the entry disappears for ALL users and stays gone.
       listEl.querySelectorAll('.hh-dismiss').forEach(btn => btn.addEventListener('click', async (e) => {
