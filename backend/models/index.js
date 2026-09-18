@@ -35,6 +35,14 @@ const User = sequelize.define('User', {
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   passwordHash: { type: DataTypes.STRING, allowNull: false },
   role: { type: DataTypes.ENUM('admin', 'member'), defaultValue: 'member' },
+  // Profile picture (added 2026-09-18). Stored as a data: URL (base64 JPEG),
+  // NOT a file path — there's no object storage in this deployment. The
+  // browser center-crops and resizes to 256x256 at quality 0.8 before
+  // uploading, so a picture lands at roughly 30-40 kB; PATCH /api/auth/me
+  // rejects anything over 300 kB of base64. Every user may change their OWN
+  // picture (name/password are admin-only — see routes/auth.js). NULL = fall
+  // back to the initials circle the UI already draws.
+  avatar: { type: DataTypes.TEXT, allowNull: true },
 });
 
 const Company = sequelize.define('Company', {
