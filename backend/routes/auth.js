@@ -178,6 +178,21 @@ router.patch('/me', requireAuth, accountLimiter, async (req, res) => {
   }
 });
 
+// GET /api/auth/directory — ANY logged-in user. The bare minimum needed to
+// draw teammates' faces elsewhere in the dashboard (added 2026-09-18 for the
+// "Agents Active" table): display name + picture, nothing else. Emails and
+// roles stay behind /users, which is admin-only — a picture on a leaderboard
+// is not a reason to hand every member the staff list.
+router.get('/directory', requireAuth, async (req, res) => {
+  try {
+    const users = await User.findAll({ attributes: ['name', 'avatar'], order: [['name', 'ASC']] });
+    res.json({ users });
+  } catch (err) {
+    console.error('Directory error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/auth/users — admin only. Feeds the "Team members" picker on the
 // Profile page. No password material is ever returned.
 router.get('/users', requireAuth, async (req, res) => {
