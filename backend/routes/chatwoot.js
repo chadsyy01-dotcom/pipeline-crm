@@ -45,6 +45,40 @@ function stripHtml(html) {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// ---------------------------------------------------------------------------
+// Customer IP + phone extraction (added 2026-09-18, for the customer profile)
+//
+// Chatwoot doesn't put the visitor IP in one fixed place across versions and
+// event types, so check the known spots and give up quietly. This MUST run
+// against the FULL payload: slimPayload() deletes
+// conversation.additional_attributes, which is usually where it lives, and
+// prunePayloads() blanks payload entirely after a few days — hence the
+// dedicated ChatwootEvents.customerIp column.
+// ---------------------------------------------------------------------------
+function extractCustomerIp(payload, conversation) {
+  const candidates = [
+    conversation?.additional_attributes?.browser?.ip_address,
+    conversation?.additional_attributes?.browser?.ip,
+    conversation?.additional_attributes?.ip,
+    payload.sender?.additional_attributes?.created_at_ip,
+    payload.sender?.additional_attributes?.ip,
+    payload.contact?.additional_attributes?.ip,
+    conversation?.meta?.sender?.additional_attributes?.created_at_ip,
+  ];
+  for (const ip of candidates) {
+    if (typeof ip === 'string' && /^[0-9a-fA-F:.]{7,45}$/.test(ip.trim())) return ip.trim();
+  }
+  return null;
+}
+
+// PH mobile numbers as customers actually type them in chat: 09xx, +639xx,
+// 639xx, with or without spaces/dashes. Normalized to 09xxxxxxxxx.
+const PHONE_RE = /(?:\+?63|0)[\s.-]?9\d{2}[\s.-]?\d{3}[\s.-]?\d{4}/g;
+function normalizePhone(raw) {
+  const digits = String(raw).replace(/\D/g, '');
+  return digits.startsWith('63') ? '0' + digits.slice(2) : digits;
+}
+
 // Names of AI/bot personas that appear as a Chatwoot "Agent" but are NOT a
 // real human — a reply from one of these does NOT count as a handoff, no
 // matter what the conversation's labels say. Add more names here as new
@@ -327,6 +361,8 @@ function extractFields(payload) {
     content: payload.content ?? null,
     senderName: payload.sender?.name ?? null,
     senderType: resolveSenderType(payload, conversation),
+    // Visitor IP (2026-09-18) — read from the FULL payload before slimming.
+    customerIp: extractCustomerIp(payload, conversation),
     isPrivate: payload.private ?? payload.is_private ?? false,
     labels: labels && labels.length ? labels : null,
     csatRating: csatResponse?.rating ?? null,
@@ -872,6 +908,132 @@ router.get('/agent-messages', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/chatwoot/customer?name=Superlucky27&brand=tmtcash
+// Everything the dashboard knows about ONE customer (added 2026-09-18) —
+// powers the customer profile modal on the Customers page.
+//
+// IDENTITY = contactName, optionally narrowed by brand. contactName is the
+// only field every source reliably fills in (chat widgets rarely collect an
+// email), so two different people sharing a display name on the same brand
+// would merge here — passing ?brand= at least stops a name mixing across
+// brands. Worth remembering before treating the totals as gospel.
+//
+// Phone numbers are scraped from the CUSTOMER's own messages only: an agent
+// quoting a hotline number must never end up on the customer's profile.
+// IPs come from the customerIp column and only exist for chats received
+// after the 2026-09-18 deploy — older conversations show nothing.
+router.get('/customer', requireAuth, async (req, res) => {
+  try {
+    const name = String(req.query.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const brand = req.query.brand || null;
+    const brandClause = brand ? 'AND "brand" = :brand' : '';
+
+    const convRows = await sequelize.query(`
+      SELECT "conversationId", "brand",
+             MIN("createdAt") AS "firstAt", MAX("createdAt") AS "lastAt"
+      FROM "ChatwootEvents"
+      WHERE "contactName" = :name AND "conversationId" IS NOT NULL ${brandClause}
+      GROUP BY "conversationId", "brand"
+      ORDER BY MAX("createdAt") DESC
+      LIMIT 200
+    `, { replacements: { name, brand }, type: QueryTypes.SELECT });
+
+    if (!convRows.length) return res.json({ name, found: false, conversations: [] });
+
+    const ids = convRows.map(r => r.conversationId);
+    const [statuses, lastMsgs, csats, emails, ips, customerMsgs] = await Promise.all([
+      sequelize.query(`
+        SELECT DISTINCT ON ("conversationId") "conversationId", "status"
+        FROM "ChatwootEvents" WHERE "conversationId" IN (:ids) AND "status" IS NOT NULL
+        ORDER BY "conversationId", "createdAt" DESC
+      `, { replacements: { ids }, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT DISTINCT ON ("conversationId") "conversationId", "content"
+        FROM "ChatwootEvents" WHERE "conversationId" IN (:ids) AND "content" IS NOT NULL
+        ORDER BY "conversationId", "createdAt" DESC
+      `, { replacements: { ids }, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT DISTINCT ON ("conversationId") "conversationId", "csatRating", "csatFeedback"
+        FROM "ChatwootEvents" WHERE "conversationId" IN (:ids) AND "csatRating" IS NOT NULL
+        ORDER BY "conversationId", "createdAt" DESC
+      `, { replacements: { ids }, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT "contactEmail" FROM "ChatwootEvents"
+        WHERE "conversationId" IN (:ids) AND "contactEmail" IS NOT NULL
+        ORDER BY "createdAt" DESC LIMIT 1
+      `, { replacements: { ids }, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT "customerIp", MAX("createdAt") AS "seenAt"
+        FROM "ChatwootEvents" WHERE "conversationId" IN (:ids) AND "customerIp" IS NOT NULL
+        GROUP BY "customerIp" ORDER BY MAX("createdAt") DESC LIMIT 10
+      `, { replacements: { ids }, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT "content" FROM "ChatwootEvents"
+        WHERE "conversationId" IN (:ids) AND "senderType" = 'contact' AND "content" IS NOT NULL
+        ORDER BY "createdAt" DESC LIMIT 400
+      `, { replacements: { ids }, type: QueryTypes.SELECT }),
+    ]);
+
+    const statusMap = new Map(statuses.map(r => [r.conversationId, r.status]));
+    const msgMap = new Map(lastMsgs.map(r => [r.conversationId, r.content]));
+    const csatMap = new Map(csats.map(r => [r.conversationId, r]));
+
+    const phones = [];
+    for (const row of customerMsgs) {
+      const found = stripHtml(row.content).match(PHONE_RE) || [];
+      for (const p of found) {
+        const norm = normalizePhone(p);
+        if (norm.length === 11 && !phones.includes(norm)) phones.push(norm);
+      }
+      if (phones.length >= 5) break;
+    }
+
+    const brandCounts = {};
+    convRows.forEach(r => { brandCounts[r.brand] = (brandCounts[r.brand] || 0) + 1; });
+
+    const rated = convRows.map(r => csatMap.get(r.conversationId)).filter(Boolean);
+    const csatCount = rated.filter(r => r.csatRating >= 4).length;
+    const dsatCount = rated.filter(r => r.csatRating <= 2).length;
+
+    res.json({
+      name,
+      found: true,
+      email: emails[0]?.contactEmail || null,
+      brands: Object.entries(brandCounts).map(([b, n]) => ({ brand: b, chats: n })).sort((a, b) => b.chats - a.chats),
+      totalChats: convRows.length,
+      firstSeen: convRows.reduce((min, r) => (!min || r.firstAt < min ? r.firstAt : min), null),
+      lastSeen: convRows[0].lastAt,
+      phones,
+      ips: ips.map(r => ({ ip: r.customerIp, seenAt: r.seenAt })),
+      ratings: {
+        total: rated.length,
+        csat: csatCount,
+        dsat: dsatCount,
+        csatPercent: rated.length ? Math.round((csatCount / rated.length) * 1000) / 10 : null,
+        dsatPercent: rated.length ? Math.round((dsatCount / rated.length) * 1000) / 10 : null,
+        avgRating: rated.length ? Math.round((rated.reduce((s, r) => s + r.csatRating, 0) / rated.length) * 100) / 100 : null,
+      },
+      conversations: convRows.map(r => {
+        const c = csatMap.get(r.conversationId);
+        return {
+          conversationId: r.conversationId,
+          brand: r.brand,
+          startedAt: r.firstAt,
+          lastActivityAt: r.lastAt,
+          status: statusMap.get(r.conversationId) || null,
+          lastMessage: stripHtml(msgMap.get(r.conversationId) || null),
+          csatRating: c ? c.csatRating : null,
+          csatFeedback: c ? c.csatFeedback : null,
+        };
+      }),
+    });
+  } catch (err) {
+    console.error('Customer profile error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/events', requireAuth, async (req, res) => {
   try {
     const where = {};
@@ -1001,7 +1163,8 @@ router.post('/backfill', requireAuth, async (req, res) => {
           "inboxId" = :inboxId, "inboxName" = :inboxName, "contactName" = :contactName,
           "contactEmail" = :contactEmail, "senderName" = :senderName, "senderType" = :senderType,
           "isPrivate" = :isPrivate, "labels" = :labels, "handoffStage" = :handoffStage,
-          "csatRating" = :csatRating, "csatFeedback" = :csatFeedback
+          "csatRating" = :csatRating, "csatFeedback" = :csatFeedback,
+          "customerIp" = COALESCE(:customerIp, "customerIp")
         WHERE "id" = :id
       `, { replacements: {
         id: row.id,
@@ -1010,6 +1173,9 @@ router.post('/backfill', requireAuth, async (req, res) => {
         contactEmail: f.contactEmail, senderName: f.senderName, senderType: f.senderType,
         isPrivate: f.isPrivate, labels: f.labels ? `{${f.labels.map(l => '"' + String(l).replace(/"/g, '') + '"').join(',')}}` : null,
         handoffStage: f.handoffStage, csatRating: f.csatRating, csatFeedback: f.csatFeedback,
+        // COALESCE above: slimmed/blanked payloads can't yield an IP, and a
+        // null here must never erase one captured live.
+        customerIp: f.customerIp,
       } });
       updated++;
     }
