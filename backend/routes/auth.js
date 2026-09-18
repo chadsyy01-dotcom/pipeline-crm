@@ -119,9 +119,20 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
+// try/catch added 2026-09-18: without it, a rejected query here (e.g. a
+// ConnectionAcquireTimeoutError while the database is struggling) becomes an
+// unhandled promise rejection, which Node 18+ turns into a process exit —
+// one slow DB moment on this single route took the whole API down. Every
+// other route in this file already guards its awaits; this one didn't.
 router.get('/me', requireAuth, async (req, res) => {
-  const user = await User.findByPk(req.user.id, { attributes: PUBLIC_FIELDS });
-  res.json({ user });
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: PUBLIC_FIELDS });
+    if (!user) return res.status(404).json({ error: 'Account not found' });
+    res.json({ user });
+  } catch (err) {
+    console.error('Auth /me error:', err.message);
+    res.status(503).json({ error: 'Account lookup failed — please try again.' });
+  }
 });
 
 // PATCH /api/auth/me   body: { avatar?, name?, currentPassword?, newPassword? }
