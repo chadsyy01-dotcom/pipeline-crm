@@ -161,6 +161,17 @@ function customerHost(customer) {
   return null;
 }
 
+// Visitor IP (added 2026-09-18). LiveChat hands this over on the customer
+// object; unlike Chatwoot it needs no digging through additional_attributes.
+// Stored in its own ChatwootEvents column so the Customers page can show it
+// after payload pruning. Only present from this deploy onward.
+function customerIpOf(customer) {
+  const ip = customer?.last_visit?.ip || customer?.ip || null;
+  if (typeof ip !== 'string') return null;
+  const trimmed = ip.trim();
+  return /^[0-9a-fA-F:.]{7,45}$/.test(trimmed) ? trimmed : null;
+}
+
 function brandForHost(host) {
   if (!host) return null;
   for (const [needle, slug] of Object.entries(DOMAIN_MAP)) {
@@ -271,6 +282,8 @@ async function normalize(body) {
       inboxName: host ? `LiveChat · ${host}` : `LiveChat · group ${groupId}`,
       contactName: customer.name || null,
       contactEmail: customer.email || null,
+      // Visitor IP (2026-09-18) — see customerIpOf().
+      customerIp: customerIpOf(customer),
       status: 'open',
       isPrivate: false,
     };
@@ -455,6 +468,7 @@ router.post('/webhook/:brand', async (req, res) => {
         handoffStage: null,
         status: null,
         inboxId: null,
+        customerIp: null,
         ...r,
       });
     }
