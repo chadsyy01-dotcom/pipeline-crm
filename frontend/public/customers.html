@@ -10,6 +10,11 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Google Sheet ticket data — used by the customer profile modal to count
+     that customer's tickets (added 2026-09-18). Loaded here, fetched lazily
+     the first time a profile is opened, so the page load isn't slowed. -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js?v=5"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -67,11 +72,6 @@
   .nav-item.soon:hover{background:transparent;color:#AEBBD1;}
   .nav-item.soon .soon-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.02em;background:#1C273B;color:#748199;padding:2px 6px;border-radius:6px;}
 
-  .sidebar-status{
-    margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;
-    display:flex;align-items:center;gap:8px;color:#AEBBD1;
-  }
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
   .quick-links{background:#151E30;border-radius:12px;padding:14px;margin-top:12px;}
   .quick-links h4{margin:0 0 8px;font-size:11px;letter-spacing:.02em;color:#748199;font-weight:600;}
   .ql-item{display:flex;align-items:center;gap:9px;padding:7px 4px;font-size:12.5px;color:#C4D0E2;cursor:pointer;border-radius:8px;}
@@ -102,7 +102,8 @@
   .profile-dropdown svg{width:16px;height:16px;flex-shrink:0;}
   .profile-dropdown .divider{height:1px;background:var(--line);margin:6px 4px;}
   .profile-dropdown .logout-item{color:var(--danger);}
-  .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#EC4899);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;}
+  .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#EC4899);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;overflow:hidden;}
+  .avatar img{width:100%;height:100%;object-fit:cover;display:block;}
   .profile-name{font-size:13px;font-weight:700;line-height:1.3;}
   .profile-name span{display:block;font-size:11px;color:var(--ink-faint);font-weight:500;}
 
@@ -146,6 +147,11 @@
   .c-customer{display:flex;align-items:center;gap:9px;}
   .c-av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
   .c-cname{font-weight:700;font-size:13px;}
+  /* Clickable customer name (added 2026-09-18) — opens the customer profile
+     rather than the conversation thread, so the two actions stay separable
+     on the same row. */
+  .c-cname.cust-link{cursor:pointer;}
+  .c-cname.cust-link:hover{color:var(--primary);text-decoration:underline;}
   .c-csub{font-size:11.5px;color:var(--ink-faint);}
   .c-brand{font-size:11px;font-weight:700;color:var(--ink-soft);background:var(--bg);padding:3px 9px;border-radius:20px;display:inline-block;}
   .c-preview{color:var(--ink-soft);font-size:12.5px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -181,6 +187,7 @@
     background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);
     width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;
   }
+  .modal-panel.wide{max-width:680px;}
   .modal-head{
     display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
     padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0;
@@ -200,6 +207,27 @@
   .from-agent.is-bot .msg-bubble{background:var(--purple);}
   .msg-row.from-system{align-self:center;align-items:center;max-width:90%;}
   .from-system .msg-bubble{background:#F1F5F9;color:var(--ink-faint);font-size:12px;font-style:italic;text-align:center;border-radius:10px;}
+
+  /* CUSTOMER PROFILE MODAL (added 2026-09-18) */
+  .cust-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  @media (max-width:600px){ .cust-stats{grid-template-columns:repeat(2,1fr);} }
+  .cust-stat{background:var(--bg);border-radius:10px;padding:12px;}
+  .cust-stat .lbl{font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;}
+  .cust-stat .val{font-size:18px;font-weight:800;line-height:1;}
+  .cust-stat .sub{font-size:10.5px;color:var(--ink-faint);margin-top:4px;}
+  .cust-rows{display:flex;flex-direction:column;}
+  .cust-row{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .cust-row:last-child{border-bottom:none;}
+  .cust-row .k{color:var(--ink-faint);font-weight:600;font-size:12.5px;flex-shrink:0;}
+  .cust-row .v{font-weight:700;text-align:right;word-break:break-word;}
+  .cust-row .v.muted{font-weight:600;color:var(--ink-faint);font-style:italic;}
+  .cust-section-title{font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint);margin:6px 0 -4px;}
+  .cust-conv{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;border:1px solid var(--line);}
+  .cust-conv:hover{background:var(--bg);}
+  .cust-conv .cc-main{min-width:0;flex:1;}
+  .cust-conv .cc-msg{font-size:12.5px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cust-conv .cc-meta{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .cust-note{font-size:11.5px;color:var(--ink-faint);line-height:1.5;background:var(--bg);border-radius:9px;padding:10px 12px;}
 
   .table-wrap{overflow-x:auto;}
   .admin-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);max-width:220px;margin-bottom:10px;}
@@ -252,9 +280,14 @@
           const roleLabels = { admin: 'Administrator', member: 'Team Member' };
           roleEl.textContent = roleLabels[user.role] || (user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Team Member');
         }
+        // Profile picture (2026-09-18) when one is set, initials otherwise.
         const avatarEl = document.querySelector(".profile .avatar");
-        if (avatarEl && user.name) {
-          avatarEl.textContent = user.name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+        if (avatarEl) {
+          if (user.avatar) {
+            avatarEl.innerHTML = '<img src="' + user.avatar + '" alt="Profile picture">';
+          } else if (user.name) {
+            avatarEl.textContent = user.name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+          }
         }
       }
     } catch (err) {
@@ -328,8 +361,6 @@
         Settings
       </a>
     </div>
-
-    <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
   </aside>
 
   <!-- MAIN -->
@@ -401,7 +432,10 @@
     <div class="panel">
       <div class="panel-head">
         <h3>All Conversations <span id="liveIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;">● Live</span></h3>
-        <button id="backfillBtn" type="button" style="font-size:12px;font-weight:700;color:var(--ink-soft);background:var(--card);border:1px solid var(--line);padding:7px 13px;border-radius:8px;cursor:pointer;">Fix old customer names</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="refreshBtn" type="button" style="font-size:12px;font-weight:700;color:var(--ink-soft);background:var(--card);border:1px solid var(--line);padding:7px 13px;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+          <button id="backfillBtn" type="button" style="font-size:12px;font-weight:700;color:var(--ink-soft);background:var(--card);border:1px solid var(--line);padding:7px 13px;border-radius:8px;cursor:pointer;">Fix old customer names</button>
+        </div>
       </div>
       <div class="filter-tabs" id="brandTabs"></div>
       <div class="filter-tabs" id="statusTabs">
@@ -479,6 +513,24 @@
       </div>
     </div>
   </div>
+
+  <!-- CUSTOMER PROFILE MODAL (added 2026-09-18) -->
+  <div class="modal-overlay" id="custModalOverlay">
+    <div class="modal-panel wide">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="custModalName">—</div>
+          <div class="modal-sub" id="custModalSub">—</div>
+        </div>
+        <button class="modal-close" id="custModalCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="custModalBody">
+        <div class="empty-note">Loading…</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -542,6 +594,12 @@
     if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
     const days = Math.floor(hrs / 24);
     return `${days} day${days === 1 ? '' : 's'} ago`;
+  }
+  function shortDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
   // Formats a duration in seconds (ART/FTR) as "1h 5m", "5m 30s", or "45s".
   // Returns "—" when there's no value (e.g. a conversation with no human
@@ -701,7 +759,7 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       allConversations = data.conversations || [];
-      document.getElementById('liveIndicator').textContent = '● Live';
+      document.getElementById('liveIndicator').textContent = '● Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       document.getElementById('liveIndicator').style.color = 'var(--success)';
       renderBrandTabs();
       renderAdminFilter();
@@ -911,13 +969,18 @@
         : (c.lastMessage
           ? `${c.lastMessageSenderType === 'user' ? `<span class="sender">${escapeHtml(c.lastMessageSender || 'Agent')}:</span> ` : ''}${escapeHtml(c.lastMessage)}`
           : '<span></span>');
+      // The NAME opens the customer profile; the rest of the row still opens
+      // the conversation thread (2026-09-18).
+      const nameCell = c.contactName
+        ? `<div class="c-cname cust-link" data-cust-name="${escapeHtml(name)}" data-cust-brand="${escapeHtml(c.brand)}" title="View customer profile">${escapeHtml(name)}</div>`
+        : `<div class="c-cname">${escapeHtml(name)}</div>`;
       return `
         <tr data-conversation-id="${c.conversationId}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
           <td>
             <div class="c-customer">
               <div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div>
               <div>
-                <div class="c-cname">${escapeHtml(name)}</div>
+                ${nameCell}
                 <div class="c-csub">${escapeHtml(c.contactEmail || c.inboxName || '')}</div>
               </div>
             </div>
@@ -936,8 +999,17 @@
 
   loadConversations();
   loadCsatStats();
-  setInterval(loadConversations, 60000); // 60s (egress diet, 2026-09-14)
-  setInterval(loadCsatStats, 60000); // 60s (egress diet, 2026-09-14)
+  // Auto-refresh every 3 minutes (2026-09-18, was 60s). This is a review
+  // page, not a live monitor — the dashboard already watches for anything
+  // urgent — so a slower poll means three times less load on the database
+  // and less egress. The Refresh button covers "I want it now".
+  setInterval(loadConversations, 180000);
+  setInterval(loadCsatStats, 180000);
+
+  document.getElementById('refreshBtn').addEventListener('click', () => {
+    loadConversations();
+    loadCsatStats();
+  });
 
   // ---- Date filter ----
   const dateFilterSelect = document.getElementById('dateFilter');
@@ -1018,8 +1090,14 @@
     });
   });
 
-  // ---- Conversation thread modal ----
+  // ---- Row click: customer name -> profile, anywhere else -> thread ----
   document.getElementById('convBody').addEventListener('click', (e) => {
+    const nameEl = e.target.closest('.cust-link');
+    if (nameEl) {
+      e.stopPropagation();
+      openCustomerProfile(nameEl.dataset.custName, nameEl.dataset.custBrand);
+      return;
+    }
     const row = e.target.closest('tr[data-conversation-id]');
     if (!row) return;
     openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
@@ -1029,12 +1107,169 @@
   document.getElementById('convModalOverlay').addEventListener('click', (e) => {
     if (e.target.id === 'convModalOverlay') closeConversationModal();
   });
+  document.getElementById('custModalCloseBtn').addEventListener('click', closeCustomerModal);
+  document.getElementById('custModalOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'custModalOverlay') closeCustomerModal();
+  });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeConversationModal();
+    if (e.key !== 'Escape') return;
+    // Close the thread first if both are open (it sits on top).
+    if (document.getElementById('convModalOverlay').classList.contains('open')) closeConversationModal();
+    else closeCustomerModal();
   });
 
   function closeConversationModal() {
     document.getElementById('convModalOverlay').classList.remove('open');
+  }
+  function closeCustomerModal() {
+    document.getElementById('custModalOverlay').classList.remove('open');
+  }
+
+  // =====================================================================
+  // CUSTOMER PROFILE (added 2026-09-18)
+  //
+  // Identity is the display NAME, scoped to the brand of the row clicked —
+  // contactName is the only field every source fills in (chat widgets rarely
+  // collect an email), so two people sharing a name on one brand would merge.
+  // Scoping by brand at least keeps names from bleeding across brands.
+  //
+  // Tickets come from the Google Sheet and are matched on name too. The
+  // sheet name is whatever the customer typed into the ticket form, which is
+  // often NOT their chat username — so a zero here means "no ticket under
+  // this exact name", not "never sent a ticket". The card says so.
+  // =====================================================================
+  let ticketsCache = null;       // null = not loaded yet, [] = loaded & empty
+  let ticketsLoadFailed = false;
+
+  async function ensureTickets() {
+    if (ticketsCache || ticketsLoadFailed) return;
+    try {
+      ticketsCache = await TicketData.fetchTickets();
+    } catch (err) {
+      console.warn('Ticket sheet unavailable for customer profile:', err.message);
+      ticketsLoadFailed = true;
+    }
+  }
+
+  function ticketsForCustomer(name) {
+    if (!ticketsCache) return null;
+    const key = String(name || '').trim().toLowerCase();
+    return ticketsCache.filter(t => String(t.name || '').trim().toLowerCase() === key);
+  }
+
+  async function openCustomerProfile(name, brand) {
+    const overlay = document.getElementById('custModalOverlay');
+    const body = document.getElementById('custModalBody');
+    document.getElementById('custModalName').textContent = name || 'Unknown';
+    document.getElementById('custModalSub').textContent = brandLabel(brand);
+    body.innerHTML = '<div class="empty-note">Loading…</div>';
+    overlay.classList.add('open');
+
+    const token = localStorage.getItem('pipeline_token');
+    if (!token) return;
+    try {
+      const params = new URLSearchParams({ name });
+      if (brand) params.set('brand', brand);
+      const [res] = await Promise.all([
+        fetch(`${API_BASE}/chatwoot/customer?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }),
+        ensureTickets(),
+      ]);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      renderCustomerProfile(data, brand);
+    } catch (err) {
+      console.error('Customer profile failed:', err);
+      body.innerHTML = '<div class="empty-note">Could not load this customer. Please try again.</div>';
+    }
+  }
+
+  function renderCustomerProfile(d, brand) {
+    const body = document.getElementById('custModalBody');
+    if (!d.found) {
+      body.innerHTML = '<div class="empty-note">Nothing on record for this customer in the last 70 days.</div>';
+      return;
+    }
+
+    const r = d.ratings || {};
+    const tickets = ticketsForCustomer(d.name);
+    const ticketCount = tickets ? tickets.length : null;
+    const openTickets = tickets ? tickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length : 0;
+
+    const stats = `
+      <div class="cust-stats">
+        <div class="cust-stat">
+          <div class="lbl">Chats</div>
+          <div class="val">${d.totalChats}</div>
+          <div class="sub">last 70 days</div>
+        </div>
+        <div class="cust-stat">
+          <div class="lbl">Tickets</div>
+          <div class="val">${ticketCount == null ? '—' : ticketCount}</div>
+          <div class="sub">${ticketCount == null ? 'sheet unavailable' : (openTickets ? `${openTickets} still open` : 'matched by name')}</div>
+        </div>
+        <div class="cust-stat">
+          <div class="lbl">CSAT</div>
+          <div class="val" style="color:var(--success);">${r.csatPercent != null ? r.csatPercent + '%' : '—'}</div>
+          <div class="sub">${r.total ? `${r.csat} of ${r.total} rated` : 'never rated'}</div>
+        </div>
+        <div class="cust-stat">
+          <div class="lbl">DSAT</div>
+          <div class="val" style="color:var(--danger);">${r.dsatPercent != null ? r.dsatPercent + '%' : '—'}</div>
+          <div class="sub">${r.total ? `avg ${r.avgRating} / 5` : 'never rated'}</div>
+        </div>
+      </div>`;
+
+    const brandsTxt = (d.brands || []).map(b => `${brandLabel(b.brand)} (${b.chats})`).join(', ') || '—';
+    const phonesTxt = (d.phones || []).length
+      ? d.phones.map(p => escapeHtml(p)).join('<br>')
+      : '<span class="v muted">none found in their messages</span>';
+    const ipsTxt = (d.ips || []).length
+      ? d.ips.map(i => `${escapeHtml(i.ip)} <span style="font-weight:600;color:var(--ink-faint);font-size:11px;">· ${timeAgo(i.seenAt)}</span>`).join('<br>')
+      : '<span class="v muted">not captured (chats before Sep 18)</span>';
+
+    const details = `
+      <div class="cust-rows">
+        <div class="cust-row"><div class="k">Username</div><div class="v">${escapeHtml(d.name)}</div></div>
+        <div class="cust-row"><div class="k">Brand</div><div class="v">${escapeHtml(brandsTxt)}</div></div>
+        <div class="cust-row"><div class="k">Email</div><div class="v ${d.email ? '' : 'muted'}">${d.email ? escapeHtml(d.email) : 'not provided'}</div></div>
+        <div class="cust-row"><div class="k">Phone</div><div class="v">${phonesTxt}</div></div>
+        <div class="cust-row"><div class="k">IP address</div><div class="v">${ipsTxt}</div></div>
+        <div class="cust-row"><div class="k">First seen</div><div class="v">${escapeHtml(shortDate(d.firstSeen))}</div></div>
+        <div class="cust-row"><div class="k">Last seen</div><div class="v">${escapeHtml(shortDate(d.lastSeen))}</div></div>
+      </div>`;
+
+    const convs = (d.conversations || []).slice(0, 25).map(c => {
+      const si = statusInfo(c.status);
+      const rating = c.csatRating != null
+        ? `<span style="font-weight:800;font-size:11.5px;color:${c.csatRating >= 4 ? 'var(--success)' : c.csatRating <= 2 ? 'var(--danger)' : 'var(--warning)'};">★ ${c.csatRating}</span>`
+        : '';
+      return `
+        <div class="cust-conv" data-conversation-id="${c.conversationId}" data-customer-name="${escapeHtml(d.name)}" data-customer-sub="${escapeHtml(brandLabel(c.brand))}">
+          <div class="cc-main">
+            <div class="cc-msg">${escapeHtml(c.lastMessage || 'No messages')}</div>
+            <div class="cc-meta">${escapeHtml(brandLabel(c.brand))} · ${escapeHtml(shortDate(c.lastActivityAt))}</div>
+          </div>
+          ${rating}
+          <span class="status ${si.cls}">${escapeHtml(si.label)}</span>
+        </div>`;
+    }).join('');
+
+    const ticketNote = ticketCount === 0
+      ? '<div class="cust-note">No tickets found under this exact name. Ticket forms ask for a name separately from the chat username, so the same person may have filed tickets under a different one.</div>'
+      : '';
+
+    body.innerHTML = `
+      ${stats}
+      ${details}
+      ${ticketNote}
+      <div class="cust-section-title">Conversations (${d.conversations.length})</div>
+      ${convs}
+      ${d.conversations.length > 25 ? `<div class="cust-note">Showing the 25 most recent of ${d.conversations.length}.</div>` : ''}
+    `;
+
+    body.querySelectorAll('.cust-conv').forEach(el => el.addEventListener('click', () => {
+      openConversationModal(el.dataset.conversationId, el.dataset.customerName, el.dataset.customerSub);
+    }));
   }
 
   async function openConversationModal(conversationId, customerName, customerSub) {
