@@ -183,6 +183,12 @@
     align-items:center;justify-content:center;padding:24px;
   }
   .modal-overlay.open{display:flex;}
+  /* The thread sits ABOVE the customer profile (added 2026-09-18). Both
+     overlays share z-index 100, and the profile is later in the DOM, so
+     without this the thread opened from inside a profile rendered behind it
+     and looked like nothing happened. Now the profile stays open underneath
+     — close the thread and you're back where you were, no reopening. */
+  #convModalOverlay{z-index:110;}
   .modal-panel{
     background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);
     width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;
