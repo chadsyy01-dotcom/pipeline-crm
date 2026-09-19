@@ -564,7 +564,7 @@
 
       <div class="panel">
         <div class="panel-head">
-          <h3>Top 5 Players — Most Ticket Requests (<span class="ticket-range-tag">Today</span>)</h3>
+          <h3>Top 5 Players — Most Ticket Requests (<span class="chat-range-tag">Today</span>)</h3>
           <a class="view-all" href="/tickets">Open Tickets →</a>
         </div>
         <div class="table-wrap">
@@ -952,6 +952,7 @@ async function loadChatOverview() {
 
     topPlayers = topResp.customers || [];
     renderTopChats();
+    renderTopTickets();   // same range as Most Chats; re-runs when tickets land (see renderAll)
 
     // --- KPI: chats active today (exact, from /stats) ---
     const sum = obj => Object.values(obj).reduce((a, b) => a + b, 0);
@@ -1145,10 +1146,21 @@ function renderTopChats() {
 
 // Counted by unique TICKET NUMBER, not sheet rows: a follow-up on an existing
 // ticket is the same request, so it must not count twice.
-function renderTopTickets(curTickets) {
+//
+// Scoped to the LIVE CHAT date filter (2026-09-19), not the Tickets one:
+// this panel sits beside Most Chats, and having the pair answer two
+// different date questions was misleading — pick "This Month" for chats and
+// the ticket half was still showing today. Both now move together.
+function renderTopTickets() {
   const tbody = document.getElementById('topTicketsBody');
   if (!tbody) return;
-  if (!curTickets || !curTickets.length) {
+  if (!allTickets.length) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-note">Loading tickets…</div></td></tr>';
+    return;
+  }
+  const r = chatRange();
+  const curTickets = allTickets.filter(t => t.submitted && t.submitted >= r.from && t.submitted <= r.to);
+  if (!curTickets.length) {
     tbody.innerHTML = '<tr><td colspan="4"><div class="empty-note">No tickets in this range.</div></td></tr>';
     return;
   }
@@ -1416,7 +1428,7 @@ function renderAll() {
   renderQueueBreakdown(curTickets, r);
   renderTicketsByBrand(curTickets, r);
   renderTeamTable(now, r);
-  renderTopTickets(curTickets);   // Top 5 by ticket requests, same range as the Tickets section
+  renderTopTickets();   // Top 5 by ticket requests — follows the Live Chat range
 }
 
 // ---------- KPI cards ----------
