@@ -1034,6 +1034,48 @@ router.get('/customer', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/chatwoot/top-customers?from=...&to=...&limit=10
+// Busiest customers by chat count for the dashboard's "Top 10 Players" panel
+// (added 2026-09-19). Grouped by contactName + brand, so the same display
+// name on two brands stays two rows — that is almost always two different
+// people, and merging them would invent a "heavy user" who doesn't exist.
+// Ticket counts are NOT joined here: tickets live in the Google Sheet, so
+// the frontend matches those by name against data it already has loaded.
+router.get('/top-customers', requireAuth, async (req, res) => {
+  try {
+    const from = req.query.from || null;
+    const to = req.query.to || null;
+    const limit = Math.min(Number(req.query.limit) || 10, 50);
+    const dateClause = (from && to) ? 'AND "createdAt" BETWEEN :from AND :to' : '';
+
+    const rows = await sequelize.query(`
+      SELECT "contactName", "brand",
+             COUNT(DISTINCT "conversationId") AS chats,
+             MAX("createdAt") AS "lastAt"
+      FROM "ChatwootEvents"
+      WHERE "contactName" IS NOT NULL
+        AND "contactName" <> ''
+        AND "conversationId" IS NOT NULL
+        ${dateClause}
+      GROUP BY "contactName", "brand"
+      ORDER BY chats DESC, MAX("createdAt") DESC
+      LIMIT :limit
+    `, { replacements: { from, to, limit }, type: QueryTypes.SELECT });
+
+    res.json({
+      customers: rows.map(r => ({
+        name: r.contactName,
+        brand: r.brand,
+        chats: Number(r.chats),
+        lastActivityAt: r.lastAt,
+      })),
+    });
+  } catch (err) {
+    console.error('Chatwoot top-customers error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/events', requireAuth, async (req, res) => {
   try {
     const where = {};
