@@ -239,6 +239,48 @@
         </tbody>
       </table>
     </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Message log</h3>
+        <span id="logCount" style="font-size:12px;color:var(--ink-faint);font-weight:600"></span>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <select id="logBrandFilter" style="font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:#fff">
+          <option value="">All brands</option>
+        </select>
+        <input id="logSenderFilter" type="text" placeholder="Filter by sender email…" style="font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);flex:1;min-width:180px">
+        <input id="logFromDate" type="date" style="font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line)">
+        <span style="align-self:center;color:var(--ink-faint);font-size:12.5px">to</span>
+        <input id="logToDate" type="date" style="font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line)">
+        <button id="logApply" class="tab active" style="border-radius:8px">Apply</button>
+        <button id="logClear" class="tab" style="border-radius:8px">Clear</button>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="li-table" id="logTable" style="min-width:760px">
+          <thead>
+            <tr>
+              <th>Date / time</th>
+              <th>Brand</th>
+              <th>To</th>
+              <th>Message</th>
+              <th>Status</th>
+              <th>Sent by</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody">
+            <tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px">
+        <button id="logPrev" class="tab" style="border-radius:8px">← Prev</button>
+        <span id="logPageInfo" style="font-size:12.5px;color:var(--ink-soft);font-weight:600"></span>
+        <button id="logNext" class="tab" style="border-radius:8px">Next →</button>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -346,6 +388,105 @@ document.getElementById("rangeTabs").addEventListener("click", (e) => {
   btn.classList.add("active");
   loadSmsStats(btn.dataset.days);
 });
+
+// ---- Message log: full list of sent messages, filterable + paginated ----
+let logPage = 1;
+const LOG_PAGE_SIZE = 50;
+let logTotal = 0;
+
+function fmtDateTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+function statusBadge(status) {
+  const colors = { delivered: "var(--success)", sent: "var(--primary)", failed: "var(--danger)", pending: "var(--warning)", received: "var(--ink-soft)" };
+  const c = colors[status] || "var(--ink-faint)";
+  return `<span style="color:${c};font-weight:700;text-transform:capitalize">${status || "—"}</span>`;
+}
+
+async function loadBrandOptions() {
+  try {
+    const res = await fetch(`${SMS_API_BASE}/brands`, { headers: smsHeaders() });
+    if (!res.ok) return;
+    const brands = await res.json();
+    const sel = document.getElementById("logBrandFilter");
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All brands</option>' +
+      brands.map((b) => `<option value="${b.brand.replace(/"/g, "&quot;")}">${b.brand} (${fmtNum(b.count)})</option>`).join("");
+    sel.value = cur;
+  } catch (e) { /* non-fatal — filter just stays empty */ }
+}
+
+function renderLogTable(rows) {
+  const body = document.getElementById("logTableBody");
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6"><div class="empty-note">No messages match these filters.</div></td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map((m) => {
+    const to = (m.name ? m.name.replace(/</g, "&lt;") + " · " : "") + (m.phone || "");
+    const bodyShort = String(m.body || "").replace(/</g, "&lt;");
+    const sender = m.sent_by_name || m.sent_by || (m.direction === "in" ? "—" : "Unknown");
+    return `<tr>
+      <td style="white-space:nowrap;color:var(--ink-soft)">${fmtDateTime(m.created_at)}</td>
+      <td>${m.brand ? m.brand.replace(/</g, "&lt;") : (m.direction === "in" ? "Reply" : "—")}</td>
+      <td style="white-space:nowrap">${to}</td>
+      <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${bodyShort}">${bodyShort}</td>
+      <td>${statusBadge(m.status)}</td>
+      <td style="color:var(--ink-soft)">${sender.replace(/</g, "&lt;")}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function loadMessageLog() {
+  document.getElementById("logTableBody").innerHTML = '<tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr>';
+  try {
+    const params = new URLSearchParams({ page: logPage, pageSize: LOG_PAGE_SIZE });
+    const brand = document.getElementById("logBrandFilter").value;
+    const sender = document.getElementById("logSenderFilter").value.trim();
+    const from = document.getElementById("logFromDate").value;
+    const to = document.getElementById("logToDate").value;
+    if (brand) params.set("brand", brand);
+    if (sender) params.set("sent_by", sender);
+    if (from) params.set("from", from);
+    if (to) params.set("to", to + "T23:59:59");
+
+    const res = await fetch(`${SMS_API_BASE}/messages/log?${params.toString()}`, { headers: smsHeaders() });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    logTotal = data.total || 0;
+    renderLogTable(data.rows || []);
+    const pages = Math.max(Math.ceil(logTotal / LOG_PAGE_SIZE), 1);
+    document.getElementById("logPageInfo").textContent = `Page ${logPage} of ${pages}`;
+    document.getElementById("logCount").textContent = `${fmtNum(logTotal)} message${logTotal === 1 ? "" : "s"}`;
+    document.getElementById("logPrev").disabled = logPage <= 1;
+    document.getElementById("logNext").disabled = logPage >= pages;
+  } catch (err) {
+    console.error("Message log fetch failed:", err);
+    document.getElementById("logTableBody").innerHTML =
+      '<tr><td colspan="6"><div class="empty-note">Could not load the message log.</div></td></tr>';
+  }
+}
+
+document.getElementById("logApply").addEventListener("click", () => { logPage = 1; loadMessageLog(); });
+document.getElementById("logClear").addEventListener("click", () => {
+  document.getElementById("logBrandFilter").value = "";
+  document.getElementById("logSenderFilter").value = "";
+  document.getElementById("logFromDate").value = "";
+  document.getElementById("logToDate").value = "";
+  logPage = 1;
+  loadMessageLog();
+});
+document.getElementById("logPrev").addEventListener("click", () => { if (logPage > 1) { logPage--; loadMessageLog(); } });
+document.getElementById("logNext").addEventListener("click", () => {
+  if (logPage * LOG_PAGE_SIZE < logTotal) { logPage++; loadMessageLog(); }
+});
+document.getElementById("logSenderFilter").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { logPage = 1; loadMessageLog(); }
+});
+
+loadBrandOptions();
+loadMessageLog();
 
 loadSmsStats(7); // default: last 7 days
 </script>
