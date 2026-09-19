@@ -258,19 +258,20 @@
       </div>
 
       <div style="overflow-x:auto">
-        <table class="li-table" id="logTable" style="min-width:760px">
+        <table class="li-table" id="logTable" style="min-width:820px">
           <thead>
             <tr>
               <th>Date / time</th>
               <th>Brand</th>
-              <th>To</th>
+              <th>Name</th>
+              <th>Number</th>
               <th>Message</th>
               <th>Status</th>
               <th>Sent by</th>
             </tr>
           </thead>
           <tbody id="logTableBody">
-            <tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr>
+            <tr><td colspan="7"><div class="empty-note">Loading…</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -423,18 +424,20 @@ async function loadBrandOptions() {
 function renderLogTable(rows) {
   const body = document.getElementById("logTableBody");
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="6"><div class="empty-note">No messages match these filters.</div></td></tr>';
+    body.innerHTML = '<tr><td colspan="7"><div class="empty-note">No messages match these filters.</div></td></tr>';
     return;
   }
   body.innerHTML = rows.map((m) => {
-    const to = (m.name ? m.name.replace(/</g, "&lt;") + " · " : "") + (m.phone || "");
+    const name = m.name ? m.name.replace(/</g, "&lt;") : "—";
+    const number = m.phone || "—";
     const bodyShort = String(m.body || "").replace(/</g, "&lt;");
     const sender = m.sent_by_name || m.sent_by || (m.direction === "in" ? "—" : "Unknown");
     return `<tr>
       <td style="white-space:nowrap;color:var(--ink-soft)">${fmtDateTime(m.created_at)}</td>
       <td>${m.brand ? m.brand.replace(/</g, "&lt;") : (m.direction === "in" ? "Reply" : "—")}</td>
-      <td style="white-space:nowrap">${to}</td>
-      <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${bodyShort}">${bodyShort}</td>
+      <td style="white-space:nowrap">${name}</td>
+      <td style="white-space:nowrap;font-variant-numeric:tabular-nums">${number}</td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${bodyShort}">${bodyShort}</td>
       <td>${statusBadge(m.status)}</td>
       <td style="color:var(--ink-soft)">${sender.replace(/</g, "&lt;")}</td>
     </tr>`;
@@ -442,7 +445,7 @@ function renderLogTable(rows) {
 }
 
 async function loadMessageLog() {
-  document.getElementById("logTableBody").innerHTML = '<tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr>';
+  document.getElementById("logTableBody").innerHTML = '<tr><td colspan="7"><div class="empty-note">Loading…</div></td></tr>';
   try {
     const params = new URLSearchParams({ page: logPage, pageSize: LOG_PAGE_SIZE });
     const brand = document.getElementById("logBrandFilter").value;
@@ -467,7 +470,7 @@ async function loadMessageLog() {
   } catch (err) {
     console.error("Message log fetch failed:", err);
     document.getElementById("logTableBody").innerHTML =
-      '<tr><td colspan="6"><div class="empty-note">Could not load the message log.</div></td></tr>';
+      '<tr><td colspan="7"><div class="empty-note">Could not load the message log.</div></td></tr>';
   }
 }
 
