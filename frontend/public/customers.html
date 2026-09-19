@@ -1019,6 +1019,19 @@
   setInterval(loadConversations, 180000);
   setInterval(loadCsatStats, 180000);
 
+  // Auto-open a customer profile when linked here with ?profile=NAME
+  // (optionally &brand=SLUG) — added 2026-09-19 so the dashboard's Top 5
+  // leaderboards can send a click straight to this exact profile instead of
+  // dumping the person on the plain table. openCustomerProfile is a hoisted
+  // function declaration (defined further down), so calling it here before
+  // its definition in the file is safe.
+  (function openProfileFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get('profile');
+    if (!name) return;
+    openCustomerProfile(name, params.get('brand') || null);
+  })();
+
   document.getElementById('refreshBtn').addEventListener('click', () => {
     loadConversations();
     loadCsatStats();
