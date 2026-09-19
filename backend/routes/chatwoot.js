@@ -1052,6 +1052,49 @@ router.get('/customer', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/chatwoot/customer-search?q=juan&fields=name,email&limit=20
+// Powers the Customers page "Player Search" tab (added 2026-09-19). Returns
+// a LIST of matches rather than opening one directly — contactName is not
+// unique (two different people can share a display name, especially
+// LiveChat's generic "Visitor"), so search-then-pick avoids the wrong
+// profile ever loading silently. Partial, case-insensitive match on the
+// chosen field(s), OR'd together when more than one is checked.
+//
+// Only 'name' and 'email' are supported — this table has no separate phone
+// column (see the customerIp-style comment on /customer above), and
+// matching a phone would mean scanning every customer's message text on
+// every search, which doesn't scale. If phone search becomes a real need,
+// extract it into its own column at webhook time (like customerIp) instead
+// of scanning content live.
+router.get('/customer-search', requireAuth, async (req, res) => {
+  try {
+    const qRaw = String(req.query.q || '').trim();
+    if (qRaw.length < 2) return res.status(400).json({ error: 'Type at least 2 characters to search.' });
+    const fields = String(req.query.fields || 'name').split(',').map(s => s.trim()).filter(f => ['name', 'email'].includes(f));
+    if (!fields.length) fields.push('name');
+    const limit = Math.min(Number(req.query.limit) || 20, 50);
+
+    const conds = [];
+    if (fields.includes('name')) conds.push('"contactName" ILIKE :q');
+    if (fields.includes('email')) conds.push('"contactEmail" ILIKE :q');
+
+    const rows = await sequelize.query(`
+      SELECT "contactName" AS name, "brand", COUNT(DISTINCT "conversationId") AS chats, MAX("createdAt") AS "lastActivityAt"
+      FROM "ChatwootEvents"
+      WHERE "contactName" IS NOT NULL AND "conversationId" IS NOT NULL
+        AND (${conds.join(' OR ')})
+      GROUP BY "contactName", "brand"
+      ORDER BY MAX("createdAt") DESC
+      LIMIT :limit
+    `, { replacements: { q: `%${qRaw}%`, limit }, type: QueryTypes.SELECT });
+
+    res.json({ results: rows.map(r => ({ name: r.name, brand: r.brand, chats: Number(r.chats), lastActivityAt: r.lastActivityAt })) });
+  } catch (err) {
+    console.error('Customer search error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/chatwoot/top-customers?from=...&to=...&limit=10
 // Busiest customers by chat count for the dashboard's "Top 10 Players" panel
 // (added 2026-09-19). Grouped by contactName + brand, so the same display
