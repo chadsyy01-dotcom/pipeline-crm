@@ -38,6 +38,13 @@
   .nav-item svg{width:18px;height:18px;flex-shrink:0;}
   .nav-item:hover{background:#151E30;color:#fff;}
   .nav-item.active{background:var(--primary);color:#fff;}
+  /* OpenAI section with sub-tabs (added 2026-09-19). The parent is a section
+     header when a child is active — the blue highlight belongs to the child. */
+  .nav-item.open{background:#151E30;color:#fff;}
+  .nav-item .nav-caret{margin-left:auto;width:14px;height:14px;opacity:.7;}
+  .nav-sub{margin:2px 0 6px 19px;padding-left:10px;border-left:1px solid #1E293B;}
+  .nav-sub .nav-item{font-size:13px;padding:8px 12px;}
+  .nav-sub .nav-item svg{width:15px;height:15px;}
   .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
 
@@ -112,10 +119,24 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
       Reports
     </a>
-    <a href="openai.html" class="nav-item active">
+    <!-- OpenAI section — sub-tabs are only rendered on the pages inside this
+         section (openai.html, sms-monitoring.html). On every other page the
+         sidebar keeps the plain single "OpenAI" link. -->
+    <a href="openai.html" class="nav-item open">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
       OpenAI
+      <svg class="nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
     </a>
+    <div class="nav-sub">
+      <a href="openai.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        Billing
+      </a>
+      <a href="sms-monitoring.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"/></svg>
+        SMS Monitoring
+      </a>
+    </div>
     <a href="agents.html" class="nav-item">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
       Agents
