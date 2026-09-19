@@ -1051,6 +1051,23 @@
   setInterval(loadConversations, 180000);
   setInterval(loadCsatStats, 180000);
 
+  // Ticket sheet cache (moved up 2026-09-19): must be declared BEFORE
+  // initFromUrl below, which can call runPlayerSearch synchronously on page
+  // load — a `let` referenced before its declaration throws a
+  // ReferenceError even though the code appears further down the file
+  // (same class of bug as the earlier `convs` issue on the dashboard).
+  let ticketsCache = null;       // null = not loaded yet, [] = loaded & empty
+  let ticketsLoadFailed = false;
+  async function ensureTickets() {
+    if (ticketsCache || ticketsLoadFailed) return;
+    try {
+      ticketsCache = await TicketData.fetchTickets();
+    } catch (err) {
+      console.warn('Ticket sheet unavailable for customer profile:', err.message);
+      ticketsLoadFailed = true;
+    }
+  }
+
   // ---- Tab switching: All Conversations <-> Player Search (2026-09-19) ----
   function showConversationsTab() {
     document.getElementById('conversationsView').style.display = '';
@@ -1080,14 +1097,14 @@
       return;
     }
     tbody.innerHTML = results.map(r => `
-      <tr class="search-result-row" data-name="${escapeHtml(r.name)}" data-brand="${escapeHtml(r.brand)}" style="cursor:pointer;">
+      <tr class="search-result-row" data-name="${escapeHtml(r.name)}" data-brand="${escapeHtml(r.brand || '')}" style="cursor:pointer;">
         <td><div class="c-customer"><div class="c-av" style="background:${colorForName(r.name)};">${initialsForName(r.name)}</div><div class="c-cname">${escapeHtml(r.name)}</div></div></td>
-        <td><span class="c-brand">${escapeHtml(brandLabel(r.brand))}</span></td>
-        <td>${r.chats}</td>
+        <td>${r.ticketOnly ? '<span class="c-brand" style="color:var(--warning);background:var(--warning-tint);">Ticket only</span>' : `<span class="c-brand">${escapeHtml(brandLabel(r.brand))}</span>`}</td>
+        <td>${r.ticketOnly ? '<span style="color:var(--ink-faint);">—</span>' : r.chats}</td>
         <td><div class="c-time">${timeAgo(r.lastActivityAt)}</div></td>
       </tr>`).join('');
     tbody.querySelectorAll('.search-result-row').forEach(row => row.addEventListener('click', () => {
-      openCustomerProfile(row.dataset.name, row.dataset.brand);
+      openCustomerProfile(row.dataset.name, row.dataset.brand || null);
     }));
     if (autoOpenIfSingle && results.length === 1) {
       openCustomerProfile(results[0].name, results[0].brand);
@@ -1106,10 +1123,33 @@
     const token = localStorage.getItem('pipeline_token');
     try {
       const params = new URLSearchParams({ q, fields: fields.join(','), limit: '20' });
-      const res = await fetch(`${API_BASE}/chatwoot/customer-search?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+      const [res] = await Promise.all([
+        fetch(`${API_BASE}/chatwoot/customer-search?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }),
+        ensureTickets(),   // so ticket-only players (never chatted) can be found too
+      ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      renderSearchResults(data.results || [], autoOpenIfSingle);
+      const chatResults = data.results || [];
+
+      // Ticket-sheet matches for names the chat search didn't already find
+      // (2026-09-19) — a player who only ever submitted a ticket, never
+      // chatted, would otherwise never appear in Player Search at all.
+      let merged = chatResults;
+      if (fields.includes('name') && ticketsCache) {
+        const qLower = q.toLowerCase();
+        const chatNames = new Set(chatResults.map(r => r.name.toLowerCase()));
+        const byName = new Map();
+        ticketsCache.forEach(t => {
+          const name = String(t.name || '').trim();
+          if (!name || !name.toLowerCase().includes(qLower)) return;
+          if (chatNames.has(name.toLowerCase())) return;   // already have a chat-based row
+          const rec = byName.get(name) || { name, brand: null, chats: 0, lastActivityAt: t.submitted, ticketOnly: true };
+          if (t.submitted > rec.lastActivityAt) rec.lastActivityAt = t.submitted;
+          byName.set(name, rec);
+        });
+        merged = [...chatResults, ...byName.values()];
+      }
+      renderSearchResults(merged, autoOpenIfSingle);
     } catch (err) {
       console.error('Player search failed:', err);
       tbody.innerHTML = `<div class="empty-note">Search failed (${escapeHtml(err.message)}) — try again.</div>`;
@@ -1293,19 +1333,6 @@
   // often NOT their chat username — so a zero here means "no ticket under
   // this exact name", not "never sent a ticket". The card says so.
   // =====================================================================
-  let ticketsCache = null;       // null = not loaded yet, [] = loaded & empty
-  let ticketsLoadFailed = false;
-
-  async function ensureTickets() {
-    if (ticketsCache || ticketsLoadFailed) return;
-    try {
-      ticketsCache = await TicketData.fetchTickets();
-    } catch (err) {
-      console.warn('Ticket sheet unavailable for customer profile:', err.message);
-      ticketsLoadFailed = true;
-    }
-  }
-
   function ticketsForCustomer(name) {
     if (!ticketsCache) return null;
     const key = String(name || '').trim().toLowerCase();
@@ -1346,14 +1373,41 @@
 
   function renderCustomerProfile(d, brand) {
     const body = document.getElementById('custModalBody');
+    const tickets = ticketsForCustomer(d.name);
+    const ticketCount = tickets ? tickets.length : null;
+
+    // No chat history AND no tickets under this name — truly nothing to show.
+    // No chat history but tickets DO exist — still worth a profile, just a
+    // shorter one (2026-09-19, was an early bail-out that showed "nothing on
+    // record" even for genuine ticket-only players like phone-only submitters
+    // who never used chat).
     if (!d.found) {
-      body.innerHTML = '<div class="empty-note">Nothing on record for this customer in the last 70 days.</div>';
+      if (!ticketCount) {
+        body.innerHTML = '<div class="empty-note">Nothing on record for this customer — no chats or tickets under this exact name in the last 70 days.</div>';
+        return;
+      }
+      const openTickets = tickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
+      const rows = tickets.slice(0, 25).map(t => `
+        <div class="cust-conv" style="cursor:default;">
+          <div class="cc-main">
+            <div class="cc-msg">${escapeHtml(t.issue || '—')}</div>
+            <div class="cc-meta">${escapeHtml(t.id)} · ${escapeHtml(shortDate(t.submitted))}</div>
+          </div>
+          <span class="status ${t.statusCls === 'pending' ? 'pending' : t.statusCls === 'checking' ? 'open' : t.statusCls === 'done' ? 'resolved' : 'unknown'}">${escapeHtml(t.status || t.statusCls)}</span>
+        </div>`).join('');
+      body.innerHTML = `
+        <div class="cust-note">No chat history found under this exact name — this profile is built entirely from the ticket sheet. Phone, IP, and CSAT/DSAT aren't available without a matching chat.</div>
+        <div class="cust-stats">
+          <div class="cust-stat"><div class="lbl">Tickets</div><div class="val">${ticketCount}</div><div class="sub">${openTickets ? `${openTickets} still open` : 'all closed'}</div></div>
+        </div>
+        <div class="cust-section-title">Tickets (${ticketCount})</div>
+        ${rows}
+        ${ticketCount > 25 ? `<div class="cust-note">Showing the 25 most recent of ${ticketCount}.</div>` : ''}
+      `;
       return;
     }
 
     const r = d.ratings || {};
-    const tickets = ticketsForCustomer(d.name);
-    const ticketCount = tickets ? tickets.length : null;
     const openTickets = tickets ? tickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length : 0;
 
     const stats = `
