@@ -940,14 +940,31 @@ async function loadChatOverview() {
     const prev = q(r.prevFrom, r.prevTo);
     const vs = { vs: r.prevLabel };
 
-    const [statsToday, statsYesterday, csatToday, csatYesterday, convToday, pendingResp] = await Promise.all([
+    // Promise.allSettled, not Promise.all (2026-09-19): one slow or failed
+    // query used to blank the ENTIRE section ("Error loading" over six cards
+    // that had five good answers). Now each widget renders from whatever
+    // came back, and only the piece that failed says so. The conversations
+    // pull is 1000 per brand for Buenas PH and TMTCash (the two that carry
+    // most of the volume) and 300 for every other brand — it feeds only the
+    // FTR/ART averages here, so that depth is plenty.
+    const results = await Promise.allSettled([
       apiGet(`/chatwoot/stats?${cur}`),
       apiGet(`/chatwoot/stats?${prev}`),
       apiGet(`/chatwoot/csat?${cur}`),
       apiGet(`/chatwoot/csat?${prev}`),
-      apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000&${cur}`),   // for FTR/ART averages (activity in range)
-      apiGet(`/chatwoot/pending`),                                          // lightweight Waiting-for-Agent feed (egress diet, 2026-09-14)
+      apiGet(`/chatwoot/conversations?limit=1000&perBrand=300&perBrandOverrides=buenasph:1000,tmtcash:1000&${cur}`),
+      apiGet(`/chatwoot/pending`),
     ]);
+    const val = (i) => results[i].status === 'fulfilled' ? results[i].value : null;
+    const failed = results.map((r, i) => r.status === 'rejected' ? ['stats', 'stats(prev)', 'csat', 'csat(prev)', 'conversations', 'pending'][i] : null).filter(Boolean);
+    if (failed.length) console.warn('Chat overview: partial load, failed:', failed.join(', '), results.filter(r => r.status === 'rejected').map(r => r.reason?.message));
+
+    const statsToday = val(0) || { conversationsByBrand: {}, csatByBrand: {} };
+    const statsYesterday = val(1) || { conversationsByBrand: {}, csatByBrand: {} };
+    const csatToday = val(2) || { total: 0 };
+    const csatYesterday = val(3) || { total: 0 };
+    const convToday = val(4) || { conversations: [] };
+    const pendingResp = val(5) || { pending: [] };
 
     // Top 5 chats: computed from the conversation list ALREADY fetched above
     // (2026-09-19). This started life as its own /top-customers endpoint, but
@@ -1120,8 +1137,13 @@ async function loadChatOverview() {
       .sort((a, b) => b.value - a.value);
     barList(document.getElementById('chatDsatByBrand'), dsatRows, { empty: 'No ratings in this range.' });
 
-    ind.textContent = `● Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    ind.style.color = 'var(--success)';
+    if (failed.length) {
+      ind.textContent = `● Partial — ${failed.join(', ')} timed out`;
+      ind.style.color = 'var(--warning)';
+    } else {
+      ind.textContent = `● Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      ind.style.color = 'var(--success)';
+    }
   } catch (err) {
     console.error('Chat overview failed:', err);
     ind.textContent = '● Error loading';
