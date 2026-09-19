@@ -405,15 +405,6 @@
       </div>
     </div>
 
-    <!-- TAB BAR (added 2026-09-19): switches between the full conversation
-         list and the new Player Search. Kept as a simple show/hide toggle —
-         no routing, no reload, both views' data stays loaded once fetched. -->
-    <div class="filter-tabs" style="margin-bottom:16px;">
-      <div class="ftab active" id="tabConversations">All Conversations</div>
-      <div class="ftab" id="tabPlayerSearch">Player Search</div>
-    </div>
-
-    <div id="conversationsView">
     <!-- CHATS PANEL -->
     <!-- CSAT / DSAT SUMMARY -->
     <div class="csat-panel" id="csatPanel">
@@ -506,29 +497,6 @@
           <tbody id="convBody">
             <tr><td colspan="8"><div class="empty-note">Loading…</div></td></tr>
           </tbody>
-        </table>
-      </div>
-    </div>
-    </div><!-- /conversationsView -->
-
-    <!-- PLAYER SEARCH (added 2026-09-19) -->
-    <div class="panel" id="playerSearchView" style="display:none;">
-      <div class="panel-head">
-        <h3>Player Search</h3>
-      </div>
-      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:14px;line-height:1.5;">
-        Search by name or email, then pick the right match from the list — the same name can belong to different people across chats, so results are shown before opening a profile.
-      </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
-        <input type="text" id="searchQueryInput" placeholder="Enter name or email…" style="flex:1;min-width:220px;padding:9px 12px;border-radius:9px;border:1px solid var(--line);font-family:inherit;font-size:13.5px;color:var(--ink);background:var(--bg);">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;"><input type="checkbox" id="searchFieldName" checked> Name</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;"><input type="checkbox" id="searchFieldEmail"> Email</label>
-        <button id="runSearchBtn" type="button" style="font-size:13px;font-weight:700;color:#fff;background:var(--primary);border:none;padding:9px 18px;border-radius:9px;cursor:pointer;">Search</button>
-      </div>
-      <div class="table-wrap">
-        <table class="conv-table">
-          <thead><tr><th>Player</th><th>Brand</th><th>Chats</th><th>Last Seen</th></tr></thead>
-          <tbody id="searchResultsBody"><tr><td colspan="4"><div class="empty-note">Enter a name or email above and press Search.</div></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1051,11 +1019,8 @@
   setInterval(loadConversations, 180000);
   setInterval(loadCsatStats, 180000);
 
-  // Ticket sheet cache (moved up 2026-09-19): must be declared BEFORE
-  // initFromUrl below, which can call runPlayerSearch synchronously on page
-  // load — a `let` referenced before its declaration throws a
-  // ReferenceError even though the code appears further down the file
-  // (same class of bug as the earlier `convs` issue on the dashboard).
+  // Ticket sheet cache — used by the customer profile modal's Tickets stat
+  // (opened by clicking a customer's name in the conversation table below).
   let ticketsCache = null;       // null = not loaded yet, [] = loaded & empty
   let ticketsLoadFailed = false;
   async function ensureTickets() {
@@ -1069,138 +1034,6 @@
   }
 
   // ---- Tab switching: All Conversations <-> Player Search (2026-09-19) ----
-  function showConversationsTab() {
-    document.getElementById('conversationsView').style.display = '';
-    document.getElementById('playerSearchView').style.display = 'none';
-    document.getElementById('tabConversations').classList.add('active');
-    document.getElementById('tabPlayerSearch').classList.remove('active');
-  }
-  function showPlayerSearchTab() {
-    document.getElementById('conversationsView').style.display = 'none';
-    document.getElementById('playerSearchView').style.display = '';
-    document.getElementById('tabConversations').classList.remove('active');
-    document.getElementById('tabPlayerSearch').classList.add('active');
-  }
-  document.getElementById('tabConversations').addEventListener('click', showConversationsTab);
-  document.getElementById('tabPlayerSearch').addEventListener('click', showPlayerSearchTab);
-
-  // ---- Player Search (added 2026-09-19) ----
-  // Search-then-pick rather than opening a profile directly: contactName
-  // isn't unique (two different people can share a display name — LiveChat's
-  // generic "Visitor" is the extreme case), so showing candidates first and
-  // letting the CSR click the right one avoids ever loading the wrong
-  // person's data silently.
-  function renderSearchResults(results, autoOpenIfSingle) {
-    const tbody = document.getElementById('searchResultsBody');
-    if (!results.length) {
-      tbody.innerHTML = '<tr><td colspan="4"><div class="empty-note">No matches found.</div></td></tr>';
-      return;
-    }
-    tbody.innerHTML = results.map(r => `
-      <tr class="search-result-row" data-name="${escapeHtml(r.name)}" data-brand="${escapeHtml(r.brand || '')}" style="cursor:pointer;">
-        <td><div class="c-customer"><div class="c-av" style="background:${colorForName(r.name)};">${initialsForName(r.name)}</div><div class="c-cname">${escapeHtml(r.name)}</div></div></td>
-        <td>${r.ticketOnly ? '<span class="c-brand" style="color:var(--warning);background:var(--warning-tint);">Ticket only</span>' : `<span class="c-brand">${escapeHtml(brandLabel(r.brand))}</span>`}</td>
-        <td>${r.ticketOnly ? '<span style="color:var(--ink-faint);">—</span>' : r.chats}</td>
-        <td><div class="c-time">${timeAgo(r.lastActivityAt)}</div></td>
-      </tr>`).join('');
-    tbody.querySelectorAll('.search-result-row').forEach(row => row.addEventListener('click', () => {
-      openCustomerProfile(row.dataset.name, row.dataset.brand || null);
-    }));
-    if (autoOpenIfSingle && results.length === 1) {
-      openCustomerProfile(results[0].name, results[0].brand);
-    }
-  }
-
-  async function runPlayerSearch(qOverride, autoOpenIfSingle) {
-    const q = (qOverride ?? document.getElementById('searchQueryInput').value).trim();
-    if (q.length < 2) { alert('Type at least 2 characters to search.'); return; }
-    const fields = [];
-    if (document.getElementById('searchFieldName').checked) fields.push('name');
-    if (document.getElementById('searchFieldEmail').checked) fields.push('email');
-    if (!fields.length) { alert('Pick at least one field to search by.'); return; }
-    const tbody = document.getElementById('searchResultsBody');
-    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-note">Searching…</div></td></tr>';
-    const token = localStorage.getItem('pipeline_token');
-    try {
-      const params = new URLSearchParams({ q, fields: fields.join(','), limit: '20' });
-      const [res] = await Promise.all([
-        fetch(`${API_BASE}/chatwoot/customer-search?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }),
-        ensureTickets(),   // so ticket-only players (never chatted) can be found too
-      ]);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const chatResults = data.results || [];
-
-      // Ticket-sheet matches for names the chat search didn't already find
-      // (2026-09-19) — a player who only ever submitted a ticket, never
-      // chatted, would otherwise never appear in Player Search at all.
-      let merged = chatResults;
-      if (fields.includes('name') && ticketsCache) {
-        const qLower = q.toLowerCase();
-        const chatNames = new Set(chatResults.map(r => r.name.toLowerCase()));
-        const byName = new Map();
-        ticketsCache.forEach(t => {
-          const name = String(t.name || '').trim();
-          if (!name || !name.toLowerCase().includes(qLower)) return;
-          if (chatNames.has(name.toLowerCase())) return;   // already have a chat-based row
-          const rec = byName.get(name) || { name, brand: null, chats: 0, lastActivityAt: t.submitted, ticketOnly: true };
-          if (t.submitted > rec.lastActivityAt) rec.lastActivityAt = t.submitted;
-          byName.set(name, rec);
-        });
-        merged = [...chatResults, ...byName.values()];
-      }
-      renderSearchResults(merged, autoOpenIfSingle);
-    } catch (err) {
-      console.error('Player search failed:', err);
-      tbody.innerHTML = `<div class="empty-note">Search failed (${escapeHtml(err.message)}) — try again.</div>`;
-    }
-  }
-  document.getElementById('runSearchBtn').addEventListener('click', () => runPlayerSearch());
-  document.getElementById('searchQueryInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runPlayerSearch(); });
-
-  // Deep link from the dashboard's Top 5 leaderboards (added 2026-09-19,
-  // replaces the earlier ?profile= direct-open — that skipped the list
-  // entirely and had no graceful path when the exact name didn't resolve).
-  // ?tab=search&q=NAME&fields=name[,email]&brand=SLUG&autoOpen=1
-  //   - Always shows the Player Search tab with the search already run.
-  //   - autoOpen=1 opens the profile automatically ONLY when there's exactly
-  //     one match, or when `brand` picks out exactly one among several —
-  //     otherwise the list is shown and the CSR picks, same as a manual search.
-  (function initFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    const q = params.get('q');
-    if (params.get('tab') !== 'search' && !q) return;
-    showPlayerSearchTab();
-    if (!q) return;
-    document.getElementById('searchQueryInput').value = q;
-    const fieldsParam = (params.get('fields') || 'name').split(',').filter(f => ['name', 'email'].includes(f));
-    document.getElementById('searchFieldName').checked = fieldsParam.includes('name');
-    document.getElementById('searchFieldEmail').checked = fieldsParam.includes('email') || fieldsParam.length === 0;
-    const brandHint = params.get('brand');
-    const autoOpen = params.get('autoOpen') === '1';
-    if (!autoOpen || !brandHint) {
-      runPlayerSearch(q, autoOpen);
-      return;
-    }
-    // A brand hint is available (came from a leaderboard row that already
-    // knows the exact brand) — search, then prefer the row matching that
-    // brand before falling back to "open only if there's just one match".
-    (async () => {
-      const token = localStorage.getItem('pipeline_token');
-      try {
-        const sp = new URLSearchParams({ q, fields: fieldsParam.length ? fieldsParam.join(',') : 'name', limit: '20' });
-        const res = await fetch(`${API_BASE}/chatwoot/customer-search?${sp.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
-        const results = data.results || [];
-        renderSearchResults(results, false);
-        const exact = results.find(r => r.brand === brandHint) || (results.length === 1 ? results[0] : null);
-        if (exact) openCustomerProfile(exact.name, exact.brand);
-      } catch (err) {
-        console.error('Auto search failed:', err);
-      }
-    })();
-  })();
-
   document.getElementById('refreshBtn').addEventListener('click', () => {
     loadConversations();
     loadCsatStats();
