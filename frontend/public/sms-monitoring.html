@@ -381,12 +381,15 @@ async function loadSmsStats(days) {
   }
 }
 
+let currentRangeDays = 7;
+
 document.getElementById("rangeTabs").addEventListener("click", (e) => {
   const btn = e.target.closest(".tab");
   if (!btn) return;
   document.querySelectorAll("#rangeTabs .tab").forEach((t) => t.classList.remove("active"));
   btn.classList.add("active");
-  loadSmsStats(btn.dataset.days);
+  currentRangeDays = btn.dataset.days;
+  loadSmsStats(currentRangeDays);
 });
 
 // ---- Message log: full list of sent messages, filterable + paginated ----
@@ -487,8 +490,37 @@ document.getElementById("logSenderFilter").addEventListener("keydown", (e) => {
 
 loadBrandOptions();
 loadMessageLog();
+loadSmsStats(currentRangeDays);
 
-loadSmsStats(7); // default: last 7 days
+// ---- Real-time updates: the SMS backend already streams live events (used
+// inside the SMS inbox itself); we listen to the same stream here so this
+// dashboard refreshes the moment a message is sent/updated — no manual
+// refresh needed, and no wasteful polling when nothing is happening. ----
+function connectSmsStream() {
+  try {
+    const es = new EventSource(`${SMS_API_BASE}/stream`);
+    let debounceTimer = null;
+    const refreshEverything = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadSmsStats(currentRangeDays);
+        loadBrandOptions();
+        // Don't yank the page out from under someone typing a filter or
+        // browsing a later page — only auto-refresh the log while on page 1
+        // with the sender box not focused; otherwise their filter state stays put.
+        if (logPage === 1 && document.activeElement !== document.getElementById("logSenderFilter")) {
+          loadMessageLog();
+        }
+      }, 700); // small debounce in case several messages land at once
+    };
+    es.onmessage = (ev) => {
+      let data; try { data = JSON.parse(ev.data); } catch { return; }
+      if (data.type === "message" || data.type === "status" || data.type === "convo_deleted") refreshEverything();
+    };
+    es.onerror = () => { es.close(); setTimeout(connectSmsStream, 5000); };
+  } catch (e) { console.error("SMS live stream failed to connect:", e); }
+}
+connectSmsStream();
 </script>
 </body>
 </html>
