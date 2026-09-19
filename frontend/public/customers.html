@@ -754,10 +754,13 @@
     try {
       const params = new URLSearchParams();
       // No ?brand= → backend returns the most recent `perBrand` conversations
-      // for EVERY brand (exact tab counts come from that set). 1000 covers
-      // the busiest brands (Buenas/TMTCash/ManilaPlay/MCP) comfortably.
+      // for EVERY brand (exact tab counts come from that set). Since
+      // 2026-09-19: 1000 for Buenas PH and TMTCash (the high-volume pair),
+      // 300 for every other brand — the same completeness where it matters,
+      // a much lighter query everywhere else.
       params.set('limit', '1000');
-      params.set('perBrand', '1000');
+      params.set('perBrand', '300');
+      params.set('perBrandOverrides', 'buenasph:1000,tmtcash:1000');
       const range = getDateRangeParams();
       if (range) {
         params.set('from', range.from);
