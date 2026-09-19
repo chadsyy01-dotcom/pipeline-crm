@@ -505,6 +505,24 @@ router.get('/conversations', requireAuth, async (req, res) => {
     const perBrand = brand
       ? limit
       : Math.min(Number(req.query.perBrand) || PER_BRAND_LIMIT, PER_BRAND_MAX);
+
+    // Per-brand overrides (2026-09-19): ?perBrandOverrides=buenasph:1000,tmtcash:1000
+    // Buenas PH and TMTCash carry most of the volume; the rest of the brands
+    // don't need the same depth. Lets the frontend keep the big two complete
+    // while pulling far fewer rows for everyone else. Bound to PER_BRAND_MAX
+    // and passed as bound parameters, never interpolated.
+    const overrides = {};
+    String(req.query.perBrandOverrides || '').split(',').forEach(pair => {
+      const [b, n] = pair.split(':');
+      if (b && b.trim() && Number(n) > 0) overrides[b.trim()] = Math.min(Number(n), PER_BRAND_MAX);
+    });
+    const overrideKeys = Object.keys(overrides);
+    const overrideReplacements = {};
+    overrideKeys.forEach((b, i) => { overrideReplacements[`ob${i}`] = b; overrideReplacements[`on${i}`] = overrides[b]; });
+    const rnClause = overrideKeys.length
+      ? `rn <= CASE "brand" ${overrideKeys.map((_, i) => `WHEN :ob${i} THEN :on${i}`).join(' ')} ELSE :perBrand END`
+      : 'rn <= :perBrand';
+
     const latestPerConversation = await sequelize.query(`
       SELECT "conversationId", "brand", "inboxName", "status", "lastActivityAt"
       FROM (
@@ -518,8 +536,8 @@ router.get('/conversations', requireAuth, async (req, res) => {
           ORDER BY "conversationId", "createdAt" DESC
         ) latest
       ) ranked
-      WHERE rn <= :perBrand
-    `, { replacements: { brand, from, to, perBrand }, type: QueryTypes.SELECT });
+      WHERE ${rnClause}
+    `, { replacements: { brand, from, to, perBrand, ...overrideReplacements }, type: QueryTypes.SELECT });
 
     // Egress control (2026-09-14, after Neon data-transfer quota exhaustion):
     // the four lookups below used to DISTINCT ON over the WHOLE table on
