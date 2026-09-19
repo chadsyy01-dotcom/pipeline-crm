@@ -229,6 +229,10 @@
   .av-xs .face{width:100%;height:100%;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;}
   .av-xs .face img{width:100%;height:100%;object-fit:cover;display:block;}
   .av-xs .st{position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;border:2px solid var(--card);}
+  /* Clickable player name in the Top 5 leaderboards (added 2026-09-19) —
+     opens the customer profile modal on customers.html. */
+  .top-player-link{font-weight:700;color:var(--ink);text-decoration:none;}
+  .top-player-link:hover{color:var(--primary);text-decoration:underline;}
 
   .empty-note{color:var(--ink-faint);font-size:12.5px;padding:14px 4px;text-align:center;}
   .table-wrap{overflow-x:auto;}
@@ -544,10 +548,14 @@
       </div>
     </div>
 
-    <!-- TOP PLAYERS (added 2026-09-19, split into two panels 2026-09-19)
-         Chats follow the Live Chat date filter (database); ticket requests
-         follow the Tickets date filter (Google Sheet). Each panel carries
-         its own range tag so the two are never mistaken for one window. -->
+    <!-- TOP PLAYERS (added 2026-09-19). Chats follow the Live Chat date
+         filter and come from the database via /top-customers (a real GROUP
+         BY over the full range, sped up by ce_name_brand_created_idx —
+         restored 2026-09-19 after briefly removing it over a delay that
+         turned out to be the index still missing, not a real slowdown).
+         Ticket requests follow the same date filter but read the Google
+         Sheet. Kept as two separate panels since the two sources match
+         names with very different reliability. -->
     <div class="grid-4" style="margin-bottom:20px;">
       <div class="panel">
         <div class="panel-head">
@@ -968,21 +976,11 @@ async function loadChatOverview() {
     const convs = convToday.conversations || [];
 
     // Top 5 chats: fired as its OWN independent call, not inside the
-    // Promise.allSettled above (2026-09-19). Two earlier approaches both had
-    // a real problem:
-    //   1. Inside the big allSettled — a slow GROUP BY doesn't block the
-    //      other cards anymore now that we use allSettled, so blocking
-    //      wasn't actually the issue this time.
-    //   2. Derived from `convs` (the FTR/ART conversation list) — that list
-    //      is capped at 300-1000 conversations PER BRAND, sorted by most
-    //      recent activity. Over a whole month a busy brand blows past that
-    //      cap easily, so the "recent 300-1000" is dominated by just the
-    //      last day or two — making Month look almost identical to Today.
-    // The dedicated /top-customers endpoint does a real GROUP BY over the
-    // full date range with no such cap, so it's the only one that answers
-    // "who chatted the most this month" correctly. Firing it separately
-    // (not awaited alongside the rest) means a slow run can't block the KPI
-    // cards or brand panels — this one table just says so and keeps trying.
+    // Promise.allSettled above. A real GROUP BY over the full date range —
+    // no per-brand cap, so it answers "This Month" correctly (unlike the
+    // earlier version derived from the capped FTR/ART conversation list).
+    // Fired separately so a slow run can't block the KPI cards or brand
+    // panels; ce_name_brand_created_idx (added 2026-09-19) keeps it quick.
     apiGet(`/chatwoot/top-customers?${cur}&limit=5`)
       .then(topResp => { topPlayers = topResp.customers || []; renderTopChats(); })
       .catch(err => {
@@ -1163,6 +1161,12 @@ async function loadChatOverview() {
 // other. Keeping them apart stops a weak ticket match from making a solid
 // chat count look wrong (and vice versa).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// TOP 5 LEADERBOARDS (added 2026-09-19)
+// Most Chats: database, via /top-customers, full GROUP BY over the date
+// range (no per-brand cap — see the fetch call above for why that matters).
+// Most Ticket Requests: Google Sheet, matched by name.
+// ---------------------------------------------------------------------------
 let topPlayers = [];
 const RANK_COLORS = ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'];
 
@@ -1180,7 +1184,7 @@ function renderTopChats() {
   }
   tbody.innerHTML = topPlayers.slice(0, 5).map((p, i) => `
     <tr>
-      <td><div class="agent-cell">${rankBadge(i)}<span style="font-weight:700;">${escapeHtml(p.name)}</span></div></td>
+      <td><div class="agent-cell">${rankBadge(i)}<a class="top-player-link" href="customers.html?profile=${encodeURIComponent(p.name)}&brand=${encodeURIComponent(p.brand)}">${escapeHtml(p.name)}</a></div></td>
       <td><span class="pill brand">${escapeHtml(chatBrandLabel(p.brand))}</span></td>
       <td class="num">${p.chats.toLocaleString()}</td>
       <td class="num" style="color:var(--ink-faint);font-weight:600;">${relativeTime(new Date(p.lastActivityAt))}</td>
@@ -1236,7 +1240,7 @@ function renderTopTickets() {
 
   tbody.innerHTML = ranked.map((p, i) => `
     <tr>
-      <td><div class="agent-cell">${rankBadge(i)}<span style="font-weight:700;">${escapeHtml(p.name)}</span></div></td>
+      <td><div class="agent-cell">${rankBadge(i)}<a class="top-player-link" href="customers.html?profile=${encodeURIComponent(p.name)}">${escapeHtml(p.name)}</a></div></td>
       <td style="font-size:12.5px;color:var(--ink-soft);">${escapeHtml(p.topIssue)}</td>
       <td class="num">${p.tickets.toLocaleString()}</td>
       <td class="num" style="color:var(--ink-faint);font-weight:600;">${relativeTime(p.last)}</td>
