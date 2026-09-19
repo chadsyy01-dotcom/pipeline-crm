@@ -155,6 +155,12 @@
         <p>SMS activity across brands.</p>
       </div>
       <!-- Page controls (range picker, account select, export, etc.) go here. -->
+      <div class="tabs" id="rangeTabs">
+        <button class="tab" data-days="1">Today</button>
+        <button class="tab active" data-days="7">7 Days</button>
+        <button class="tab" data-days="30">30 Days</button>
+        <button class="tab" data-days="">All time</button>
+      </div>
     </div>
 
     <!-- ============================================================
@@ -185,21 +191,163 @@
          Warning strip:
            <div class="setup-note">⚠️ message</div>
     ============================================================ -->
+    <div id="smsSetupNote" class="setup-note" style="display:none"></div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:2px">
+      <div class="kpi-card">
+        <div class="kpi-label">Total OTP sent</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:#0F8A46">Delivered</div>
+        <div class="kpi-value" id="kpiDelivered" style="color:var(--success)">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Sent (awaiting confirmation)</div>
+        <div class="kpi-value" id="kpiSent" style="color:var(--primary)">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Failed</div>
+        <div class="kpi-value" id="kpiFailed" style="color:var(--danger)">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Success rate</div>
+        <div class="kpi-value" id="kpiRate">—</div>
+      </div>
+    </div>
+
     <div class="panel">
-      <div class="empty-note">SMS Monitoring page — content to be added.</div>
+      <div class="panel-head"><h3>Messages per brand</h3></div>
+      <canvas id="brandChart" height="90"></canvas>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Breakdown by brand</h3></div>
+      <table class="li-table" id="brandTable">
+        <thead>
+          <tr>
+            <th>Brand</th>
+            <th class="num">Total</th>
+            <th class="num">Delivered</th>
+            <th class="num">Sent</th>
+            <th class="num">Failed</th>
+            <th class="num">Success %</th>
+          </tr>
+        </thead>
+        <tbody id="brandTableBody">
+          <tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr>
+        </tbody>
+      </table>
     </div>
   </main>
 </div>
 
 <script>
-// Page scripts go here. API_BASE and the auth check are already set up above;
-// authenticated calls follow the same pattern as the other pages:
-//
-//   const token = localStorage.getItem('pipeline_token');
-//   fetch(`${API_BASE}/your-endpoint`, { headers: { Authorization: `Bearer ${token}` } })
-//     .then(res => res.json())
-//     .then(data => { /* render */ })
-//     .catch(err => console.error(err));
+// ---- SMS Monitoring: pulls from the separate SMS Inbox app (its own Railway
+// service + database), not from this dashboard's own API_BASE/token system. ----
+const SMS_API_BASE = "https://sms-inbox-production-2c98.up.railway.app/api";
+// If the SMS Inbox app's APP_PASSWORD is ever turned back on, put it here so
+// this page can still authenticate. Leave blank while it's off (current setup).
+const SMS_APP_PASSWORD = "";
+
+const fmtNum = (n) => (n || 0).toLocaleString();
+const pct = (num, den) => (den > 0 ? ((num / den) * 100).toFixed(1) : "0.0");
+const smsHeaders = () => (SMS_APP_PASSWORD ? { "X-App-Password": SMS_APP_PASSWORD } : {});
+
+let brandChart = null;
+
+function showSmsSetupNote(msg) {
+  const el = document.getElementById("smsSetupNote");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+function hideSmsSetupNote() {
+  document.getElementById("smsSetupNote").style.display = "none";
+}
+
+function renderKpis(totals) {
+  const total = totals.total || 0;
+  const delivered = totals.delivered || 0;
+  const sent = totals.sent || 0;
+  const failed = totals.failed || 0;
+  document.getElementById("kpiTotal").textContent = fmtNum(total);
+  document.getElementById("kpiDelivered").textContent = fmtNum(delivered);
+  document.getElementById("kpiSent").textContent = fmtNum(sent);
+  document.getElementById("kpiFailed").textContent = fmtNum(failed);
+  document.getElementById("kpiRate").textContent = total ? pct(delivered + sent, total) + "%" : "—";
+}
+
+function renderTable(brands) {
+  const body = document.getElementById("brandTableBody");
+  if (!brands.length) {
+    body.innerHTML = '<tr><td colspan="6"><div class="empty-note">No SMS activity in this range.</div></td></tr>';
+    return;
+  }
+  body.innerHTML = brands.map((b) => `
+    <tr>
+      <td>${String(b.brand).replace(/</g, "&lt;")}</td>
+      <td class="num">${fmtNum(b.total)}</td>
+      <td class="num" style="color:var(--success)">${fmtNum(b.delivered)}</td>
+      <td class="num" style="color:var(--primary)">${fmtNum(b.sent)}</td>
+      <td class="num" style="color:var(--danger)">${fmtNum(b.failed)}</td>
+      <td class="num">${pct((b.delivered||0) + (b.sent||0), b.total)}%</td>
+    </tr>`).join("");
+}
+
+function renderChart(brands) {
+  const top = brands.slice(0, 8);
+  const canvas = document.getElementById("brandChart");
+  const data = {
+    labels: top.map((b) => b.brand),
+    datasets: [
+      { label: "Delivered", data: top.map((b) => b.delivered || 0), backgroundColor: "#22C55E" },
+      { label: "Sent", data: top.map((b) => b.sent || 0), backgroundColor: "#2563EB" },
+      { label: "Failed", data: top.map((b) => b.failed || 0), backgroundColor: "#EF4444" },
+    ],
+  };
+  if (brandChart) { brandChart.data = data; brandChart.update(); return; }
+  brandChart = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data,
+    options: {
+      responsive: true,
+      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } },
+    },
+  });
+}
+
+async function loadSmsStats(days) {
+  hideSmsSetupNote();
+  try {
+    const params = new URLSearchParams();
+    if (days) params.set("days", days);
+    const res = await fetch(`${SMS_API_BASE}/stats?${params.toString()}`, { headers: smsHeaders() });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderKpis(data.totals || {});
+    renderTable(data.brands || []);
+    renderChart(data.brands || []);
+  } catch (err) {
+    console.error("SMS stats fetch failed:", err);
+    showSmsSetupNote(
+      "⚠️ Hindi makuha ang SMS stats. Kung bago lang ito, siguraduhing nasa ALLOWED_ORIGINS ng SMS Inbox app " +
+      "(sa Railway) ang domain na ito (" + location.origin + "). Detalye: " + err.message
+    );
+    renderKpis({});
+    renderTable([]);
+  }
+}
+
+document.getElementById("rangeTabs").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab");
+  if (!btn) return;
+  document.querySelectorAll("#rangeTabs .tab").forEach((t) => t.classList.remove("active"));
+  btn.classList.add("active");
+  loadSmsStats(btn.dataset.days);
+});
+
+loadSmsStats(7); // default: last 7 days
 </script>
 </body>
 </html>
