@@ -594,7 +594,10 @@ fetchPhpRate().then(() => { if (lastBillingData) renderBilling(lastBillingData);
 loadAccounts();
 </script>
 <!-- ================================================================
-  CONSOLIDATED BILLING (MONTHLY) — v4 EDITABLE + LIVE OPEN AI (2026-09-15)
+  CONSOLIDATED BILLING (MONTHLY) — v5 EDITABLE + LIVE OPEN AI (2026-09-19)
+  v5: added an SMS column immediately AFTER LiveChat — manual input only
+  (normal editable/stored column like Netlify/N8N), blank until amounts
+  are typed in via Edit. Self-migrates into saved data on first load.
   v4: the "Open AI" column is now a LIVE overlay — pulled from this page's
   own /api/openai-billing (this month, per account, USD→PHP at the live
   rate) and folded into every TOTAL automatically. It is never stored in
@@ -829,6 +832,20 @@ loadAccounts();
       cbData.divisions.forEach(d => d.vals.splice(at, 0, null));
       changed = true;
     }
+    // Ensure an SMS column exists right AFTER LiveChat (added 2026-09-19 per
+    // ops request): manual input only — a NORMAL editable/stored column like
+    // Netlify/N8N, blank until amounts are typed in via Edit. Same one-time
+    // self-migration pattern as LiveChat above.
+    if (!cbData.services.some(s => /^\s*sms\s*$/i.test(String(s || '')))) {
+      let at = cbData.services.findIndex(s => /live\s*chat/i.test(String(s || '')));
+      at = at >= 0 ? at + 1 : cbData.services.findIndex(s => /open\s*ai/i.test(String(s || '')));
+      if (at < 0) at = cbData.services.length;
+      cbData.services.splice(at, 0, 'SMS');
+      cbData.dates = cbData.dates || [];
+      cbData.dates.splice(at, 0, '');
+      cbData.divisions.forEach(d => d.vals.splice(at, 0, null));
+      changed = true;
+    }
     return changed;
   }
 
@@ -885,7 +902,7 @@ loadAccounts();
     } catch (err) {
       console.error('Sheet seed failed:', err);
       wrap.innerHTML = '<div class="cb-empty">No saved data, and the Google Sheet import failed. Click Edit to start from a blank table.</div>';
-      cbData = { services: ['Netlify','N8N','Claude','Host Server','Supabase','Open AI'], dates: ['','','','','',''], divisions: [] };
+      cbData = { services: ['Netlify','N8N','Claude','Host Server','Supabase','LiveChat','SMS','Open AI'], dates: ['','','','','','','',''], divisions: [] };
       document.getElementById('cbEditBtn').style.display = '';
     }
   }
@@ -1051,6 +1068,6 @@ loadAccounts();
   setInterval(() => { loadLiveOpenAi().then(() => { if (!cbEditing && cbData) render(); }); }, 10 * 60 * 1000);
 })();
 </script>
-<!-- ============== END CONSOLIDATED BILLING BLOCK v4 ============== -->
+<!-- ============== END CONSOLIDATED BILLING BLOCK v5 ============== -->
 </body>
 </html>
