@@ -231,6 +231,7 @@
   .av-xs .st{position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;border:2px solid var(--card);}
 
   .empty-note{color:var(--ink-faint);font-size:12.5px;padding:14px 4px;text-align:center;}
+  .table-wrap{overflow-x:auto;}
 
   /* THREAD MODAL (added 2026-09-18) — same markup/behaviour as qa.html and
      customers.html, so clicking a Waiting-for-Agent row opens the actual
@@ -540,6 +541,20 @@
       <div class="panel">
         <div class="panel-head"><h3>DSAT by Brand (<span class="chat-range-tag">Today</span>)</h3></div>
         <div id="chatDsatByBrand"><div class="empty-note">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- TOP PLAYERS (added 2026-09-19) -->
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-head">
+        <h3>Top 10 Players — Most Chats (<span class="chat-range-tag">Today</span>)</h3>
+        <a class="view-all" href="/customers">Open Customers →</a>
+      </div>
+      <div class="table-wrap">
+        <table class="team-table">
+          <thead><tr><th>Player</th><th>Brand</th><th class="num">Chats</th><th class="num">Tickets</th><th class="num">Last Seen</th></tr></thead>
+          <tbody id="topPlayersBody"><tr><td colspan="5"><div class="empty-note">Loading…</div></td></tr></tbody>
+        </table>
       </div>
     </div>
 
@@ -907,14 +922,20 @@ async function loadChatOverview() {
     const prev = q(r.prevFrom, r.prevTo);
     const vs = { vs: r.prevLabel };
 
-    const [statsToday, statsYesterday, csatToday, csatYesterday, convToday, pendingResp] = await Promise.all([
+    const [statsToday, statsYesterday, csatToday, csatYesterday, convToday, pendingResp, topResp] = await Promise.all([
       apiGet(`/chatwoot/stats?${cur}`),
       apiGet(`/chatwoot/stats?${prev}`),
       apiGet(`/chatwoot/csat?${cur}`),
       apiGet(`/chatwoot/csat?${prev}`),
       apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000&${cur}`),   // for FTR/ART averages (activity in range)
       apiGet(`/chatwoot/pending`),                                          // lightweight Waiting-for-Agent feed (egress diet, 2026-09-14)
+      apiGet(`/chatwoot/top-customers?${cur}&limit=10`),                    // Top 10 Players (2026-09-19)
     ]);
+
+    // Top players — rendered here and again once the ticket sheet lands, so
+    // the Tickets column fills in whenever that finishes (see renderAll).
+    topPlayers = topResp.customers || [];
+    renderTopPlayers();
 
     // --- KPI: chats active today (exact, from /stats) ---
     const sum = obj => Object.values(obj).reduce((a, b) => a + b, 0);
@@ -1072,6 +1093,49 @@ async function loadChatOverview() {
     ind.textContent = '● Error loading';
     ind.style.color = 'var(--danger)';
   }
+}
+
+// ---------------------------------------------------------------------------
+// TOP 10 PLAYERS (added 2026-09-19)
+// Chats come from the database (/top-customers, already scoped to the chat
+// date filter). Tickets come from the Google Sheet and are matched on NAME —
+// the ticket form collects a name separately from the chat username, so a 0
+// here means "no ticket under this exact name", not "never filed one". The
+// column header says Tickets; the caveat lives in Project Knowledge and in
+// the customer profile note on the Customers page.
+// ---------------------------------------------------------------------------
+let topPlayers = [];
+
+function renderTopPlayers() {
+  const tbody = document.getElementById('topPlayersBody');
+  if (!tbody) return;
+  if (!topPlayers.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">No chats in this range.</div></td></tr>';
+    return;
+  }
+  // Ticket counts are only available once the sheet has loaded.
+  const ticketCount = (name) => {
+    if (!allTickets.length) return null;
+    const key = String(name || '').trim().toLowerCase();
+    return allTickets.filter(t => String(t.name || '').trim().toLowerCase() === key).length;
+  };
+  const rankColors = ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6', '#14B8A6', '#0EA5E9', '#EC4899', '#22C55E', '#64748B'];
+
+  tbody.innerHTML = topPlayers.map((p, i) => {
+    const tickets = ticketCount(p.name);
+    return `<tr>
+      <td>
+        <div class="agent-cell">
+          <div class="rank-badge" style="width:26px;height:26px;font-size:12px;background:${rankColors[i % rankColors.length]}22;color:${rankColors[i % rankColors.length]};">${i + 1}</div>
+          <span style="font-weight:700;">${escapeHtml(p.name)}</span>
+        </div>
+      </td>
+      <td><span class="pill brand">${escapeHtml(chatBrandLabel(p.brand))}</span></td>
+      <td class="num">${p.chats.toLocaleString()}</td>
+      <td class="num" style="${tickets ? '' : 'color:var(--ink-faint);'}">${tickets == null ? '—' : tickets}</td>
+      <td class="num" style="color:var(--ink-faint);font-weight:600;">${relativeTime(new Date(p.lastActivityAt))}</td>
+    </tr>`;
+  }).join('');
 }
 
 (function setupChatDateFilter() {
@@ -1302,6 +1366,7 @@ function renderAll() {
   renderQueueBreakdown(curTickets, r);
   renderTicketsByBrand(curTickets, r);
   renderTeamTable(now, r);
+  renderTopPlayers();   // tickets column fills in once the sheet has loaded
 }
 
 // ---------- KPI cards ----------
