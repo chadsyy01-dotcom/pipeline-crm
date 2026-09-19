@@ -502,24 +502,6 @@
     </div>
   </main>
 
-  <!-- CONVERSATION MODAL -->
-  <div class="modal-overlay" id="convModalOverlay">
-    <div class="modal-panel">
-      <div class="modal-head">
-        <div>
-          <div class="modal-title" id="modalCustomerName">—</div>
-          <div class="modal-sub" id="modalCustomerSub">—</div>
-        </div>
-        <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div class="modal-body" id="modalBody">
-        <div class="empty-note">Loading…</div>
-      </div>
-    </div>
-  </div>
-
   <!-- CUSTOMER PROFILE MODAL (added 2026-09-18) -->
   <div class="modal-overlay" id="custModalOverlay">
     <div class="modal-panel wide">
@@ -533,6 +515,28 @@
         </button>
       </div>
       <div class="modal-body" id="custModalBody">
+        <div class="empty-note">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONVERSATION MODAL -->
+  <!-- Deliberately LAST in the DOM and pinned to z-index 120 inline: opened
+       from inside the customer profile, it has to paint above it, and paint
+       order plus an inline z-index survives a stale cached stylesheet. The
+       profile stays open underneath — closing the thread returns to it. -->
+  <div class="modal-overlay" id="convModalOverlay" style="z-index:120;">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="modalCustomerName">—</div>
+          <div class="modal-sub" id="modalCustomerSub">—</div>
+        </div>
+        <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody">
         <div class="empty-note">Loading…</div>
       </div>
     </div>
@@ -1225,7 +1229,7 @@
         </div>
       </div>`;
 
-    const brandsTxt = (d.brands || []).map(b => `${brandLabel(b.brand)} (${b.chats})`).join(', ') || '—';
+    const brandsTxt = (d.brands || []).map(b => brandLabel(b.brand)).join(', ') || '—';
     const phonesTxt = (d.phones || []).length
       ? d.phones.map(p => escapeHtml(p)).join('<br>')
       : '<span class="v muted">none found in their messages</span>';
