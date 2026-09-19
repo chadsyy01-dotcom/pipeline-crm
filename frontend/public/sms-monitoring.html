@@ -199,12 +199,9 @@
         <div class="kpi-value" id="kpiTotal">—</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label" style="color:#0F8A46">Delivered</div>
-        <div class="kpi-value" id="kpiDelivered" style="color:var(--success)">—</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Sent (awaiting confirmation)</div>
-        <div class="kpi-value" id="kpiSent" style="color:var(--primary)">—</div>
+        <div class="kpi-label" style="color:#0F8A46">Successfully sent</div>
+        <div class="kpi-value" id="kpiSuccess" style="color:var(--success)">—</div>
+        <div style="font-size:11px;color:var(--ink-faint);margin-top:2px">Sent + Delivered</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Failed</div>
@@ -213,6 +210,14 @@
       <div class="kpi-card">
         <div class="kpi-label">Success rate</div>
         <div class="kpi-value" id="kpiRate">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:#0F8A46">↳ Delivered</div>
+        <div class="kpi-value" id="kpiDelivered" style="color:var(--success);font-size:24px">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:var(--primary)">↳ Sent (awaiting)</div>
+        <div class="kpi-value" id="kpiSent" style="color:var(--primary);font-size:24px">—</div>
       </div>
     </div>
 
@@ -314,6 +319,7 @@ function renderKpis(totals) {
   const sent = totals.sent || 0;
   const failed = totals.failed || 0;
   document.getElementById("kpiTotal").textContent = fmtNum(total);
+  document.getElementById("kpiSuccess").textContent = fmtNum(sent + delivered);
   document.getElementById("kpiDelivered").textContent = fmtNum(delivered);
   document.getElementById("kpiSent").textContent = fmtNum(sent);
   document.getElementById("kpiFailed").textContent = fmtNum(failed);
