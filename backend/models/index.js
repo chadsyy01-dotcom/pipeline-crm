@@ -1,33 +1,35 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
-// Supabase's Postgres requires SSL. DATABASE_URL comes from your Supabase
-// project settings -> Database -> Connection string.
-// UPDATED 2026-09-18: switched from Transaction pooler (6543) to SESSION
-// pooler (5432, same host) — transaction mode kept exhausting Supavisor
-// connections under our long-running Express server (ECHECKOUTTIMEOUT
-// crashes, Sep 17-18). Session mode = 1 dedicated DB connection per pool
-// slot, so pool.max below MUST stay small: max 5. Supabase free tier
-// allows ~15 session-mode pooler clients; leave headroom for restarts
-// (old connections linger a few seconds) and any other tools connected.
+// UPDATED 2026-09-19: migrated OFF Supabase entirely onto Railway Postgres
+// (Postgres-ve5z), same Railway project as this backend — connected over
+// Railway's INTERNAL network (postgres-ve5z.railway.internal), not a public
+// pooler. The small pool below was a workaround for Supabase's Supavisor
+// session-mode pooler (~15 client limit on free tier) and its enforced
+// statement_timeout, which caused repeated ECHECKOUTTIMEOUT /
+// ConnectionAcquireTimeoutError crashes (Sep 17-19). Neither constraint
+// applies here: internal networking has no pooler in the middle and no
+// artificial per-statement timeout, so the pool is opened back up.
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: 'postgres',
   protocol: 'postgres',
   logging: false,
   pool: {
-    max: 5,        // hard cap — keep small in session mode (see note above)
-    min: 0,        // release everything when idle
+    max: 20,       // internal networking, no pooler ceiling to respect
+    min: 2,        // keep a couple warm — avoids a cold-connect on every burst
     acquire: 30000,
-    idle: 10000,   // close connections idle >10s
+    idle: 10000,
     evict: 10000,
   },
   dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false, // Supabase uses a trusted but non-standard CA chain
-    },
-    keepAlive: true, // stop idle sockets being silently dropped en route to Supabase
+    // Railway's internal Postgres does not require SSL (traffic never
+    // leaves Railway's private network). Left permissive rather than
+    // required, in case DATABASE_URL is ever pointed at a public/external
+    // Postgres again — an unwanted "SSL required" failure is worse than an
+    // unused ssl block.
+    ssl: process.env.DATABASE_URL?.includes('railway.internal') ? false : { require: true, rejectUnauthorized: false },
+    keepAlive: true,
   },
-  retry: { max: 2 }, // one-off transient connection blips get retried, not crashed
+  retry: { max: 2 },
 });
 
 const User = sequelize.define('User', {
