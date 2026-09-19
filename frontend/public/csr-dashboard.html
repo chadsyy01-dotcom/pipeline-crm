@@ -940,19 +940,33 @@ async function loadChatOverview() {
     const prev = q(r.prevFrom, r.prevTo);
     const vs = { vs: r.prevLabel };
 
-    const [statsToday, statsYesterday, csatToday, csatYesterday, convToday, pendingResp, topResp] = await Promise.all([
+    const [statsToday, statsYesterday, csatToday, csatYesterday, convToday, pendingResp] = await Promise.all([
       apiGet(`/chatwoot/stats?${cur}`),
       apiGet(`/chatwoot/stats?${prev}`),
       apiGet(`/chatwoot/csat?${cur}`),
       apiGet(`/chatwoot/csat?${prev}`),
       apiGet(`/chatwoot/conversations?limit=1000&perBrand=1000&${cur}`),   // for FTR/ART averages (activity in range)
       apiGet(`/chatwoot/pending`),                                          // lightweight Waiting-for-Agent feed (egress diet, 2026-09-14)
-      apiGet(`/chatwoot/top-customers?${cur}&limit=5`),                     // Top 5 Players — Most Chats (2026-09-19)
     ]);
 
-    topPlayers = topResp.customers || [];
-    renderTopChats();
-    renderTopTickets();   // same range as Most Chats; re-runs when tickets land (see renderAll)
+    // Top 5 chats: fired SEPARATELY, not inside the Promise.all above
+    // (2026-09-19). It's the heaviest query here — a GROUP BY across every
+    // event in the range — and when it sat in the same await, one slow run
+    // left the KPI cards, Waiting-for-Agent and both brand panels stuck on
+    // "Loading…" behind it. Now the rest of the section renders immediately
+    // and this panel fills in whenever it's ready; if it fails, only this
+    // one panel says so.
+    apiGet(`/chatwoot/top-customers?${cur}&limit=5`)
+      .then(topResp => {
+        topPlayers = topResp.customers || [];
+        renderTopChats();
+      })
+      .catch(err => {
+        console.error('Top customers failed:', err);
+        const tb = document.getElementById('topChatsBody');
+        if (tb) tb.innerHTML = '<tr><td colspan="4"><div class="empty-note">Could not load — try refreshing.</div></td></tr>';
+      });
+    renderTopTickets();   // Google Sheet data, independent of the API above
 
     // --- KPI: chats active today (exact, from /stats) ---
     const sum = obj => Object.values(obj).reduce((a, b) => a + b, 0);
