@@ -965,6 +965,10 @@ async function loadChatOverview() {
     const csatYesterday = val(3) || { total: 0 };
     const convToday = val(4) || { conversations: [] };
     const pendingResp = val(5) || { pending: [] };
+    // Defined up here (2026-09-19 fix): the Top 5 block below reads it, and
+    // the original `const convs` lived further down — a temporal-dead-zone
+    // ReferenceError that took the whole section down.
+    const convs = convToday.conversations || [];
 
     // Top 5 chats: computed from the conversation list ALREADY fetched above
     // (2026-09-19). This started life as its own /top-customers endpoint, but
@@ -1005,7 +1009,7 @@ async function loadChatOverview() {
     }
 
     // --- KPI: FTR / ART (avg over handoff conversations active today) ---
-    const convs = convToday.conversations || [];
+    // (convs is defined at the top of this function)
     const ftrVals = convs.filter(c => c.ftr != null).map(c => c.ftr);
     const artVals = convs.filter(c => c.art != null).map(c => c.art);
     const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
