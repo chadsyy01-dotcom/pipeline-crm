@@ -229,10 +229,6 @@
   .av-xs .face{width:100%;height:100%;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;}
   .av-xs .face img{width:100%;height:100%;object-fit:cover;display:block;}
   .av-xs .st{position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;border:2px solid var(--card);}
-  /* Clickable player name in the Top 5 leaderboards (added 2026-09-19) —
-     opens the customer profile modal on customers.html. */
-  .top-player-link{font-weight:700;color:var(--ink);text-decoration:none;}
-  .top-player-link:hover{color:var(--primary);text-decoration:underline;}
 
   .empty-note{color:var(--ink-faint);font-size:12.5px;padding:14px 4px;text-align:center;}
   .table-wrap{overflow-x:auto;}
@@ -1184,7 +1180,7 @@ function renderTopChats() {
   }
   tbody.innerHTML = topPlayers.slice(0, 5).map((p, i) => `
     <tr>
-      <td><div class="agent-cell">${rankBadge(i)}<a class="top-player-link" href="customers.html?tab=search&q=${encodeURIComponent(p.name)}&fields=name&brand=${encodeURIComponent(p.brand)}&autoOpen=1">${escapeHtml(p.name)}</a></div></td>
+      <td><div class="agent-cell">${rankBadge(i)}<span style="font-weight:700;">${escapeHtml(p.name)}</span></div></td>
       <td><span class="pill brand">${escapeHtml(chatBrandLabel(p.brand))}</span></td>
       <td class="num">${p.chats.toLocaleString()}</td>
       <td class="num" style="color:var(--ink-faint);font-weight:600;">${relativeTime(new Date(p.lastActivityAt))}</td>
@@ -1240,7 +1236,7 @@ function renderTopTickets() {
 
   tbody.innerHTML = ranked.map((p, i) => `
     <tr>
-      <td><div class="agent-cell">${rankBadge(i)}<a class="top-player-link" href="customers.html?tab=search&q=${encodeURIComponent(p.name)}&fields=name&autoOpen=1">${escapeHtml(p.name)}</a></div></td>
+      <td><div class="agent-cell">${rankBadge(i)}<span style="font-weight:700;">${escapeHtml(p.name)}</span></div></td>
       <td style="font-size:12.5px;color:var(--ink-soft);">${escapeHtml(p.topIssue)}</td>
       <td class="num">${p.tickets.toLocaleString()}</td>
       <td class="num" style="color:var(--ink-faint);font-weight:600;">${relativeTime(p.last)}</td>
