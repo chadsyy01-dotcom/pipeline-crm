@@ -965,31 +965,31 @@ async function loadChatOverview() {
     const csatYesterday = val(3) || { total: 0 };
     const convToday = val(4) || { conversations: [] };
     const pendingResp = val(5) || { pending: [] };
-    // Defined up here (2026-09-19 fix): the Top 5 block below reads it, and
-    // the original `const convs` lived further down — a temporal-dead-zone
-    // ReferenceError that took the whole section down.
     const convs = convToday.conversations || [];
 
-    // Top 5 chats: computed from the conversation list ALREADY fetched above
-    // (2026-09-19). This started life as its own /top-customers endpoint, but
-    // that meant a second GROUP BY over every event in the range on each
-    // refresh — heavy enough to slow the whole page down. The same answer is
-    // sitting in `convs`, so no extra database work is needed. Caveat: it
-    // ranks within the per-brand cap the list already uses, which is far more
-    // than the five rows shown.
-    const playerCounts = new Map();
-    convs.forEach(c => {
-      if (!c.contactName) return;
-      const key = `${c.contactName}|||${c.brand}`;
-      const rec = playerCounts.get(key) || { name: c.contactName, brand: c.brand, chats: 0, lastActivityAt: c.lastActivityAt };
-      rec.chats++;
-      if (new Date(c.lastActivityAt) > new Date(rec.lastActivityAt)) rec.lastActivityAt = c.lastActivityAt;
-      playerCounts.set(key, rec);
-    });
-    topPlayers = [...playerCounts.values()]
-      .sort((a, b) => b.chats - a.chats || new Date(b.lastActivityAt) - new Date(a.lastActivityAt))
-      .slice(0, 5);
-    renderTopChats();
+    // Top 5 chats: fired as its OWN independent call, not inside the
+    // Promise.allSettled above (2026-09-19). Two earlier approaches both had
+    // a real problem:
+    //   1. Inside the big allSettled — a slow GROUP BY doesn't block the
+    //      other cards anymore now that we use allSettled, so blocking
+    //      wasn't actually the issue this time.
+    //   2. Derived from `convs` (the FTR/ART conversation list) — that list
+    //      is capped at 300-1000 conversations PER BRAND, sorted by most
+    //      recent activity. Over a whole month a busy brand blows past that
+    //      cap easily, so the "recent 300-1000" is dominated by just the
+    //      last day or two — making Month look almost identical to Today.
+    // The dedicated /top-customers endpoint does a real GROUP BY over the
+    // full date range with no such cap, so it's the only one that answers
+    // "who chatted the most this month" correctly. Firing it separately
+    // (not awaited alongside the rest) means a slow run can't block the KPI
+    // cards or brand panels — this one table just says so and keeps trying.
+    apiGet(`/chatwoot/top-customers?${cur}&limit=5`)
+      .then(topResp => { topPlayers = topResp.customers || []; renderTopChats(); })
+      .catch(err => {
+        console.error('Top customers failed:', err);
+        const tb = document.getElementById('topChatsBody');
+        if (tb) tb.innerHTML = '<tr><td colspan="4"><div class="empty-note">Could not load — try refreshing.</div></td></tr>';
+      });
     renderTopTickets();   // Google Sheet data, same range
 
     // --- KPI: chats active today (exact, from /stats) ---
