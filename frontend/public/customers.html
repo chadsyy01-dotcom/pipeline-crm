@@ -1164,7 +1164,13 @@
   function ticketsForCustomer(name) {
     if (!ticketsCache) return null;
     const key = String(name || '').trim().toLowerCase();
-    return ticketsCache.filter(t => String(t.name || '').trim().toLowerCase() === key);
+    const matched = ticketsCache.filter(t => String(t.name || '').trim().toLowerCase() === key);
+    // One row per TICKET NUMBER (2026-09-19). The sheet can hold several rows
+    // for the same ticket — a status change, a re-submission, the same ticket
+    // quoted again in chat — and counting rows made one ticket look like many.
+    const byId = new Map();
+    matched.forEach(t => { if (!byId.has(t.id)) byId.set(t.id, t); });
+    return [...byId.values()];
   }
 
   async function openCustomerProfile(name, brand) {
