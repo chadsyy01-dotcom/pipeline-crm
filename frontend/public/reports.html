@@ -498,15 +498,15 @@
           <div class="kpi-value" id="csAvg">—</div>
           <div class="kpi-delta flat" id="csAvgSub">Loading…</div>
         </div>
-        <div class="kpi-card accent-ok clickable" data-cs="csat">
+        <div class="kpi-card accent-ok">
           <div class="kpi-label">CSAT — satisfied</div>
           <div class="kpi-value" id="csCsat" style="color:var(--success);">—</div>
-          <div class="kpi-delta flat" id="csCsatSub">Click to read the 4–5★ ratings</div>
+          <div class="kpi-delta flat" id="csCsatSub">Rated 4–5★</div>
         </div>
-        <div class="kpi-card accent-bad clickable bad" data-cs="dsat">
+        <div class="kpi-card accent-bad">
           <div class="kpi-label">DSAT — dissatisfied</div>
           <div class="kpi-value" id="csDsat" style="color:var(--danger);">—</div>
-          <div class="kpi-delta flat" id="csDsatSub">Click to read the 1–2★ ratings</div>
+          <div class="kpi-delta flat" id="csDsatSub">Rated 1–2★</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Average first reply</div>
@@ -551,29 +551,23 @@
 
       <div class="panel">
         <div class="panel-head">
-          <h3 id="csListTitle">Ratings with remarks</h3>
-          <span class="hint">Click any row to open the conversation</span>
+          <h3 id="csRankTitle">Brands with the most DSATs</h3>
+          <span class="hint">Ranked by volume · severity cards above re-rank this</span>
         </div>
-        <div class="scroll tall">
-          <table class="rt rowlink" id="csTable">
-            <thead><tr>
-              <th>Customer</th><th>Brand</th><th>Rating</th><th>Severity</th><th>Remarks</th><th class="num">When</th>
-            </tr></thead>
-            <tbody id="csBody"><tr><td colspan="6"><div class="note">Loading…</div></td></tr></tbody>
-          </table>
-        </div>
+        <div id="csRankBars"><div class="note">Loading…</div></div>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Satisfaction by brand</h3><span class="hint">Only brands with at least one rating</span></div>
+        <div class="panel-head"><h3>Brand detail</h3><span class="hint">Only brands with at least one rating</span></div>
         <div class="scroll tall">
           <table class="rt">
             <thead><tr>
               <th>Brand</th><th class="num">Chats</th><th class="num">Rated</th>
-              <th class="num">Satisfied</th><th class="num">Dissatisfied</th>
-              <th class="num">CSAT</th><th class="num">First reply</th><th class="num">Chat length</th>
+              <th class="num">Satisfied</th><th class="num">DSATs</th>
+              <th class="num">High</th><th class="num">Medium</th><th class="num">Low</th>
+              <th class="num">DSAT rate</th>
             </tr></thead>
-            <tbody id="csBrandBody"><tr><td colspan="8"><div class="note">Loading…</div></td></tr></tbody>
+            <tbody id="csBrandBody"><tr><td colspan="9"><div class="note">Loading…</div></td></tr></tbody>
             <tfoot id="csBrandFoot"></tfoot>
           </table>
         </div>
@@ -1307,7 +1301,6 @@ function fmtDur(seconds) {
 }
 
 let csData = null;
-let csRatingFilter = 'dsat';   // the report opens on the ratings that need action
 let csSevFilter = 'all';
 let csLoadToken = 0;           // cancels an in-flight load when a new one starts
 
@@ -1466,113 +1459,100 @@ function renderSatisfaction() {
   document.getElementById('csSevMed').textContent = fmtInt(sev.medium);
   document.getElementById('csSevLow').textContent = fmtInt(sev.low);
 
-  document.querySelectorAll('#page-satisfaction .kpi-card[data-cs]').forEach(el =>
-    el.classList.toggle('on', el.dataset.cs === csRatingFilter));
   document.querySelectorAll('#page-satisfaction .kpi-card[data-sev]').forEach(el =>
-    el.classList.toggle('on', el.dataset.sev === csSevFilter && csRatingFilter === 'dsat'));
+    el.classList.toggle('on', el.dataset.sev === csSevFilter));
 
-  // ---- Rating list ----
-  let list = rated;
-  if (csRatingFilter === 'csat') list = list.filter(c => c.csatRating >= 4);
-  else if (csRatingFilter === 'dsat') list = list.filter(c => c.csatRating <= 2);
-  if (csRatingFilter === 'dsat' && csSevFilter !== 'all') list = list.filter(c => c.severity === csSevFilter);
-
-  const title = csRatingFilter === 'csat' ? 'Satisfied ratings (4–5★)'
-    : csRatingFilter === 'dsat' ? (csSevFilter === 'all' ? 'Dissatisfied ratings (1–2★)' : `Dissatisfied ratings — ${SEV_LABEL[csSevFilter].toLowerCase()}`)
-    : 'All ratings';
-  document.getElementById('csListTitle').textContent = `${title} · ${fmtInt(list.length)}`;
-
-  const body = document.getElementById('csBody');
-  if (!list.length) {
-    body.innerHTML = csData.loading
-      ? `<tr><td colspan="6"><div class="note">Loading remarks — ${csData.loadedBrands} of ${csData.totalBrands} brands…</div></td></tr>`
-      : '<tr><td colspan="6"><div class="note">Nothing matches this view.</div></td></tr>';
-  } else {
-    body.innerHTML = list.slice(0, 300).map(c => {
-      const name = c.contactName || 'Unknown';
-      const colour = c.csatRating >= 4 ? 'var(--success)' : c.csatRating <= 2 ? 'var(--danger)' : 'var(--warning)';
-      const sevCell = c.severity ? `<span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span>` : '<span style="color:var(--ink-faint);">—</span>';
-      return `<tr data-conversation-id="${c.conversationId}" data-name="${escapeHtml(name)}" data-sub="${escapeHtml(chatBrandLabel(c.brand))}">
-        <td><div class="agent-cell"><div class="c-av" style="background:${colorForName(name)};">${escapeHtml(initialsFor(name))}</div><span style="font-weight:600;">${escapeHtml(name)}</span></div></td>
-        <td>${escapeHtml(chatBrandLabel(c.brand))}</td>
-        <td><span style="font-weight:800;color:${colour};">★ ${c.csatRating}/5</span></td>
-        <td>${sevCell}</td>
-        <td><div class="remarks ${c.csatFeedback ? '' : 'empty'}">${c.csatFeedback ? escapeHtml(c.csatFeedback) : 'No remarks'}</div></td>
-        <td class="num" style="font-weight:600;color:var(--ink-faint);">${timeAgo(c.lastActivityAt)}</td>
-      </tr>`;
-    }).join('');
-    if (list.length > 300) {
-      body.innerHTML += `<tr><td colspan="6"><div class="note">Showing the 300 most recent of ${fmtInt(list.length)}.</div></td></tr>`;
-    }
-  }
-
-  // ---- By brand ----
+  // ---- Brands ranked by DSATs ----
+  // The severity cards re-rank this rather than filtering a list of
+  // individual ratings: the question this report answers is which brand is
+  // generating the complaints, and the QA tab is where a single remark gets
+  // read in full.
   const byBrand = new Map();
   const brandRow = slug => {
-    if (!byBrand.has(slug)) byBrand.set(slug, { chats: 0, rated: 0, good: 0, bad: 0, ftr: [], art: [] });
+    if (!byBrand.has(slug)) byBrand.set(slug, { chats: 0, rated: 0, good: 0, bad: 0, high: 0, medium: 0, low: 0 });
     return byBrand.get(slug);
   };
   if (stats && stats.conversationsByBrand) {
     Object.entries(stats.conversationsByBrand).forEach(([slug, n]) => { brandRow(slug).chats = n; });
   }
-  convs.forEach(c => {
+  rated.forEach(c => {
     const r = brandRow(c.brand);
-    if (c.csatRating != null) { r.rated++; if (c.csatRating >= 4) r.good++; else if (c.csatRating <= 2) r.bad++; }
-    if (c.ftr != null) r.ftr.push(c.ftr);
-    if (c.art != null) r.art.push(c.art);
+    r.rated++;
+    if (c.csatRating >= 4) r.good++;
+    else if (c.csatRating <= 2) { r.bad++; r[c.severity]++; }
   });
+
   const brandRows = [...byBrand.entries()]
-    .map(([slug, v]) => ({ slug, ...v, pct: v.rated ? (v.good / v.rated) * 100 : null }))
-    .filter(r => r.rated > 0)
-    .sort((a, b) => b.rated - a.rated);
+    .map(([slug, v]) => ({ slug, label: chatBrandLabel(slug), ...v, dsatRate: v.rated ? (v.bad / v.rated) * 100 : null }))
+    .filter(r => r.rated > 0);
+
+  // Which number the ranking uses follows whichever severity card is active.
+  const rankKey = csSevFilter === 'all' ? 'bad' : csSevFilter;
+  const rankLabel = csSevFilter === 'all' ? 'DSATs'
+    : csSevFilter === 'high' ? 'high-severity DSATs'
+    : csSevFilter === 'medium' ? 'venting DSATs'
+    : 'DSATs with no remarks';
+  document.getElementById('csRankTitle').textContent = `Brands with the most ${rankLabel}`;
+
+  const ranked = brandRows.filter(r => r[rankKey] > 0).sort((a, b) => b[rankKey] - a[rankKey]);
+  const rankEl = document.getElementById('csRankBars');
+  if (!ranked.length) {
+    rankEl.innerHTML = csData.loading
+      ? `<div class="note">Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands…</div>`
+      : `<div class="note">No ${rankLabel} in September.</div>`;
+  } else {
+    const max = ranked[0][rankKey];
+    rankEl.innerHTML = ranked.map((r, i) => `
+      <div class="rank-row">
+        <div class="rank-badge" style="background:${(RANK_COLORS[i] || '#94A3B8')}22;color:${RANK_COLORS[i] || '#94A3B8'};">${i + 1}</div>
+        <div class="rank-main">
+          <div class="rank-name" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</div>
+          <div class="rank-track"><div class="rank-fill" style="width:${Math.max(2, Math.round((r[rankKey] / max) * 100))}%;background:${RANK_COLORS[i] || '#94A3B8'};"></div></div>
+        </div>
+        <div class="rank-count">${fmtInt(r[rankKey])}</div>
+        <div class="rank-share">${r.dsatRate == null ? '—' : Math.round(r.dsatRate) + '%'}</div>
+      </div>`).join('');
+  }
 
   const bBody = document.getElementById('csBrandBody');
-  if (!brandRows.length) {
+  const detail = [...brandRows].sort((a, b) => b.bad - a.bad || b.rated - a.rated);
+  if (!detail.length) {
     bBody.innerHTML = csData.loading
-      ? `<tr><td colspan="8"><div class="note">Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands…</div></td></tr>`
-      : '<tr><td colspan="8"><div class="note">No ratings in September yet.</div></td></tr>';
+      ? `<tr><td colspan="9"><div class="note">Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands…</div></td></tr>`
+      : '<tr><td colspan="9"><div class="note">No ratings in September yet.</div></td></tr>';
     document.getElementById('csBrandFoot').innerHTML = '';
   } else {
-    bBody.innerHTML = brandRows.map(r => `<tr>
-      <td>${escapeHtml(chatBrandLabel(r.slug))}</td>
+    bBody.innerHTML = detail.map(r => `<tr>
+      <td>${escapeHtml(r.label)}</td>
       <td class="num" style="font-weight:500;color:var(--ink-soft);">${fmtInt(r.chats)}</td>
       <td class="num">${fmtInt(r.rated)}</td>
       <td class="num" style="color:var(--success);">${fmtInt(r.good)}</td>
       <td class="num" style="color:var(--danger);">${fmtInt(r.bad)}</td>
-      <td class="num">${rateTag(r.pct)}</td>
-      <td class="num" style="font-weight:600;color:var(--ink-soft);">${r.ftr.length ? fmtDur(mean(r.ftr)) : '—'}</td>
-      <td class="num" style="font-weight:600;color:var(--ink-soft);">${r.art.length ? fmtDur(mean(r.art)) : '—'}</td>
+      <td class="num" style="color:var(--danger);font-weight:600;">${fmtInt(r.high)}</td>
+      <td class="num" style="color:#B45309;font-weight:600;">${fmtInt(r.medium)}</td>
+      <td class="num" style="font-weight:600;color:var(--ink-faint);">${fmtInt(r.low)}</td>
+      <td class="num">${r.dsatRate == null ? '—' : `<span class="tag ${r.dsatRate <= 20 ? 'good' : r.dsatRate <= 50 ? 'mid' : 'bad'}">${Math.round(r.dsatRate)}%</span>`}</td>
     </tr>`).join('');
-    const t = brandRows.reduce((s, r) => ({ chats: s.chats + r.chats, rated: s.rated + r.rated, good: s.good + r.good, bad: s.bad + r.bad }), { chats: 0, rated: 0, good: 0, bad: 0 });
+    const t = detail.reduce((s, r) => ({
+      chats: s.chats + r.chats, rated: s.rated + r.rated, good: s.good + r.good,
+      bad: s.bad + r.bad, high: s.high + r.high, medium: s.medium + r.medium, low: s.low + r.low,
+    }), { chats: 0, rated: 0, good: 0, bad: 0, high: 0, medium: 0, low: 0 });
     document.getElementById('csBrandFoot').innerHTML = `<tr>
-      <td>${brandRows.length} brands</td>
+      <td>${detail.length} brands</td>
       <td class="num">${fmtInt(t.chats)}</td><td class="num">${fmtInt(t.rated)}</td>
       <td class="num">${fmtInt(t.good)}</td><td class="num">${fmtInt(t.bad)}</td>
-      <td class="num">${t.rated ? Math.round((t.good / t.rated) * 100) + '%' : '—'}</td>
-      <td class="num">${ftrVals.length ? fmtDur(mean(ftrVals)) : '—'}</td>
-      <td class="num">${artVals.length ? fmtDur(mean(artVals)) : '—'}</td>
+      <td class="num">${fmtInt(t.high)}</td><td class="num">${fmtInt(t.medium)}</td><td class="num">${fmtInt(t.low)}</td>
+      <td class="num">${t.rated ? Math.round((t.bad / t.rated) * 100) + '%' : '—'}</td>
     </tr>`;
   }
 }
 
 // ---- Satisfaction interactions ----
-document.querySelectorAll('#page-satisfaction .kpi-card[data-cs]').forEach(el => el.addEventListener('click', () => {
-  // Click the active card again to clear back to everything rated.
-  csRatingFilter = csRatingFilter === el.dataset.cs ? 'all' : el.dataset.cs;
-  if (csRatingFilter !== 'dsat') csSevFilter = 'all';
-  if (csData) renderSatisfaction();
-}));
 document.querySelectorAll('#page-satisfaction .kpi-card[data-sev]').forEach(el => el.addEventListener('click', () => {
   const sev = el.dataset.sev;
-  csRatingFilter = 'dsat';   // severity only means anything among the DSATs
   csSevFilter = (sev === 'all' || csSevFilter === sev) ? 'all' : sev;
   if (csData) renderSatisfaction();
 }));
-document.getElementById('csBody').addEventListener('click', (e) => {
-  const row = e.target.closest('tr[data-conversation-id]');
-  if (!row) return;
-  openConversationModal(row.dataset.conversationId, row.dataset.name, row.dataset.sub);
-});
 
 // ---- Thread modal ----
 function closeConversationModal() { document.getElementById('convModalOverlay').classList.remove('open'); }
@@ -1743,15 +1723,21 @@ function exportActiveReport() {
       { Measure: 'Low severity', Value: dsats.filter(c => c.severity === 'low').length },
     ]));
     out.push('');
-    out.push('Ratings with remarks');
-    out.push(Papa.unparse(rated.map(c => ({
-      Customer: c.contactName || 'Unknown',
-      Brand: chatBrandLabel(c.brand),
-      Rating: c.csatRating,
-      Severity: c.severity ? SEV_LABEL[c.severity] : '',
-      Remarks: c.csatFeedback || '',
-      When: c.lastActivityAt ? new Date(c.lastActivityAt).toLocaleString() : '',
-    }))));
+    out.push('Brands by DSATs');
+    const byBrandCsv = new Map();
+    rated.forEach(c => {
+      if (!byBrandCsv.has(c.brand)) byBrandCsv.set(c.brand, { rated: 0, bad: 0, high: 0, medium: 0, low: 0 });
+      const r = byBrandCsv.get(c.brand);
+      r.rated++;
+      if (c.csatRating <= 2) { r.bad++; r[c.severity]++; }
+    });
+    out.push(Papa.unparse([...byBrandCsv.entries()]
+      .sort((a, b) => b[1].bad - a[1].bad)
+      .map(([slug, v]) => ({
+        Brand: chatBrandLabel(slug), Rated: v.rated, DSATs: v.bad,
+        High: v.high, Medium: v.medium, Low: v.low,
+        'DSAT rate %': v.rated ? Math.round((v.bad / v.rated) * 100) : '',
+      }))));
     downloadCsv(out.join('\n'), 'customer-satisfaction-sep-2026.csv');
     return;
   }
