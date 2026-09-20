@@ -1309,40 +1309,94 @@ function fmtDur(seconds) {
 let csData = null;
 let csRatingFilter = 'dsat';   // the report opens on the ratings that need action
 let csSevFilter = 'all';
+let csLoadToken = 0;           // cancels an in-flight load when a new one starts
+
+// A month of conversations across every brand in one request takes minutes
+// and sometimes never returns (seen 2026-09-20: the page sat on "Loading…"
+// while the rating totals had already arrived). Each brand is fetched on its
+// own instead, with a timeout, and the report redraws after each one — so
+// the big brands appear within seconds and one slow brand can't hold up the
+// rest. The headline figures come from /chatwoot/csat and never wait for
+// any of this.
+const CS_BRAND_TIMEOUT_MS = 25000;
+const CS_PER_BRAND = 400;
+
+function apiGetWithTimeout(path, ms) {
+  return Promise.race([
+    apiGet(path),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms / 1000}s`)), ms)),
+  ]);
+}
 
 async function loadSatisfaction() {
+  const myToken = ++csLoadToken;
   const w = septemberWindow();
   const range = `from=${encodeURIComponent(w.start.toISOString())}&to=${encodeURIComponent(w.effEnd.toISOString())}`;
 
-  const [csatRes, convRes, statsRes] = await Promise.allSettled([
-    apiGet(`/chatwoot/csat?${range}`),
-    apiGet(`/chatwoot/conversations?limit=1000&perBrand=300&perBrandOverrides=buenasph:1000,tmtcash:1000&${range}`),
-    apiGet(`/chatwoot/stats?${range}`),
+  // ---- Stage 1: the headline figures, which are one cheap query each ----
+  const [csatRes, statsRes] = await Promise.allSettled([
+    apiGetWithTimeout(`/chatwoot/csat?${range}`, CS_BRAND_TIMEOUT_MS),
+    apiGetWithTimeout(`/chatwoot/stats?${range}`, CS_BRAND_TIMEOUT_MS),
   ]);
+  if (myToken !== csLoadToken) return;
 
-  if (csatRes.status === 'rejected' && convRes.status === 'rejected') {
+  const csat = csatRes.status === 'fulfilled' ? csatRes.value : null;
+  const stats = statsRes.status === 'fulfilled' ? statsRes.value : null;
+
+  csData = { csat, stats, convs: [], rated: [], window: w, loading: true, loadedBrands: 0, totalBrands: 0, failedBrands: [] };
+  renderSatisfaction();
+
+  if (!csat && !stats) {
     flag('csFlag', 'Satisfaction figures could not be loaded from the chat service.');
-    document.getElementById('csBody').innerHTML = '<tr><td colspan="6"><div class="note">No data.</div></td></tr>';
-    document.getElementById('csBrandBody').innerHTML = '<tr><td colspan="8"><div class="note">No data.</div></td></tr>';
+    csData.loading = false;
+    renderSatisfaction();
     return;
   }
 
-  const csat = csatRes.status === 'fulfilled' ? csatRes.value : null;
-  const convs = convRes.status === 'fulfilled' ? (convRes.value.conversations || []) : [];
-  const stats = statsRes.status === 'fulfilled' ? statsRes.value : null;
+  // ---- Stage 2: the rated threads, one brand at a time ----
+  const brands = stats && stats.conversationsByBrand
+    ? Object.entries(stats.conversationsByBrand).sort((a, b) => b[1] - a[1]).map(([slug]) => slug)
+    : [];
+  csData.totalBrands = brands.length;
 
-  const rated = convs
-    .filter(c => c.csatRating != null)
-    .map(c => ({ ...c, severity: c.csatRating <= 2 ? dsatSeverity(c.csatFeedback) : null }))
-    .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
+  if (!brands.length) {
+    csData.loading = false;
+    flag('csFlag', w.running
+      ? `September is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth}.`
+      : '');
+    renderSatisfaction();
+    return;
+  }
 
-  csData = { csat, convs, rated, stats, window: w };
+  for (const slug of brands) {
+    if (myToken !== csLoadToken) return;
+    try {
+      const data = await apiGetWithTimeout(
+        `/chatwoot/conversations?brand=${encodeURIComponent(slug)}&limit=${CS_PER_BRAND}&perBrand=${CS_PER_BRAND}&${range}`,
+        CS_BRAND_TIMEOUT_MS
+      );
+      if (myToken !== csLoadToken) return;
+      csData.convs.push(...(data.conversations || []));
+    } catch (err) {
+      console.warn(`Satisfaction: ${slug} failed —`, err.message);
+      csData.failedBrands.push(slug);
+    }
+    csData.loadedBrands++;
+    csData.rated = csData.convs
+      .filter(c => c.csatRating != null)
+      .map(c => ({ ...c, severity: c.csatRating <= 2 ? dsatSeverity(c.csatFeedback) : null }))
+      .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
+    renderSatisfaction();
+  }
 
+  csData.loading = false;
   const notes = [];
   if (w.running) notes.push(`September is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth}.`);
-  if (csatRes.status === 'rejected') notes.push('The official rating totals are unavailable, so the percentages below are counted from the loaded threads instead.');
+  if (!csat) notes.push('The official rating totals are unavailable, so the percentages are counted from the loaded threads instead.');
+  if (csData.failedBrands.length) {
+    notes.push(`${csData.failedBrands.map(chatBrandLabel).join(', ')} took too long to load, so ${csData.failedBrands.length === 1 ? 'its' : 'their'} remarks are missing below. The percentages above still include them.`);
+  }
   flag('csFlag', notes);
-
   renderSatisfaction();
 }
 
@@ -1368,17 +1422,24 @@ function renderSatisfaction() {
 
   const ftrVals = convs.filter(c => c.ftr != null).map(c => c.ftr);
   const artVals = convs.filter(c => c.art != null).map(c => c.art);
+  const handoffSub = n => csData.loading ? `Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands` : (n ? `${fmtInt(n)} handoffs` : 'No handoffs yet');
   document.getElementById('csFtr').textContent = ftrVals.length ? fmtDur(mean(ftrVals)) : '—';
-  document.getElementById('csFtrSub').textContent = ftrVals.length ? `${fmtInt(ftrVals.length)} handoffs` : 'No handoffs yet';
+  document.getElementById('csFtrSub').textContent = handoffSub(ftrVals.length);
   document.getElementById('csArt').textContent = artVals.length ? fmtDur(mean(artVals)) : '—';
-  document.getElementById('csArtSub').textContent = artVals.length ? `${fmtInt(artVals.length)} handoffs` : 'No handoffs yet';
+  document.getElementById('csArtSub').textContent = handoffSub(artVals.length);
 
   // ---- Severity cards ----
+  // While brands are still arriving these counts are partial, so they say so
+  // rather than showing a confident number that changes under the reader.
   const dsats = rated.filter(c => c.csatRating <= 2);
   const sev = { high: 0, medium: 0, low: 0 };
   dsats.forEach(c => { sev[c.severity]++; });
+  const progress = csData.loading && csData.totalBrands
+    ? `Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands`
+    : null;
   document.getElementById('csSevTotal').textContent = fmtInt(dsats.length);
-  document.getElementById('csSevTotalSub').textContent = dsats.length ? 'All brands' : 'No dissatisfied ratings';
+  document.getElementById('csSevTotalSub').textContent = progress
+    || (dsats.length ? 'All brands' : 'No dissatisfied ratings');
   document.getElementById('csSevHigh').textContent = fmtInt(sev.high);
   document.getElementById('csSevMed').textContent = fmtInt(sev.medium);
   document.getElementById('csSevLow').textContent = fmtInt(sev.low);
@@ -1401,7 +1462,9 @@ function renderSatisfaction() {
 
   const body = document.getElementById('csBody');
   if (!list.length) {
-    body.innerHTML = '<tr><td colspan="6"><div class="note">Nothing matches this view.</div></td></tr>';
+    body.innerHTML = csData.loading
+      ? `<tr><td colspan="6"><div class="note">Loading remarks — ${csData.loadedBrands} of ${csData.totalBrands} brands…</div></td></tr>`
+      : '<tr><td colspan="6"><div class="note">Nothing matches this view.</div></td></tr>';
   } else {
     body.innerHTML = list.slice(0, 300).map(c => {
       const name = c.contactName || 'Unknown';
@@ -1443,7 +1506,9 @@ function renderSatisfaction() {
 
   const bBody = document.getElementById('csBrandBody');
   if (!brandRows.length) {
-    bBody.innerHTML = '<tr><td colspan="8"><div class="note">No ratings in September yet.</div></td></tr>';
+    bBody.innerHTML = csData.loading
+      ? `<tr><td colspan="8"><div class="note">Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands…</div></td></tr>`
+      : '<tr><td colspan="8"><div class="note">No ratings in September yet.</div></td></tr>';
     document.getElementById('csBrandFoot').innerHTML = '';
   } else {
     bBody.innerHTML = brandRows.map(r => `<tr>
@@ -1698,7 +1763,9 @@ loadChatsComparison();
 setInterval(loadChatsComparison, 5 * 60 * 1000);
 
 loadSatisfaction();
-setInterval(loadSatisfaction, 5 * 60 * 1000);
+// Slower than the other reports on purpose: a full pass walks every brand,
+// so refreshing too often would mean the page is almost always mid-load.
+setInterval(loadSatisfaction, 15 * 60 * 1000);
 
 loadAvatars();
 TicketData.fetchTickets()
