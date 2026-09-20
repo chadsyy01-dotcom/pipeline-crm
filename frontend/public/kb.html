@@ -687,7 +687,10 @@
       // tab headings: "01 about buenas ph" style (2 digits + name, walang
       // colon para hindi mahuli ang mga "09 TOPIC:" na content lines),
       // plus the special "LLM Instruction" tab
-      const looksTab = /^\d{2}\s+[^:]{2,70}$/.test(line) || /^llm instruction$/i.test(line);
+      const looksTab = /^\d{2}\.?\s+[^:]{2,70}$/.test(line)
+        || /^tab\s+\d{1,3}\.?\s+[^:]{2,70}$/i.test(line)
+        || /^llm( instruction)?$/i.test(line)
+        || /^agent system( walkthrough)?$/i.test(line);
       if (!looksTab) continue;
       // HINDI kasama ang mga row ng games list table (hal. "10 Slot CQ9
       // All Wild…", "11 Fishing JILI …"): number + game-category word.
