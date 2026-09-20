@@ -1344,6 +1344,9 @@ async function loadSatisfaction() {
   const stats = statsRes.status === 'fulfilled' ? statsRes.value : null;
 
   csData = { csat, stats, convs: [], rated: [], window: w, loading: true, loadedBrands: 0, totalBrands: 0, failedBrands: [] };
+  flag('csFlag', w.running
+    ? `September is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth}.`
+    : '');
   renderSatisfaction();
 
   if (!csat && !stats) {
@@ -1353,11 +1356,15 @@ async function loadSatisfaction() {
     return;
   }
 
-  // ---- Stage 2: the rated threads, one brand at a time ----
-  const brands = stats && stats.conversationsByBrand
+  // ---- Stage 2: the rated threads, a few brands at a time ----
+  // The brand list normally comes from /chatwoot/stats, ordered by volume so
+  // the biggest brands load first. If that call failed, fall back to the
+  // known slugs rather than showing no remarks at all.
+  const brands = stats && stats.conversationsByBrand && Object.keys(stats.conversationsByBrand).length
     ? Object.entries(stats.conversationsByBrand).sort((a, b) => b[1] - a[1]).map(([slug]) => slug)
-    : [];
+    : Object.keys(CHAT_BRAND_LABELS);
   csData.totalBrands = brands.length;
+  renderSatisfaction();   // so the progress line says "0 of 13", not "0 of 0"
 
   if (!brands.length) {
     csData.loading = false;
@@ -1368,26 +1375,38 @@ async function loadSatisfaction() {
     return;
   }
 
-  for (const slug of brands) {
-    if (myToken !== csLoadToken) return;
-    try {
-      const data = await apiGetWithTimeout(
-        `/chatwoot/conversations?brand=${encodeURIComponent(slug)}&limit=${CS_PER_BRAND}&perBrand=${CS_PER_BRAND}&${range}`,
-        CS_BRAND_TIMEOUT_MS
-      );
+  // Three at a time: one brand per request keeps each query small, but
+  // strictly one after another meant a slow brand held up every brand behind
+  // it. Three in flight is quick without putting the whole month back on the
+  // database at once. Biggest brands go first, so the bulk of the remarks
+  // land in the first wave.
+  const CONCURRENCY = 3;
+  const queue = [...brands];
+  const worker = async () => {
+    while (queue.length) {
       if (myToken !== csLoadToken) return;
-      csData.convs.push(...(data.conversations || []));
-    } catch (err) {
-      console.warn(`Satisfaction: ${slug} failed —`, err.message);
-      csData.failedBrands.push(slug);
+      const slug = queue.shift();
+      try {
+        const data = await apiGetWithTimeout(
+          `/chatwoot/conversations?brand=${encodeURIComponent(slug)}&limit=${CS_PER_BRAND}&perBrand=${CS_PER_BRAND}&${range}`,
+          CS_BRAND_TIMEOUT_MS
+        );
+        if (myToken !== csLoadToken) return;
+        csData.convs.push(...(data.conversations || []));
+      } catch (err) {
+        console.warn(`Satisfaction: ${slug} failed —`, err.message);
+        csData.failedBrands.push(slug);
+      }
+      csData.loadedBrands++;
+      csData.rated = csData.convs
+        .filter(c => c.csatRating != null)
+        .map(c => ({ ...c, severity: c.csatRating <= 2 ? dsatSeverity(c.csatFeedback) : null }))
+        .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
+      renderSatisfaction();
     }
-    csData.loadedBrands++;
-    csData.rated = csData.convs
-      .filter(c => c.csatRating != null)
-      .map(c => ({ ...c, severity: c.csatRating <= 2 ? dsatSeverity(c.csatFeedback) : null }))
-      .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
-    renderSatisfaction();
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, brands.length) }, worker));
+  if (myToken !== csLoadToken) return;
 
   csData.loading = false;
   const notes = [];
