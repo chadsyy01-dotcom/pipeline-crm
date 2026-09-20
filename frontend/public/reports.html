@@ -362,6 +362,11 @@
           <div class="kpi-value" id="tkOpen">—</div>
           <div class="kpi-delta flat" id="tkOpenSub">Filed this month, not yet closed</div>
         </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Peak hour</div>
+          <div class="kpi-value" id="tkPeakHour">—</div>
+          <div class="kpi-delta flat" id="tkPeakHourSub">Busiest hour for new tickets</div>
+        </div>
       </div>
 
       <div class="cols-2">
@@ -378,6 +383,21 @@
           </div>
           <div class="legend" id="tkStatusLegend" style="flex-direction:column;gap:9px;margin-top:16px;"></div>
         </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>When tickets come in</h3>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+            <span class="hint" id="tkHourHint">Hour the ticket was filed</span>
+            <div class="tabs" id="tkHourModeTabs">
+              <button class="tab active" data-mode="total">Totals</button>
+              <button class="tab" data-mode="perday">Per day</button>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;height:300px;"><canvas id="tkHourChart"></canvas></div>
+        <div id="tkHourTop" style="margin-top:14px;"></div>
       </div>
 
       <div class="panel">
@@ -496,7 +516,20 @@ let chatsData = null;
 let allTickets = [];
 let ticketsData = null;
 let avatarByName = new Map();
-let tkCharts = { status: null, brand: null, agent: null };
+let tkCharts = { status: null, brand: null, agent: null, hour: null };
+let tkHourMode = 'total';
+
+// "3 PM" reads faster in a report than "15:00", and the hour block is what
+// the reader actually schedules against, so each label names the whole hour.
+function hourLabel(h) {
+  const suffix = h < 12 ? 'AM' : 'PM';
+  const twelve = h % 12 === 0 ? 12 : h % 12;
+  return `${twelve} ${suffix}`;
+}
+function hourBlockLabel(h) {
+  const end = (h + 1) % 24;
+  return `${hourLabel(h)}–${hourLabel(end)}`;
+}
 
 async function apiGet(path) {
   const token = localStorage.getItem('pipeline_token');
@@ -849,6 +882,24 @@ function renderTicketResolution() {
       </div>`).join('')
     : '<div class="note">No tickets filed in September yet.</div>';
 
+  // ---- Peak hour ----
+  // Hours come from the browser's clock, which for this team is Philippine
+  // time. Counts are by the hour a ticket was FILED, so this answers when
+  // cover is needed, not when work happened to be finished.
+  const hourly = new Array(24).fill(0);
+  filed.forEach(t => { if (t.submitted) hourly[t.submitted.getHours()]++; });
+  const peakCount = Math.max(...hourly);
+  const peakHour = peakCount > 0 ? hourly.indexOf(peakCount) : null;
+  ticketsData.hourly = hourly;
+  ticketsData.peakHour = peakHour;
+
+  document.getElementById('tkPeakHour').textContent = peakHour == null ? '—' : hourLabel(peakHour);
+  document.getElementById('tkPeakHourSub').textContent = peakHour == null
+    ? 'No tickets filed yet'
+    : `${fmtInt(peakCount)} tickets · ${(peakCount / w.days).toFixed(1)} a day`;
+
+  renderHourChart();
+
   // ---- By brand ----
   const brands = new Map();
   const brand = name => {
@@ -986,9 +1037,72 @@ function renderTicketResolution() {
   ticketsData.top5 = top5;
 }
 
+// Drawn separately from the rest of the ticket report so the Totals/Per-day
+// toggle can redraw just this chart without recomputing the whole month.
+function renderHourChart() {
+  if (!ticketsData || !ticketsData.hourly) return;
+  const { hourly, peakHour, window: w, filed } = ticketsData;
+  const perDay = tkHourMode === 'perday';
+  const values = perDay ? hourly.map(n => n / w.days) : hourly.slice();
+
+  document.getElementById('tkHourHint').textContent = perDay
+    ? `Average per day over ${w.days} days`
+    : `Hour the ticket was filed · ${w.days} days so far`;
+
+  // The peak hour carries the page's accent; every other hour stays quiet, so
+  // the one number the reader is looking for is the one that stands out.
+  const colors = values.map((_, h) => (h === peakHour ? '#2563EB' : '#C7D6F5'));
+
+  if (tkCharts.hour) tkCharts.hour.destroy();
+  tkCharts.hour = new Chart(document.getElementById('tkHourChart'), {
+    type: 'bar',
+    data: {
+      labels: hourly.map((_, h) => hourLabel(h)),
+      datasets: [{ label: 'Tickets filed', data: values, backgroundColor: colors, borderRadius: 4, maxBarThickness: 26 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: it => hourBlockLabel(it[0].dataIndex),
+            label: c => perDay ? `${c.parsed.y.toFixed(1)} tickets a day` : `${Math.round(c.parsed.y).toLocaleString()} tickets`,
+          },
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 0, font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: '#EEF1F6' }, title: { display: true, text: perDay ? 'Tickets per day' : 'Tickets' } },
+      },
+    },
+  });
+
+  // Top three hours, stated in plain terms under the chart — the shape of the
+  // bars shows the pattern, this says what to do about it.
+  const el = document.getElementById('tkHourTop');
+  const total = filed.length;
+  if (!total) { el.innerHTML = ''; return; }
+  const top3 = hourly.map((n, h) => ({ h, n })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
+  const share = top3.reduce((s, x) => s + x.n, 0);
+  el.innerHTML = `<div style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;">
+    Busiest blocks: ${top3.map(x => `<b>${hourBlockLabel(x.h)}</b> (${x.n.toLocaleString()})`).join(', ')} —
+    together ${Math.round((share / total) * 100)}% of September's tickets.
+  </div>`;
+}
+
 // =====================================================================
 // SHARED CHROME
 // =====================================================================
+document.getElementById('tkHourModeTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  document.querySelectorAll('#tkHourModeTabs .tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  tkHourMode = btn.dataset.mode;
+  renderHourChart();
+});
+
 document.getElementById('chartModeTabs').addEventListener('click', (e) => {
   const btn = e.target.closest('.tab');
   if (!btn) return;
@@ -1063,6 +1177,11 @@ function exportActiveReport() {
     out.push('');
     out.push('Top concerns');
     out.push(Papa.unparse((d.top5 || []).map(([Concern, Tickets]) => ({ Concern, Tickets }))));
+    out.push('');
+    out.push('By hour filed');
+    out.push(Papa.unparse((d.hourly || []).map((n, h) => ({
+      Hour: hourBlockLabel(h), Tickets: n, 'Per day': (n / d.window.days).toFixed(2),
+    }))));
     out.push('');
     out.push('By brand');
     out.push(Papa.unparse((d.brandRows || []).map(r => ({
