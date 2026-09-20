@@ -187,6 +187,7 @@
     <div class="brand-tabs" id="brandTabs"></div>
 
     <div class="panel">
+      <div id="kbBrandNotice"></div>
       <div class="kb-layout">
         <div class="kb-seclist">
           <div class="kb-seclist-head">
@@ -312,8 +313,32 @@
     renderTabs();
   }
 
+  // ---- brand-level notice (added 2026-09-20): isang buod sa TAAS ng
+  // lahat ng problema sa buong brand — hindi na kailangang isa-isahin
+  // ang bawat section para makita kung saan may expired/soon/leak. ----
+  function renderBrandNotice() {
+    const el = $('kbBrandNotice');
+    if (!el) return;
+    const exp = sections.filter(s => s.alert && s.alert.level === 'expired');
+    const soon = sections.filter(s => s.alert && s.alert.level === 'soon');
+    const leak = sections.filter(s => s.brandLeaks);
+    if (!exp.length && !soon.length && !leak.length) { el.innerHTML = ''; return; }
+    const chip = s => `<span class="kb-jump" data-open="${s.id}" title="I-click para buksan ang section na ito">${esc(s.title)}</span>`;
+    let html = '';
+    if (exp.length) html += `<div class="kb-warn-banner expired">\u26A0\uFE0F <b>MAY EXPIRED NA PETSA \u2014 ${exp.length} section(s) ng ${esc(brandLabel(currentBrand))}:</b> ${exp.map(chip).join(', ')}</div>`;
+    if (soon.length) html += `<div class="kb-warn-banner soon">\u23F3 <b>Matatapos sa loob ng 7 araw \u2014 ${soon.length} section(s):</b> ${soon.map(chip).join(', ')}</div>`;
+    if (leak.length) html += `<div class="kb-warn-banner mixed">\ud83d\udd00 <b>May IBANG BRAND na nabanggit \u2014 ${leak.length} section(s):</b> ${leak.map(chip).join(', ')}</div>`;
+    el.innerHTML = html;
+    el.querySelectorAll('.kb-jump').forEach(x => x.addEventListener('click', () => {
+      if (editing && !confirm('Discard unsaved changes?')) return;
+      setEditing(false);
+      openSection(Number(x.dataset.open));
+    }));
+  }
+
   // ---- section list (left column) ----
   function renderSectionList() {
+    renderBrandNotice();
     const wrap = $('kbSecItems');
     $('kbSyncAllBtn').style.display = brandSourceUrl ? '' : 'none';
     $('kbImportBtn').style.display = brandSourceUrl ? '' : 'none';
