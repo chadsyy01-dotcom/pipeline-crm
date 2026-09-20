@@ -26,6 +26,10 @@
     --line:#EEF1F6; --rule:#D8DFE9;
     --radius-sm:10px; --radius-md:14px; --radius-lg:18px;
     --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+    /* The two months keep the same colour in every chart, table and legend,
+       so the eye never has to re-learn which is which. */
+    --month-a:#94A3B8;   /* August — settled */
+    --month-b:#2563EB;   /* September — live */
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
@@ -33,7 +37,6 @@
   button{font-family:inherit;}
   .app{display:flex;min-height:100vh;}
 
-  /* SIDEBAR */
   .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
   .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
   .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
@@ -47,49 +50,49 @@
   .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
 
-  /* MAIN */
   .main{flex:1;min-width:0;padding:26px 32px 40px;}
-  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
-  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
-  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
-  .topbar-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 
-  /* Controls */
-  .month-select,.issue-select{font-size:12.5px;font-weight:700;padding:9px 13px;border-radius:8px;color:var(--ink);cursor:pointer;border:1px solid var(--rule);background:var(--card);}
+  /* TITLE BAR */
+  .titlebar{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);border-top:5px solid var(--primary);padding:26px 28px 0;margin-bottom:18px;}
+  .titlebar-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+  .titlebar h1{margin:0;font-size:25px;font-weight:800;letter-spacing:-.02em;line-height:1.15;}
+  .titlebar .period{display:block;font-size:25px;font-weight:400;color:var(--ink-faint);letter-spacing:-.02em;}
+  .titlebar .meta{margin:10px 0 0;font-size:12.5px;color:var(--ink-soft);}
+  .titlebar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+
+  .subtabs{display:flex;gap:2px;margin-top:22px;border-bottom:1px solid var(--line);overflow-x:auto;}
+  .subtab{font-size:13px;font-weight:700;padding:12px 16px;color:var(--ink-faint);cursor:pointer;border:none;background:none;font-family:inherit;white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-1px;}
+  .subtab:hover{color:var(--ink-soft);}
+  .subtab.active{color:var(--primary);border-bottom-color:var(--primary);}
+  .report-page{display:none;}
+  .report-page.active{display:block;}
+
   .btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--rule);background:var(--card);color:var(--ink);cursor:pointer;}
   .btn svg{width:15px;height:15px;}
   .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
   .tabs{display:flex;gap:4px;background:#F1F5F9;border-radius:8px;padding:3px;}
-  .tab{font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:6px;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;font-family:inherit;}
+  .tab{font-size:12px;font-weight:700;padding:6px 12px;border-radius:6px;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;font-family:inherit;}
   .tab.active{background:var(--card);color:var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.08);}
 
-  /* KPI cards */
-  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:16px;}
-  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px 16px 15px;box-shadow:var(--shadow);}
-  .kpi-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-  .kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .kpi-icon svg{width:18px;height:18px;}
-  .kpi-label{font-size:12px;color:var(--ink-soft);font-weight:600;}
-  .kpi-value{font-size:22px;font-weight:800;margin-bottom:5px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
-  .kpi-delta{font-size:11.5px;font-weight:600;}
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:14px;margin-bottom:14px;}
+  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px;box-shadow:var(--shadow);}
+  .kpi-card.accent-a{border-left:4px solid var(--month-a);}
+  .kpi-card.accent-b{border-left:4px solid var(--month-b);}
+  .kpi-label{font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:8px;}
+  .kpi-value{font-size:27px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1;}
+  .kpi-delta{font-size:11.5px;font-weight:700;margin-top:6px;}
   .up{color:var(--success);} .down{color:var(--danger);} .flat{color:var(--ink-faint);}
 
-  /* Panels + layout */
   .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
   .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
   .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
   .panel-head .hint{font-size:11.5px;color:var(--ink-faint);font-weight:600;}
   .cols-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
-  .cols-3{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:14px;align-items:start;}
 
-  /* Section headers, for multi-topic reports */
-  .section{margin-top:24px;}
-  .section-head{display:flex;align-items:baseline;gap:14px;padding-bottom:10px;border-bottom:2px solid var(--ink);margin-bottom:16px;}
-  .section-num{font-size:13px;font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums;}
-  .section-head h2{margin:0;font-size:19px;font-weight:800;letter-spacing:-.015em;}
-  .section-head .lede{margin-left:auto;font-size:12.5px;color:var(--ink-faint);font-weight:600;text-align:right;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;}
+  .legend-row{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .legend-row .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
 
-  /* Tables */
   table.rt{width:100%;border-collapse:collapse;}
   table.rt th{text-align:left;font-size:11px;letter-spacing:.02em;color:var(--ink-faint);font-weight:700;padding:0 8px 9px;border-bottom:1px solid var(--rule);white-space:nowrap;}
   table.rt td{padding:10px 8px;font-size:13px;border-bottom:1px solid var(--line);}
@@ -98,52 +101,40 @@
   table.rt td.num{font-weight:700;}
   table.rt tfoot td{border-top:2px solid var(--rule);border-bottom:none;font-weight:800;background:#F8FAFC;}
   .scroll{overflow-x:auto;}
-  .tall{max-height:400px;overflow-y:auto;}
+  .tall{max-height:440px;overflow-y:auto;}
 
-  /* Bar list */
   .bar-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
   .bar-row:last-child{border-bottom:none;}
-  .bar-label{font-size:12.5px;font-weight:600;width:132px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar-label{font-size:12.5px;font-weight:600;width:140px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .bar-track{flex:1;height:8px;background:#F1F5F9;border-radius:4px;overflow:hidden;}
   .bar-fill{height:100%;border-radius:4px;}
-  .bar-val{font-size:12.5px;font-weight:800;width:52px;text-align:right;font-variant-numeric:tabular-nums;}
-  .bar-sub{font-size:11px;color:var(--ink-faint);width:78px;text-align:right;white-space:nowrap;}
+  .bar-val{font-size:12.5px;font-weight:800;width:58px;text-align:right;font-variant-numeric:tabular-nums;}
+  .bar-sub{font-size:11px;color:var(--ink-faint);width:96px;text-align:right;white-space:nowrap;}
 
-  /* Small pieces */
-  .agent-cell{display:flex;align-items:center;gap:9px;}
-  .av-xs{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;overflow:hidden;}
-  .av-xs img{width:100%;height:100%;object-fit:cover;display:block;}
   .tag{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
   .tag.good{background:var(--success-tint);color:var(--success);}
   .tag.mid{background:var(--warning-tint);color:#B45309;}
   .tag.bad{background:var(--danger-tint);color:var(--danger);}
   .tag.neutral{background:#F1F5F9;color:var(--ink-soft);}
-  .legend{display:flex;gap:16px;flex-wrap:wrap;}
-  .legend-row{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft);font-weight:600;}
-  .legend-row .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
-  .donut-wrap{position:relative;display:flex;justify-content:center;}
-  .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
-  .donut-center .num{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
-  .donut-center .lab{font-size:10.5px;color:var(--ink-soft);font-weight:600;}
   .note{color:var(--ink-faint);font-size:12.5px;padding:20px 4px;text-align:center;}
   .flag{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:11px 14px;font-size:12.5px;font-weight:600;line-height:1.5;margin-bottom:14px;}
 
-  @media (max-width:1200px){ .cols-3{grid-template-columns:1fr 1fr;} }
   @media (max-width:860px){
     .sidebar{display:none;}
     .main{padding:20px 16px 32px;}
-    .cols-2,.cols-3{grid-template-columns:1fr;}
+    .titlebar{padding:20px 18px 0;}
+    .titlebar h1,.titlebar .period{font-size:20px;}
+    .cols-2{grid-template-columns:1fr;}
   }
 
-  /* PRINT — ready for when a report needs to be handed over as a PDF. */
   @media print{
-    @page{size:A4 portrait;margin:14mm;}
+    @page{size:A4 landscape;margin:12mm;}
     body{background:#fff;}
-    .sidebar,.topbar-right,.no-print{display:none !important;}
+    .sidebar,.titlebar-actions,.subtabs,.no-print{display:none !important;}
     .app{display:block;}
     .main{padding:0;}
+    .titlebar{box-shadow:none;border-radius:0;border-top:none;border-bottom:3px solid var(--ink);padding:0 0 14px;}
     .panel{box-shadow:none;border:1px solid var(--rule);break-inside:avoid;}
-    .section{break-inside:avoid;}
     .tall{max-height:none;overflow:visible;}
   }
 </style>
@@ -163,7 +154,11 @@
       if (!res.ok) throw new Error("Invalid session");
       const data = await res.json();
       const user = data.user || data;
-      if (user && user.name) currentUserName = user.name;
+      if (user && user.name) {
+        currentUserName = user.name;
+        const el = document.getElementById('preparedBy');
+        if (el) el.textContent = user.name;
+      }
     } catch (err) {
       localStorage.removeItem("pipeline_token");
       window.location.href = LOGIN_PATH;
@@ -215,68 +210,102 @@
   </aside>
 
   <main class="main">
-    <div class="topbar">
-      <div class="greeting">
-        <h1>Reports</h1>
-        <p>Support reporting across tickets, chat, SMS and costs.</p>
+
+    <!-- ================= TITLE BAR ================= -->
+    <header class="titlebar">
+      <div class="titlebar-top">
+        <div>
+          <h1>Customer Service Department — Monthly Reporting<span class="period" id="reportPeriod">August 2026</span></h1>
+          <p class="meta">Prepared by <span id="preparedBy">—</span> · generated <span id="generatedAt">—</span></p>
+        </div>
+        <div class="titlebar-actions">
+          <button class="btn" onclick="exportActiveReport()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Download CSV
+          </button>
+          <button class="btn primary" onclick="window.print()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print
+          </button>
+        </div>
       </div>
-      <div class="topbar-right">
-        <!-- Page controls (date picker, export, print) go here. -->
+
+      <!-- One sub-tab per report topic. Add the next topic here and give it a
+           matching .report-page below. -->
+      <nav class="subtabs" id="subtabs">
+        <button class="subtab active" data-page="chats">Chats Comparison</button>
+      </nav>
+    </header>
+
+    <!-- ================= REPORT: CHATS COMPARISON ================= -->
+    <div class="report-page active" id="page-chats">
+
+      <div id="chatsFlag"></div>
+
+      <div class="kpi-row">
+        <div class="kpi-card accent-a">
+          <div class="kpi-label" id="kpiALabel">August 2026 — total chats</div>
+          <div class="kpi-value" id="kpiATotal">—</div>
+          <div class="kpi-delta flat" id="kpiASub">Loading…</div>
+        </div>
+        <div class="kpi-card accent-b">
+          <div class="kpi-label" id="kpiBLabel">September 2026 — total chats</div>
+          <div class="kpi-value" id="kpiBTotal">—</div>
+          <div class="kpi-delta flat" id="kpiBSub">Loading…</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Change month on month</div>
+          <div class="kpi-value" id="kpiChange">—</div>
+          <div class="kpi-delta flat" id="kpiChangeSub">Totals as they stand today</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Chats a day</div>
+          <div class="kpi-value" id="kpiPerDay">—</div>
+          <div class="kpi-delta flat" id="kpiPerDaySub">Fairer read while the month runs</div>
+        </div>
       </div>
-    </div>
 
-    <!-- ================================================================
-         CONTENT GOES HERE — one block per report topic.
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Chats by brand</h3>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+            <div class="legend">
+              <div class="legend-row"><span class="sw" style="background:var(--month-a);"></span><span id="legendA">August</span></div>
+              <div class="legend-row"><span class="sw" style="background:var(--month-b);"></span><span id="legendB">September</span></div>
+            </div>
+            <div class="tabs" id="chartModeTabs">
+              <button class="tab active" data-mode="total">Totals</button>
+              <button class="tab" data-mode="perday">Per day</button>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;height:380px;"><canvas id="brandCompareChart"></canvas></div>
+      </div>
 
-         Ready-made pieces, already styled above:
+      <div class="cols-2">
+        <div class="panel">
+          <div class="panel-head"><h3>Side by side</h3><span class="hint">Sorted by August volume</span></div>
+          <div class="scroll tall">
+            <table class="rt">
+              <thead><tr>
+                <th>Brand</th>
+                <th class="num" id="thA">Aug</th>
+                <th class="num" id="thB">Sep</th>
+                <th class="num">Change</th>
+                <th class="num">Per day now</th>
+              </tr></thead>
+              <tbody id="compareBody"><tr><td colspan="5"><div class="note">Loading…</div></td></tr></tbody>
+              <tfoot id="compareFoot"></tfoot>
+            </table>
+          </div>
+        </div>
 
-         Section header (for a multi-topic report):
-           <section class="section">
-             <div class="section-head">
-               <span class="section-num">1</span>
-               <h2>Topic name</h2>
-               <span class="lede">Source note</span>
-             </div>
-             …panels…
-           </section>
+        <div class="panel">
+          <div class="panel-head"><h3>Biggest movers</h3><span class="hint">Compared on a per-day basis</span></div>
+          <div id="moversBars"><div class="note">Loading…</div></div>
+        </div>
+      </div>
 
-         KPI row:
-           <div class="kpi-row">
-             <div class="kpi-card">
-               <div class="kpi-top">
-                 <div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);">…svg…</div>
-                 <div class="kpi-label">Label</div>
-               </div>
-               <div class="kpi-value" id="…">—</div>
-               <div class="kpi-delta flat" id="…">—</div>
-             </div>
-           </div>
-
-         Panel with a table:
-           <div class="panel">
-             <div class="panel-head"><h3>Title</h3><span class="hint">note</span></div>
-             <div class="scroll">
-               <table class="rt">
-                 <thead><tr><th>Col</th><th class="num">Value</th></tr></thead>
-                 <tbody id="…"><tr><td colspan="2"><div class="note">Loading…</div></td></tr></tbody>
-                 <tfoot id="…"></tfoot>
-               </table>
-             </div>
-           </div>
-
-         Panel with a chart (Chart.js is loaded):
-           <div class="panel">
-             <div class="panel-head"><h3>Title</h3></div>
-             <canvas id="…" height="80"></canvas>
-           </div>
-
-         Two or three columns:  <div class="cols-2">…</div>   <div class="cols-3">…</div>
-         Bar list container:    <div id="…"></div>  then call barList(el, rows, 'empty message')
-         Warning strip:         <div class="flag">message</div>
-    ================================================================ -->
-
-    <div class="panel">
-      <div class="note">No reports yet.</div>
     </div>
 
   </main>
@@ -284,64 +313,60 @@
 
 <script>
 // =====================================================================
-// REPORTS — emptied 2026-09-20, to be rebuilt one topic at a time.
+// CUSTOMER SERVICE DEPARTMENT — MONTHLY REPORTING (built 2026-09-20)
 //
-// Data sources available on this page, already wired up:
-//   Tickets  — TicketData.fetchTickets() from ticket-data.js (Google Sheets,
-//              all brands). Each ticket has: id, name, brandCode, brandLabel,
-//              category, issue, channel, priority, statusCls, submitted,
-//              acknowledgedBy/At, resolvedBy/At, ackDurationSec,
-//              resolveDurationSec, sheetLink.
-//   Chat     — apiGet('/chatwoot/stats?from=&to='), '/chatwoot/csat?from=&to=',
-//              '/chatwoot/conversations?…', '/chatwoot/pending',
-//              '/chatwoot/top-customers?…'  (70-day retention)
-//   SMS      — SMS_API_BASE + '/stats?days=N', '/brands', '/messages/log?…'
-//   Costs    — apiGet('/billing/consolidated'),
-//              apiGet('/openai-billing/summary?range=…&account=all')
-//   Avatars  — apiGet('/auth/directory')
+// Report 1: Chats Comparison, August vs September 2026.
+//   August    — read live from the department's published chat-volume sheet
+//               (daily figures per division, summed here). Reading the sheet
+//               rather than hard-coding the totals means a correction made
+//               in the sheet shows up on the next page load.
+//   September — live from /chatwoot/stats, month to date.
 // =====================================================================
 
-const SMS_API_BASE = "https://sms-inbox-production-2c98.up.railway.app/api";
-const SMS_APP_PASSWORD = "";   // set only if the SMS app re-enables its password
-const smsHeaders = () => (SMS_APP_PASSWORD ? { "X-App-Password": SMS_APP_PASSWORD } : {});
+// Published CSV of the department's chat volume sheet: one block per month,
+// a header row naming the month, then one row per division with a figure for
+// every day of that month.
+const CHAT_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS5SwAp040OOY7uZhK_VVOBDYXDGstlJ6KR00zfLsmpyhig7DhIVDVp4qBnP2wPo2b6ISD1zrcuIxAv/pub?gid=1620878570&single=true&output=csv';
 
-const { escapeHtml, relativeTime, formatDuration, colorForName, initialsForName, isSameLocalDay, pctChange } = TicketData;
-const PALETTE = ['#2563EB','#22C55E','#8B5CF6','#F59E0B','#14B8A6','#EC4899','#0EA5E9','#F97316','#A855F7','#64748B'];
+const MONTH_A = { label: 'August 2026', short: 'Aug', sheetBlock: 'AUGUST', days: 31 };
+const MONTH_B = { label: 'September 2026', short: 'Sep', year: 2026, month: 9 };
 
-// ---- Shared helpers, kept because every report topic will want them ----
+// The sheet names divisions its own way; the live chat service uses slugs.
+// This pairs them so a brand lines up across both months. A division with no
+// slug still appears in the report with an August figure and a blank
+// September one, and the page says which ones those are.
+const DIVISION_TO_CHAT_SLUG = {
+  'buenas cash':        'buenasph',
+  'tmt cash':           'tmtcash',
+  'tmt play':           'Tmtplay',
+  'buenas credits':     'BuenasCredit',
+  'mobile play casino': 'mcp',
+  'manila play':        'manilaplayph',
+  'casinyeam':          'casinyeam',
+  'mc88':               'manilacasino',
+  'super scatter ph':   'superscatterph',
+  'hype play':          'HypleplayPH',
+  'hype bdt':           'HypeplayBD',
+  'mgk':                'MGK',
+  'luckystacks':        'LuckystacksPH',
+  // 'gwin' has no chat slug yet — add one here when it is set up.
+};
+
+const CHAT_BRAND_LABELS = {
+  buenasph: 'Buenas Cash', tmtcash: 'TMT Cash', mcp: 'Mobile Play Casino', manilaplayph: 'Manila Play',
+  HypleplayPH: 'Hype Play', HypeplayBD: 'Hype BDT', Tmtplay: 'TMT Play', MGK: 'MGK',
+  BuenasCredit: 'Buenas Credits', LuckystacksPH: 'LuckyStacks',
+  casinyeam: 'Casinyeam', manilacasino: 'Mc88', superscatterph: 'Super Scatter PH',
+  'livechat-general': 'LC General',
+};
+const chatBrandLabel = s => (!s ? 'Unknown' : CHAT_BRAND_LABELS[s] || s.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+
+const { escapeHtml } = TicketData;
 const fmtInt = n => (n == null ? '—' : Math.round(n).toLocaleString());
-const peso = n => (n == null ? '—' : '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-const usd  = n => (n == null ? '—' : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-const inRange = (d, a, b) => d && d >= a && d <= b;
 
-function median(a) {
-  if (!a.length) return null;
-  const s = [...a].sort((x, y) => x - y), m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
-function mean(a) { return a.length ? a.reduce((s, v) => s + v, 0) / a.length : null; }
-
-// Percentage-change cell. lowerIsBetter flips the colour for time measures,
-// where a drop is the good outcome.
-function changeCell(cur, prev, opts = {}) {
-  if (cur == null || prev == null || prev === 0) return '<span style="color:var(--ink-faint);font-weight:600;">—</span>';
-  const pct = Math.round(((cur - prev) / prev) * 100);
-  const good = opts.lowerIsBetter ? pct <= 0 : pct >= 0;
-  return `<span style="color:${good ? 'var(--success)' : 'var(--danger)'};">${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
-}
-
-// rows: [{ label, value, display?, sub?, color? }]
-function barList(el, rows, emptyMsg) {
-  if (!rows.length) { el.innerHTML = `<div class="note">${escapeHtml(emptyMsg || 'No data.')}</div>`; return; }
-  const max = Math.max(...rows.map(r => r.value)) || 1;
-  el.innerHTML = rows.map((r, i) => `
-    <div class="bar-row">
-      <div class="bar-label" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, Math.round((r.value / max) * 100))}%;background:${r.color || PALETTE[i % PALETTE.length]};"></div></div>
-      <div class="bar-val">${r.display != null ? r.display : r.value.toLocaleString()}</div>
-      ${r.sub != null ? `<div class="bar-sub">${escapeHtml(r.sub)}</div>` : ''}
-    </div>`).join('');
-}
+let chartMode = 'total';
+let brandChart = null;
+let chatsData = null;
 
 async function apiGet(path) {
   const token = localStorage.getItem('pipeline_token');
@@ -350,7 +375,302 @@ async function apiGet(path) {
   return res.json();
 }
 
-// ---- Report code goes below. ----
+function flag(id, msgs) {
+  const el = document.getElementById(id);
+  const list = (Array.isArray(msgs) ? msgs : [msgs]).filter(Boolean);
+  el.innerHTML = list.length ? `<div class="flag">${list.map(escapeHtml).join(' ')}</div>` : '';
+}
+
+function changeCell(cur, prev) {
+  if (cur == null || prev == null || prev === 0) return '<span style="color:var(--ink-faint);font-weight:600;">—</span>';
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  if (pct === 0) return '<span style="color:var(--ink-faint);">level</span>';
+  return `<span style="color:${pct >= 0 ? 'var(--success)' : 'var(--danger)'};">${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
+}
+
+// ---- August: pull the month's block out of the sheet and total each row ----
+// Layout: column 0 holds a month name on the block's header row and is blank
+// on the division rows beneath it; column 1 holds the division name; columns
+// 2 onward hold one figure per day. Figures arrive as text with thousands
+// separators, so they are stripped before adding.
+function parseAugustFromSheet(rows) {
+  const MONTHS = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+  let inBlock = false;
+  const out = {};
+  for (const row of rows) {
+    const first = String(row[0] || '').trim().toUpperCase();
+    if (MONTHS.includes(first)) { inBlock = first === MONTH_A.sheetBlock; continue; }
+    if (!inBlock) continue;
+    const division = String(row[1] || '').trim();
+    if (!division) continue;
+    const total = row.slice(2).reduce((sum, cell) => {
+      const n = parseFloat(String(cell || '').replace(/[,\s]/g, ''));
+      return sum + (isNaN(n) ? 0 : n);
+    }, 0);
+    out[division] = total;
+  }
+  return out;
+}
+
+function loadAugustFromSheet() {
+  return new Promise((resolve, reject) => {
+    Papa.parse(CHAT_SHEET_CSV + '&_cb=' + Date.now(), {
+      download: true,
+      header: false,
+      skipEmptyLines: true,
+      complete: r => resolve(parseAugustFromSheet(r.data || [])),
+      error: err => reject(err),
+    });
+  });
+}
+
+// ---- Load both months and merge on brand ----
+async function loadChatsComparison() {
+  const now = new Date();
+  const startB = new Date(MONTH_B.year, MONTH_B.month - 1, 1);
+  const endB = new Date(MONTH_B.year, MONTH_B.month, 0, 23, 59, 59, 999);
+  const effEndB = now < endB ? now : endB;
+  const daysInB = new Date(MONTH_B.year, MONTH_B.month, 0).getDate();
+  const daysB = now < endB ? now.getDate() : daysInB;
+  const daysA = MONTH_A.days;
+
+  document.getElementById('kpiALabel').textContent = `${MONTH_A.label} — total chats`;
+  document.getElementById('kpiBLabel').textContent = `${MONTH_B.label} — total chats`;
+  document.getElementById('legendA').textContent = MONTH_A.label;
+  document.getElementById('legendB').textContent = MONTH_B.label;
+  document.getElementById('thA').textContent = MONTH_A.short;
+  document.getElementById('thB').textContent = MONTH_B.short;
+
+  const [augRes, sepRes] = await Promise.allSettled([
+    loadAugustFromSheet(),
+    apiGet(`/chatwoot/stats?from=${encodeURIComponent(startB.toISOString())}&to=${encodeURIComponent(effEndB.toISOString())}`),
+  ]);
+
+  const augByDivision = augRes.status === 'fulfilled' ? augRes.value : null;
+  const byBrandB = sepRes.status === 'fulfilled' ? (sepRes.value.conversationsByBrand || {}) : null;
+  if (augRes.status === 'rejected') console.error('August sheet failed:', augRes.reason);
+  if (sepRes.status === 'rejected') console.error('September live figures failed:', sepRes.reason);
+
+  // Merge: one row per brand, keyed by chat slug where there is one and by
+  // the sheet's division name where there isn't.
+  const byKey = new Map();
+  const unpaired = [];
+  if (augByDivision) {
+    for (const [division, total] of Object.entries(augByDivision)) {
+      const slug = DIVISION_TO_CHAT_SLUG[division.trim().toLowerCase()] || null;
+      if (!slug) unpaired.push(division);
+      const key = slug || 'division:' + division;
+      byKey.set(key, { key, slug, label: division, a: total, b: null });
+    }
+  }
+  if (byBrandB) {
+    for (const [slug, total] of Object.entries(byBrandB)) {
+      const existing = byKey.get(slug);
+      if (existing) existing.b = total;
+      else byKey.set(slug, { key: slug, slug, label: chatBrandLabel(slug), a: null, b: total });
+    }
+  }
+
+  const rows = [...byKey.values()].map(r => ({
+    ...r,
+    aPerDay: r.a == null ? null : r.a / daysA,
+    bPerDay: r.b == null ? null : r.b / daysB,
+  })).sort((x, y) => (y.a || 0) - (x.a || 0) || (y.b || 0) - (x.b || 0));
+
+  const totalA = augByDivision ? Object.values(augByDivision).reduce((s, v) => s + v, 0) : null;
+  const totalB = byBrandB ? Object.values(byBrandB).reduce((s, v) => s + v, 0) : null;
+
+  const notes = [];
+  if (!augByDivision) notes.push('August figures could not be read from the chat volume sheet — check the published link.');
+  if (!byBrandB) notes.push('September figures could not be loaded from the chat service.');
+  else if (daysB < daysInB) notes.push(`September is still running — the live column covers day 1 to day ${daysB} of ${daysInB}. Use the per-day view for a like-for-like comparison.`);
+  if (unpaired.length) notes.push(`No live chat feed is paired with ${unpaired.join(', ')}, so ${unpaired.length === 1 ? 'it shows' : 'they show'} an August figure only.`);
+  flag('chatsFlag', notes);
+
+  chatsData = { rows, totalA, totalB, daysA, daysB, daysInB, unpaired };
+  renderChatsComparison();
+}
+
+function renderChatsComparison() {
+  const { rows, totalA, totalB, daysA, daysB } = chatsData;
+
+  document.getElementById('kpiATotal').textContent = fmtInt(totalA);
+  document.getElementById('kpiASub').textContent = totalA == null ? 'Sheet unavailable' : `Whole month · ${daysA} days`;
+
+  document.getElementById('kpiBTotal').textContent = fmtInt(totalB);
+  document.getElementById('kpiBSub').textContent = totalB == null ? 'Live figures unavailable' : `Month to date · ${daysB} days`;
+
+  const chgEl = document.getElementById('kpiChange');
+  const chgSub = document.getElementById('kpiChangeSub');
+  if (totalA && totalB != null) {
+    const pct = Math.round(((totalB - totalA) / totalA) * 100);
+    chgEl.textContent = `${pct >= 0 ? '+' : ''}${pct}%`;
+    chgEl.style.color = pct >= 0 ? 'var(--success)' : 'var(--danger)';
+    chgSub.textContent = `${fmtInt(Math.abs(totalB - totalA))} ${totalB >= totalA ? 'more' : 'fewer'} than August so far`;
+  } else {
+    chgEl.textContent = '—'; chgEl.style.color = '';
+    chgSub.textContent = 'Needs both months';
+  }
+
+  const pdEl = document.getElementById('kpiPerDay');
+  const pdSub = document.getElementById('kpiPerDaySub');
+  if (totalA && totalB != null) {
+    const aPd = totalA / daysA, bPd = totalB / daysB;
+    const pct = Math.round(((bPd - aPd) / aPd) * 100);
+    pdEl.textContent = Math.round(bPd).toLocaleString();
+    pdSub.textContent = `${Math.round(aPd).toLocaleString()} a day in August · ${pct >= 0 ? '+' : ''}${pct}%`;
+    pdSub.className = 'kpi-delta ' + (pct >= 0 ? 'up' : 'down');
+  } else {
+    pdEl.textContent = '—';
+    pdSub.textContent = 'Needs both months';
+    pdSub.className = 'kpi-delta flat';
+  }
+
+  // ---- Grouped bar chart ----
+  // A log scale is deliberate: Buenas Cash and TMT Cash run in the tens of
+  // thousands while several brands sit in the hundreds, and on a linear axis
+  // the smaller brands would be invisible slivers in a report meant to be
+  // read at a glance.
+  const perDay = chartMode === 'perday';
+  const dataA = rows.map(r => (perDay ? r.aPerDay : r.a) ?? 0);
+  const dataB = rows.map(r => (perDay ? r.bPerDay : r.b) ?? 0);
+  const maxVal = Math.max(...dataA, ...dataB, 1);
+  const minNonZero = Math.min(...[...dataA, ...dataB].filter(v => v > 0), maxVal);
+  const useLog = maxVal / Math.max(minNonZero, 0.1) > 200;
+
+  if (brandChart) brandChart.destroy();
+  brandChart = new Chart(document.getElementById('brandCompareChart'), {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.label),
+      datasets: [
+        { label: MONTH_A.label, data: dataA, backgroundColor: '#94A3B8', borderRadius: 5, maxBarThickness: 26 },
+        { label: MONTH_B.label, data: dataB, backgroundColor: '#2563EB', borderRadius: 5, maxBarThickness: 26 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${perDay ? Math.round(c.parsed.y).toLocaleString() + ' a day' : Math.round(c.parsed.y).toLocaleString() + ' chats'}` } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 50, minRotation: 30, font: { size: 11 } } },
+        y: {
+          type: useLog ? 'logarithmic' : 'linear',
+          beginAtZero: !useLog,
+          grid: { color: '#EEF1F6' },
+          title: { display: true, text: (perDay ? 'Chats per day' : 'Chats') + (useLog ? ' (log scale)' : '') },
+          ticks: { callback: v => Number(v).toLocaleString() },
+        },
+      },
+    },
+  });
+
+  // ---- Table ----
+  const body = document.getElementById('compareBody');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5"><div class="note">No figures for either month yet.</div></td></tr>';
+    document.getElementById('compareFoot').innerHTML = '';
+  } else {
+    body.innerHTML = rows.map(r => `<tr>
+      <td>${escapeHtml(r.label)}</td>
+      <td class="num">${fmtInt(r.a)}</td>
+      <td class="num">${fmtInt(r.b)}</td>
+      <td class="num">${changeCell(r.bPerDay, r.aPerDay)}</td>
+      <td class="num" style="font-weight:600;color:var(--ink-soft);">${r.bPerDay == null ? '—' : Math.round(r.bPerDay).toLocaleString()}</td>
+    </tr>`).join('');
+    document.getElementById('compareFoot').innerHTML = `<tr>
+      <td>All brands</td>
+      <td class="num">${fmtInt(totalA)}</td>
+      <td class="num">${fmtInt(totalB)}</td>
+      <td class="num">${changeCell(totalB == null ? null : totalB / daysB, totalA == null ? null : totalA / daysA)}</td>
+      <td class="num">${totalB == null ? '—' : Math.round(totalB / daysB).toLocaleString()}</td>
+    </tr>`;
+  }
+
+  // ---- Biggest movers, on a per-day basis so a part-month doesn't read as
+  // a collapse across every brand at once. ----
+  const movers = rows
+    .filter(r => r.aPerDay != null && r.bPerDay != null && r.aPerDay > 0)
+    .map(r => ({ label: r.label, pct: ((r.bPerDay - r.aPerDay) / r.aPerDay) * 100, a: r.aPerDay, b: r.bPerDay }))
+    .sort((x, y) => Math.abs(y.pct) - Math.abs(x.pct))
+    .slice(0, 10);
+  const moversEl = document.getElementById('moversBars');
+  if (!movers.length) {
+    moversEl.innerHTML = '<div class="note">Needs both months to compare.</div>';
+  } else {
+    const max = Math.max(...movers.map(m => Math.abs(m.pct))) || 1;
+    moversEl.innerHTML = movers.map(m => `
+      <div class="bar-row">
+        <div class="bar-label" title="${escapeHtml(m.label)}">${escapeHtml(m.label)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(3, Math.round((Math.abs(m.pct) / max) * 100))}%;background:${m.pct >= 0 ? 'var(--success)' : 'var(--danger)'};"></div></div>
+        <div class="bar-val" style="color:${m.pct >= 0 ? 'var(--success)' : 'var(--danger)'};">${m.pct >= 0 ? '+' : ''}${Math.round(m.pct)}%</div>
+        <div class="bar-sub">${Math.round(m.a).toLocaleString()} → ${Math.round(m.b).toLocaleString()} a day</div>
+      </div>`).join('');
+  }
+}
+
+// ---- Chart mode toggle ----
+document.getElementById('chartModeTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  document.querySelectorAll('#chartModeTabs .tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  chartMode = btn.dataset.mode;
+  if (chatsData) renderChatsComparison();
+});
+
+// ---- Sub-tab switching ----
+document.getElementById('subtabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.subtab');
+  if (!btn) return;
+  document.querySelectorAll('.subtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.report-page').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  const page = document.getElementById('page-' + btn.dataset.page);
+  if (page) page.classList.add('active');
+});
+
+// ---- CSV of whichever report is on screen ----
+function exportActiveReport() {
+  const active = document.querySelector('.subtab.active');
+  if (!active || active.dataset.page !== 'chats' || !chatsData) { alert('Nothing to export yet.'); return; }
+  const { rows, totalA, totalB, daysA, daysB } = chatsData;
+  const out = [];
+  out.push('Customer Service Department — Monthly Reporting');
+  out.push('Report,Chats Comparison');
+  out.push(`Months,${MONTH_A.label},${MONTH_B.label}`);
+  out.push(`Days counted,${daysA},${daysB}`);
+  out.push(`Prepared by,${currentUserName || 'Unknown'}`);
+  out.push(`Generated,${new Date().toLocaleString()}`);
+  out.push('');
+  out.push(Papa.unparse(rows.map(r => ({
+    Brand: r.label,
+    [MONTH_A.label]: r.a ?? '',
+    [MONTH_B.label]: r.b ?? '',
+    'Aug per day': r.aPerDay == null ? '' : r.aPerDay.toFixed(1),
+    'Sep per day': r.bPerDay == null ? '' : r.bPerDay.toFixed(1),
+    'Change % per day': (r.aPerDay && r.bPerDay != null) ? Math.round(((r.bPerDay - r.aPerDay) / r.aPerDay) * 100) : '',
+  }))));
+  out.push('');
+  out.push(`Total,${totalA ?? ''},${totalB ?? ''}`);
+
+  const blob = new Blob([out.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chats-comparison-aug-sep-2026.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---- Boot ----
+document.getElementById('generatedAt').textContent =
+  new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+loadChatsComparison();
+setInterval(loadChatsComparison, 5 * 60 * 1000);
 </script>
 </body>
 </html>
