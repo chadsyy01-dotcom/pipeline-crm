@@ -78,6 +78,8 @@
   .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px;box-shadow:var(--shadow);}
   .kpi-card.accent-a{border-left:4px solid var(--month-a);}
   .kpi-card.accent-b{border-left:4px solid var(--month-b);}
+  .kpi-card.accent-ok{border-left:4px solid var(--success);}
+  .kpi-card.accent-bad{border-left:4px solid var(--danger);}
   .kpi-label{font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:8px;}
   .kpi-value{font-size:27px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1;}
   .kpi-delta{font-size:11.5px;font-weight:700;margin-top:6px;}
@@ -110,6 +112,26 @@
   .bar-fill{height:100%;border-radius:4px;}
   .bar-val{font-size:12.5px;font-weight:800;width:58px;text-align:right;font-variant-numeric:tabular-nums;}
   .bar-sub{font-size:11px;color:var(--ink-faint);width:96px;text-align:right;white-space:nowrap;}
+
+  /* Ranked list — used for the top concerns, where the order is the point. */
+  .rank-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);}
+  .rank-row:last-child{border-bottom:none;}
+  .rank-badge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
+  .rank-main{flex:1;min-width:0;}
+  .rank-name{font-size:13px;font-weight:700;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rank-track{height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden;}
+  .rank-fill{height:100%;border-radius:3px;}
+  .rank-count{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;min-width:56px;text-align:right;}
+  .rank-share{font-size:11px;color:var(--ink-faint);font-weight:600;min-width:44px;text-align:right;}
+
+  .agent-cell{display:flex;align-items:center;gap:9px;}
+  .av-xs{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;overflow:hidden;}
+  .av-xs img{width:100%;height:100%;object-fit:cover;display:block;}
+
+  .donut-wrap{position:relative;display:flex;justify-content:center;}
+  .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+  .donut-center .num{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .donut-center .lab{font-size:10.5px;color:var(--ink-soft);font-weight:600;}
 
   .tag{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
   .tag.good{background:var(--success-tint);color:var(--success);}
@@ -234,10 +256,11 @@
            matching .report-page below. -->
       <nav class="subtabs" id="subtabs">
         <button class="subtab active" data-page="chats">Chats Comparison</button>
+        <button class="subtab" data-page="tickets">Ticket Resolution</button>
       </nav>
     </header>
 
-    <!-- ================= REPORT: CHATS COMPARISON ================= -->
+    <!-- ================= REPORT 1: CHATS COMPARISON ================= -->
     <div class="report-page active" id="page-chats">
 
       <div id="chatsFlag"></div>
@@ -308,6 +331,101 @@
 
     </div>
 
+    <!-- ================= REPORT 2: TICKET RESOLUTION ================= -->
+    <div class="report-page" id="page-tickets">
+
+      <div id="ticketsFlag"></div>
+
+      <div class="kpi-row">
+        <div class="kpi-card accent-b">
+          <div class="kpi-label">Tickets filed</div>
+          <div class="kpi-value" id="tkFiled">—</div>
+          <div class="kpi-delta flat" id="tkFiledSub">Loading…</div>
+        </div>
+        <div class="kpi-card accent-ok">
+          <div class="kpi-label">Resolved</div>
+          <div class="kpi-value" id="tkResolved">—</div>
+          <div class="kpi-delta flat" id="tkResolvedSub">Closed with a fix</div>
+        </div>
+        <div class="kpi-card accent-bad">
+          <div class="kpi-label">Rejected</div>
+          <div class="kpi-value" id="tkRejected">—</div>
+          <div class="kpi-delta flat" id="tkRejectedSub">Closed without a fix</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Resolution rate</div>
+          <div class="kpi-value" id="tkRate">—</div>
+          <div class="kpi-delta flat" id="tkRateSub">Resolved out of everything closed</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Still open</div>
+          <div class="kpi-value" id="tkOpen">—</div>
+          <div class="kpi-delta flat" id="tkOpenSub">Filed this month, not yet closed</div>
+        </div>
+      </div>
+
+      <div class="cols-2">
+        <div class="panel">
+          <div class="panel-head"><h3>Top 5 ticket concerns</h3><span class="hint">Filed in September</span></div>
+          <div id="tkTopConcerns"><div class="note">Loading…</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>How the month is closing out</h3></div>
+          <div class="donut-wrap">
+            <canvas id="tkStatusDonut" width="190" height="190"></canvas>
+            <div class="donut-center"><div class="num" id="tkDonutTotal">—</div><div class="lab">tickets</div></div>
+          </div>
+          <div class="legend" id="tkStatusLegend" style="flex-direction:column;gap:9px;margin-top:16px;"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Tickets by brand</h3><span class="hint">Resolved, rejected and still open</span></div>
+        <div style="position:relative;height:340px;"><canvas id="tkBrandChart"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Brand detail</h3></div>
+        <div class="scroll tall">
+          <table class="rt">
+            <thead><tr>
+              <th>Brand</th><th class="num">Filed</th><th class="num">Resolved</th>
+              <th class="num">Rejected</th><th class="num">Open</th><th class="num">Resolution rate</th>
+            </tr></thead>
+            <tbody id="tkBrandBody"><tr><td colspan="6"><div class="note">Loading…</div></td></tr></tbody>
+            <tfoot id="tkBrandFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="cols-2">
+        <div class="panel">
+          <div class="panel-head"><h3>Ticket distribution by agent</h3><span class="hint">Share of everything closed</span></div>
+          <div class="donut-wrap">
+            <canvas id="tkAgentDonut" width="190" height="190"></canvas>
+            <div class="donut-center"><div class="num" id="tkAgentTotal">—</div><div class="lab">closed</div></div>
+          </div>
+          <div class="legend" id="tkAgentLegend" style="flex-direction:column;gap:9px;margin-top:16px;"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>Agent detail</h3><span class="hint">Acknowledged counts the pick-up, closed counts the outcome</span></div>
+          <div class="scroll tall">
+            <table class="rt">
+              <thead><tr>
+                <th>Agent</th><th class="num">Acknowledged</th><th class="num">Closed</th>
+                <th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Share</th>
+              </tr></thead>
+              <tbody id="tkAgentBody"><tr><td colspan="6"><div class="note">Loading…</div></td></tr></tbody>
+              <tfoot id="tkAgentFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
   </main>
 </div>
 
@@ -315,12 +433,16 @@
 // =====================================================================
 // CUSTOMER SERVICE DEPARTMENT — MONTHLY REPORTING (built 2026-09-20)
 //
-// Report 1: Chats Comparison, August vs September 2026.
+// Report 1 · Chats Comparison — August vs September 2026.
 //   August    — read live from the department's published chat-volume sheet
 //               (daily figures per division, summed here). Reading the sheet
 //               rather than hard-coding the totals means a correction made
 //               in the sheet shows up on the next page load.
 //   September — live from /chatwoot/stats, month to date.
+//
+// Report 2 · Ticket Resolution — September 2026, live from the brand ticket
+//   sheets via TicketData. September is still running, so the page says which
+//   day it has reached rather than presenting a part-month as a whole one.
 // =====================================================================
 
 // Published CSV of the department's chat volume sheet: one block per month,
@@ -361,12 +483,20 @@ const CHAT_BRAND_LABELS = {
 };
 const chatBrandLabel = s => (!s ? 'Unknown' : CHAT_BRAND_LABELS[s] || s.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
 
-const { escapeHtml } = TicketData;
+const { escapeHtml, colorForName, initialsForName } = TicketData;
+const PALETTE = ['#2563EB','#22C55E','#8B5CF6','#F59E0B','#14B8A6','#EC4899','#0EA5E9','#F97316','#A855F7','#64748B'];
+const RANK_COLORS = ['#EF4444','#F59E0B','#EAB308','#3B82F6','#8B5CF6'];
 const fmtInt = n => (n == null ? '—' : Math.round(n).toLocaleString());
+const nameKey = n => String(n || '').trim().toLowerCase();
 
 let chartMode = 'total';
 let brandChart = null;
 let chatsData = null;
+
+let allTickets = [];
+let ticketsData = null;
+let avatarByName = new Map();
+let tkCharts = { status: null, brand: null, agent: null };
 
 async function apiGet(path) {
   const token = localStorage.getItem('pipeline_token');
@@ -387,6 +517,27 @@ function changeCell(cur, prev) {
   if (pct === 0) return '<span style="color:var(--ink-faint);">level</span>';
   return `<span style="color:${pct >= 0 ? 'var(--success)' : 'var(--danger)'};">${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
 }
+
+function rateTag(rate) {
+  if (rate == null) return '<span class="tag neutral">—</span>';
+  const cls = rate >= 80 ? 'good' : rate >= 50 ? 'mid' : 'bad';
+  return `<span class="tag ${cls}">${Math.round(rate)}%</span>`;
+}
+
+// September's window: the first of the month to now while the month runs,
+// to month end once it has finished.
+function septemberWindow() {
+  const now = new Date();
+  const start = new Date(MONTH_B.year, MONTH_B.month - 1, 1);
+  const end = new Date(MONTH_B.year, MONTH_B.month, 0, 23, 59, 59, 999);
+  const daysInMonth = new Date(MONTH_B.year, MONTH_B.month, 0).getDate();
+  const running = now < end;
+  return { start, end, effEnd: running ? now : end, daysInMonth, days: running ? now.getDate() : daysInMonth, running };
+}
+
+// =====================================================================
+// REPORT 1 · CHATS COMPARISON
+// =====================================================================
 
 // ---- August: pull the month's block out of the sheet and total each row ----
 // Layout: column 0 holds a month name on the block's header row and is blank
@@ -424,14 +575,8 @@ function loadAugustFromSheet() {
   });
 }
 
-// ---- Load both months and merge on brand ----
 async function loadChatsComparison() {
-  const now = new Date();
-  const startB = new Date(MONTH_B.year, MONTH_B.month - 1, 1);
-  const endB = new Date(MONTH_B.year, MONTH_B.month, 0, 23, 59, 59, 999);
-  const effEndB = now < endB ? now : endB;
-  const daysInB = new Date(MONTH_B.year, MONTH_B.month, 0).getDate();
-  const daysB = now < endB ? now.getDate() : daysInB;
+  const w = septemberWindow();
   const daysA = MONTH_A.days;
 
   document.getElementById('kpiALabel').textContent = `${MONTH_A.label} — total chats`;
@@ -443,7 +588,7 @@ async function loadChatsComparison() {
 
   const [augRes, sepRes] = await Promise.allSettled([
     loadAugustFromSheet(),
-    apiGet(`/chatwoot/stats?from=${encodeURIComponent(startB.toISOString())}&to=${encodeURIComponent(effEndB.toISOString())}`),
+    apiGet(`/chatwoot/stats?from=${encodeURIComponent(w.start.toISOString())}&to=${encodeURIComponent(w.effEnd.toISOString())}`),
   ]);
 
   const augByDivision = augRes.status === 'fulfilled' ? augRes.value : null;
@@ -451,8 +596,6 @@ async function loadChatsComparison() {
   if (augRes.status === 'rejected') console.error('August sheet failed:', augRes.reason);
   if (sepRes.status === 'rejected') console.error('September live figures failed:', sepRes.reason);
 
-  // Merge: one row per brand, keyed by chat slug where there is one and by
-  // the sheet's division name where there isn't.
   const byKey = new Map();
   const unpaired = [];
   if (augByDivision) {
@@ -474,7 +617,7 @@ async function loadChatsComparison() {
   const rows = [...byKey.values()].map(r => ({
     ...r,
     aPerDay: r.a == null ? null : r.a / daysA,
-    bPerDay: r.b == null ? null : r.b / daysB,
+    bPerDay: r.b == null ? null : r.b / w.days,
   })).sort((x, y) => (y.a || 0) - (x.a || 0) || (y.b || 0) - (x.b || 0));
 
   const totalA = augByDivision ? Object.values(augByDivision).reduce((s, v) => s + v, 0) : null;
@@ -483,11 +626,11 @@ async function loadChatsComparison() {
   const notes = [];
   if (!augByDivision) notes.push('August figures could not be read from the chat volume sheet — check the published link.');
   if (!byBrandB) notes.push('September figures could not be loaded from the chat service.');
-  else if (daysB < daysInB) notes.push(`September is still running — the live column covers day 1 to day ${daysB} of ${daysInB}. Use the per-day view for a like-for-like comparison.`);
+  else if (w.running) notes.push(`September is still running — the live column covers day 1 to day ${w.days} of ${w.daysInMonth}. Use the per-day view for a like-for-like comparison.`);
   if (unpaired.length) notes.push(`No live chat feed is paired with ${unpaired.join(', ')}, so ${unpaired.length === 1 ? 'it shows' : 'they show'} an August figure only.`);
   flag('chatsFlag', notes);
 
-  chatsData = { rows, totalA, totalB, daysA, daysB, daysInB, unpaired };
+  chatsData = { rows, totalA, totalB, daysA, daysB: w.days, unpaired };
   renderChatsComparison();
 }
 
@@ -496,7 +639,6 @@ function renderChatsComparison() {
 
   document.getElementById('kpiATotal').textContent = fmtInt(totalA);
   document.getElementById('kpiASub').textContent = totalA == null ? 'Sheet unavailable' : `Whole month · ${daysA} days`;
-
   document.getElementById('kpiBTotal').textContent = fmtInt(totalB);
   document.getElementById('kpiBSub').textContent = totalB == null ? 'Live figures unavailable' : `Month to date · ${daysB} days`;
 
@@ -526,7 +668,6 @@ function renderChatsComparison() {
     pdSub.className = 'kpi-delta flat';
   }
 
-  // ---- Grouped bar chart ----
   // A log scale is deliberate: Buenas Cash and TMT Cash run in the tens of
   // thousands while several brands sit in the hundreds, and on a linear axis
   // the smaller brands would be invisible slivers in a report meant to be
@@ -549,11 +690,10 @@ function renderChatsComparison() {
       ],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${perDay ? Math.round(c.parsed.y).toLocaleString() + ' a day' : Math.round(c.parsed.y).toLocaleString() + ' chats'}` } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString()}${perDay ? ' a day' : ' chats'}` } },
       },
       scales: {
         x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 50, minRotation: 30, font: { size: 11 } } },
@@ -568,7 +708,6 @@ function renderChatsComparison() {
     },
   });
 
-  // ---- Table ----
   const body = document.getElementById('compareBody');
   if (!rows.length) {
     body.innerHTML = '<tr><td colspan="5"><div class="note">No figures for either month yet.</div></td></tr>';
@@ -590,8 +729,6 @@ function renderChatsComparison() {
     </tr>`;
   }
 
-  // ---- Biggest movers, on a per-day basis so a part-month doesn't read as
-  // a collapse across every brand at once. ----
   const movers = rows
     .filter(r => r.aPerDay != null && r.bPerDay != null && r.aPerDay > 0)
     .map(r => ({ label: r.label, pct: ((r.bPerDay - r.aPerDay) / r.aPerDay) * 100, a: r.aPerDay, b: r.bPerDay }))
@@ -612,7 +749,246 @@ function renderChatsComparison() {
   }
 }
 
-// ---- Chart mode toggle ----
+// =====================================================================
+// REPORT 2 · TICKET RESOLUTION — September, live
+//
+// Two different questions sit in this report and they count different sets:
+//   "Filed"    — tickets submitted in September, whatever happened to them.
+//   "Closed"   — tickets closed in September, whenever they were filed.
+// Resolution rate is resolved out of closed, because a ticket still sitting
+// open is not a failure to resolve — it is work in progress. Agent credit
+// follows the closed set for the same reason.
+// =====================================================================
+function renderTicketResolution() {
+  if (!allTickets.length) return;
+  const w = septemberWindow();
+  const inWin = (d) => d && d >= w.start && d <= w.end;
+
+  const filed = allTickets.filter(t => inWin(t.submitted));
+  const closed = allTickets.filter(t => inWin(t.resolvedAt) && (t.statusCls === 'done' || t.statusCls === 'rejected'));
+  const resolved = closed.filter(t => t.statusCls === 'done');
+  const rejected = closed.filter(t => t.statusCls === 'rejected');
+  const stillOpen = filed.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking');
+  const rate = closed.length ? (resolved.length / closed.length) * 100 : null;
+
+  ticketsData = { filed, closed, resolved, rejected, stillOpen, rate, window: w };
+
+  flag('ticketsFlag', w.running
+    ? `September is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth} and refreshes on its own every two minutes.`
+    : '');
+
+  // ---- KPIs ----
+  document.getElementById('tkFiled').textContent = fmtInt(filed.length);
+  document.getElementById('tkFiledSub').textContent = `${(filed.length / w.days).toFixed(1)} a day so far`;
+  document.getElementById('tkResolved').textContent = fmtInt(resolved.length);
+  document.getElementById('tkResolvedSub').textContent = `${fmtInt(closed.length)} closed in total`;
+  document.getElementById('tkRejected').textContent = fmtInt(rejected.length);
+  document.getElementById('tkRejectedSub').textContent = closed.length
+    ? `${Math.round((rejected.length / closed.length) * 100)}% of everything closed`
+    : 'Nothing closed yet';
+
+  const rateEl = document.getElementById('tkRate');
+  rateEl.textContent = rate == null ? '—' : `${Math.round(rate)}%`;
+  rateEl.style.color = rate == null ? '' : rate >= 80 ? 'var(--success)' : rate >= 50 ? 'var(--warning)' : 'var(--danger)';
+  document.getElementById('tkRateSub').textContent = rate == null
+    ? 'Nothing closed yet'
+    : `${fmtInt(resolved.length)} of ${fmtInt(closed.length)} closed`;
+
+  document.getElementById('tkOpen').textContent = fmtInt(stillOpen.length);
+  document.getElementById('tkOpenSub').textContent = filed.length
+    ? `${Math.round((stillOpen.length / filed.length) * 100)}% of September's tickets`
+    : 'Nothing filed yet';
+
+  // ---- Top 5 concerns ----
+  const concerns = {};
+  filed.forEach(t => { concerns[t.issue] = (concerns[t.issue] || 0) + 1; });
+  const top5 = Object.entries(concerns).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const concernsEl = document.getElementById('tkTopConcerns');
+  if (!top5.length) {
+    concernsEl.innerHTML = '<div class="note">No tickets filed in September yet.</div>';
+  } else {
+    const max = top5[0][1];
+    concernsEl.innerHTML = top5.map(([issue, n], i) => `
+      <div class="rank-row">
+        <div class="rank-badge" style="background:${RANK_COLORS[i]}22;color:${RANK_COLORS[i]};">${i + 1}</div>
+        <div class="rank-main">
+          <div class="rank-name" title="${escapeHtml(issue)}">${escapeHtml(issue)}</div>
+          <div class="rank-track"><div class="rank-fill" style="width:${Math.round((n / max) * 100)}%;background:${RANK_COLORS[i]};"></div></div>
+        </div>
+        <div class="rank-count">${n.toLocaleString()}</div>
+        <div class="rank-share">${Math.round((n / filed.length) * 100)}%</div>
+      </div>`).join('');
+  }
+
+  // ---- Status donut, on tickets filed this month ----
+  const statusMap = [
+    { key: 'done', label: 'Resolved', color: '#22C55E' },
+    { key: 'checking', label: 'In progress', color: '#F59E0B' },
+    { key: 'pending', label: 'Still new', color: '#2563EB' },
+    { key: 'rejected', label: 'Rejected', color: '#EF4444' },
+  ];
+  const statusCounts = {};
+  filed.forEach(t => { statusCounts[t.statusCls] = (statusCounts[t.statusCls] || 0) + 1; });
+  const statusRows = statusMap.filter(s => statusCounts[s.key]).map(s => ({ ...s, n: statusCounts[s.key] }));
+  const other = filed.length - statusRows.reduce((s, r) => s + r.n, 0);
+  if (other > 0) statusRows.push({ key: 'other', label: 'Other status', color: '#94A3B8', n: other });
+
+  document.getElementById('tkDonutTotal').textContent = fmtInt(filed.length);
+  if (tkCharts.status) tkCharts.status.destroy();
+  tkCharts.status = new Chart(document.getElementById('tkStatusDonut'), {
+    type: 'doughnut',
+    data: { labels: statusRows.map(r => r.label), datasets: [{ data: statusRows.map(r => r.n), backgroundColor: statusRows.map(r => r.color), borderWidth: 0 }] },
+    options: { responsive: false, cutout: '68%', plugins: { legend: { display: false } } },
+  });
+  document.getElementById('tkStatusLegend').innerHTML = statusRows.length
+    ? statusRows.map(r => `<div class="legend-row">
+        <span class="sw" style="background:${r.color};"></span>
+        <span>${r.label}</span>
+        <b style="margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums;">${r.n.toLocaleString()}</b>
+        <span style="color:var(--ink-faint);width:38px;text-align:right;">${Math.round((r.n / filed.length) * 100)}%</span>
+      </div>`).join('')
+    : '<div class="note">No tickets filed in September yet.</div>';
+
+  // ---- By brand ----
+  const brands = new Map();
+  const brand = name => {
+    if (!brands.has(name)) brands.set(name, { filed: 0, resolved: 0, rejected: 0, open: 0 });
+    return brands.get(name);
+  };
+  filed.forEach(t => {
+    const b = brand(t.brandLabel);
+    b.filed++;
+    if (t.statusCls === 'pending' || t.statusCls === 'checking') b.open++;
+  });
+  closed.forEach(t => {
+    const b = brand(t.brandLabel);
+    if (t.statusCls === 'done') b.resolved++; else b.rejected++;
+  });
+  const brandRows = [...brands.entries()]
+    .map(([name, v]) => ({ name, ...v, rate: (v.resolved + v.rejected) ? (v.resolved / (v.resolved + v.rejected)) * 100 : null }))
+    .sort((a, b) => b.filed - a.filed || b.resolved - a.resolved);
+
+  if (tkCharts.brand) tkCharts.brand.destroy();
+  if (brandRows.length) {
+    tkCharts.brand = new Chart(document.getElementById('tkBrandChart'), {
+      type: 'bar',
+      data: {
+        labels: brandRows.map(r => r.name),
+        datasets: [
+          { label: 'Resolved', data: brandRows.map(r => r.resolved), backgroundColor: '#22C55E', borderRadius: 4, maxBarThickness: 30 },
+          { label: 'Rejected', data: brandRows.map(r => r.rejected), backgroundColor: '#EF4444', borderRadius: 4, maxBarThickness: 30 },
+          { label: 'Still open', data: brandRows.map(r => r.open), backgroundColor: '#CBD5E1', borderRadius: 4, maxBarThickness: 30 },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 11, font: { size: 11 } } } },
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { autoSkip: false, maxRotation: 50, minRotation: 30, font: { size: 11 } } },
+          y: { stacked: true, beginAtZero: true, grid: { color: '#EEF1F6' }, title: { display: true, text: 'Tickets' } },
+        },
+      },
+    });
+  }
+
+  const bBody = document.getElementById('tkBrandBody');
+  if (!brandRows.length) {
+    bBody.innerHTML = '<tr><td colspan="6"><div class="note">No tickets in September yet.</div></td></tr>';
+    document.getElementById('tkBrandFoot').innerHTML = '';
+  } else {
+    bBody.innerHTML = brandRows.map(r => `<tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td class="num">${r.filed.toLocaleString()}</td>
+      <td class="num" style="color:var(--success);">${r.resolved.toLocaleString()}</td>
+      <td class="num" style="color:var(--danger);">${r.rejected.toLocaleString()}</td>
+      <td class="num" style="font-weight:600;color:var(--ink-soft);">${r.open.toLocaleString()}</td>
+      <td class="num">${rateTag(r.rate)}</td>
+    </tr>`).join('');
+    document.getElementById('tkBrandFoot').innerHTML = `<tr>
+      <td>${brandRows.length} brands</td>
+      <td class="num">${fmtInt(filed.length)}</td>
+      <td class="num">${fmtInt(resolved.length)}</td>
+      <td class="num">${fmtInt(rejected.length)}</td>
+      <td class="num">${fmtInt(stillOpen.length)}</td>
+      <td class="num">${rate == null ? '—' : Math.round(rate) + '%'}</td>
+    </tr>`;
+  }
+
+  // ---- By agent ----
+  const agents = new Map();
+  const agent = name => {
+    if (!agents.has(name)) agents.set(name, { acked: 0, resolved: 0, rejected: 0 });
+    return agents.get(name);
+  };
+  allTickets.forEach(t => {
+    if (t.acknowledgedBy && inWin(t.acknowledgedAt)) agent(t.acknowledgedBy).acked++;
+  });
+  closed.forEach(t => {
+    const a = agent(t.resolvedBy || 'Unassigned');
+    if (t.statusCls === 'done') a.resolved++; else a.rejected++;
+  });
+  const agentRows = [...agents.entries()]
+    .map(([name, v]) => ({ name, ...v, closed: v.resolved + v.rejected }))
+    .filter(a => a.closed > 0 || a.acked > 0)
+    .sort((a, b) => b.closed - a.closed || b.acked - a.acked);
+  const closedTotal = agentRows.reduce((s, a) => s + a.closed, 0);
+
+  const withClosed = agentRows.filter(a => a.closed > 0);
+  document.getElementById('tkAgentTotal').textContent = fmtInt(closedTotal);
+  if (tkCharts.agent) tkCharts.agent.destroy();
+  tkCharts.agent = new Chart(document.getElementById('tkAgentDonut'), {
+    type: 'doughnut',
+    data: {
+      labels: withClosed.map(a => a.name),
+      datasets: [{ data: withClosed.map(a => a.closed), backgroundColor: withClosed.map((a, i) => PALETTE[i % PALETTE.length]), borderWidth: 0 }],
+    },
+    options: { responsive: false, cutout: '68%', plugins: { legend: { display: false } } },
+  });
+  document.getElementById('tkAgentLegend').innerHTML = withClosed.length
+    ? withClosed.slice(0, 12).map((a, i) => `<div class="legend-row">
+        <span class="sw" style="background:${PALETTE[i % PALETTE.length]};"></span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(a.name)}</span>
+        <b style="margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums;">${a.closed.toLocaleString()}</b>
+        <span style="color:var(--ink-faint);width:38px;text-align:right;">${closedTotal ? Math.round((a.closed / closedTotal) * 100) : 0}%</span>
+      </div>`).join('')
+    : '<div class="note">Nothing closed in September yet.</div>';
+
+  const aBody = document.getElementById('tkAgentBody');
+  if (!agentRows.length) {
+    aBody.innerHTML = '<tr><td colspan="6"><div class="note">No agent activity in September yet.</div></td></tr>';
+    document.getElementById('tkAgentFoot').innerHTML = '';
+  } else {
+    aBody.innerHTML = agentRows.map(a => {
+      const avatar = avatarByName.get(nameKey(a.name));
+      const face = avatar ? `<img src="${avatar}" alt="">` : escapeHtml(initialsForName(a.name));
+      return `<tr>
+        <td><div class="agent-cell"><div class="av-xs" style="background:${colorForName(a.name)};">${face}</div><span style="font-weight:600;">${escapeHtml(a.name)}</span></div></td>
+        <td class="num">${a.acked.toLocaleString()}</td>
+        <td class="num">${a.closed.toLocaleString()}</td>
+        <td class="num" style="color:var(--success);">${a.resolved.toLocaleString()}</td>
+        <td class="num" style="color:var(--danger);">${a.rejected.toLocaleString()}</td>
+        <td class="num" style="font-weight:600;color:var(--ink-soft);">${closedTotal ? Math.round((a.closed / closedTotal) * 100) + '%' : '—'}</td>
+      </tr>`;
+    }).join('');
+    const tot = agentRows.reduce((s, a) => ({ acked: s.acked + a.acked, closed: s.closed + a.closed, resolved: s.resolved + a.resolved, rejected: s.rejected + a.rejected }), { acked: 0, closed: 0, resolved: 0, rejected: 0 });
+    document.getElementById('tkAgentFoot').innerHTML = `<tr>
+      <td>${agentRows.length} agent${agentRows.length === 1 ? '' : 's'}</td>
+      <td class="num">${tot.acked.toLocaleString()}</td>
+      <td class="num">${tot.closed.toLocaleString()}</td>
+      <td class="num">${tot.resolved.toLocaleString()}</td>
+      <td class="num">${tot.rejected.toLocaleString()}</td>
+      <td class="num">100%</td>
+    </tr>`;
+  }
+
+  ticketsData.brandRows = brandRows;
+  ticketsData.agentRows = agentRows;
+  ticketsData.top5 = top5;
+}
+
+// =====================================================================
+// SHARED CHROME
+// =====================================================================
 document.getElementById('chartModeTabs').addEventListener('click', (e) => {
   const btn = e.target.closest('.tab');
   if (!btn) return;
@@ -622,7 +998,10 @@ document.getElementById('chartModeTabs').addEventListener('click', (e) => {
   if (chatsData) renderChatsComparison();
 });
 
-// ---- Sub-tab switching ----
+// The title bar's month follows whichever report is on screen, so the page
+// never claims to be about August while showing September figures.
+const PAGE_PERIOD = { chats: 'August 2026 vs September 2026', tickets: 'September 2026' };
+
 document.getElementById('subtabs').addEventListener('click', (e) => {
   const btn = e.target.closest('.subtab');
   if (!btn) return;
@@ -631,46 +1010,113 @@ document.getElementById('subtabs').addEventListener('click', (e) => {
   btn.classList.add('active');
   const page = document.getElementById('page-' + btn.dataset.page);
   if (page) page.classList.add('active');
+  document.getElementById('reportPeriod').textContent = PAGE_PERIOD[btn.dataset.page] || '';
+  // Chart.js needs a nudge after a hidden canvas becomes visible, otherwise
+  // it keeps the zero width it measured while the tab was closed.
+  Object.values(tkCharts).forEach(c => c && c.resize());
+  if (brandChart) brandChart.resize();
 });
 
-// ---- CSV of whichever report is on screen ----
 function exportActiveReport() {
   const active = document.querySelector('.subtab.active');
-  if (!active || active.dataset.page !== 'chats' || !chatsData) { alert('Nothing to export yet.'); return; }
-  const { rows, totalA, totalB, daysA, daysB } = chatsData;
+  const page = active ? active.dataset.page : null;
   const out = [];
   out.push('Customer Service Department — Monthly Reporting');
-  out.push('Report,Chats Comparison');
-  out.push(`Months,${MONTH_A.label},${MONTH_B.label}`);
-  out.push(`Days counted,${daysA},${daysB}`);
   out.push(`Prepared by,${currentUserName || 'Unknown'}`);
   out.push(`Generated,${new Date().toLocaleString()}`);
   out.push('');
-  out.push(Papa.unparse(rows.map(r => ({
-    Brand: r.label,
-    [MONTH_A.label]: r.a ?? '',
-    [MONTH_B.label]: r.b ?? '',
-    'Aug per day': r.aPerDay == null ? '' : r.aPerDay.toFixed(1),
-    'Sep per day': r.bPerDay == null ? '' : r.bPerDay.toFixed(1),
-    'Change % per day': (r.aPerDay && r.bPerDay != null) ? Math.round(((r.bPerDay - r.aPerDay) / r.aPerDay) * 100) : '',
-  }))));
-  out.push('');
-  out.push(`Total,${totalA ?? ''},${totalB ?? ''}`);
 
-  const blob = new Blob([out.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  if (page === 'chats' && chatsData) {
+    const { rows, totalA, totalB, daysA, daysB } = chatsData;
+    out.push('Report,Chats Comparison');
+    out.push(`Months,${MONTH_A.label},${MONTH_B.label}`);
+    out.push(`Days counted,${daysA},${daysB}`);
+    out.push('');
+    out.push(Papa.unparse(rows.map(r => ({
+      Brand: r.label,
+      [MONTH_A.label]: r.a ?? '',
+      [MONTH_B.label]: r.b ?? '',
+      'Aug per day': r.aPerDay == null ? '' : r.aPerDay.toFixed(1),
+      'Sep per day': r.bPerDay == null ? '' : r.bPerDay.toFixed(1),
+      'Change % per day': (r.aPerDay && r.bPerDay != null) ? Math.round(((r.bPerDay - r.aPerDay) / r.aPerDay) * 100) : '',
+    }))));
+    out.push('');
+    out.push(`Total,${totalA ?? ''},${totalB ?? ''}`);
+    downloadCsv(out.join('\n'), 'chats-comparison-aug-sep-2026.csv');
+    return;
+  }
+
+  if (page === 'tickets' && ticketsData) {
+    const d = ticketsData;
+    out.push('Report,Ticket Resolution');
+    out.push(`Month,${MONTH_B.label}`);
+    out.push(`Days counted,${d.window.days} of ${d.window.daysInMonth}`);
+    out.push('');
+    out.push(Papa.unparse([
+      { Measure: 'Filed', Value: d.filed.length },
+      { Measure: 'Closed', Value: d.closed.length },
+      { Measure: 'Resolved', Value: d.resolved.length },
+      { Measure: 'Rejected', Value: d.rejected.length },
+      { Measure: 'Still open', Value: d.stillOpen.length },
+      { Measure: 'Resolution rate %', Value: d.rate == null ? '' : d.rate.toFixed(1) },
+    ]));
+    out.push('');
+    out.push('Top concerns');
+    out.push(Papa.unparse((d.top5 || []).map(([Concern, Tickets]) => ({ Concern, Tickets }))));
+    out.push('');
+    out.push('By brand');
+    out.push(Papa.unparse((d.brandRows || []).map(r => ({
+      Brand: r.name, Filed: r.filed, Resolved: r.resolved, Rejected: r.rejected, Open: r.open,
+      'Resolution rate %': r.rate == null ? '' : Math.round(r.rate),
+    }))));
+    out.push('');
+    out.push('By agent');
+    out.push(Papa.unparse((d.agentRows || []).map(a => ({
+      Agent: a.name, Acknowledged: a.acked, Closed: a.closed, Resolved: a.resolved, Rejected: a.rejected,
+    }))));
+    downloadCsv(out.join('\n'), 'ticket-resolution-sep-2026.csv');
+    return;
+  }
+
+  alert('Nothing to export yet.');
+}
+
+function downloadCsv(text, filename) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = 'chats-comparison-aug-sep-2026.csv';
+  a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+async function loadAvatars() {
+  try {
+    const data = await apiGet('/auth/directory');
+    avatarByName = new Map((data.users || []).filter(u => u.avatar).map(u => [nameKey(u.name), u.avatar]));
+    if (allTickets.length) renderTicketResolution();
+  } catch (e) { /* initials are a fine fallback */ }
 }
 
 // ---- Boot ----
 document.getElementById('generatedAt').textContent =
   new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+document.getElementById('reportPeriod').textContent = PAGE_PERIOD.chats;
+
 loadChatsComparison();
 setInterval(loadChatsComparison, 5 * 60 * 1000);
+
+loadAvatars();
+TicketData.fetchTickets()
+  .then(tickets => {
+    allTickets = tickets;
+    renderTicketResolution();
+    TicketData.startAutoRefresh(t2 => { allTickets = t2; renderTicketResolution(); }, 120000);
+  })
+  .catch(err => {
+    console.error('Tickets failed:', err);
+    flag('ticketsFlag', 'Ticket figures could not be loaded from the brand sheets — check the sheet links and refresh.');
+  });
 </script>
 </body>
 </html>
