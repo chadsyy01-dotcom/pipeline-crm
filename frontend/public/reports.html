@@ -107,11 +107,15 @@
 
   .bar-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
   .bar-row:last-child{border-bottom:none;}
+  .bar-row.pick{cursor:pointer;padding-left:6px;padding-right:6px;margin:0 -6px;border-radius:8px;}
+  .bar-row.pick:hover{background:#F8FAFC;}
+  .bar-row.pick:hover .bar-label{color:var(--primary);}
+  .bar-row.pick.on{background:var(--primary-tint);}
   .bar-label{font-size:12.5px;font-weight:600;width:140px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .bar-track{flex:1;height:8px;background:#F1F5F9;border-radius:4px;overflow:hidden;}
   .bar-fill{height:100%;border-radius:4px;}
   .bar-val{font-size:12.5px;font-weight:800;width:58px;text-align:right;font-variant-numeric:tabular-nums;}
-  .bar-sub{font-size:11px;color:var(--ink-faint);width:96px;text-align:right;white-space:nowrap;}
+  .bar-sub{font-size:11px;color:var(--ink-faint);width:108px;text-align:right;white-space:nowrap;}
 
   /* Ranked list — used for the top concerns, where the order is the point. */
   .rank-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);}
@@ -551,10 +555,28 @@
 
       <div class="panel">
         <div class="panel-head">
-          <h3 id="csRankTitle">Brands with the most DSATs</h3>
-          <span class="hint">Ranked by volume · severity cards above re-rank this</span>
+          <h3 id="csRankTitle">DSAT by Brand (This Month)</h3>
+          <span class="hint">Share is the brand's own rated chats · severity cards above switch the figure</span>
         </div>
         <div id="csRankBars"><div class="note">Loading…</div></div>
+      </div>
+
+      <div class="panel" id="csRemarksPanel" style="display:none;">
+        <div class="panel-head">
+          <h3 id="csRemarksTitle">—</h3>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span class="hint">Click a row to open the conversation</span>
+            <button class="btn" id="csRemarksClose" type="button">Close</button>
+          </div>
+        </div>
+        <div class="scroll tall">
+          <table class="rt rowlink">
+            <thead><tr>
+              <th>Customer</th><th>Rating</th><th>Severity</th><th>Reason given</th><th class="num">When</th>
+            </tr></thead>
+            <tbody id="csRemarksBody"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="panel">
@@ -1302,6 +1324,7 @@ function fmtDur(seconds) {
 
 let csData = null;
 let csSevFilter = 'all';
+let csSelectedBrand = null;   // the brand whose DSAT reasons are open
 let csLoadToken = 0;           // cancels an in-flight load when a new one starts
 
 // A month of conversations across every brand in one request takes minutes
@@ -1486,33 +1509,38 @@ function renderSatisfaction() {
     .map(([slug, v]) => ({ slug, label: chatBrandLabel(slug), ...v, dsatRate: v.rated ? (v.bad / v.rated) * 100 : null }))
     .filter(r => r.rated > 0);
 
-  // Which number the ranking uses follows whichever severity card is active.
+  // Which number the list uses follows whichever severity card is active.
   const rankKey = csSevFilter === 'all' ? 'bad' : csSevFilter;
-  const rankLabel = csSevFilter === 'all' ? 'DSATs'
-    : csSevFilter === 'high' ? 'high-severity DSATs'
-    : csSevFilter === 'medium' ? 'venting DSATs'
-    : 'DSATs with no remarks';
-  document.getElementById('csRankTitle').textContent = `Brands with the most ${rankLabel}`;
+  const rankLabel = csSevFilter === 'all' ? 'DSAT'
+    : csSevFilter === 'high' ? 'High-severity DSAT'
+    : csSevFilter === 'medium' ? 'Venting DSAT'
+    : 'No-remark DSAT';
+  document.getElementById('csRankTitle').textContent = `${rankLabel} by Brand (This Month)`;
 
-  const ranked = brandRows.filter(r => r[rankKey] > 0).sort((a, b) => b[rankKey] - a[rankKey]);
+  // Every brand that received a rating is listed, including the ones on
+  // zero — a brand with no complaints is worth seeing next to one that has
+  // them, and dropping it would make the list look shorter than the estate.
+  const ranked = [...brandRows].sort((a, b) => b[rankKey] - a[rankKey] || b.rated - a.rated);
   const rankEl = document.getElementById('csRankBars');
   if (!ranked.length) {
     rankEl.innerHTML = csData.loading
       ? `<div class="note">Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands…</div>`
-      : `<div class="note">No ${rankLabel} in September.</div>`;
+      : '<div class="note">No ratings in September yet.</div>';
   } else {
-    const max = ranked[0][rankKey];
-    rankEl.innerHTML = ranked.map((r, i) => `
-      <div class="rank-row">
-        <div class="rank-badge" style="background:${(RANK_COLORS[i] || '#94A3B8')}22;color:${RANK_COLORS[i] || '#94A3B8'};">${i + 1}</div>
-        <div class="rank-main">
-          <div class="rank-name" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</div>
-          <div class="rank-track"><div class="rank-fill" style="width:${Math.max(2, Math.round((r[rankKey] / max) * 100))}%;background:${RANK_COLORS[i] || '#94A3B8'};"></div></div>
-        </div>
-        <div class="rank-count">${fmtInt(r[rankKey])}</div>
-        <div class="rank-share">${r.dsatRate == null ? '—' : Math.round(r.dsatRate) + '%'}</div>
-      </div>`).join('');
+    const max = Math.max(...ranked.map(r => r[rankKey]), 1);
+    rankEl.innerHTML = ranked.map(r => {
+      const share = r.rated ? Math.round((r[rankKey] / r.rated) * 100) : 0;
+      return `
+      <div class="bar-row pick ${r.slug === csSelectedBrand ? 'on' : ''}" data-brand="${escapeHtml(r.slug)}" title="See the reasons behind ${escapeHtml(r.label)}'s DSATs">
+        <div class="bar-label">${escapeHtml(r.label)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${r[rankKey] ? Math.max(1, Math.round((r[rankKey] / max) * 100)) : 0}%;background:var(--danger);"></div></div>
+        <div class="bar-val">${fmtInt(r[rankKey])}</div>
+        <div class="bar-sub">${share}% of ${fmtInt(r.rated)}</div>
+      </div>`;
+    }).join('');
   }
+
+  renderBrandRemarks();
 
   const bBody = document.getElementById('csBrandBody');
   const detail = [...brandRows].sort((a, b) => b.bad - a.bad || b.rated - a.rated);
@@ -1548,6 +1576,69 @@ function renderSatisfaction() {
 }
 
 // ---- Satisfaction interactions ----
+// ---- Satisfaction interactions ----
+// Picking a brand opens the reasons behind its DSATs, rather than sending
+// the reader to the QA tab and asking them to filter their way back to the
+// same place.
+function renderBrandRemarks() {
+  const panel = document.getElementById('csRemarksPanel');
+  if (!csSelectedBrand || !csData) { panel.style.display = 'none'; return; }
+
+  const sevText = csSevFilter === 'all' ? '' :
+    csSevFilter === 'high' ? ' — high severity' :
+    csSevFilter === 'medium' ? ' — venting' : ' — no remarks';
+  let list = csData.rated.filter(c => c.brand === csSelectedBrand && c.csatRating <= 2);
+  if (csSevFilter !== 'all') list = list.filter(c => c.severity === csSevFilter);
+
+  panel.style.display = '';
+  document.getElementById('csRemarksTitle').textContent =
+    `${chatBrandLabel(csSelectedBrand)} — why customers rated 1–2★${sevText} · ${fmtInt(list.length)}`;
+
+  const body = document.getElementById('csRemarksBody');
+  if (!list.length) {
+    body.innerHTML = `<tr><td colspan="5"><div class="note">${csData.loading ? 'Still loading this brand…' : 'Nothing matches this view.'}</div></td></tr>`;
+    return;
+  }
+  // Remarks first: a rating with a written reason is the reason anyone opened
+  // this panel, and burying them under a run of "No remarks" rows hides them.
+  const ordered = [...list].sort((a, b) => {
+    const aHas = a.csatFeedback ? 1 : 0, bHas = b.csatFeedback ? 1 : 0;
+    return bHas - aHas || new Date(b.lastActivityAt) - new Date(a.lastActivityAt);
+  });
+  body.innerHTML = ordered.slice(0, 300).map(c => {
+    const name = c.contactName || 'Unknown';
+    return `<tr data-conversation-id="${c.conversationId}" data-name="${escapeHtml(name)}" data-sub="${escapeHtml(chatBrandLabel(c.brand))}">
+      <td><div class="agent-cell"><div class="c-av" style="background:${colorForName(name)};">${escapeHtml(initialsFor(name))}</div><span style="font-weight:600;">${escapeHtml(name)}</span></div></td>
+      <td><span style="font-weight:800;color:var(--danger);">★ ${c.csatRating}/5</span></td>
+      <td><span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span></td>
+      <td><div class="remarks ${c.csatFeedback ? '' : 'empty'}">${c.csatFeedback ? escapeHtml(c.csatFeedback) : 'No reason given'}</div></td>
+      <td class="num" style="font-weight:600;color:var(--ink-faint);">${timeAgo(c.lastActivityAt)}</td>
+    </tr>`;
+  }).join('') + (ordered.length > 300
+    ? `<tr><td colspan="5"><div class="note">Showing 300 of ${fmtInt(ordered.length)}.</div></td></tr>`
+    : '');
+}
+
+document.getElementById('csRankBars').addEventListener('click', (e) => {
+  const row = e.target.closest('.bar-row[data-brand]');
+  if (!row) return;
+  const slug = row.dataset.brand;
+  csSelectedBrand = csSelectedBrand === slug ? null : slug;   // click again to close
+  if (csData) renderSatisfaction();
+  if (csSelectedBrand) {
+    document.getElementById('csRemarksPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+});
+document.getElementById('csRemarksClose').addEventListener('click', () => {
+  csSelectedBrand = null;
+  if (csData) renderSatisfaction();
+});
+document.getElementById('csRemarksBody').addEventListener('click', (e) => {
+  const row = e.target.closest('tr[data-conversation-id]');
+  if (!row) return;
+  openConversationModal(row.dataset.conversationId, row.dataset.name, row.dataset.sub);
+});
+
 document.querySelectorAll('#page-satisfaction .kpi-card[data-sev]').forEach(el => el.addEventListener('click', () => {
   const sev = el.dataset.sev;
   csSevFilter = (sev === 'all' || csSevFilter === sev) ? 'all' : sev;
