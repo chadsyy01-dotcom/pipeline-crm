@@ -689,6 +689,13 @@
       // plus the special "LLM Instruction" tab
       const looksTab = /^\d{2}\s+[^:]{2,70}$/.test(line) || /^llm instruction$/i.test(line);
       if (!looksTab) continue;
+      // HINDI kasama ang mga row ng games list table (hal. "10 Slot CQ9
+      // All Wild…", "11 Fishing JILI …"): number + game-category word.
+      // Ang totoong tab headings ay hindi nagsisimula sa category word.
+      if (/^\d+\s+(slot|slots|fishing|live|poker|arcade|table|bingo|lottery|sports|casino|crash)\b/i.test(line)) continue;
+      // laktawan din ang mga linyang may TAB character o malawak na
+      // column spacing — mga table rows yun, hindi headings
+      if (/\t|\s{3,}/.test(raw)) continue;
       const n = normLine(line);
       if (seen.has(n)) continue; // first standalone occurrence wins
       seen.add(n);
