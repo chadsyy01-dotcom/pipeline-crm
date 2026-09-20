@@ -185,6 +185,7 @@
             <button class="kb-addbtn" id="kbAddBtn" title="Add a new section">+</button>
           </div>
           <button class="kb-btn" id="kbDocLinkBtn" style="width:100%;justify-content:center;margin-bottom:6px;" title="Set this brand's published Google Doc link (File → Share → Publish to web)">🔗 Doc link</button>
+          <button class="kb-btn" id="kbImportBtn" title="Basahin ang naka-link na doc, awtomatikong gawing sections ang bawat tab heading (hal. LLM Instruction, 00 admin persona, 01 about …), tapos i-sync agad ang laman" style="display:none;width:100%;justify-content:center;margin-bottom:6px;color:var(--success);border-color:var(--success-tint);">⬇ Import from doc</button>
           <button class="kb-btn" id="kbSyncAllBtn" title="I-sync LAHAT ng sections ng brand na ito mula sa doc" style="display:none;width:100%;justify-content:center;margin-bottom:8px;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync All</button>
           <div id="kbSyncStatus" style="font-size:10.5px;font-weight:600;color:var(--ink-faint);text-align:center;margin-bottom:8px;min-height:14px;"></div>
           <div class="kb-secitems" id="kbSecItems"><div class="kb-empty-side">Loading…</div></div>
@@ -306,10 +307,13 @@
   function renderSectionList() {
     const wrap = $('kbSecItems');
     $('kbSyncAllBtn').style.display = brandSourceUrl ? '' : 'none';
+    $('kbImportBtn').style.display = brandSourceUrl ? '' : 'none';
     $('kbDocLinkBtn').style.color = brandSourceUrl ? 'var(--success)' : '';
     $('kbDocLinkBtn').textContent = brandSourceUrl ? '🔗 Doc linked ✓' : '🔗 Doc link';
     if (!sections.length) {
-      wrap.innerHTML = '<div class="kb-empty-side">Wala pang sections.<br>I-click ang <b>+</b> para magdagdag<br>(hal. "00 admin persona").</div>';
+      wrap.innerHTML = brandSourceUrl
+        ? '<div class="kb-empty-side">Wala pang sections.<br>I-click ang <b>⬇ Import from doc</b> —<br>awtomatikong gagawin LAHAT<br>mula sa tab headings ng doc.</div>'
+        : '<div class="kb-empty-side">Wala pang sections.<br>I-click ang <b>+</b> para magdagdag<br>(hal. "00 admin persona").</div>';
       return;
     }
     wrap.innerHTML = sections.map(s => `
@@ -344,7 +348,9 @@
         $('kbTitle').textContent = brandLabel(currentBrand);
         $('kbMeta').textContent = '';
         $('kbSyncBtn').style.display = 'none';
-        $('kbViewWrap').innerHTML = `<div class="kb-empty">Walang sections pa ang ${esc(brandLabel(currentBrand))}.<br>I-click ang <b>+</b> sa kaliwa para gumawa — isang section kada topic/tab (LLM Instruction, 00 admin persona, 01 about, …).</div>`;
+        $('kbViewWrap').innerHTML = brandSourceUrl
+          ? `<div class="kb-empty">Walang sections pa ang ${esc(brandLabel(currentBrand))}.<br>May naka-link nang doc — i-click ang <b>⬇ Import from doc</b> sa kaliwa para awtomatikong gawin at punuin ang LAHAT ng sections mula sa tab headings.</div>`
+          : `<div class="kb-empty">Walang sections pa ang ${esc(brandLabel(currentBrand))}.<br>I-click ang <b>+</b> sa kaliwa para gumawa — isang section kada topic/tab (LLM Instruction, 00 admin persona, 01 about, …).</div>`;
       }
     } catch (e) {
       $('kbSecItems').innerHTML = `<div class="kb-empty-side">Error: ${esc(e.message)}</div>`;
@@ -669,6 +675,77 @@
     return { bodies, missing: [...wanted.values()] };
   }
 
+  // ---- Import sections from doc (added 2026-09-20 after the full KB
+  // wipe): reads the linked doc ONCE, detects the tab-heading lines
+  // ("LLM Instruction" + "NN <name>"), creates every missing section,
+  // then runs the normal brand sync to fill them — one click per brand. ----
+  function detectDocTitles(text) {
+    const seen = new Set();
+    const titles = [];
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      // tab headings: "01 about buenas ph" style (2 digits + name, walang
+      // colon para hindi mahuli ang mga "09 TOPIC:" na content lines),
+      // plus the special "LLM Instruction" tab
+      const looksTab = /^\d{2}\s+[^:]{2,70}$/.test(line) || /^llm instruction$/i.test(line);
+      if (!looksTab) continue;
+      const n = normLine(line);
+      if (seen.has(n)) continue; // first standalone occurrence wins
+      seen.add(n);
+      titles.push(line);
+    }
+    return titles;
+  }
+
+  $('kbImportBtn').addEventListener('click', async () => {
+    if (editing) { alert('Tapusin muna ang edit bago mag-Import.'); return; }
+    if (!brandSourceUrl) { alert('I-set muna ang \ud83d\udd17 Doc link ng brand na ito.'); return; }
+    const btn = $('kbImportBtn');
+    btn.disabled = true; btn.textContent = '⬇ Reading doc…';
+    try {
+      const text = await fetchDocText(brandSourceUrl);
+      const mm = docBrandMismatch(text);
+      if (mm) throw new Error(`HINARANG: ang naka-link na doc ay kay "${mm}" \u2014 palitan muna ang \ud83d\udd17 Doc link ng ${brandLabel(currentBrand)}.`);
+      const existing = new Set(sections.map(s => normLine(s.title)));
+      const titles = detectDocTitles(text).filter(t => !existing.has(normLine(t)));
+      if (!titles.length) {
+        throw new Error(sections.length
+          ? 'Walang BAGONG tab headings na nakita — mukhang kumpleto na ang sections. Gamitin ang \u27F3 Sync All para i-refresh ang laman.'
+          : 'Walang nakitang tab headings sa doc (hal. "01 about \u2026" o "LLM Instruction"). Siguraduhing bawat tab ay may sariling heading line sa published doc.');
+      }
+      if (!confirm(`Gagawin ang ${titles.length} section(s) para sa ${brandLabel(currentBrand)}:\n\n\u2022 ` + titles.join('\n\u2022 ') + '\n\nTapos isi-sync agad ang laman mula sa doc. Ituloy?')) return;
+      let made = 0;
+      for (const title of titles) {
+        made++;
+        btn.textContent = `⬇ Creating ${made}/${titles.length}…`;
+        const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/sections`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ title }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.ok) throw new Error(`"${title}": ${body.error || 'create failed'}`);
+      }
+      // refresh the in-memory section list, then reuse the normal sync
+      await loadSections(false);
+      btn.textContent = '⬇ Syncing…';
+      const { done, failures, missing } = await runBrandSync(
+        (n, total, title) => { btn.textContent = `⬇ Syncing ${n}/${total} \u2014 ${title.slice(0, 14)}\u2026`; }
+      );
+      await loadIndex();
+      await loadSections(false);
+      if (sections.length) openSection(sections[0].id);
+      let msg = `Import tapos: ${titles.length} section(s) ginawa, ${done - failures.length} napunan mula sa doc.`;
+      if (missing.length) msg += `\n\nHindi napunan (walang tugmang heading):\n\u2022 ` + missing.join('\n\u2022 ');
+      if (failures.length) msg += `\n\nHindi na-save:\n\u2022 ` + failures.join('\n\u2022 ');
+      alert(msg);
+    } catch (e) {
+      alert('Import failed: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '⬇ Import from doc';
+    }
+  });
+
   let lastFetchedDocTitle = null; // <title> ng huling na-fetch na doc
   async function fetchDocText(url) {
     const res = await fetch(`${API_BASE}/kb/doc-proxy?url=${encodeURIComponent(url)}`, { headers: authHeaders() });
@@ -792,7 +869,7 @@
 
   $('kbSyncAllBtn').addEventListener('click', async () => {
     if (editing) { alert('Tapusin muna ang edit bago mag-Sync All.'); return; }
-    if (!sections.length) { alert('Gumawa muna ng sections \u2014 isang section kada tab, EKSAKTONG pangalan ng tab (hal. "02 deposits").'); return; }
+    if (!sections.length) { alert('Gumawa muna ng sections \u2014 gamitin ang \u2B07 Import from doc, o isang section kada tab (EKSAKTONG pangalan, hal. "02 deposits").'); return; }
     if (!brandSourceUrl) { alert('I-set muna ang \ud83d\udd17 Doc link ng brand na ito.'); return; }
     const btn = $('kbSyncAllBtn');
     btn.disabled = true; btn.textContent = '\u27F3 Fetching doc\u2026';
