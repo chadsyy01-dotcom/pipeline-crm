@@ -693,6 +693,10 @@
       // All Wild…", "11 Fishing JILI …"): number + game-category word.
       // Ang totoong tab headings ay hindi nagsisimula sa category word.
       if (/^\d+\s+(slot|slots|fishing|live|poker|arcade|table|bingo|lottery|sports|casino|crash)\b/i.test(line)) continue;
+      // laktawan ang promo/content lines: may =, ×, o "N x N" math
+      // (hal. "12 consecutive wins = 2024 iPad Air", "20 × 10 = 200
+      // required turnover") — walang ganyang symbols ang tab headings
+      if (/[=×✕±%₱$]|\b\d+\s*[xX*]\s*\d+\b/.test(line)) continue;
       // laktawan din ang mga linyang may TAB character o malawak na
       // column spacing — mga table rows yun, hindi headings
       if (/\t|\s{3,}/.test(raw)) continue;
