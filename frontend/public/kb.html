@@ -99,6 +99,15 @@
   .kb-mark-brand{background:#F3E8FF;color:#7E22CE;font-weight:800;padding:0 4px;border-radius:4px;box-shadow:0 0 0 1.5px #A855F7;}
   .kb-content{flex:1;min-width:0;}
   .kb-empty-side{color:var(--ink-faint);font-size:12.5px;padding:18px 6px;text-align:center;line-height:1.6;}
+  .kb-modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:50;}
+  .kb-modal{background:#fff;border-radius:14px;box-shadow:var(--shadow);width:min(500px,92vw);max-height:82vh;display:flex;flex-direction:column;padding:18px;}
+  .kb-modal h4{margin:0 0 4px;font-size:14.5px;}
+  .kb-modal-sub{font-size:12px;color:var(--ink-soft);line-height:1.5;margin-bottom:10px;}
+  .kb-modal-list{overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:6px;flex:1;min-height:120px;}
+  .kb-modal-item{display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:12.5px;font-weight:600;border-radius:8px;cursor:pointer;}
+  .kb-modal-item:hover{background:#F1F5F9;}
+  .kb-modal-item .warn{font-size:10px;font-weight:800;color:#92620A;background:var(--warning-tint);padding:2px 7px;border-radius:12px;margin-left:auto;flex-shrink:0;}
+  .kb-modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .kb-layout{flex-direction:column;} .kb-seclist{width:100%;border-right:none;border-bottom:1px solid var(--line);padding:0 0 12px;margin:0 0 14px;} }
 </style>
 </head>
@@ -681,7 +690,7 @@
   // then runs the normal brand sync to fill them — one click per brand. ----
   function detectDocTitles(text) {
     const seen = new Set();
-    const titles = [];
+    const cands = [];
     for (const raw of text.split('\n')) {
       const line = raw.trim();
       // tab headings: "01 about buenas ph" style (2 digits + name, walang
@@ -706,9 +715,61 @@
       const n = normLine(line);
       if (seen.has(n)) continue; // first standalone occurrence wins
       seen.add(n);
-      titles.push(line);
+      const m = line.match(/^(\d{1,3})(\.)?(\s|$)/);
+      cands.push({ title: line, num: m ? String(Number(m[1])) : null, dotted: !!(m && m[2]), checked: true, warn: null });
     }
-    return titles;
+    // Kapag DALAWANG candidate ang pareho ang numero (hal. tab na
+    // "10 bonus reward concerns" vs content list na "10. MODIFY ADDRESS"),
+    // ang bersyong may tuldok ay malamang numbered list sa LOOB ng isang
+    // section — naka-UNCHECK ito by default, may "kaparehong numero" na
+    // babala pareho para ma-review sa modal.
+    const byNum = {};
+    cands.forEach(c => { if (c.num !== null) (byNum[c.num] = byNum[c.num] || []).push(c); });
+    for (const num in byNum) {
+      const group = byNum[num];
+      if (group.length < 2) continue;
+      const hasPlain = group.some(c => !c.dotted);
+      group.forEach(c => {
+        c.warn = 'kaparehong numero';
+        if (hasPlain && c.dotted) c.checked = false;
+      });
+    }
+    return cands;
+  }
+
+  // Checkbox picker: ipinapakita LAHAT ng detected candidates para
+  // ma-review at ma-alis ang mga maling nahuli bago gawing sections.
+  function pickTitlesModal(cands) {
+    return new Promise(resolve => {
+      const bg = document.createElement('div');
+      bg.className = 'kb-modal-bg';
+      bg.innerHTML = `<div class="kb-modal">
+        <h4>\u2B07 Import from doc \u2014 ${esc(brandLabel(currentBrand))}</h4>
+        <div class="kb-modal-sub">I-check LANG ang mga TOTOONG tab headings (i-compare sa Document tabs ng Google Doc). Ang mga may <b>kaparehong numero</b> na may tuldok ay malamang content lines \u2014 naka-uncheck na sila.</div>
+        <div class="kb-modal-list">${cands.map((c, i) => `
+          <label class="kb-modal-item"><input type="checkbox" data-i="${i}"${c.checked ? ' checked' : ''}> <span style="overflow-wrap:anywhere;">${esc(c.title)}</span>${c.warn ? `<span class="warn">${esc(c.warn)}</span>` : ''}</label>`).join('')}
+        </div>
+        <div class="kb-modal-foot">
+          <button class="kb-btn" data-act="all">Check all</button>
+          <button class="kb-btn" data-act="none">Uncheck all</button>
+          <button class="kb-btn" data-act="cancel">Cancel</button>
+          <button class="kb-btn primary" data-act="ok">Create + Sync</button>
+        </div></div>`;
+      document.body.appendChild(bg);
+      bg.addEventListener('click', e => {
+        const act = e.target && e.target.dataset ? e.target.dataset.act : null;
+        if (!act) return;
+        if (act === 'all' || act === 'none') {
+          bg.querySelectorAll('input').forEach(cb => { cb.checked = act === 'all'; });
+          return;
+        }
+        const picked = act === 'ok'
+          ? [...bg.querySelectorAll('input')].filter(cb => cb.checked).map(cb => cands[Number(cb.dataset.i)].title)
+          : null;
+        document.body.removeChild(bg);
+        resolve(picked);
+      });
+    });
   }
 
   $('kbImportBtn').addEventListener('click', async () => {
@@ -721,13 +782,16 @@
       const mm = docBrandMismatch(text);
       if (mm) throw new Error(`HINARANG: ang naka-link na doc ay kay "${mm}" \u2014 palitan muna ang \ud83d\udd17 Doc link ng ${brandLabel(currentBrand)}.`);
       const existing = new Set(sections.map(s => normLine(s.title)));
-      const titles = detectDocTitles(text).filter(t => !existing.has(normLine(t)));
-      if (!titles.length) {
+      const cands = detectDocTitles(text).filter(c => !existing.has(normLine(c.title)));
+      if (!cands.length) {
         throw new Error(sections.length
           ? 'Walang BAGONG tab headings na nakita — mukhang kumpleto na ang sections. Gamitin ang \u27F3 Sync All para i-refresh ang laman.'
           : 'Walang nakitang tab headings sa doc (hal. "01 about \u2026" o "LLM Instruction"). Siguraduhing bawat tab ay may sariling heading line sa published doc.');
       }
-      if (!confirm(`Gagawin ang ${titles.length} section(s) para sa ${brandLabel(currentBrand)}:\n\n\u2022 ` + titles.join('\n\u2022 ') + '\n\nTapos isi-sync agad ang laman mula sa doc. Ituloy?')) return;
+      btn.textContent = '⬇ Import from doc';
+      const titles = await pickTitlesModal(cands);
+      if (titles === null) return; // cancelled
+      if (!titles.length) { alert('Walang napiling section — walang ginawa.'); return; }
       let made = 0;
       for (const title of titles) {
         made++;
