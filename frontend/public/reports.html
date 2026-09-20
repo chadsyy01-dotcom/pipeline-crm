@@ -1319,7 +1319,10 @@ let csLoadToken = 0;           // cancels an in-flight load when a new one start
 // rest. The headline figures come from /chatwoot/csat and never wait for
 // any of this.
 const CS_BRAND_TIMEOUT_MS = 25000;
-const CS_PER_BRAND = 400;
+// 1,000 matches the QA page's cap, so the two pages count the same set of
+// conversations. Anything lower quietly truncated the busiest brands —
+// Manila Play PH alone files close to 400 rated chats a month.
+const CS_PER_BRAND = 1000;
 
 function apiGetWithTimeout(path, ms) {
   return Promise.race([
