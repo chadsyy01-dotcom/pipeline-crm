@@ -141,6 +141,46 @@
   .note{color:var(--ink-faint);font-size:12.5px;padding:20px 4px;text-align:center;}
   .flag{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:11px 14px;font-size:12.5px;font-weight:600;line-height:1.5;margin-bottom:14px;}
 
+  /* Clickable KPI cards — used on Customer Satisfaction, where a figure is
+     also the way into the remarks behind it. Same interaction as the
+     Customers and QA pages: click to filter, click again to clear. */
+  .kpi-card.clickable{cursor:pointer;border:2px solid transparent;transition:transform .12s,border-color .12s;}
+  .kpi-card.clickable:hover{transform:translateY(-1px);}
+  .kpi-card.clickable.on{border-color:var(--primary);}
+  .kpi-card.clickable.on.bad{border-color:var(--danger);}
+
+  .sev-pill{font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
+  .sev-pill.high{background:var(--danger-tint);color:var(--danger);}
+  .sev-pill.medium{background:var(--warning-tint);color:#B45309;}
+  .sev-pill.low{background:#F1F5F9;color:var(--ink-faint);}
+  .remarks{font-size:12.5px;color:var(--ink-soft);line-height:1.5;max-width:420px;word-break:break-word;}
+  .remarks.empty{color:var(--ink-faint);font-style:italic;}
+  .c-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
+  .rowlink tbody tr{cursor:pointer;}
+  .rowlink tbody tr:hover{background:#F8FAFC;}
+
+  /* THREAD MODAL — same markup and behaviour as customers.html and qa.html,
+     so a remark opens the actual conversation from inside the report. */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:100;align-items:center;justify-content:center;padding:24px;}
+  .modal-overlay.open{display:flex;}
+  .modal-panel{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .modal-title{font-size:15px;font-weight:800;}
+  .modal-sub{font-size:12px;color:var(--ink-faint);margin-top:2px;}
+  .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .modal-close svg{width:15px;height:15px;color:var(--ink-soft);}
+  .modal-body{padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px;}
+  .msg-row{display:flex;flex-direction:column;max-width:82%;}
+  .msg-row.from-customer{align-self:flex-start;align-items:flex-start;}
+  .msg-row.from-agent{align-self:flex-end;align-items:flex-end;}
+  .msg-meta{font-size:11px;color:var(--ink-faint);margin-bottom:3px;padding:0 3px;}
+  .msg-bubble{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+  .from-customer .msg-bubble{background:var(--bg);color:var(--ink);border-bottom-left-radius:4px;}
+  .from-agent .msg-bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px;}
+  .from-agent.is-bot .msg-bubble{background:var(--purple);}
+  .msg-row.from-system{align-self:center;align-items:center;max-width:90%;}
+  .from-system .msg-bubble{background:#F1F5F9;color:var(--ink-faint);font-size:12px;font-style:italic;text-align:center;border-radius:10px;}
+
   @media (max-width:860px){
     .sidebar{display:none;}
     .main{padding:20px 16px 32px;}
@@ -257,6 +297,7 @@
       <nav class="subtabs" id="subtabs">
         <button class="subtab active" data-page="chats">Chats Comparison</button>
         <button class="subtab" data-page="tickets">Ticket Resolution</button>
+        <button class="subtab" data-page="satisfaction">Customer Satisfaction</button>
       </nav>
     </header>
 
@@ -446,7 +487,117 @@
 
     </div>
 
+    <!-- ================= REPORT 3: CUSTOMER SATISFACTION ================= -->
+    <div class="report-page" id="page-satisfaction">
+
+      <div id="csFlag"></div>
+
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-label">Average rating</div>
+          <div class="kpi-value" id="csAvg">—</div>
+          <div class="kpi-delta flat" id="csAvgSub">Loading…</div>
+        </div>
+        <div class="kpi-card accent-ok clickable" data-cs="csat">
+          <div class="kpi-label">CSAT — satisfied</div>
+          <div class="kpi-value" id="csCsat" style="color:var(--success);">—</div>
+          <div class="kpi-delta flat" id="csCsatSub">Click to read the 4–5★ ratings</div>
+        </div>
+        <div class="kpi-card accent-bad clickable bad" data-cs="dsat">
+          <div class="kpi-label">DSAT — dissatisfied</div>
+          <div class="kpi-value" id="csDsat" style="color:var(--danger);">—</div>
+          <div class="kpi-delta flat" id="csDsatSub">Click to read the 1–2★ ratings</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Average first reply</div>
+          <div class="kpi-value" id="csFtr">—</div>
+          <div class="kpi-delta flat" id="csFtrSub">Handoffs only</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Average chatting time</div>
+          <div class="kpi-value" id="csArt">—</div>
+          <div class="kpi-delta flat" id="csArtSub">Handoffs only</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Why customers were dissatisfied</h3>
+          <span class="hint">Same tagging as Quality Assurance · click a card to filter</span>
+        </div>
+        <div class="kpi-row" style="margin-bottom:0;">
+          <div class="kpi-card clickable" data-sev="all">
+            <div class="kpi-label">Total DSATs</div>
+            <div class="kpi-value" id="csSevTotal">—</div>
+            <div class="kpi-delta flat" id="csSevTotalSub">All brands</div>
+          </div>
+          <div class="kpi-card clickable bad" data-sev="high">
+            <div class="kpi-label" style="color:var(--danger);">High — legit complaints</div>
+            <div class="kpi-value" id="csSevHigh" style="color:var(--danger);">—</div>
+            <div class="kpi-delta flat">Service or payment issues with remarks</div>
+          </div>
+          <div class="kpi-card clickable" data-sev="medium">
+            <div class="kpi-label" style="color:var(--warning);">Medium — venting</div>
+            <div class="kpi-value" id="csSevMed" style="color:var(--warning);">—</div>
+            <div class="kpi-delta flat">Anger with nothing specific to fix</div>
+          </div>
+          <div class="kpi-card clickable" data-sev="low">
+            <div class="kpi-label">Low — no remarks</div>
+            <div class="kpi-value" id="csSevLow">—</div>
+            <div class="kpi-delta flat">Rating only, no explanation</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3 id="csListTitle">Ratings with remarks</h3>
+          <span class="hint">Click any row to open the conversation</span>
+        </div>
+        <div class="scroll tall">
+          <table class="rt rowlink" id="csTable">
+            <thead><tr>
+              <th>Customer</th><th>Brand</th><th>Rating</th><th>Severity</th><th>Remarks</th><th class="num">When</th>
+            </tr></thead>
+            <tbody id="csBody"><tr><td colspan="6"><div class="note">Loading…</div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Satisfaction by brand</h3><span class="hint">Only brands with at least one rating</span></div>
+        <div class="scroll tall">
+          <table class="rt">
+            <thead><tr>
+              <th>Brand</th><th class="num">Chats</th><th class="num">Rated</th>
+              <th class="num">Satisfied</th><th class="num">Dissatisfied</th>
+              <th class="num">CSAT</th><th class="num">First reply</th><th class="num">Chat length</th>
+            </tr></thead>
+            <tbody id="csBrandBody"><tr><td colspan="8"><div class="note">Loading…</div></td></tr></tbody>
+            <tfoot id="csBrandFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
   </main>
+
+  <!-- THREAD MODAL — shared by the satisfaction report -->
+  <div class="modal-overlay" id="convModalOverlay">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="modalCustomerName">—</div>
+          <div class="modal-sub" id="modalCustomerSub">—</div>
+        </div>
+        <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody"><div class="note">Loading…</div></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1092,6 +1243,297 @@ function renderHourChart() {
 }
 
 // =====================================================================
+// REPORT 3 · CUSTOMER SATISFACTION — September, live
+//
+// Figures come from the same endpoints the Customers page uses:
+//   /chatwoot/csat          — the official rating counts and averages
+//   /chatwoot/conversations — the rated threads themselves, which carry the
+//                             written remark, the brand, and FTR/ART
+// The severity tagging is the QA page's classifier, copied verbatim so the
+// two pages never disagree about what counts as a legit complaint. KEEP THE
+// WORD LISTS IN SYNC with qa.html and customers.html.
+// =====================================================================
+const DSAT_SERVICE_WORDS = [ // -> HIGH: actionable service/payment complaints
+  'slow','mabagal','matagal','bagal','late','delay','no response','walang sagot','hindi sinagot','di sinagot',
+  'hindi sumagot','poor','bad service','not helpful','walang tulong','hindi nakatulong','unresolved','hindi naayos',
+  'di naayos','paulit ulit','paulit-ulit','ignored','dedma',
+  'refund','hindi binayaran','di binayaran','not paid','no payout','walang payout','hindi na withdraw','di na withdraw',
+  'খারাপ','বাজে','সমস্যা','দেরি','ধীর','টাকা মেরে','টাকা খেয়ে',
+];
+const DSAT_VENT_WORDS = [ // -> MEDIUM: venting/abuse with nothing actionable
+  'scam','fraud','estafa','budol','niloko','nloko','panloloko','manloloko','nakaw','magnanakaw',
+  'putang','tang ina','tangina','tanga','bobo','gago','ulol','walang kwenta','walangkwenta','basura',
+  'প্রতারণা','ধোকা','চিটার','বাটপার',
+];
+function dsatSeverity(feedback) {
+  const t = (feedback || '').toLowerCase().trim();
+  if (!t) return 'low';
+  if (DSAT_SERVICE_WORDS.some(w => t.includes(w))) return 'high';  // a real issue wins even if there is cursing too
+  if (DSAT_VENT_WORDS.some(w => t.includes(w))) return 'medium';
+  return 'high';  // a written remark nobody has classified deserves a read
+}
+const SEV_LABEL = { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
+
+const AI_BOT_NAMES_CLIENT = new Set([
+  'Admin Joy','Admin Love','Agent Jem','Manila Play Admin','Mona','Hype Play PH Admin','Bogchi',
+  'Lucky Stacks Admin','Admin May','TMTPlay Admin','Buenas88 Admin','Maya',
+]);
+function stripHtmlClient(html) {
+  if (!html) return '';
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+function timeAgo(dateStr) {
+  if (!dateStr) return '—';
+  const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+function initialsFor(name) {
+  if (!name) return '?';
+  return name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+}
+function fmtDur(seconds) {
+  if (seconds == null || isNaN(seconds)) return '—';
+  const s = Math.round(seconds);
+  if (s < 60) return `${s}s`;
+  const mins = Math.floor(s / 60), remSec = s % 60;
+  if (mins < 60) return remSec ? `${mins}m ${remSec}s` : `${mins}m`;
+  const hrs = Math.floor(mins / 60), remMin = mins % 60;
+  return remMin ? `${hrs}h ${remMin}m` : `${hrs}h`;
+}
+
+let csData = null;
+let csRatingFilter = 'dsat';   // the report opens on the ratings that need action
+let csSevFilter = 'all';
+
+async function loadSatisfaction() {
+  const w = septemberWindow();
+  const range = `from=${encodeURIComponent(w.start.toISOString())}&to=${encodeURIComponent(w.effEnd.toISOString())}`;
+
+  const [csatRes, convRes, statsRes] = await Promise.allSettled([
+    apiGet(`/chatwoot/csat?${range}`),
+    apiGet(`/chatwoot/conversations?limit=1000&perBrand=300&perBrandOverrides=buenasph:1000,tmtcash:1000&${range}`),
+    apiGet(`/chatwoot/stats?${range}`),
+  ]);
+
+  if (csatRes.status === 'rejected' && convRes.status === 'rejected') {
+    flag('csFlag', 'Satisfaction figures could not be loaded from the chat service.');
+    document.getElementById('csBody').innerHTML = '<tr><td colspan="6"><div class="note">No data.</div></td></tr>';
+    document.getElementById('csBrandBody').innerHTML = '<tr><td colspan="8"><div class="note">No data.</div></td></tr>';
+    return;
+  }
+
+  const csat = csatRes.status === 'fulfilled' ? csatRes.value : null;
+  const convs = convRes.status === 'fulfilled' ? (convRes.value.conversations || []) : [];
+  const stats = statsRes.status === 'fulfilled' ? statsRes.value : null;
+
+  const rated = convs
+    .filter(c => c.csatRating != null)
+    .map(c => ({ ...c, severity: c.csatRating <= 2 ? dsatSeverity(c.csatFeedback) : null }))
+    .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
+
+  csData = { csat, convs, rated, stats, window: w };
+
+  const notes = [];
+  if (w.running) notes.push(`September is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth}.`);
+  if (csatRes.status === 'rejected') notes.push('The official rating totals are unavailable, so the percentages below are counted from the loaded threads instead.');
+  flag('csFlag', notes);
+
+  renderSatisfaction();
+}
+
+function renderSatisfaction() {
+  const { csat, convs, rated, stats } = csData;
+
+  // Prefer the CSAT endpoint's own totals; fall back to counting the loaded
+  // threads when it didn't answer, so the report still says something true.
+  const total = csat && csat.total ? csat.total : rated.length;
+  const csatCount = csat && csat.total ? csat.csatCount : rated.filter(c => c.csatRating >= 4).length;
+  const dsatCount = csat && csat.total ? csat.dsatCount : rated.filter(c => c.csatRating <= 2).length;
+  const csatPct = total ? Math.round((csatCount / total) * 100) : null;
+  const dsatPct = total ? Math.round((dsatCount / total) * 100) : null;
+  const avg = csat && csat.total ? csat.avgRating
+    : (rated.length ? (rated.reduce((s, c) => s + c.csatRating, 0) / rated.length).toFixed(2) : null);
+
+  document.getElementById('csAvg').textContent = avg == null ? '—' : `${avg} / 5`;
+  document.getElementById('csAvgSub').textContent = total ? `${fmtInt(total)} rating${total === 1 ? '' : 's'} received` : 'No ratings yet';
+  document.getElementById('csCsat').textContent = csatPct == null ? '—' : `${csatPct}%`;
+  document.getElementById('csCsatSub').textContent = total ? `${fmtInt(csatCount)} rated 4–5★` : 'No ratings yet';
+  document.getElementById('csDsat').textContent = dsatPct == null ? '—' : `${dsatPct}%`;
+  document.getElementById('csDsatSub').textContent = total ? `${fmtInt(dsatCount)} rated 1–2★` : 'No ratings yet';
+
+  const ftrVals = convs.filter(c => c.ftr != null).map(c => c.ftr);
+  const artVals = convs.filter(c => c.art != null).map(c => c.art);
+  document.getElementById('csFtr').textContent = ftrVals.length ? fmtDur(mean(ftrVals)) : '—';
+  document.getElementById('csFtrSub').textContent = ftrVals.length ? `${fmtInt(ftrVals.length)} handoffs` : 'No handoffs yet';
+  document.getElementById('csArt').textContent = artVals.length ? fmtDur(mean(artVals)) : '—';
+  document.getElementById('csArtSub').textContent = artVals.length ? `${fmtInt(artVals.length)} handoffs` : 'No handoffs yet';
+
+  // ---- Severity cards ----
+  const dsats = rated.filter(c => c.csatRating <= 2);
+  const sev = { high: 0, medium: 0, low: 0 };
+  dsats.forEach(c => { sev[c.severity]++; });
+  document.getElementById('csSevTotal').textContent = fmtInt(dsats.length);
+  document.getElementById('csSevTotalSub').textContent = dsats.length ? 'All brands' : 'No dissatisfied ratings';
+  document.getElementById('csSevHigh').textContent = fmtInt(sev.high);
+  document.getElementById('csSevMed').textContent = fmtInt(sev.medium);
+  document.getElementById('csSevLow').textContent = fmtInt(sev.low);
+
+  document.querySelectorAll('#page-satisfaction .kpi-card[data-cs]').forEach(el =>
+    el.classList.toggle('on', el.dataset.cs === csRatingFilter));
+  document.querySelectorAll('#page-satisfaction .kpi-card[data-sev]').forEach(el =>
+    el.classList.toggle('on', el.dataset.sev === csSevFilter && csRatingFilter === 'dsat'));
+
+  // ---- Rating list ----
+  let list = rated;
+  if (csRatingFilter === 'csat') list = list.filter(c => c.csatRating >= 4);
+  else if (csRatingFilter === 'dsat') list = list.filter(c => c.csatRating <= 2);
+  if (csRatingFilter === 'dsat' && csSevFilter !== 'all') list = list.filter(c => c.severity === csSevFilter);
+
+  const title = csRatingFilter === 'csat' ? 'Satisfied ratings (4–5★)'
+    : csRatingFilter === 'dsat' ? (csSevFilter === 'all' ? 'Dissatisfied ratings (1–2★)' : `Dissatisfied ratings — ${SEV_LABEL[csSevFilter].toLowerCase()}`)
+    : 'All ratings';
+  document.getElementById('csListTitle').textContent = `${title} · ${fmtInt(list.length)}`;
+
+  const body = document.getElementById('csBody');
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="6"><div class="note">Nothing matches this view.</div></td></tr>';
+  } else {
+    body.innerHTML = list.slice(0, 300).map(c => {
+      const name = c.contactName || 'Unknown';
+      const colour = c.csatRating >= 4 ? 'var(--success)' : c.csatRating <= 2 ? 'var(--danger)' : 'var(--warning)';
+      const sevCell = c.severity ? `<span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span>` : '<span style="color:var(--ink-faint);">—</span>';
+      return `<tr data-conversation-id="${c.conversationId}" data-name="${escapeHtml(name)}" data-sub="${escapeHtml(chatBrandLabel(c.brand))}">
+        <td><div class="agent-cell"><div class="c-av" style="background:${colorForName(name)};">${escapeHtml(initialsFor(name))}</div><span style="font-weight:600;">${escapeHtml(name)}</span></div></td>
+        <td>${escapeHtml(chatBrandLabel(c.brand))}</td>
+        <td><span style="font-weight:800;color:${colour};">★ ${c.csatRating}/5</span></td>
+        <td>${sevCell}</td>
+        <td><div class="remarks ${c.csatFeedback ? '' : 'empty'}">${c.csatFeedback ? escapeHtml(c.csatFeedback) : 'No remarks'}</div></td>
+        <td class="num" style="font-weight:600;color:var(--ink-faint);">${timeAgo(c.lastActivityAt)}</td>
+      </tr>`;
+    }).join('');
+    if (list.length > 300) {
+      body.innerHTML += `<tr><td colspan="6"><div class="note">Showing the 300 most recent of ${fmtInt(list.length)}.</div></td></tr>`;
+    }
+  }
+
+  // ---- By brand ----
+  const byBrand = new Map();
+  const brandRow = slug => {
+    if (!byBrand.has(slug)) byBrand.set(slug, { chats: 0, rated: 0, good: 0, bad: 0, ftr: [], art: [] });
+    return byBrand.get(slug);
+  };
+  if (stats && stats.conversationsByBrand) {
+    Object.entries(stats.conversationsByBrand).forEach(([slug, n]) => { brandRow(slug).chats = n; });
+  }
+  convs.forEach(c => {
+    const r = brandRow(c.brand);
+    if (c.csatRating != null) { r.rated++; if (c.csatRating >= 4) r.good++; else if (c.csatRating <= 2) r.bad++; }
+    if (c.ftr != null) r.ftr.push(c.ftr);
+    if (c.art != null) r.art.push(c.art);
+  });
+  const brandRows = [...byBrand.entries()]
+    .map(([slug, v]) => ({ slug, ...v, pct: v.rated ? (v.good / v.rated) * 100 : null }))
+    .filter(r => r.rated > 0)
+    .sort((a, b) => b.rated - a.rated);
+
+  const bBody = document.getElementById('csBrandBody');
+  if (!brandRows.length) {
+    bBody.innerHTML = '<tr><td colspan="8"><div class="note">No ratings in September yet.</div></td></tr>';
+    document.getElementById('csBrandFoot').innerHTML = '';
+  } else {
+    bBody.innerHTML = brandRows.map(r => `<tr>
+      <td>${escapeHtml(chatBrandLabel(r.slug))}</td>
+      <td class="num" style="font-weight:500;color:var(--ink-soft);">${fmtInt(r.chats)}</td>
+      <td class="num">${fmtInt(r.rated)}</td>
+      <td class="num" style="color:var(--success);">${fmtInt(r.good)}</td>
+      <td class="num" style="color:var(--danger);">${fmtInt(r.bad)}</td>
+      <td class="num">${rateTag(r.pct)}</td>
+      <td class="num" style="font-weight:600;color:var(--ink-soft);">${r.ftr.length ? fmtDur(mean(r.ftr)) : '—'}</td>
+      <td class="num" style="font-weight:600;color:var(--ink-soft);">${r.art.length ? fmtDur(mean(r.art)) : '—'}</td>
+    </tr>`).join('');
+    const t = brandRows.reduce((s, r) => ({ chats: s.chats + r.chats, rated: s.rated + r.rated, good: s.good + r.good, bad: s.bad + r.bad }), { chats: 0, rated: 0, good: 0, bad: 0 });
+    document.getElementById('csBrandFoot').innerHTML = `<tr>
+      <td>${brandRows.length} brands</td>
+      <td class="num">${fmtInt(t.chats)}</td><td class="num">${fmtInt(t.rated)}</td>
+      <td class="num">${fmtInt(t.good)}</td><td class="num">${fmtInt(t.bad)}</td>
+      <td class="num">${t.rated ? Math.round((t.good / t.rated) * 100) + '%' : '—'}</td>
+      <td class="num">${ftrVals.length ? fmtDur(mean(ftrVals)) : '—'}</td>
+      <td class="num">${artVals.length ? fmtDur(mean(artVals)) : '—'}</td>
+    </tr>`;
+  }
+}
+
+// ---- Satisfaction interactions ----
+document.querySelectorAll('#page-satisfaction .kpi-card[data-cs]').forEach(el => el.addEventListener('click', () => {
+  // Click the active card again to clear back to everything rated.
+  csRatingFilter = csRatingFilter === el.dataset.cs ? 'all' : el.dataset.cs;
+  if (csRatingFilter !== 'dsat') csSevFilter = 'all';
+  if (csData) renderSatisfaction();
+}));
+document.querySelectorAll('#page-satisfaction .kpi-card[data-sev]').forEach(el => el.addEventListener('click', () => {
+  const sev = el.dataset.sev;
+  csRatingFilter = 'dsat';   // severity only means anything among the DSATs
+  csSevFilter = (sev === 'all' || csSevFilter === sev) ? 'all' : sev;
+  if (csData) renderSatisfaction();
+}));
+document.getElementById('csBody').addEventListener('click', (e) => {
+  const row = e.target.closest('tr[data-conversation-id]');
+  if (!row) return;
+  openConversationModal(row.dataset.conversationId, row.dataset.name, row.dataset.sub);
+});
+
+// ---- Thread modal ----
+function closeConversationModal() { document.getElementById('convModalOverlay').classList.remove('open'); }
+document.getElementById('modalCloseBtn').addEventListener('click', closeConversationModal);
+document.getElementById('convModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'convModalOverlay') closeConversationModal();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeConversationModal(); });
+
+async function openConversationModal(conversationId, customerName, customerSub) {
+  const overlay = document.getElementById('convModalOverlay');
+  const body = document.getElementById('modalBody');
+  document.getElementById('modalCustomerName').textContent = customerName || 'Unknown';
+  document.getElementById('modalCustomerSub').textContent = customerSub || '';
+  body.innerHTML = '<div class="note">Loading…</div>';
+  overlay.classList.add('open');
+  try {
+    const data = await apiGet(`/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&limit=200`);
+    const messages = (data.events || []).slice().reverse();
+    // A CSAT survey arrives twice — once as the prompt, once when answered —
+    // under the same messageId, so keep the latest version of each.
+    const byId = new Map();
+    let synthetic = 0;
+    messages.filter(m => m.content).forEach(m => { byId.set(m.messageId ?? `__no_id_${synthetic++}`, m); });
+    const withContent = [...byId.values()];
+    if (!withContent.length) {
+      body.innerHTML = '<div class="note">No messages found for this conversation. The rating is real; the thread may predate the current database.</div>';
+      return;
+    }
+    body.innerHTML = withContent.map(m => {
+      let cls, who;
+      if (m.senderType === 'contact') { cls = 'from-customer'; who = m.contactName || 'Customer'; }
+      else if (m.senderType === 'user') {
+        const isBot = AI_BOT_NAMES_CLIENT.has(m.senderName);
+        cls = 'from-agent' + (isBot ? ' is-bot' : '');
+        who = m.senderName || 'Agent';
+      } else { cls = 'from-system'; who = 'Automated Message'; }
+      const when = m.createdAt ? new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+      return `<div class="msg-row ${cls}"><div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div><div class="msg-bubble">${escapeHtml(stripHtmlClient(m.content))}</div></div>`;
+    }).join('');
+    body.scrollTop = body.scrollHeight;
+  } catch (err) {
+    console.error('Failed to load thread:', err);
+    body.innerHTML = '<div class="note">Could not load this conversation. Please try again.</div>';
+  }
+}
+
+// =====================================================================
 // SHARED CHROME
 // =====================================================================
 document.getElementById('tkHourModeTabs').addEventListener('click', (e) => {
@@ -1114,7 +1556,7 @@ document.getElementById('chartModeTabs').addEventListener('click', (e) => {
 
 // The title bar's month follows whichever report is on screen, so the page
 // never claims to be about August while showing September figures.
-const PAGE_PERIOD = { chats: 'August 2026 vs September 2026', tickets: 'September 2026' };
+const PAGE_PERIOD = { chats: 'August 2026 vs September 2026', tickets: 'September 2026', satisfaction: 'September 2026' };
 
 document.getElementById('subtabs').addEventListener('click', (e) => {
   const btn = e.target.closest('.subtab');
@@ -1197,6 +1639,36 @@ function exportActiveReport() {
     return;
   }
 
+  if (page === 'satisfaction' && csData) {
+    const { csat, rated, window: w } = csData;
+    const dsats = rated.filter(c => c.csatRating <= 2);
+    out.push('Report,Customer Satisfaction');
+    out.push(`Month,${MONTH_B.label}`);
+    out.push(`Days counted,${w.days} of ${w.daysInMonth}`);
+    out.push('');
+    out.push(Papa.unparse([
+      { Measure: 'Ratings received', Value: csat ? csat.total : rated.length },
+      { Measure: 'Average rating', Value: csat ? csat.avgRating : '' },
+      { Measure: 'CSAT %', Value: csat ? csat.csatPercent : '' },
+      { Measure: 'DSAT %', Value: csat ? csat.dsatPercent : '' },
+      { Measure: 'High severity', Value: dsats.filter(c => c.severity === 'high').length },
+      { Measure: 'Medium severity', Value: dsats.filter(c => c.severity === 'medium').length },
+      { Measure: 'Low severity', Value: dsats.filter(c => c.severity === 'low').length },
+    ]));
+    out.push('');
+    out.push('Ratings with remarks');
+    out.push(Papa.unparse(rated.map(c => ({
+      Customer: c.contactName || 'Unknown',
+      Brand: chatBrandLabel(c.brand),
+      Rating: c.csatRating,
+      Severity: c.severity ? SEV_LABEL[c.severity] : '',
+      Remarks: c.csatFeedback || '',
+      When: c.lastActivityAt ? new Date(c.lastActivityAt).toLocaleString() : '',
+    }))));
+    downloadCsv(out.join('\n'), 'customer-satisfaction-sep-2026.csv');
+    return;
+  }
+
   alert('Nothing to export yet.');
 }
 
@@ -1224,6 +1696,9 @@ document.getElementById('reportPeriod').textContent = PAGE_PERIOD.chats;
 
 loadChatsComparison();
 setInterval(loadChatsComparison, 5 * 60 * 1000);
+
+loadSatisfaction();
+setInterval(loadSatisfaction, 5 * 60 * 1000);
 
 loadAvatars();
 TicketData.fetchTickets()
