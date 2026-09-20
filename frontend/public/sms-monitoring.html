@@ -12,6 +12,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<!-- PH mobile prefix -> network lookup. ph-network.js sits in the same folder
+     as index.html, next to this file. Powers the NETWORK column in the message
+     log; if it ever fails to load the column falls back to "—" rather than
+     breaking the table. -->
+<script src="ph-network.js"></script>
 <style>
   :root{
     --primary:#2563EB; --primary-tint:#EFF4FF;
@@ -154,7 +159,6 @@
         <h1>SMS Monitoring</h1>
         <p>SMS activity across brands.</p>
       </div>
-      <!-- Page controls (range picker, account select, export, etc.) go here. -->
       <div class="tabs" id="rangeTabs">
         <button class="tab" data-days="1">Today</button>
         <button class="tab active" data-days="7">7 Days</button>
@@ -163,34 +167,6 @@
       </div>
     </div>
 
-    <!-- ============================================================
-         CONTENT GOES HERE.
-         Reusable pieces already styled above, copy as needed:
-
-         KPI card:
-           <div class="kpi-card">
-             <div class="kpi-label">Label</div>
-             <div class="kpi-value">—</div>
-           </div>
-
-         Panel with a table:
-           <div class="panel">
-             <div class="panel-head"><h3>Title</h3></div>
-             <table class="li-table">
-               <thead><tr><th>Col</th><th class="num">Value</th></tr></thead>
-               <tbody><tr><td colspan="2"><div class="empty-note">No data</div></td></tr></tbody>
-             </table>
-           </div>
-
-         Panel with a chart (Chart.js is already loaded):
-           <div class="panel">
-             <div class="panel-head"><h3>Title</h3></div>
-             <canvas id="myChart" height="90"></canvas>
-           </div>
-
-         Warning strip:
-           <div class="setup-note">⚠️ message</div>
-    ============================================================ -->
     <div id="smsSetupNote" class="setup-note" style="display:none"></div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:2px">
@@ -245,6 +221,16 @@
         <select id="logBrandFilter" style="font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:#fff">
           <option value="">All brands</option>
         </select>
+        <!-- Network filter (added 2026-09-20). Applied client-side to the rows
+             already fetched, since the network is derived from the prefix here
+             and the SMS backend has no network field to filter on. -->
+        <select id="logNetworkFilter" style="font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:#fff">
+          <option value="">All networks</option>
+          <option value="Globe">Globe</option>
+          <option value="Smart">Smart</option>
+          <option value="DITO">DITO</option>
+          <option value="Unknown">Unknown</option>
+        </select>
         <input id="logSenderFilter" type="text" placeholder="Filter by sender email…" style="font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);flex:1;min-width:180px">
         <input id="logFromDate" type="date" style="font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line)">
         <span style="align-self:center;color:var(--ink-faint);font-size:12.5px">to</span>
@@ -254,28 +240,35 @@
       </div>
 
       <div style="overflow-x:auto">
-        <table class="li-table" id="logTable" style="min-width:820px">
+        <table class="li-table" id="logTable" style="min-width:900px">
           <thead>
             <tr>
               <th>Date / time</th>
               <th>Brand</th>
               <th>Name</th>
               <th>Number</th>
+              <th>Network</th>
               <th>Message</th>
               <th>Status</th>
               <th>Sent by</th>
             </tr>
           </thead>
           <tbody id="logTableBody">
-            <tr><td colspan="7"><div class="empty-note">Loading…</div></td></tr>
+            <tr><td colspan="8"><div class="empty-note">Loading…</div></td></tr>
           </tbody>
         </table>
       </div>
 
-      <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px">
-        <button id="logPrev" class="tab" style="border-radius:8px">← Prev</button>
-        <span id="logPageInfo" style="font-size:12.5px;color:var(--ink-soft);font-weight:600"></span>
-        <button id="logNext" class="tab" style="border-radius:8px">Next →</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;flex-wrap:wrap">
+        <span style="font-size:11.5px;color:var(--ink-faint);max-width:520px;line-height:1.5">
+          Network is derived from the number's prefix, so it shows the originally
+          assigned carrier — it can differ if the subscriber ported to another telco.
+        </span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button id="logPrev" class="tab" style="border-radius:8px">← Prev</button>
+          <span id="logPageInfo" style="font-size:12.5px;color:var(--ink-soft);font-weight:600"></span>
+          <button id="logNext" class="tab" style="border-radius:8px">Next →</button>
+        </div>
       </div>
     </div>
   </main>
@@ -403,6 +396,18 @@ function statusBadge(status) {
   return `<span style="color:${c};font-weight:700;text-transform:capitalize">${status || "—"}</span>`;
 }
 
+// ---- Network column (added 2026-09-20) ----
+// Both helpers are guarded: if ph-network.js didn't load, the column shows a
+// dash and the filter treats everything as Unknown, instead of throwing
+// mid-render and blanking the whole log.
+function networkCell(number) {
+  if (typeof phNetworkBadge !== "function") return '<span style="color:var(--ink-faint)">—</span>';
+  return phNetworkBadge(number);
+}
+function networkOf(number) {
+  return typeof phNetwork === "function" ? phNetwork(number).network : "Unknown";
+}
+
 async function loadBrandOptions() {
   try {
     const res = await fetch(`${SMS_API_BASE}/brands`, { headers: smsHeaders() });
@@ -419,7 +424,7 @@ async function loadBrandOptions() {
 function renderLogTable(rows) {
   const body = document.getElementById("logTableBody");
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="7"><div class="empty-note">No messages match these filters.</div></td></tr>';
+    body.innerHTML = '<tr><td colspan="8"><div class="empty-note">No messages match these filters.</div></td></tr>';
     return;
   }
   body.innerHTML = rows.map((m) => {
@@ -432,6 +437,7 @@ function renderLogTable(rows) {
       <td>${m.brand ? m.brand.replace(/</g, "&lt;") : (m.direction === "in" ? "Reply" : "—")}</td>
       <td style="white-space:nowrap">${name}</td>
       <td style="white-space:nowrap;font-variant-numeric:tabular-nums">${number}</td>
+      <td style="white-space:nowrap">${networkCell(m.phone)}</td>
       <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${bodyShort}">${bodyShort}</td>
       <td>${statusBadge(m.status)}</td>
       <td style="color:var(--ink-soft)">${sender.replace(/</g, "&lt;")}</td>
@@ -440,7 +446,7 @@ function renderLogTable(rows) {
 }
 
 async function loadMessageLog() {
-  document.getElementById("logTableBody").innerHTML = '<tr><td colspan="7"><div class="empty-note">Loading…</div></td></tr>';
+  document.getElementById("logTableBody").innerHTML = '<tr><td colspan="8"><div class="empty-note">Loading…</div></td></tr>';
   try {
     const params = new URLSearchParams({ page: logPage, pageSize: LOG_PAGE_SIZE });
     const brand = document.getElementById("logBrandFilter").value;
@@ -456,22 +462,35 @@ async function loadMessageLog() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     logTotal = data.total || 0;
-    renderLogTable(data.rows || []);
+    let rows = data.rows || [];
+
+    // Network filter narrows only the rows this page already fetched — the
+    // backend stores no network field, so paging and the total count still
+    // come from the server. The count label says which of the two you're
+    // looking at.
+    const net = document.getElementById("logNetworkFilter").value;
+    if (net) rows = rows.filter((m) => networkOf(m.phone) === net);
+
+    renderLogTable(rows);
     const pages = Math.max(Math.ceil(logTotal / LOG_PAGE_SIZE), 1);
     document.getElementById("logPageInfo").textContent = `Page ${logPage} of ${pages}`;
-    document.getElementById("logCount").textContent = `${fmtNum(logTotal)} message${logTotal === 1 ? "" : "s"}`;
+    document.getElementById("logCount").textContent =
+      `${fmtNum(logTotal)} message${logTotal === 1 ? "" : "s"}` +
+      (net ? ` · ${fmtNum(rows.length)} ${net} on this page` : "");
     document.getElementById("logPrev").disabled = logPage <= 1;
     document.getElementById("logNext").disabled = logPage >= pages;
   } catch (err) {
     console.error("Message log fetch failed:", err);
     document.getElementById("logTableBody").innerHTML =
-      '<tr><td colspan="7"><div class="empty-note">Could not load the message log.</div></td></tr>';
+      '<tr><td colspan="8"><div class="empty-note">Could not load the message log.</div></td></tr>';
   }
 }
 
 document.getElementById("logApply").addEventListener("click", () => { logPage = 1; loadMessageLog(); });
+document.getElementById("logNetworkFilter").addEventListener("change", () => { loadMessageLog(); });
 document.getElementById("logClear").addEventListener("click", () => {
   document.getElementById("logBrandFilter").value = "";
+  document.getElementById("logNetworkFilter").value = "";
   document.getElementById("logSenderFilter").value = "";
   document.getElementById("logFromDate").value = "";
   document.getElementById("logToDate").value = "";
