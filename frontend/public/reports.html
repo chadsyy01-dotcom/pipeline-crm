@@ -12,167 +12,169 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=3"></script>
+<script src="ticket-data.js?v=5"></script>
 <style>
   :root{
-    --primary:#2563EB;
-    --primary-dark:#1D4ED8;
-    --primary-tint:#EFF4FF;
-    --success:#22C55E;
-    --success-tint:#EAFBF1;
-    --warning:#F59E0B;
-    --warning-tint:#FEF6E7;
-    --danger:#EF4444;
-    --danger-tint:#FDECEC;
-    --purple:#8B5CF6;
-    --purple-tint:#F3EEFE;
-    --teal:#14B8A6;
-    --teal-tint:#E9FAF8;
-    --bg:#F8FAFC;
-    --card:#FFFFFF;
-    --ink:#0F172A;
-    --ink-soft:#475569;
-    --ink-faint:#94A3B8;
-    --line:#EEF1F6;
-    --radius-sm:10px;
-    --radius-md:14px;
-    --radius-lg:18px;
+    --primary:#2563EB; --primary-dark:#1D4ED8; --primary-tint:#EFF4FF;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --danger:#EF4444;  --danger-tint:#FDECEC;
+    --purple:#8B5CF6;  --purple-tint:#F3EEFE;
+    --teal:#14B8A6;    --teal-tint:#E9FAF8;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6; --rule:#D8DFE9;
+    --radius-md:14px; --radius-lg:18px;
     --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
   a{color:inherit;text-decoration:none;}
   button{font-family:inherit;}
-
   .app{display:flex;min-height:100vh;}
 
-  /* SIDEBAR */
-  .sidebar{
-    width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;
-    display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;
-  }
+  /* SIDEBAR — unchanged from the rest of the console */
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
   .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
   .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
   .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
   .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
-
   .nav-group{margin-bottom:6px;}
-  .nav-item{
-    display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
-    font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;
-    margin-bottom:2px;position:relative;
-  }
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;margin-bottom:2px;}
   .nav-item svg{width:18px;height:18px;flex-shrink:0;}
   .nav-item:hover{background:#151E30;color:#fff;}
   .nav-item.active{background:var(--primary);color:#fff;}
-  .nav-item.soon{opacity:.45;cursor:default;pointer-events:none;position:relative;}
-  .nav-item.soon:hover{background:transparent;color:#AEBBD1;}
-  .nav-item.soon .soon-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.02em;background:#1C273B;color:#748199;padding:2px 6px;border-radius:6px;}
-
-  .sidebar-status{
-    margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;
-    display:flex;align-items:center;gap:8px;color:#AEBBD1;
-  }
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
 
-  /* MAIN */
-  .main{flex:1;min-width:0;padding:26px 32px 40px;}
-  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
-  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
-  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
-  .topbar-right{display:flex;align-items:center;gap:12px;}
-  .month-select{font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;color:var(--ink);cursor:pointer;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);}
-  .compare-note{font-size:12px;color:var(--ink-faint);font-weight:600;}
-  .custom-range-wrap{position:relative;}
-  .custom-range-popover{position:absolute;top:calc(100% + 8px);right:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:16px;width:300px;display:none;z-index:60;}
-  .custom-range-popover.open{display:block;}
-  .custom-range-popover h4{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--ink);}
-  .crp-field{margin-bottom:10px;}
-  .crp-field label{display:block;font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-bottom:4px;}
-  .crp-field input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;color:var(--ink);box-sizing:border-box;}
-  .crp-time-row{display:flex;gap:8px;}
-  .crp-time-row .crp-field{flex:1;margin-bottom:10px;}
-  .crp-error{font-size:11.5px;color:var(--danger);min-height:14px;margin:-2px 0 6px;}
-  .crp-actions{display:flex;gap:8px;margin-top:4px;}
-  .crp-btn{flex:1;padding:9px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);}
-  .crp-btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .main{flex:1;min-width:0;padding:26px 32px 56px;}
+  .sheet{max-width:1080px;margin:0 auto;}
 
-  /* KPI CARDS */
-  .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px;}
-  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px 16px 15px;box-shadow:var(--shadow);}
-  .kpi-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-  .kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .kpi-icon svg{width:18px;height:18px;}
-  .kpi-label{font-size:12px;color:var(--ink-soft);font-weight:600;}
-  .kpi-value{font-size:22px;font-weight:800;margin-bottom:5px;letter-spacing:-.01em;}
-  .kpi-delta{font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:4px;}
-  .up{color:var(--success);} .down{color:var(--danger);}
+  /* MASTHEAD — the one bold moment on the page. Everything else stays quiet. */
+  .masthead{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:30px 32px 26px;margin-bottom:18px;border-top:5px solid var(--primary);}
+  .masthead-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+  .masthead h1{margin:0;font-size:34px;font-weight:800;letter-spacing:-.025em;line-height:1.1;}
+  .masthead .period{display:block;font-size:34px;font-weight:400;color:var(--ink-faint);letter-spacing:-.025em;}
+  .masthead .meta{margin:12px 0 0;font-size:13px;color:var(--ink-soft);max-width:60ch;line-height:1.55;}
+  .masthead-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .month-select{font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;color:var(--ink);cursor:pointer;border:1px solid var(--rule);background:var(--card);}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:10px 15px;border-radius:10px;border:1px solid var(--rule);background:var(--card);color:var(--ink);cursor:pointer;}
+  .btn svg{width:15px;height:15px;}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
 
-  /* PANELS */
+  /* HEADLINE FIGURES */
+  .figures{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-top:26px;border-top:1px solid var(--line);padding-top:22px;}
+  .figure{padding:0 22px;border-left:1px solid var(--line);}
+  .figure:first-child{padding-left:0;border-left:none;}
+  .figure .val{font-size:30px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1;}
+  .figure .cap{font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:5px;}
+  .figure .chg{font-size:11.5px;font-weight:700;margin-top:6px;}
+  .up{color:var(--success);} .down{color:var(--danger);} .flat{color:var(--ink-faint);}
+
+  /* SECTIONS — numbered because a report is read in order. */
+  .section{margin-top:26px;}
+  .section-head{display:flex;align-items:baseline;gap:14px;padding-bottom:10px;border-bottom:2px solid var(--ink);margin-bottom:16px;}
+  .section-num{font-size:13px;font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums;}
+  .section-head h2{margin:0;font-size:19px;font-weight:800;letter-spacing:-.015em;}
+  .section-head .lede{margin-left:auto;font-size:12.5px;color:var(--ink-faint);font-weight:600;text-align:right;}
+
   .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
   .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
   .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
-  .chart-legend{display:flex;gap:16px;}
+  .panel-head .hint{font-size:11.5px;color:var(--ink-faint);font-weight:600;}
+  .cols-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+  .cols-3{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:14px;align-items:start;}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;}
   .legend-row{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft);font-weight:600;}
   .legend-row .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
 
-  .grid-3{display:grid;grid-template-columns:1.2fr 1.2fr 1fr;gap:14px;margin-bottom:14px;align-items:start;}
+  table.rt{width:100%;border-collapse:collapse;}
+  table.rt th{text-align:left;font-size:11px;letter-spacing:.02em;color:var(--ink-faint);font-weight:700;padding:0 8px 9px;border-bottom:1px solid var(--rule);white-space:nowrap;}
+  table.rt td{padding:10px 8px;font-size:13px;border-bottom:1px solid var(--line);}
+  table.rt tr:last-child td{border-bottom:none;}
+  table.rt td.num, table.rt th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  table.rt td.num{font-weight:700;}
+  table.rt tfoot td{border-top:2px solid var(--rule);border-bottom:none;font-weight:800;background:#F8FAFC;}
+  .scroll{overflow-x:auto;}
+  .tall{max-height:400px;overflow-y:auto;}
 
-  /* TABLES */
-  .report-table{width:100%;border-collapse:collapse;}
-  .report-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);font-weight:700;padding:0 8px 10px;border-bottom:1px solid var(--line);}
-  .report-table td{padding:10px 8px;font-size:13px;border-bottom:1px solid var(--line);}
-  .report-table tr:last-child td{border-bottom:none;}
-  .report-table td.num{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
-  .report-table th.num{text-align:right;}
-  .table-wrap{max-height:380px;overflow-y:auto;}
   .agent-cell{display:flex;align-items:center;gap:9px;}
-  .av-xs{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
-  .rate-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-block;}
-  .rate-pill.good{background:var(--success-tint);color:var(--success);}
-  .rate-pill.mid{background:var(--warning-tint);color:var(--warning);}
-  .rate-pill.low{background:var(--danger-tint);color:var(--ink-soft);}
-  .empty-note{color:var(--ink-faint);font-size:13px;padding:20px 4px;text-align:center;}
+  .av-xs{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;overflow:hidden;}
+  .av-xs img{width:100%;height:100%;object-fit:cover;display:block;}
+  .tag{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
+  .tag.good{background:var(--success-tint);color:var(--success);}
+  .tag.mid{background:var(--warning-tint);color:#B45309;}
+  .tag.bad{background:var(--danger-tint);color:var(--danger);}
+  .tag.neutral{background:#F1F5F9;color:var(--ink-soft);}
+
+  .bar-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+  .bar-row:last-child{border-bottom:none;}
+  .bar-label{font-size:12.5px;font-weight:600;width:132px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar-track{flex:1;height:8px;background:#F1F5F9;border-radius:4px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;}
+  .bar-val{font-size:12.5px;font-weight:800;width:52px;text-align:right;font-variant-numeric:tabular-nums;}
+  .bar-sub{font-size:11px;color:var(--ink-faint);width:78px;text-align:right;white-space:nowrap;}
 
   .donut-wrap{position:relative;display:flex;justify-content:center;}
   .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
-  .donut-center .num{font-size:20px;font-weight:800;}
+  .donut-center .num{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
   .donut-center .lab{font-size:10.5px;color:var(--ink-soft);font-weight:600;}
 
+  .note{color:var(--ink-faint);font-size:12.5px;padding:20px 4px;text-align:center;}
+  .flag{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:11px 14px;font-size:12.5px;font-weight:600;line-height:1.5;margin-bottom:14px;}
+  .source-note{font-size:11.5px;color:var(--ink-faint);line-height:1.6;margin-top:26px;padding-top:16px;border-top:1px solid var(--rule);}
+
   @media (max-width:1200px){
-    .kpi-row{grid-template-columns:repeat(3,1fr);}
-    .grid-3{grid-template-columns:1fr 1fr;}
+    .figures{grid-template-columns:repeat(3,1fr);row-gap:20px;}
+    .figure:nth-child(4){padding-left:0;border-left:none;}
+    .cols-3{grid-template-columns:1fr 1fr;}
   }
   @media (max-width:860px){
     .sidebar{display:none;}
-    .kpi-row{grid-template-columns:1fr 1fr;}
-    .grid-3{grid-template-columns:1fr;}
-    .main{padding:20px 16px 32px;}
+    .main{padding:20px 16px 36px;}
+    .masthead{padding:22px 20px;}
+    .masthead h1,.masthead .period{font-size:26px;}
+    .figures{grid-template-columns:1fr 1fr;}
+    .figure{padding:0 14px;}
+    .figure:nth-child(odd){padding-left:0;border-left:none;}
+    .cols-2,.cols-3{grid-template-columns:1fr;}
+  }
+
+  /* PRINT — the report is meant to be handed over, so it has to paginate. */
+  @media print{
+    @page{size:A4 portrait;margin:14mm;}
+    body{background:#fff;}
+    .sidebar,.masthead-actions,.no-print{display:none !important;}
+    .main{padding:0;}
+    .app{display:block;}
+    .masthead{box-shadow:none;border-radius:0;padding:0 0 18px;border-top:none;border-bottom:3px solid var(--ink);}
+    .panel{box-shadow:none;border:1px solid var(--rule);break-inside:avoid;}
+    .section{break-inside:avoid;margin-top:20px;}
+    .section:nth-of-type(n+3){break-before:page;}
+    .tall{max-height:none;overflow:visible;}
   }
 </style>
 </head>
 <body>
 <script>
-  // ---- Auth check: uses the same pipeline_token + Railway API as the React app ----
+  // ---- Auth check: same pipeline_token + Railway API as the rest of the console ----
   const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
   const LOGIN_PATH = "/login";
+  let currentUserName = null;
 
   (async function checkAuth() {
     const token = localStorage.getItem("pipeline_token");
-    if (!token) {
-      window.location.href = LOGIN_PATH;
-      return;
-    }
+    if (!token) { window.location.href = LOGIN_PATH; return; }
     try {
-      const res = await fetch(`${API_BASE}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Invalid session");
       const data = await res.json();
-      const user = data.user || data; // /api/auth/me returns { user: {...} }
-      const nameEl = document.querySelector(".profile-name");
-      if (nameEl && user && user.name) {
-        nameEl.childNodes[0].nodeValue = user.name;
+      const user = data.user || data;
+      if (user && user.name) {
+        currentUserName = user.name;
+        const el = document.getElementById('preparedBy');
+        if (el) el.textContent = user.name;
       }
     } catch (err) {
       localStorage.removeItem("pipeline_token");
@@ -182,13 +184,11 @@
 </script>
 <div class="app">
 
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="brand">
       <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
       <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
     </div>
-
     <div class="nav-group">
       <a href="csr-dashboard.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
@@ -223,696 +223,1044 @@
         Settings
       </a>
     </div>
-
     <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
   </aside>
 
-  <!-- MAIN -->
   <main class="main">
-    <div class="topbar">
-      <div class="greeting">
-        <h1>Reports</h1>
-        <p>Summary of your support operations, with comparisons to the previous period.</p>
-      </div>
-      <div class="topbar-right">
-        <span class="compare-note" id="compareNote"></span>
-        <div class="custom-range-wrap">
-          <select class="month-select" id="monthSelect"></select>
-          <div class="custom-range-popover" id="customRangePopover">
-            <h4>Filter by date range</h4>
-            <div class="crp-time-row">
-              <div class="crp-field">
-                <label>From day</label>
-                <input type="date" id="customFromDayInput">
-              </div>
-              <div class="crp-field">
-                <label>To day</label>
-                <input type="date" id="customToDayInput">
-              </div>
+    <div class="sheet">
+
+      <!-- ============ MASTHEAD ============ -->
+      <header class="masthead">
+        <div class="masthead-top">
+          <div>
+            <h1>Operations report<span class="period" id="periodTitle">—</span></h1>
+            <p class="meta">
+              Support, chat, messaging and cost figures for the month, compared with
+              <span id="prevLabelInline">the previous month</span>.
+              Prepared by <span id="preparedBy">—</span> · generated <span id="generatedAt">—</span>.
+            </p>
+          </div>
+          <div class="masthead-actions">
+            <select class="month-select" id="monthSelect"></select>
+            <button class="btn" onclick="exportReportCsv()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+              Download CSV
+            </button>
+            <button class="btn primary" onclick="window.print()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Print report
+            </button>
+          </div>
+        </div>
+
+        <div class="figures">
+          <div class="figure">
+            <div class="val" id="figTickets">—</div>
+            <div class="cap">Tickets filed</div>
+            <div class="chg" id="figTicketsChg">—</div>
+          </div>
+          <div class="figure">
+            <div class="val" id="figResolution">—</div>
+            <div class="cap">Resolution rate</div>
+            <div class="chg" id="figResolutionChg">—</div>
+          </div>
+          <div class="figure">
+            <div class="val" id="figChats">—</div>
+            <div class="cap">Chats handled</div>
+            <div class="chg" id="figChatsChg">—</div>
+          </div>
+          <div class="figure">
+            <div class="val" id="figSms">—</div>
+            <div class="cap">SMS sent</div>
+            <div class="chg" id="figSmsChg">—</div>
+          </div>
+          <div class="figure">
+            <div class="val" id="figSpend">—</div>
+            <div class="cap">Service spend</div>
+            <div class="chg" id="figSpendChg">—</div>
+          </div>
+        </div>
+      </header>
+
+      <div id="periodFlag"></div>
+
+      <!-- ============ 1 · TICKETS ============ -->
+      <section class="section">
+        <div class="section-head">
+          <span class="section-num">1</span>
+          <h2>Support tickets</h2>
+          <span class="lede">Google Sheets · all brands</span>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Tickets filed per day</h3>
+            <div class="legend">
+              <div class="legend-row"><span class="sw" style="background:var(--primary);"></span><span id="legendThis">This month</span></div>
+              <div class="legend-row"><span class="sw" style="background:#CBD5E1;"></span><span id="legendPrev">Last month</span></div>
             </div>
-            <div class="crp-error" id="customRangeError"></div>
-            <div class="crp-actions">
-              <button type="button" class="crp-btn" id="customRangeCancel">Cancel</button>
-              <button type="button" class="crp-btn primary" id="customRangeApply">Apply</button>
+          </div>
+          <canvas id="trendChart" height="78"></canvas>
+        </div>
+
+        <div class="cols-3">
+          <div class="panel">
+            <div class="panel-head"><h3>Volume by brand</h3><span class="hint">Daily average evens out short months</span></div>
+            <div class="scroll tall">
+              <table class="rt">
+                <thead><tr><th>Brand</th><th class="num">This</th><th class="num">Last</th><th class="num">Per day</th><th class="num">Change</th></tr></thead>
+                <tbody id="brandBody"></tbody>
+                <tfoot id="brandFoot"></tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h3>What customers asked about</h3></div>
+            <div class="tall">
+              <table class="rt">
+                <thead><tr><th>Concern</th><th class="num">Count</th><th class="num">Share</th></tr></thead>
+                <tbody id="concernBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h3>Where they came from</h3></div>
+            <div class="donut-wrap">
+              <canvas id="channelDonut" width="170" height="170"></canvas>
+              <div class="donut-center"><div class="num" id="channelTotal">0</div><div class="lab">tickets</div></div>
+            </div>
+            <div class="legend" id="channelLegend" style="flex-direction:column;gap:8px;margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <div class="cols-2">
+          <div class="panel">
+            <div class="panel-head"><h3>How the month closed out</h3><span class="hint">Status of every ticket filed this month</span></div>
+            <div id="statusBars"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Speed of service</h3></div>
+            <table class="rt">
+              <thead><tr><th>Measure</th><th class="num">This month</th><th class="num">Last month</th><th class="num">Change</th></tr></thead>
+              <tbody id="speedBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 2 · AGENTS ============ -->
+      <section class="section">
+        <div class="section-head">
+          <span class="section-num">2</span>
+          <h2>Agent performance</h2>
+          <span class="lede">Credited on the date a ticket was closed</span>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>Tickets closed per agent</h3></div>
+          <div style="position:relative;"><canvas id="agentBarChart"></canvas></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Agent detail</h3>
+            <span class="hint">FTR is median time to first response · ART is mean time to resolve</span>
+          </div>
+          <div class="scroll">
+            <table class="rt">
+              <thead><tr>
+                <th>Agent</th><th class="num">Acknowledged</th><th class="num">Closed</th>
+                <th class="num">Resolved</th><th class="num">Rejected</th>
+                <th class="num">Resolution rate</th><th class="num">FTR</th><th class="num">ART</th>
+              </tr></thead>
+              <tbody id="agentBody"></tbody>
+              <tfoot id="agentFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 3 · LIVE CHAT ============ -->
+      <section class="section">
+        <div class="section-head">
+          <span class="section-num">3</span>
+          <h2>Live chat</h2>
+          <span class="lede">Chatwoot and LiveChat · 70-day retention</span>
+        </div>
+        <div id="chatFlag"></div>
+
+        <div class="cols-2">
+          <div class="panel">
+            <div class="panel-head"><h3>Satisfaction and speed</h3></div>
+            <table class="rt">
+              <thead><tr><th>Measure</th><th class="num">This month</th><th class="num">Last month</th><th class="num">Change</th></tr></thead>
+              <tbody id="chatKpiBody"><tr><td colspan="4"><div class="note">Loading…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Chat volume by brand</h3></div>
+            <div id="chatBrandBars"><div class="note">Loading…</div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>Ratings by brand</h3><span class="hint">Only brands with at least one rating</span></div>
+          <div class="scroll">
+            <table class="rt">
+              <thead><tr><th>Brand</th><th class="num">Chats</th><th class="num">Rated</th><th class="num">Happy</th><th class="num">Unhappy</th><th class="num">CSAT</th></tr></thead>
+              <tbody id="chatRatingBody"><tr><td colspan="6"><div class="note">Loading…</div></td></tr></tbody>
+              <tfoot id="chatRatingFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 4 · SMS ============ -->
+      <section class="section">
+        <div class="section-head">
+          <span class="section-num">4</span>
+          <h2>SMS delivery</h2>
+          <span class="lede">OTP and outbound messages</span>
+        </div>
+        <div id="smsFlag"></div>
+
+        <div class="cols-2">
+          <div class="panel">
+            <div class="panel-head"><h3>Delivery outcome</h3></div>
+            <div id="smsBars"><div class="note">Loading…</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Messages by brand</h3></div>
+            <div class="scroll tall">
+              <table class="rt">
+                <thead><tr><th>Brand</th><th class="num">Sent</th><th class="num">Delivered</th><th class="num">Failed</th><th class="num">Success</th></tr></thead>
+                <tbody id="smsBrandBody"><tr><td colspan="5"><div class="note">Loading…</div></td></tr></tbody>
+                <tfoot id="smsBrandFoot"></tfoot>
+              </table>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- KPI ROW -->
-    <div class="kpi-row">
-      <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></div><div class="kpi-label">Total Tickets</div></div>
-        <div class="kpi-value" id="kpiTotalValue">—</div>
-        <div class="kpi-delta" id="kpiTotalDelta"></div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div><div class="kpi-label">Resolved</div></div>
-        <div class="kpi-value" id="kpiResolvedValue">—</div>
-        <div class="kpi-delta" id="kpiResolvedDelta"></div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="kpi-label">Rejected</div></div>
-        <div class="kpi-value" id="kpiRejectedValue">—</div>
-        <div class="kpi-delta" id="kpiRejectedDelta"></div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--purple-tint);color:var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="kpi-label">Resolution Rate</div></div>
-        <div class="kpi-value" id="kpiRateValue">—</div>
-        <div class="kpi-delta" id="kpiRateDelta"></div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--teal-tint);color:var(--teal);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="kpi-label">Median Response Time</div></div>
-        <div class="kpi-value" id="kpiAckValue">—</div>
-        <div class="kpi-delta" id="kpiAckDelta"></div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M12 14v3l2 1"/></svg></div><div class="kpi-label">Median Resolution Time</div></div>
-        <div class="kpi-value" id="kpiResolveTimeValue">—</div>
-        <div class="kpi-delta" id="kpiResolveTimeDelta"></div>
-      </div>
-    </div>
-
-    <!-- TREND CHART -->
-    <div class="panel">
-      <div class="panel-head">
-        <h3>Daily Ticket Volume</h3>
-        <div class="chart-legend">
-          <div class="legend-row"><span class="sw" style="background:var(--primary);"></span><span id="legendThisMonth">This Month</span></div>
-          <div class="legend-row"><span class="sw" style="background:var(--ink-faint);"></span><span id="legendLastMonth">Last Month</span></div>
+      <!-- ============ 5 · COSTS ============ -->
+      <section class="section">
+        <div class="section-head">
+          <span class="section-num">5</span>
+          <h2>Running costs</h2>
+          <span class="lede">Consolidated billing · live OpenAI usage</span>
         </div>
-      </div>
-      <canvas id="trendChart" height="80"></canvas>
-    </div>
+        <div id="costFlag"></div>
 
-    <!-- BRAND / CONCERNS / CHANNEL -->
-    <div class="grid-3">
-      <div class="panel">
-        <div class="panel-head"><h3>Tickets by Brand</h3></div>
-        <div class="compare-note" id="brandFairnessNote" style="margin:-8px 0 12px;"></div>
-        <div class="table-wrap">
-          <table class="report-table">
-            <thead><tr><th>Brand</th><th class="num">This Month</th><th class="num">Last Month</th><th class="num">Daily Avg (This)</th><th class="num">Daily Avg (Last)</th><th class="num">Change</th></tr></thead>
-            <tbody id="brandTableBody"></tbody>
-          </table>
+        <div class="cols-2">
+          <div class="panel">
+            <div class="panel-head"><h3>Spend by service</h3></div>
+            <div id="costServiceBars"><div class="note">Loading…</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>OpenAI usage by account</h3><span class="hint" id="fxNote"></span></div>
+            <div class="scroll tall">
+              <table class="rt">
+                <thead><tr><th>Account</th><th class="num">USD</th><th class="num">PHP</th></tr></thead>
+                <tbody id="openaiBody"><tr><td colspan="3"><div class="note">Loading…</div></td></tr></tbody>
+                <tfoot id="openaiFoot"></tfoot>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="panel">
-        <div class="panel-head"><h3>Top Concerns</h3></div>
-        <div class="table-wrap">
-          <table class="report-table">
-            <thead><tr><th>Issue</th><th class="num">Count</th><th class="num">% of Total</th></tr></thead>
-            <tbody id="concernsTableBody"></tbody>
-          </table>
+        <div class="panel">
+          <div class="panel-head"><h3>Cost by division</h3><span class="hint">From the consolidated billing table</span></div>
+          <div class="scroll tall">
+            <table class="rt">
+              <thead><tr><th>Division</th><th class="num">Monthly cost</th><th class="num">Share</th></tr></thead>
+              <tbody id="divisionBody"><tr><td colspan="3"><div class="note">Loading…</div></td></tr></tbody>
+              <tfoot id="divisionFoot"></tfoot>
+            </table>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="panel">
-        <div class="panel-head"><h3>By Channel</h3></div>
-        <div class="donut-wrap">
-          <canvas id="channelDonut" width="180" height="180"></canvas>
-          <div class="donut-center"><div class="num" id="channelTotal">0</div><div class="lab">total</div></div>
-        </div>
-        <div class="chart-legend" id="channelLegend" style="flex-direction:column;gap:7px;margin-top:14px;"></div>
-      </div>
+      <p class="source-note">
+        Tickets come from the brand Google Sheets and refresh every two minutes. Chat figures come
+        from the Chatwoot and LiveChat event store, which keeps 70 days of history. SMS figures come
+        from the SMS Inbox service and are counted in whole days, so a part-month reads from the
+        first of the month to today. Costs combine the saved consolidated billing table with live
+        OpenAI usage converted at the current exchange rate. Where a source is unavailable, that
+        section says so rather than showing a zero.
+      </p>
+
     </div>
-
-    <!-- AGENT PERFORMANCE -->
-    <div class="panel">
-      <div class="panel-head"><h3>Agent Performance</h3></div>
-      <div style="margin-bottom:18px;">
-        <div style="font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;">Tickets Processed by Agent</div>
-        <canvas id="agentBarChart"></canvas>
-      </div>
-      <div class="table-wrap">
-        <table class="report-table">
-          <thead><tr><th>Agent</th><th class="num">Handled</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num" title="Average Resolution Time (mean)">ART</th><th class="num" title="First Response Time (median acknowledgement time)">FTR</th></tr></thead>
-          <tbody id="agentTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
   </main>
 </div>
 
 <script>
+// =====================================================================
+// MONTHLY OPERATIONS REPORT (rebuilt 2026-09-20)
+// Four independent sources, each loaded on its own so one outage can
+// never blank the whole report:
+//   1. Tickets  — Google Sheets via TicketData (ticket-data.js)
+//   2. Chat     — Railway API /chatwoot/*
+//   3. SMS      — SMS Inbox service /api/stats
+//   4. Costs    — /billing/consolidated + /openai-billing/summary
+// Every section renders from whatever arrived and states plainly when a
+// source didn't answer.
+// =====================================================================
+
+const SMS_API_BASE = "https://sms-inbox-production-2c98.up.railway.app/api";
+const SMS_APP_PASSWORD = "";   // set only if the SMS app re-enables its password
+const smsHeaders = () => (SMS_APP_PASSWORD ? { "X-App-Password": SMS_APP_PASSWORD } : {});
+
+const { escapeHtml, formatDuration, colorForName, initialsForName, pctChange } = TicketData;
+const PALETTE = ['#2563EB','#22C55E','#8B5CF6','#F59E0B','#14B8A6','#EC4899','#0EA5E9','#F97316','#A855F7','#64748B'];
+
 let allTickets = [];
-let trendChart = null;
-let channelChart = null;
-let agentBarChart = null;
+let period = null;
+let usdToPhp = null;
+let avatarByName = new Map();
+let charts = { trend: null, channel: null, agent: null };
+// Everything the CSV export and the headline figures read from.
+let report = { tickets: null, chat: null, sms: null, cost: null };
 
-// ---- Month utilities ----
+const nameKey = n => String(n || '').trim().toLowerCase();
+const fmtInt = n => (n == null ? '—' : Math.round(n).toLocaleString());
+const fmtPct = n => (n == null ? '—' : `${n.toFixed(1)}%`);
+const peso = n => (n == null ? '—' : '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const usd = n => (n == null ? '—' : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+// ---- Period helpers ----
 function monthKeyOf(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
-function monthKeyToDate(key) { const [y, m] = key.split('-').map(Number); return new Date(y, m - 1, 1); }
-function monthLabel(key) { return monthKeyToDate(key).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
-function prevMonthKey(key) { const d = monthKeyToDate(key); d.setMonth(d.getMonth() - 1); return monthKeyOf(d); }
-function daysInMonth(key) { const d = monthKeyToDate(key); return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+function monthKeyToDate(k) { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1); }
+function monthLabel(k) { return monthKeyToDate(k).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
+function prevMonthKey(k) { const d = monthKeyToDate(k); d.setMonth(d.getMonth() - 1); return monthKeyOf(d); }
+function daysInMonth(k) { const d = monthKeyToDate(k); return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+function isoDay(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 
-function ticketsInRange(tickets, field, start, end) {
-  return tickets.filter(t => { const v = t[field]; return v && v >= start && v <= end; });
-}
-
-function formatRangeLabel(start, end) {
-  const sameDay = start.toDateString() === end.toDateString();
-  const dateFmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const dateFmtNoYear = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const timeFmt = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  const isFullDayStart = start.getHours() === 0 && start.getMinutes() === 0;
-  const isFullDayEnd = end.getHours() === 23 && end.getMinutes() >= 59;
-  const isFullDay = isFullDayStart && isFullDayEnd;
-
-  if (sameDay) {
-    return isFullDay ? `${dateFmt(start)} (All day)` : `${dateFmt(start)}, ${timeFmt(start)} – ${timeFmt(end)}`;
-  }
-  if (isFullDay) {
-    const sameYear = start.getFullYear() === end.getFullYear();
-    return sameYear ? `${dateFmtNoYear(start)} – ${dateFmt(end)}` : `${dateFmt(start)} – ${dateFmt(end)}`;
-  }
-  return `${dateFmt(start)} ${timeFmt(start)} – ${dateFmt(end)} ${timeFmt(end)}`;
-}
-
-// A "period" describes whatever window the report is currently showing —
-// either a calendar month (from the dropdown) or a custom day/time range
-// (from the popover) — plus the equal-length prior window it's compared
-// against. Every render function below reads only start/end/prevStart/
-// prevEnd/label/prevLabel/effDays/prevEffDays, so both kinds work the same.
-function buildPeriodFromMonthKey(key) {
+function buildPeriod(key) {
   const prevKey = prevMonthKey(key);
   const start = monthKeyToDate(key);
   const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
   const prevStart = monthKeyToDate(prevKey);
   const prevEnd = new Date(prevStart.getFullYear(), prevStart.getMonth() + 1, 0, 23, 59, 59, 999);
-
-  const earliest = earliestSubmittedDate(allTickets);
-  const effDays = effectiveDaysInMonth(key, earliest);
-  const prevEffDays = effectiveDaysInMonth(prevKey, earliest);
-
-  const notes = [];
-  if (monthKeyOf(new Date()) === key && effDays < daysInMonth(key)) {
-    notes.push(`${monthLabel(key)} is still in progress (day ${effDays} of ${daysInMonth(key)})`);
-  }
-  if (earliest && monthKeyOf(earliest) === prevKey) {
-    const startLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    notes.push(`ticket tracking only began ${startLabel}, so ${monthLabel(prevKey)} only has ${prevEffDays} day${prevEffDays === 1 ? '' : 's'} of real data`);
-  } else if (earliest && monthKeyOf(earliest) === key) {
-    const startLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    notes.push(`ticket tracking only began ${startLabel}, so ${monthLabel(key)} only has ${effDays} day${effDays === 1 ? '' : 's'} of real data`);
-  }
-
+  const now = new Date();
+  const isCurrent = monthKeyOf(now) === key;
+  const elapsedDays = isCurrent ? now.getDate() : daysInMonth(key);
   return {
-    kind: 'month', key, prevKey,
-    start, end, prevStart, prevEnd,
+    key, prevKey, start, end, prevStart, prevEnd, isCurrent,
     label: monthLabel(key), prevLabel: monthLabel(prevKey),
-    effDays, prevEffDays,
-    note: notes.length ? `⚠️ ${notes.join('; ')} — raw totals aren't a full comparison yet. Use the Daily Avg columns for a fairer read.` : '',
+    days: elapsedDays, prevDays: daysInMonth(prevKey),
+    effEnd: isCurrent ? now : end,
   };
 }
 
-function buildCustomPeriod(fromDateStr, toDateStr) {
-  const [fy, fmo, fd] = fromDateStr.split('-').map(Number);
-  const [ty, tmo, td] = toDateStr.split('-').map(Number);
-  const start = new Date(fy, fmo - 1, fd, 0, 0, 0, 0);
-  const end = new Date(ty, tmo - 1, td, 23, 59, 59, 999);
-  const duration = end.getTime() - start.getTime();
-  const prevEnd = new Date(start.getTime() - 1);
-  const prevStart = new Date(prevEnd.getTime() - duration);
-  const effDays = duration / 86400000;
+const inRange = (d, a, b) => d && d >= a && d <= b;
+const inPeriod = (t, f) => inRange(t[f], period.start, period.end);
+const inPrev = (t, f) => inRange(t[f], period.prevStart, period.prevEnd);
 
-  return {
-    kind: 'custom',
-    start, end, prevStart, prevEnd,
-    label: formatRangeLabel(start, end), prevLabel: formatRangeLabel(prevStart, prevEnd),
-    effDays, prevEffDays: effDays,
-    note: '',
-    trendGranularity: duration <= 48 * 3600000 ? 'hour' : 'day',
-  };
+function median(a) {
+  if (!a.length) return null;
+  const s = [...a].sort((x, y) => x - y), m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+function mean(a) { return a.length ? a.reduce((s, v) => s + v, 0) / a.length : null; }
+
+// Change line under each headline figure. lowerIsBetter flips the colour for
+// time measures, where a drop is the good outcome.
+function changeText(cur, prev, opts = {}) {
+  if (cur == null || prev == null || prev === 0) return { text: `No ${period.prevLabel} figure`, cls: 'flat' };
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  if (pct === 0) return { text: `Level with ${period.prevLabel}`, cls: 'flat' };
+  const good = opts.lowerIsBetter ? pct < 0 : pct > 0;
+  return { text: `${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}% on ${period.prevLabel}`, cls: good ? 'up' : 'down' };
+}
+function setChange(id, cur, prev, opts) {
+  const el = document.getElementById(id);
+  const c = changeText(cur, prev, opts);
+  el.textContent = c.text;
+  el.className = 'chg ' + c.cls;
+}
+function changeCell(cur, prev, opts = {}) {
+  if (cur == null || prev == null || prev === 0) return '<span style="color:var(--ink-faint);font-weight:600;">—</span>';
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  const good = opts.lowerIsBetter ? pct <= 0 : pct >= 0;
+  return `<span style="color:${good ? 'var(--success)' : 'var(--danger)'};">${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
 }
 
-// ---- Populate month dropdown (last 6 calendar months, most recent first) ----
-function populateMonthSelect() {
-  const select = document.getElementById('monthSelect');
-  const now = new Date();
-  const options = [];
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    options.push(monthKeyOf(d));
-  }
-  const monthOptionsHtml = options.map(key => `<option value="${key}">${monthLabel(key)}</option>`).join('');
-  select.innerHTML = `<option value="__custom__">📅 Filter by date range…</option>` + monthOptionsHtml;
-  select.value = options[0];
-  select.addEventListener('change', () => {
-    const val = select.value;
-    if (val === '__custom__') { openCustomPopover(); return; }
-    if (val === 'custom-active') return; // already showing this custom range
-    removeCustomOption();
-    currentPeriod = buildPeriodFromMonthKey(val);
-    renderAll(currentPeriod);
-  });
+function barList(el, rows, emptyMsg) {
+  if (!rows.length) { el.innerHTML = `<div class="note">${escapeHtml(emptyMsg)}</div>`; return; }
+  const max = Math.max(...rows.map(r => r.value)) || 1;
+  el.innerHTML = rows.map((r, i) => `
+    <div class="bar-row">
+      <div class="bar-label" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, Math.round((r.value / max) * 100))}%;background:${r.color || PALETTE[i % PALETTE.length]};"></div></div>
+      <div class="bar-val">${r.display != null ? r.display : r.value.toLocaleString()}</div>
+      ${r.sub != null ? `<div class="bar-sub">${escapeHtml(r.sub)}</div>` : ''}
+    </div>`).join('');
 }
 
-let currentPeriod = null;
-
-function removeCustomOption() {
-  const opt = document.getElementById('customOptionEl');
-  if (opt) opt.remove();
+function flag(elId, msg) {
+  const el = document.getElementById(elId);
+  el.innerHTML = msg ? `<div class="flag">${escapeHtml(msg)}</div>` : '';
 }
 
-function openCustomPopover() {
-  const fromDay = document.getElementById('customFromDayInput');
-  const toDay = document.getElementById('customToDayInput');
-  const today = new Date().toISOString().slice(0, 10);
-  if (!fromDay.value) fromDay.value = today;
-  if (!toDay.value) toDay.value = today;
-  document.getElementById('customRangeError').textContent = '';
-  document.getElementById('customRangePopover').classList.add('open');
+async function apiGet(path) {
+  const token = localStorage.getItem('pipeline_token');
+  const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
-function closeCustomPopover(revert) {
-  document.getElementById('customRangePopover').classList.remove('open');
-  if (revert) {
-    const select = document.getElementById('monthSelect');
-    if (currentPeriod && currentPeriod.kind === 'month') select.value = currentPeriod.key;
-    else if (!(currentPeriod && currentPeriod.kind === 'custom')) select.selectedIndex = 1;
-  }
+// =====================================================================
+// 1 · TICKETS
+// =====================================================================
+function renderTickets() {
+  const cur = allTickets.filter(t => inPeriod(t, 'submitted'));
+  const prev = allTickets.filter(t => inPrev(t, 'submitted'));
+  const closedCur = allTickets.filter(t => inPeriod(t, 'resolvedAt'));
+  const closedPrev = allTickets.filter(t => inPrev(t, 'resolvedAt'));
+
+  const doneCur = closedCur.filter(t => t.statusCls === 'done');
+  const donePrev = closedPrev.filter(t => t.statusCls === 'done');
+  const rejCur = closedCur.filter(t => t.statusCls === 'rejected');
+  const rejPrev = closedPrev.filter(t => t.statusCls === 'rejected');
+
+  const rateCur = closedCur.length ? (doneCur.length / closedCur.length) * 100 : null;
+  const ratePrev = closedPrev.length ? (donePrev.length / closedPrev.length) * 100 : null;
+
+  report.tickets = { cur, prev, doneCur, rejCur, rateCur, closedCur };
+
+  document.getElementById('figTickets').textContent = fmtInt(cur.length);
+  setChange('figTicketsChg', cur.length, prev.length);
+  document.getElementById('figResolution').textContent = rateCur == null ? '—' : `${Math.round(rateCur)}%`;
+  setChange('figResolutionChg', rateCur, ratePrev);
+
+  renderTrend(cur, prev);
+  renderBrands(cur, prev);
+  renderConcerns(cur);
+  renderChannels(cur);
+  renderStatus(cur);
+  renderSpeed(cur, prev, doneCur, donePrev);
+  renderAgents(closedCur);
 }
 
-function applyCustomRange() {
-  const fromDateStr = document.getElementById('customFromDayInput').value;
-  const toDateStr = document.getElementById('customToDayInput').value;
-  const errEl = document.getElementById('customRangeError');
+function renderTrend(cur, prev) {
+  const days = Math.max(daysInMonth(period.key), daysInMonth(period.prevKey));
+  const a = new Array(days).fill(0), b = new Array(days).fill(0);
+  cur.forEach(t => { a[t.submitted.getDate() - 1]++; });
+  prev.forEach(t => { b[t.submitted.getDate() - 1]++; });
+  // A part-month would otherwise flatline to zero for the days that haven't
+  // happened yet, which reads as a collapse in volume rather than a month
+  // still in progress. Cut the line at today instead.
+  const curSeries = period.isCurrent ? a.map((v, i) => (i < period.days ? v : null)) : a;
 
-  if (!fromDateStr || !toDateStr) { errEl.textContent = 'Pick a from and to day.'; return; }
-  if (toDateStr < fromDateStr) { errEl.textContent = 'To day must be on or after the from day.'; return; }
-  errEl.textContent = '';
+  document.getElementById('legendThis').textContent = period.label;
+  document.getElementById('legendPrev').textContent = period.prevLabel;
 
-  const period = buildCustomPeriod(fromDateStr, toDateStr);
-  currentPeriod = period;
-
-  const select = document.getElementById('monthSelect');
-  removeCustomOption();
-  const opt = document.createElement('option');
-  opt.value = 'custom-active';
-  opt.id = 'customOptionEl';
-  opt.textContent = `📅 ${period.label}`;
-  select.insertBefore(opt, select.firstChild);
-  select.value = 'custom-active';
-
-  closeCustomPopover(false);
-  renderAll(period);
-}
-
-document.getElementById('customRangeApply').addEventListener('click', applyCustomRange);
-document.getElementById('customRangeCancel').addEventListener('click', () => closeCustomPopover(true));
-document.addEventListener('click', (e) => {
-  const wrap = document.querySelector('.custom-range-wrap');
-  if (wrap && !wrap.contains(e.target)) closeCustomPopover(true);
-});
-document.getElementById('customRangePopover').addEventListener('click', (e) => e.stopPropagation());
-
-function median(arr) {
-  if (!arr.length) return null;
-  const sorted = [...arr].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-function mean(arr) {
-  if (!arr.length) return null;
-  return arr.reduce((sum, v) => sum + v, 0) / arr.length;
-}
-
-function deltaEl(el, current, previous, suffix) {
-  if (!el) return;
-  const pct = TicketData.pctChange(current, previous);
-  if (pct === null) {
-    el.textContent = 'No data last month';
-    el.className = 'kpi-delta';
-    el.style.color = 'var(--ink-faint)';
-    return;
-  }
-  const arrow = pct >= 0 ? '↑' : '↓';
-  el.textContent = `${arrow} ${Math.abs(pct)}% ${suffix || 'vs last month'}`;
-  el.className = 'kpi-delta ' + (pct >= 0 ? 'up' : 'down');
-  el.style.color = '';
-}
-
-function ratePillClass(rate) {
-  if (rate >= 70) return 'good';
-  if (rate >= 40) return 'mid';
-  return 'low';
-}
-
-function daysElapsedInMonth(key) {
-  const now = new Date();
-  return monthKeyOf(now) === key ? now.getDate() : daysInMonth(key);
-}
-
-function earliestSubmittedDate(tickets) {
-  let min = null;
-  tickets.forEach(t => { if (!min || t.submitted < min) min = t.submitted; });
-  return min;
-}
-
-// Days actually covered by data within a given month: accounts for the
-// current in-progress month AND for the very first month tracking began
-// (which may only be partially covered, e.g. if the system launched mid-month).
-function effectiveDaysInMonth(key, earliest) {
-  const elapsed = daysElapsedInMonth(key);
-  if (!earliest) return elapsed;
-  if (monthKeyOf(earliest) === key) return Math.max(0, elapsed - earliest.getDate() + 1);
-  const monthStart = monthKeyToDate(key);
-  return earliest > monthStart ? 0 : elapsed;
-}
-
-// ---- Main render ----
-// Accepts a "period" object built by buildPeriodFromMonthKey() or
-// buildCustomPeriod() — every chart/table below is driven purely off its
-// start/end/prevStart/prevEnd, so a whole month and a specific day/time
-// window are rendered exactly the same way.
-function renderAll(period) {
-  document.getElementById('compareNote').textContent = `Compared to ${period.prevLabel}`;
-  document.getElementById('legendThisMonth').textContent = period.label;
-  document.getElementById('legendLastMonth').textContent = period.prevLabel;
-  document.getElementById('brandFairnessNote').textContent = period.note;
-
-  const thisSubmitted = ticketsInRange(allTickets, 'submitted', period.start, period.end);
-  const lastSubmitted = ticketsInRange(allTickets, 'submitted', period.prevStart, period.prevEnd);
-  const thisResolvedEvents = ticketsInRange(allTickets, 'resolvedAt', period.start, period.end);
-  const lastResolvedEvents = ticketsInRange(allTickets, 'resolvedAt', period.prevStart, period.prevEnd);
-
-  renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolvedEvents);
-  renderTrendChart(period);
-  renderBrandTable(thisSubmitted, lastSubmitted, period.effDays, period.prevEffDays);
-  renderConcernsTable(thisSubmitted);
-  renderChannelDonut(thisSubmitted);
-  renderAgentTable(thisResolvedEvents);
-}
-
-function renderKpis(thisSubmitted, lastSubmitted, thisResolvedEvents, lastResolvedEvents) {
-  document.getElementById('kpiTotalValue').textContent = thisSubmitted.length.toLocaleString();
-  deltaEl(document.getElementById('kpiTotalDelta'), thisSubmitted.length, lastSubmitted.length);
-
-  const thisDone = thisResolvedEvents.filter(t => t.statusCls === 'done');
-  const lastDone = lastResolvedEvents.filter(t => t.statusCls === 'done');
-  document.getElementById('kpiResolvedValue').textContent = thisDone.length.toLocaleString();
-  deltaEl(document.getElementById('kpiResolvedDelta'), thisDone.length, lastDone.length);
-
-  const thisRejected = thisResolvedEvents.filter(t => t.statusCls === 'rejected');
-  const lastRejected = lastResolvedEvents.filter(t => t.statusCls === 'rejected');
-  document.getElementById('kpiRejectedValue').textContent = thisRejected.length.toLocaleString();
-  deltaEl(document.getElementById('kpiRejectedDelta'), thisRejected.length, lastRejected.length);
-
-  const thisAckVals = thisSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
-  const lastAckVals = lastSubmitted.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec);
-
-  const thisHandled = thisDone.length + thisRejected.length;
-  const lastHandled = lastDone.length + lastRejected.length;
-  const thisRate = thisHandled > 0 ? Math.round((thisDone.length / thisHandled) * 100) : null;
-  const lastRate = lastHandled > 0 ? Math.round((lastDone.length / lastHandled) * 100) : null;
-  document.getElementById('kpiRateValue').textContent = thisRate !== null ? `${thisRate}%` : '—';
-  if (thisRate !== null && lastRate !== null) {
-    const diff = thisRate - lastRate;
-    const el = document.getElementById('kpiRateDelta');
-    el.textContent = `${diff >= 0 ? '↑' : '↓'} ${Math.abs(diff)} pts vs last month`;
-    el.className = 'kpi-delta ' + (diff >= 0 ? 'up' : 'down');
-  } else {
-    const el = document.getElementById('kpiRateDelta');
-    el.textContent = 'No data last month';
-    el.className = 'kpi-delta';
-    el.style.color = 'var(--ink-faint)';
-  }
-
-  const thisAckAvg = median(thisAckVals);
-  const lastAckAvg = median(lastAckVals);
-  document.getElementById('kpiAckValue').textContent = thisAckAvg !== null ? TicketData.formatDuration(thisAckAvg) : '—';
-  if (thisAckAvg !== null && lastAckAvg !== null) {
-    const pct = TicketData.pctChange(thisAckAvg, lastAckAvg);
-    const el = document.getElementById('kpiAckDelta');
-    // For time metrics, lower is better — flip the up/down color logic.
-    el.textContent = `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}% vs last month`;
-    el.className = 'kpi-delta ' + (pct <= 0 ? 'up' : 'down');
-  } else {
-    const el = document.getElementById('kpiAckDelta');
-    el.textContent = 'No data last month';
-    el.className = 'kpi-delta';
-    el.style.color = 'var(--ink-faint)';
-  }
-
-  const thisResolveVals = thisDone.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec);
-  const lastResolveVals = lastDone.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec);
-  const thisResolveAvg = median(thisResolveVals);
-  const lastResolveAvg = median(lastResolveVals);
-  document.getElementById('kpiResolveTimeValue').textContent = thisResolveAvg !== null ? TicketData.formatDuration(thisResolveAvg) : '—';
-  if (thisResolveAvg !== null && lastResolveAvg !== null) {
-    const pct = TicketData.pctChange(thisResolveAvg, lastResolveAvg);
-    const el = document.getElementById('kpiResolveTimeDelta');
-    el.textContent = `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}% vs last month`;
-    el.className = 'kpi-delta ' + (pct <= 0 ? 'up' : 'down');
-  } else {
-    const el = document.getElementById('kpiResolveTimeDelta');
-    el.textContent = 'No data last month';
-    el.className = 'kpi-delta';
-    el.style.color = 'var(--ink-faint)';
-  }
-}
-
-function renderTrendChart(period) {
-  let labels, thisCounts, lastCounts;
-  let xTitle = 'Day of month';
-
-  if (period.kind === 'month') {
-    const days = Math.max(daysInMonth(period.key), daysInMonth(period.prevKey));
-    thisCounts = new Array(days).fill(0);
-    lastCounts = new Array(days).fill(0);
-    ticketsInRange(allTickets, 'submitted', period.start, period.end).forEach(t => { thisCounts[t.submitted.getDate() - 1]++; });
-    ticketsInRange(allTickets, 'submitted', period.prevStart, period.prevEnd).forEach(t => { lastCounts[t.submitted.getDate() - 1]++; });
-    labels = Array.from({ length: days }, (_, i) => i + 1);
-  } else {
-    // Custom day/time range: bucket by hour for short windows, by day for
-    // longer ones, aligned so bucket i on the "this" line and bucket i on
-    // the "previous" line represent the same elapsed offset from the start
-    // of their respective windows.
-    const bucketMs = period.trendGranularity === 'hour' ? 3600000 : 86400000;
-    const bucketCount = Math.max(1, Math.round((period.end - period.start) / bucketMs));
-    thisCounts = new Array(bucketCount).fill(0);
-    lastCounts = new Array(bucketCount).fill(0);
-    ticketsInRange(allTickets, 'submitted', period.start, period.end).forEach(t => {
-      const idx = Math.min(bucketCount - 1, Math.max(0, Math.floor((t.submitted - period.start) / bucketMs)));
-      thisCounts[idx]++;
-    });
-    ticketsInRange(allTickets, 'submitted', period.prevStart, period.prevEnd).forEach(t => {
-      const idx = Math.min(bucketCount - 1, Math.max(0, Math.floor((t.submitted - period.prevStart) / bucketMs)));
-      lastCounts[idx]++;
-    });
-    labels = Array.from({ length: bucketCount }, (_, i) => {
-      const t = new Date(period.start.getTime() + i * bucketMs);
-      return period.trendGranularity === 'hour'
-        ? t.toLocaleTimeString('en-US', { hour: 'numeric' })
-        : t.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    });
-    xTitle = period.trendGranularity === 'hour' ? 'Hour' : 'Day';
-  }
-
-  if (trendChart) trendChart.destroy();
-  trendChart = new Chart(document.getElementById('trendChart'), {
+  if (charts.trend) charts.trend.destroy();
+  charts.trend = new Chart(document.getElementById('trendChart'), {
     type: 'line',
     data: {
-      labels,
+      labels: Array.from({ length: days }, (_, i) => i + 1),
       datasets: [
-        { label: period.label, data: thisCounts, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,.08)', fill: true, tension: .35, pointRadius: 0, borderWidth: 2.5 },
-        { label: period.prevLabel, data: lastCounts, borderColor: '#CBD5E1', backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0, borderWidth: 2, borderDash: [5, 4] }
-      ]
+        { label: period.label, data: curSeries, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,.08)', fill: true, tension: .35, pointRadius: 0, borderWidth: 2.5, spanGaps: false },
+        { label: period.prevLabel, data: b, borderColor: '#CBD5E1', fill: false, tension: .35, pointRadius: 0, borderWidth: 2, borderDash: [5, 4] },
+      ],
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { title: { display: true, text: xTitle }, grid: { display: false } },
-        y: { beginAtZero: true, grid: { color: '#EEF1F6' } }
-      }
-    }
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: it => `Day ${it[0].label}` } } },
+      scales: { x: { title: { display: true, text: 'Day of month' }, grid: { display: false } }, y: { beginAtZero: true, grid: { color: '#EEF1F6' } } },
+    },
   });
 }
 
-function renderBrandTable(thisSubmitted, lastSubmitted, thisDays, lastDays) {
-  const thisCounts = {};
-  const lastCounts = {};
-  thisSubmitted.forEach(t => { thisCounts[t.brandLabel] = (thisCounts[t.brandLabel] || 0) + 1; });
-  lastSubmitted.forEach(t => { lastCounts[t.brandLabel] = (lastCounts[t.brandLabel] || 0) + 1; });
-  const allBrands = new Set([...Object.keys(thisCounts), ...Object.keys(lastCounts)]);
-  const brands = Array.from(allBrands).sort((a, b) => (thisCounts[b] || 0) - (thisCounts[a] || 0));
+function renderBrands(cur, prev) {
+  const c = {}, p = {};
+  cur.forEach(t => { c[t.brandLabel] = (c[t.brandLabel] || 0) + 1; });
+  prev.forEach(t => { p[t.brandLabel] = (p[t.brandLabel] || 0) + 1; });
+  const brands = [...new Set([...Object.keys(c), ...Object.keys(p)])].sort((x, y) => (c[y] || 0) - (c[x] || 0));
 
-  const tbody = document.getElementById('brandTableBody');
-  if (brands.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-note">No tickets this month</div></td></tr>';
+  const tbody = document.getElementById('brandBody');
+  if (!brands.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="note">No tickets in this month.</div></td></tr>';
+    document.getElementById('brandFoot').innerHTML = '';
     return;
   }
-  tbody.innerHTML = brands.map(brand => {
-    const cur = thisCounts[brand] || 0;
-    const prev = lastCounts[brand] || 0;
-    const curDaily = thisDays > 0 ? (cur / thisDays) : 0;
-    const prevDaily = lastDays > 0 ? (prev / lastDays) : 0;
-    const dailyPct = TicketData.pctChange(curDaily, prevDaily);
-    const changeText = dailyPct === null ? '—' : `${dailyPct >= 0 ? '↑' : '↓'} ${Math.abs(dailyPct)}%`;
-    const changeColor = dailyPct === null ? 'var(--ink-faint)' : (dailyPct >= 0 ? 'var(--success)' : 'var(--danger)');
+  tbody.innerHTML = brands.map(b => {
+    const a = c[b] || 0, z = p[b] || 0;
+    const perDay = period.days ? a / period.days : 0;
+    const prevPerDay = period.prevDays ? z / period.prevDays : 0;
     return `<tr>
-      <td>${TicketData.escapeHtml(brand)}</td>
-      <td class="num">${cur.toLocaleString()}</td>
-      <td class="num">${prev.toLocaleString()}</td>
-      <td class="num">${curDaily.toFixed(1)}/day</td>
-      <td class="num">${prevDaily.toFixed(1)}/day</td>
-      <td class="num" style="color:${changeColor};">${changeText}</td>
+      <td>${escapeHtml(b)}</td>
+      <td class="num">${a.toLocaleString()}</td>
+      <td class="num" style="font-weight:500;color:var(--ink-soft);">${z.toLocaleString()}</td>
+      <td class="num">${perDay.toFixed(1)}</td>
+      <td class="num">${changeCell(perDay, prevPerDay)}</td>
     </tr>`;
   }).join('');
+  document.getElementById('brandFoot').innerHTML = `<tr>
+    <td>All brands</td>
+    <td class="num">${cur.length.toLocaleString()}</td>
+    <td class="num">${prev.length.toLocaleString()}</td>
+    <td class="num">${(period.days ? cur.length / period.days : 0).toFixed(1)}</td>
+    <td class="num">${changeCell(period.days ? cur.length / period.days : 0, period.prevDays ? prev.length / period.prevDays : 0)}</td>
+  </tr>`;
 }
 
-function renderConcernsTable(thisSubmitted) {
+function renderConcerns(cur) {
   const counts = {};
-  thisSubmitted.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
-  const total = thisSubmitted.length;
-  const issues = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 10);
-
-  const tbody = document.getElementById('concernsTableBody');
-  if (issues.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3"><div class="empty-note">No tickets this month</div></td></tr>';
-    return;
-  }
-  tbody.innerHTML = issues.map(issue => {
-    const count = counts[issue];
-    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-    return `<tr>
-      <td>${TicketData.escapeHtml(issue)}</td>
-      <td class="num">${count.toLocaleString()}</td>
-      <td class="num">${pct}%</td>
-    </tr>`;
-  }).join('');
+  cur.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
+  const issues = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 12);
+  const body = document.getElementById('concernBody');
+  if (!issues.length) { body.innerHTML = '<tr><td colspan="3"><div class="note">No tickets in this month.</div></td></tr>'; return; }
+  body.innerHTML = issues.map(i => `<tr>
+    <td>${escapeHtml(i)}</td>
+    <td class="num">${counts[i].toLocaleString()}</td>
+    <td class="num" style="font-weight:600;color:var(--ink-soft);">${Math.round((counts[i] / cur.length) * 100)}%</td>
+  </tr>`).join('');
 }
 
-function renderChannelDonut(thisSubmitted) {
+function renderChannels(cur) {
   const counts = {};
-  thisSubmitted.forEach(t => { counts[t.channel] = (counts[t.channel] || 0) + 1; });
+  cur.forEach(t => { counts[t.channel] = (counts[t.channel] || 0) + 1; });
   const labels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
   const values = labels.map(l => counts[l]);
-  const total = values.reduce((a, b) => a + b, 0);
-  const palette = ['#2563EB', '#F59E0B', '#22C55E', '#8B5CF6', '#14B8A6', '#EC4899', '#64748B'];
+  document.getElementById('channelTotal').textContent = cur.length.toLocaleString();
 
-  document.getElementById('channelTotal').textContent = total.toLocaleString();
-
-  if (channelChart) channelChart.destroy();
-  channelChart = new Chart(document.getElementById('channelDonut'), {
+  if (charts.channel) charts.channel.destroy();
+  charts.channel = new Chart(document.getElementById('channelDonut'), {
     type: 'doughnut',
-    data: { labels, datasets: [{ data: values, backgroundColor: palette, borderWidth: 0 }] },
-    options: { responsive: false, cutout: '70%', plugins: { legend: { display: false } } }
+    data: { labels, datasets: [{ data: values, backgroundColor: PALETTE, borderWidth: 0 }] },
+    options: { responsive: false, cutout: '68%', plugins: { legend: { display: false } } },
   });
 
   const legend = document.getElementById('channelLegend');
-  if (labels.length === 0) {
-    legend.innerHTML = '<div class="empty-note">No tickets this month</div>';
-    return;
-  }
-  legend.innerHTML = labels.map((label, i) => `
-    <div class="legend-row">
-      <span class="sw" style="background:${palette[i % palette.length]};"></span>
-      <span>${TicketData.escapeHtml(label)}</span>
-      <b style="margin-left:auto;color:var(--ink);">${counts[label].toLocaleString()}</b>
-    </div>
-  `).join('');
+  legend.innerHTML = labels.length
+    ? labels.map((l, i) => `<div class="legend-row">
+        <span class="sw" style="background:${PALETTE[i % PALETTE.length]};"></span>
+        <span>${escapeHtml(l)}</span>
+        <b style="margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums;">${counts[l].toLocaleString()}</b>
+      </div>`).join('')
+    : '<div class="note">No tickets in this month.</div>';
 }
 
-function renderAgentTable(thisResolvedEvents) {
-  const agents = {};
-  thisResolvedEvents.forEach(t => {
-    const name = t.resolvedBy || 'Unassigned';
-    if (!agents[name]) agents[name] = { done: 0, rejected: 0, resolveDurations: [], ackDurations: [] };
-    if (t.statusCls === 'done') agents[name].done++;
-    if (t.statusCls === 'rejected') agents[name].rejected++;
-    if (t.resolveDurationSec != null) agents[name].resolveDurations.push(t.resolveDurationSec);
-    if (t.ackDurationSec != null) agents[name].ackDurations.push(t.ackDurationSec);
-  });
-  const names = Object.keys(agents).sort((a, b) => (agents[b].done + agents[b].rejected) - (agents[a].done + agents[a].rejected));
+function renderStatus(cur) {
+  const map = { pending: 'Still new', checking: 'In progress', done: 'Resolved', rejected: 'Rejected' };
+  const color = { pending: '#2563EB', checking: '#F59E0B', done: '#22C55E', rejected: '#EF4444' };
+  const counts = {};
+  cur.forEach(t => { counts[t.statusCls] = (counts[t.statusCls] || 0) + 1; });
+  const rows = Object.keys(map).filter(k => counts[k]).map(k => ({
+    label: map[k], value: counts[k], color: color[k],
+    sub: `${Math.round((counts[k] / cur.length) * 100)}% of month`,
+  }));
+  const other = cur.length - rows.reduce((s, r) => s + r.value, 0);
+  if (other > 0) rows.push({ label: 'Other status', value: other, color: '#94A3B8', sub: `${Math.round((other / cur.length) * 100)}% of month` });
+  barList(document.getElementById('statusBars'), rows, 'No tickets in this month.');
+}
 
-  // Bar chart: total tickets processed (handled) per agent, ranked.
-  const chartCanvas = document.getElementById('agentBarChart');
-  if (agentBarChart) agentBarChart.destroy();
-  if (names.length === 0) {
-    chartCanvas.style.display = 'none';
+function renderSpeed(cur, prev, doneCur, donePrev) {
+  const ackCur = median(cur.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec));
+  const ackPrev = median(prev.filter(t => t.ackDurationSec != null).map(t => t.ackDurationSec));
+  const resCur = median(doneCur.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec));
+  const resPrev = median(donePrev.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec));
+  const resMeanCur = mean(doneCur.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec));
+  const resMeanPrev = mean(donePrev.filter(t => t.resolveDurationSec != null).map(t => t.resolveDurationSec));
+  const openNow = allTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
+
+  const rows = [
+    ['Median first response', ackCur, ackPrev, true],
+    ['Median time to resolve', resCur, resPrev, true],
+    ['Mean time to resolve', resMeanCur, resMeanPrev, true],
+  ].map(([label, a, b, lower]) => `<tr>
+    <td>${label}</td>
+    <td class="num">${a != null ? formatDuration(a) : '—'}</td>
+    <td class="num" style="font-weight:500;color:var(--ink-soft);">${b != null ? formatDuration(b) : '—'}</td>
+    <td class="num">${changeCell(a, b, { lowerIsBetter: lower })}</td>
+  </tr>`).join('');
+
+  document.getElementById('speedBody').innerHTML = rows + `<tr>
+    <td>Still open right now</td>
+    <td class="num">${openNow.toLocaleString()}</td>
+    <td class="num" style="color:var(--ink-faint);font-weight:500;">—</td>
+    <td class="num" style="color:var(--ink-faint);font-weight:600;">Current state</td>
+  </tr>`;
+}
+
+// =====================================================================
+// 2 · AGENTS
+// =====================================================================
+function renderAgents(closedCur) {
+  const agents = new Map();
+  const get = n => {
+    if (!agents.has(n)) agents.set(n, { acked: 0, done: 0, rejected: 0, ack: [], res: [] });
+    return agents.get(n);
+  };
+  // Acknowledgements are credited on the day they happened, which can differ
+  // from the day the ticket was closed — so they're counted separately.
+  allTickets.forEach(t => {
+    if (t.acknowledgedBy && inPeriod(t, 'acknowledgedAt')) {
+      const a = get(t.acknowledgedBy);
+      a.acked++;
+      if (t.ackDurationSec != null) a.ack.push(t.ackDurationSec);
+    }
+  });
+  closedCur.forEach(t => {
+    const name = t.resolvedBy || 'Unassigned';
+    const a = get(name);
+    if (t.statusCls === 'done') { a.done++; if (t.resolveDurationSec != null) a.res.push(t.resolveDurationSec); }
+    else if (t.statusCls === 'rejected') a.rejected++;
+  });
+
+  const rows = [...agents.entries()]
+    .map(([name, a]) => ({ name, ...a, closed: a.done + a.rejected }))
+    .filter(a => a.closed > 0 || a.acked > 0)
+    .sort((x, y) => y.closed - x.closed || y.acked - x.acked);
+
+  const canvas = document.getElementById('agentBarChart');
+  if (charts.agent) charts.agent.destroy();
+  const withClosed = rows.filter(r => r.closed > 0);
+  if (!withClosed.length) {
+    canvas.style.display = 'none';
   } else {
-    chartCanvas.style.display = '';
-    const handledCounts = names.map(n => agents[n].done + agents[n].rejected);
-    const barHeight = Math.max(180, names.length * 34);
-    chartCanvas.parentElement.style.height = `${barHeight}px`;
-    agentBarChart = new Chart(chartCanvas, {
+    canvas.style.display = '';
+    canvas.parentElement.style.height = `${Math.max(180, withClosed.length * 34)}px`;
+    charts.agent = new Chart(canvas, {
       type: 'bar',
       data: {
-        labels: names,
-        datasets: [{
-          label: 'Tickets Processed',
-          data: handledCounts,
-          backgroundColor: '#2563EB',
-          borderRadius: 6,
-          maxBarThickness: 22
-        }]
+        labels: withClosed.map(r => r.name),
+        datasets: [
+          { label: 'Resolved', data: withClosed.map(r => r.done), backgroundColor: '#22C55E', borderRadius: 5, maxBarThickness: 20 },
+          { label: 'Rejected', data: withClosed.map(r => r.rejected), backgroundColor: '#EF4444', borderRadius: 5, maxBarThickness: 20 },
+        ],
       },
       options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { beginAtZero: true, grid: { color: '#EEF1F6' } },
-          y: { grid: { display: false } }
-        }
-      }
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 11, font: { size: 11 } } } },
+        scales: { x: { stacked: true, beginAtZero: true, grid: { color: '#EEF1F6' } }, y: { stacked: true, grid: { display: false } } },
+      },
     });
   }
 
-  const tbody = document.getElementById('agentTableBody');
-  if (names.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-note">No resolved tickets this month</div></td></tr>';
+  const tbody = document.getElementById('agentBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="note">No agent activity in this month.</div></td></tr>';
+    document.getElementById('agentFoot').innerHTML = '';
     return;
   }
-  tbody.innerHTML = names.map(name => {
-    const a = agents[name];
-    const handled = a.done + a.rejected;
-    // ART — Average Resolution Time per agent (mean of resolve duration).
-    const art = mean(a.resolveDurations);
-    // FTR — First Response Time per agent (median acknowledgement time).
-    // Fixed 2026-09-14: previously this column showed median RESOLVE time,
-    // duplicating ART instead of measuring the first response.
-    const ftr = median(a.ackDurations);
+  tbody.innerHTML = rows.map(a => {
+    const rate = a.closed ? (a.done / a.closed) * 100 : null;
+    const cls = rate == null ? 'neutral' : rate >= 80 ? 'good' : rate >= 50 ? 'mid' : 'bad';
+    const avatar = avatarByName.get(nameKey(a.name));
+    const face = avatar ? `<img src="${avatar}" alt="">` : escapeHtml(initialsForName(a.name));
     return `<tr>
-      <td>
-        <div class="agent-cell">
-          <div class="av-xs" style="background:${TicketData.colorForName(name)};">${TicketData.initialsForName(name)}</div>
-          <span>${TicketData.escapeHtml(name)}</span>
-        </div>
-      </td>
-      <td class="num">${handled.toLocaleString()}</td>
-      <td class="num">${a.done.toLocaleString()}</td>
-      <td class="num">${a.rejected.toLocaleString()}</td>
-      <td class="num">${art !== null ? TicketData.formatDuration(art) : '—'}</td>
-      <td class="num">${ftr !== null ? TicketData.formatDuration(ftr) : '—'}</td>
+      <td><div class="agent-cell"><div class="av-xs" style="background:${colorForName(a.name)};">${face}</div><span style="font-weight:600;">${escapeHtml(a.name)}</span></div></td>
+      <td class="num">${a.acked.toLocaleString()}</td>
+      <td class="num">${a.closed.toLocaleString()}</td>
+      <td class="num" style="color:var(--success);">${a.done.toLocaleString()}</td>
+      <td class="num" style="color:var(--danger);">${a.rejected.toLocaleString()}</td>
+      <td class="num"><span class="tag ${cls}">${rate == null ? '—' : Math.round(rate) + '%'}</span></td>
+      <td class="num">${median(a.ack) != null ? formatDuration(median(a.ack)) : '—'}</td>
+      <td class="num">${mean(a.res) != null ? formatDuration(mean(a.res)) : '—'}</td>
     </tr>`;
   }).join('');
+
+  const tot = rows.reduce((s, a) => ({
+    acked: s.acked + a.acked, closed: s.closed + a.closed, done: s.done + a.done, rejected: s.rejected + a.rejected,
+  }), { acked: 0, closed: 0, done: 0, rejected: 0 });
+  document.getElementById('agentFoot').innerHTML = `<tr>
+    <td>${rows.length} agent${rows.length === 1 ? '' : 's'}</td>
+    <td class="num">${tot.acked.toLocaleString()}</td>
+    <td class="num">${tot.closed.toLocaleString()}</td>
+    <td class="num">${tot.done.toLocaleString()}</td>
+    <td class="num">${tot.rejected.toLocaleString()}</td>
+    <td class="num">${tot.closed ? Math.round((tot.done / tot.closed) * 100) + '%' : '—'}</td>
+    <td class="num">—</td><td class="num">—</td>
+  </tr>`;
 }
 
-// ---- Boot ----
-populateMonthSelect();
+// =====================================================================
+// 3 · LIVE CHAT
+// =====================================================================
+const CHAT_BRAND_LABELS = {
+  buenasph: 'Buenas PH', tmtcash: 'TMTCash', mcp: 'Mobile Casino Play', manilaplayph: 'Manila Play PH',
+  HypleplayPH: 'HypePlay PH', HypeplayBD: 'HypePlay BD', Tmtplay: 'TMTPLAY', MGK: '88MGK',
+  BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH',
+  casinyeam: 'Casinyeam', manilacasino: 'Manila Casino', superscatterph: 'SuperScatter PH',
+  'livechat-general': 'LC General',
+};
+const chatBrandLabel = s => (!s ? 'Unknown' : CHAT_BRAND_LABELS[s] || s.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+
+async function loadChat() {
+  const q = (a, b) => `from=${encodeURIComponent(a.toISOString())}&to=${encodeURIComponent(b.toISOString())}`;
+  const cur = q(period.start, period.effEnd);
+  const prv = q(period.prevStart, period.prevEnd);
+  try {
+    const [statsC, statsP, csatC, csatP, convs] = await Promise.all([
+      apiGet(`/chatwoot/stats?${cur}`),
+      apiGet(`/chatwoot/stats?${prv}`),
+      apiGet(`/chatwoot/csat?${cur}`),
+      apiGet(`/chatwoot/csat?${prv}`),
+      apiGet(`/chatwoot/conversations?limit=1000&perBrand=300&perBrandOverrides=buenasph:1000,tmtcash:1000&${cur}`),
+    ]);
+    const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
+    const chatsC = sum(statsC.conversationsByBrand), chatsP = sum(statsP.conversationsByBrand);
+    const list = convs.conversations || [];
+    const ftr = mean(list.filter(c => c.ftr != null).map(c => c.ftr));
+    const art = mean(list.filter(c => c.art != null).map(c => c.art));
+
+    report.chat = { chatsC, chatsP, csatC, csatP, ftr, art, byBrand: statsC.conversationsByBrand || {}, ratings: statsC.csatByBrand || {} };
+
+    document.getElementById('figChats').textContent = fmtInt(chatsC);
+    setChange('figChatsChg', chatsC, chatsP);
+
+    document.getElementById('chatKpiBody').innerHTML = `
+      <tr><td>Chats handled</td><td class="num">${fmtInt(chatsC)}</td><td class="num" style="font-weight:500;color:var(--ink-soft);">${fmtInt(chatsP)}</td><td class="num">${changeCell(chatsC, chatsP)}</td></tr>
+      <tr><td>Happy ratings (CSAT)</td><td class="num">${csatC.total ? csatC.csatPercent + '%' : '—'}</td><td class="num" style="font-weight:500;color:var(--ink-soft);">${csatP.total ? csatP.csatPercent + '%' : '—'}</td><td class="num">${changeCell(csatC.total ? csatC.csatPercent : null, csatP.total ? csatP.csatPercent : null)}</td></tr>
+      <tr><td>Unhappy ratings (DSAT)</td><td class="num">${csatC.total ? csatC.dsatPercent + '%' : '—'}</td><td class="num" style="font-weight:500;color:var(--ink-soft);">${csatP.total ? csatP.dsatPercent + '%' : '—'}</td><td class="num">${changeCell(csatC.total ? csatC.dsatPercent : null, csatP.total ? csatP.dsatPercent : null, { lowerIsBetter: true })}</td></tr>
+      <tr><td>Ratings received</td><td class="num">${fmtInt(csatC.total || 0)}</td><td class="num" style="font-weight:500;color:var(--ink-soft);">${fmtInt(csatP.total || 0)}</td><td class="num">${changeCell(csatC.total, csatP.total)}</td></tr>
+      <tr><td>Average first reply</td><td class="num">${ftr != null ? formatDuration(ftr) : '—'}</td><td class="num" style="color:var(--ink-faint);font-weight:500;">—</td><td class="num" style="color:var(--ink-faint);font-weight:600;">Handoffs only</td></tr>
+      <tr><td>Average chat length</td><td class="num">${art != null ? formatDuration(art) : '—'}</td><td class="num" style="color:var(--ink-faint);font-weight:500;">—</td><td class="num" style="color:var(--ink-faint);font-weight:600;">Handoffs only</td></tr>`;
+
+    barList(document.getElementById('chatBrandBars'),
+      Object.entries(report.chat.byBrand).sort((a, b) => b[1] - a[1])
+        .map(([b, n]) => ({ label: chatBrandLabel(b), value: n, sub: `${Math.round((n / (chatsC || 1)) * 100)}%` })),
+      'No chats in this month.');
+
+    const rated = Object.entries(report.chat.ratings).filter(([, v]) => v.total > 0)
+      .sort((a, b) => b[1].total - a[1].total);
+    const rb = document.getElementById('chatRatingBody');
+    if (!rated.length) {
+      rb.innerHTML = '<tr><td colspan="6"><div class="note">No ratings in this month.</div></td></tr>';
+      document.getElementById('chatRatingFoot').innerHTML = '';
+    } else {
+      rb.innerHTML = rated.map(([b, v]) => {
+        const happy = v.total - v.dsat;
+        const pct = Math.round((happy / v.total) * 100);
+        const cls = pct >= 80 ? 'good' : pct >= 60 ? 'mid' : 'bad';
+        return `<tr>
+          <td>${escapeHtml(chatBrandLabel(b))}</td>
+          <td class="num" style="font-weight:500;color:var(--ink-soft);">${fmtInt(report.chat.byBrand[b] || 0)}</td>
+          <td class="num">${v.total.toLocaleString()}</td>
+          <td class="num" style="color:var(--success);">${happy.toLocaleString()}</td>
+          <td class="num" style="color:var(--danger);">${v.dsat.toLocaleString()}</td>
+          <td class="num"><span class="tag ${cls}">${pct}%</span></td>
+        </tr>`;
+      }).join('');
+      const t = rated.reduce((s, [, v]) => ({ total: s.total + v.total, dsat: s.dsat + v.dsat }), { total: 0, dsat: 0 });
+      document.getElementById('chatRatingFoot').innerHTML = `<tr>
+        <td>All brands</td><td class="num">${fmtInt(chatsC)}</td><td class="num">${t.total.toLocaleString()}</td>
+        <td class="num">${(t.total - t.dsat).toLocaleString()}</td><td class="num">${t.dsat.toLocaleString()}</td>
+        <td class="num">${Math.round(((t.total - t.dsat) / t.total) * 100)}%</td></tr>`;
+    }
+    flag('chatFlag', '');
+  } catch (err) {
+    console.error('Chat section failed:', err);
+    flag('chatFlag', 'Chat figures are unavailable — the chat service did not answer. Everything else in this report is unaffected.');
+    document.getElementById('chatKpiBody').innerHTML = '<tr><td colspan="4"><div class="note">No chat data.</div></td></tr>';
+    document.getElementById('chatBrandBars').innerHTML = '<div class="note">No chat data.</div>';
+    document.getElementById('chatRatingBody').innerHTML = '<tr><td colspan="6"><div class="note">No chat data.</div></td></tr>';
+    document.getElementById('figChats').textContent = '—';
+    document.getElementById('figChatsChg').textContent = 'Source unavailable';
+    document.getElementById('figChatsChg').className = 'chg flat';
+  }
+}
+
+// =====================================================================
+// 4 · SMS
+// The SMS service counts back a whole number of days from now, so it can
+// report the current month and recent ones, but not an arbitrary past
+// month. Older months say so rather than showing a wrong figure.
+// =====================================================================
+async function loadSms() {
+  const now = new Date();
+  const daysSinceStart = Math.ceil((now - period.start) / 86400000);
+  const daysSinceEnd = Math.ceil((now - period.end) / 86400000);
+  const canCount = period.isCurrent || daysSinceEnd <= 0 || daysSinceStart <= 120;
+
+  if (!canCount) {
+    flag('smsFlag', `SMS figures only reach back about 120 days, so ${period.label} is out of range.`);
+    document.getElementById('smsBars').innerHTML = '<div class="note">Out of range.</div>';
+    document.getElementById('smsBrandBody').innerHTML = '<tr><td colspan="5"><div class="note">Out of range.</div></td></tr>';
+    document.getElementById('figSms').textContent = '—';
+    document.getElementById('figSmsChg').textContent = 'Out of range';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${SMS_API_BASE}/stats?days=${Math.max(1, daysSinceStart)}`, { headers: smsHeaders() });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const totals = data.totals || {};
+    const brands = data.brands || [];
+    const sent = totals.total || 0;
+    const delivered = totals.delivered || 0;
+    const failed = totals.failed || 0;
+    const pendingOrSent = Math.max(0, sent - delivered - failed);
+    report.sms = { totals, brands, sent, delivered, failed };
+
+    document.getElementById('figSms').textContent = fmtInt(sent);
+    const successPct = sent ? ((sent - failed) / sent) * 100 : null;
+    const chg = document.getElementById('figSmsChg');
+    chg.textContent = successPct == null ? 'No messages' : `${successPct.toFixed(1)}% reached a handset`;
+    chg.className = 'chg ' + (successPct == null ? 'flat' : successPct >= 95 ? 'up' : 'down');
+
+    barList(document.getElementById('smsBars'), [
+      { label: 'Delivered', value: delivered, color: '#22C55E', sub: sent ? `${Math.round((delivered / sent) * 100)}%` : '—' },
+      { label: 'Sent, not confirmed', value: pendingOrSent, color: '#2563EB', sub: sent ? `${Math.round((pendingOrSent / sent) * 100)}%` : '—' },
+      { label: 'Failed', value: failed, color: '#EF4444', sub: sent ? `${Math.round((failed / sent) * 100)}%` : '—' },
+    ].filter(r => r.value > 0), 'No messages in this month.');
+
+    const body = document.getElementById('smsBrandBody');
+    if (!brands.length) {
+      body.innerHTML = '<tr><td colspan="5"><div class="note">No messages in this month.</div></td></tr>';
+      document.getElementById('smsBrandFoot').innerHTML = '';
+    } else {
+      body.innerHTML = brands.map(b => {
+        const ok = (b.delivered || 0) + (b.sent || 0);
+        const pct = b.total ? Math.round((ok / b.total) * 100) : 0;
+        const cls = pct >= 95 ? 'good' : pct >= 85 ? 'mid' : 'bad';
+        return `<tr>
+          <td>${escapeHtml(String(b.brand))}</td>
+          <td class="num">${fmtInt(b.total)}</td>
+          <td class="num" style="color:var(--success);">${fmtInt(b.delivered)}</td>
+          <td class="num" style="color:var(--danger);">${fmtInt(b.failed)}</td>
+          <td class="num"><span class="tag ${cls}">${pct}%</span></td>
+        </tr>`;
+      }).join('');
+      document.getElementById('smsBrandFoot').innerHTML = `<tr>
+        <td>All brands</td><td class="num">${fmtInt(sent)}</td>
+        <td class="num">${fmtInt(delivered)}</td><td class="num">${fmtInt(failed)}</td>
+        <td class="num">${successPct != null ? successPct.toFixed(1) + '%' : '—'}</td></tr>`;
+    }
+    flag('smsFlag', period.isCurrent ? '' : '');
+  } catch (err) {
+    console.error('SMS section failed:', err);
+    flag('smsFlag', 'SMS figures are unavailable — the SMS service did not answer. Check that this domain is allowed in its settings.');
+    document.getElementById('smsBars').innerHTML = '<div class="note">No SMS data.</div>';
+    document.getElementById('smsBrandBody').innerHTML = '<tr><td colspan="5"><div class="note">No SMS data.</div></td></tr>';
+    document.getElementById('figSms').textContent = '—';
+    document.getElementById('figSmsChg').textContent = 'Source unavailable';
+    document.getElementById('figSmsChg').className = 'chg flat';
+  }
+}
+
+// =====================================================================
+// 5 · COSTS
+// =====================================================================
+async function loadCosts() {
+  try {
+    const rateRes = await fetch('https://open.er-api.com/v6/latest/USD').catch(() => null);
+    if (rateRes && rateRes.ok) {
+      const r = await rateRes.json();
+      usdToPhp = r && r.rates && r.rates.PHP ? r.rates.PHP : null;
+    }
+  } catch (e) { usdToPhp = null; }
+  document.getElementById('fxNote').textContent = usdToPhp ? `$1 = ₱${usdToPhp.toFixed(2)} today` : 'Exchange rate unavailable';
+
+  // --- OpenAI usage, for the selected month ---
+  let openaiTotalUsd = null;
+  try {
+    const startStr = isoDay(period.start);
+    const endStr = isoDay(period.isCurrent ? new Date() : period.end);
+    const sum = await apiGet(`/openai-billing/summary?range=custom&start=${startStr}&end=${endStr}&account=all&compare=false`);
+    openaiTotalUsd = sum.totalUsd || 0;
+    const accounts = (sum.byAccount && sum.byAccount.length)
+      ? sum.byAccount
+      : [{ name: sum.account || 'OpenAI', totalUsd: openaiTotalUsd }];
+    const sorted = [...accounts].sort((a, b) => (b.totalUsd || 0) - (a.totalUsd || 0));
+    document.getElementById('openaiBody').innerHTML = sorted.map(a => `<tr>
+      <td>${escapeHtml(a.name)}</td>
+      <td class="num">${usd(a.totalUsd || 0)}</td>
+      <td class="num" style="font-weight:600;color:var(--ink-soft);">${usdToPhp ? peso((a.totalUsd || 0) * usdToPhp) : '—'}</td>
+    </tr>`).join('');
+    document.getElementById('openaiFoot').innerHTML = `<tr>
+      <td>${sorted.length} account${sorted.length === 1 ? '' : 's'}</td>
+      <td class="num">${usd(openaiTotalUsd)}</td>
+      <td class="num">${usdToPhp ? peso(openaiTotalUsd * usdToPhp) : '—'}</td></tr>`;
+  } catch (err) {
+    console.warn('OpenAI usage unavailable:', err.message);
+    document.getElementById('openaiBody').innerHTML = '<tr><td colspan="3"><div class="note">OpenAI usage unavailable.</div></td></tr>';
+  }
+
+  // --- Consolidated billing: services and divisions ---
+  try {
+    const body = await apiGet('/billing/consolidated');
+    const d = body.data;
+    if (!d || !Array.isArray(d.services) || !Array.isArray(d.divisions)) throw new Error('no saved billing table');
+
+    // The Open AI column is stored empty on purpose — it's a live overlay on
+    // the billing page — so the live figure above fills it in here.
+    const oaIdx = d.services.findIndex(s => /open\s*ai/i.test(String(s || '')));
+    const liveOaPhp = (openaiTotalUsd != null && usdToPhp) ? openaiTotalUsd * usdToPhp : null;
+
+    const serviceTotals = d.services.map((s, k) => {
+      if (k === oaIdx && liveOaPhp != null) return liveOaPhp;
+      const nums = d.divisions.map(dv => dv.vals[k]).filter(v => v != null);
+      return nums.length ? nums.reduce((a, b) => a + b, 0) : 0;
+    });
+    const grand = serviceTotals.reduce((a, b) => a + b, 0);
+
+    report.cost = { grand, services: d.services, serviceTotals, divisions: d.divisions };
+
+    document.getElementById('figSpend').textContent = grand ? '₱' + Math.round(grand).toLocaleString('en-PH') : '—';
+    const el = document.getElementById('figSpendChg');
+    el.textContent = `${d.divisions.length} divisions · ${d.services.length} services`;
+    el.className = 'chg flat';
+
+    barList(document.getElementById('costServiceBars'),
+      d.services.map((s, k) => ({ label: String(s), value: serviceTotals[k], display: peso(serviceTotals[k]), sub: grand ? `${Math.round((serviceTotals[k] / grand) * 100)}%` : '—' }))
+        .filter(r => r.value > 0).sort((a, b) => b.value - a.value),
+      'No saved billing figures.');
+
+    const divTotals = d.divisions.map(dv => {
+      const own = dv.vals.map((v, k) => (k === oaIdx ? 0 : v)).filter(v => v != null).reduce((a, b) => a + b, 0);
+      return { name: dv.name, total: own };
+    }).sort((a, b) => b.total - a.total);
+    const divSum = divTotals.reduce((s, v) => s + v.total, 0);
+
+    document.getElementById('divisionBody').innerHTML = divTotals.map(v => `<tr>
+      <td>${escapeHtml(v.name)}</td>
+      <td class="num">${peso(v.total)}</td>
+      <td class="num" style="font-weight:600;color:var(--ink-soft);">${divSum ? Math.round((v.total / divSum) * 100) + '%' : '—'}</td>
+    </tr>`).join('');
+    document.getElementById('divisionFoot').innerHTML = `<tr>
+      <td>All divisions</td><td class="num">${peso(divSum)}</td><td class="num">100%</td></tr>`;
+
+    flag('costFlag', oaIdx >= 0 && liveOaPhp == null
+      ? 'OpenAI usage could not be added to the service totals, so the spend figure covers the other services only.'
+      : '');
+  } catch (err) {
+    console.warn('Consolidated billing unavailable:', err.message);
+    flag('costFlag', 'No saved billing table yet. Open the OpenAI page and save the consolidated billing figures to fill this section.');
+    document.getElementById('costServiceBars').innerHTML = '<div class="note">No billing data.</div>';
+    document.getElementById('divisionBody').innerHTML = '<tr><td colspan="3"><div class="note">No billing data.</div></td></tr>';
+    document.getElementById('figSpend').textContent = '—';
+    document.getElementById('figSpendChg').textContent = 'Not saved yet';
+  }
+}
+
+// =====================================================================
+// CSV EXPORT — one file, every section stacked, so the numbers in the
+// printed report can be checked or reused in a spreadsheet.
+// =====================================================================
+function exportReportCsv() {
+  const out = [];
+  const push = (title, rows) => { out.push(title); out.push(Papa.unparse(rows)); out.push(''); };
+
+  out.push(`Operations report,${period.label}`);
+  out.push(`Compared with,${period.prevLabel}`);
+  out.push(`Generated,${new Date().toLocaleString()}`);
+  out.push(`Prepared by,${currentUserName || 'Unknown'}`);
+  out.push('');
+
+  if (report.tickets) {
+    const t = report.tickets;
+    push('Tickets', [
+      { Measure: 'Filed', Value: t.cur.length },
+      { Measure: 'Filed last month', Value: t.prev.length },
+      { Measure: 'Closed', Value: t.closedCur.length },
+      { Measure: 'Resolved', Value: t.doneCur.length },
+      { Measure: 'Rejected', Value: t.rejCur.length },
+      { Measure: 'Resolution rate %', Value: t.rateCur == null ? '' : t.rateCur.toFixed(1) },
+    ]);
+    const byBrand = {};
+    t.cur.forEach(x => { byBrand[x.brandLabel] = (byBrand[x.brandLabel] || 0) + 1; });
+    push('Tickets by brand', Object.entries(byBrand).sort((a, b) => b[1] - a[1]).map(([Brand, Tickets]) => ({ Brand, Tickets })));
+    const byIssue = {};
+    t.cur.forEach(x => { byIssue[x.issue] = (byIssue[x.issue] || 0) + 1; });
+    push('Tickets by concern', Object.entries(byIssue).sort((a, b) => b[1] - a[1]).map(([Concern, Tickets]) => ({ Concern, Tickets })));
+  }
+  if (report.chat) {
+    const c = report.chat;
+    push('Live chat', [
+      { Measure: 'Chats', Value: c.chatsC },
+      { Measure: 'Chats last month', Value: c.chatsP },
+      { Measure: 'CSAT %', Value: c.csatC.total ? c.csatC.csatPercent : '' },
+      { Measure: 'DSAT %', Value: c.csatC.total ? c.csatC.dsatPercent : '' },
+      { Measure: 'Ratings', Value: c.csatC.total || 0 },
+    ]);
+    push('Chats by brand', Object.entries(c.byBrand).sort((a, b) => b[1] - a[1]).map(([b, n]) => ({ Brand: chatBrandLabel(b), Chats: n })));
+  }
+  if (report.sms) {
+    push('SMS', [
+      { Measure: 'Sent', Value: report.sms.sent },
+      { Measure: 'Delivered', Value: report.sms.delivered },
+      { Measure: 'Failed', Value: report.sms.failed },
+    ]);
+    push('SMS by brand', report.sms.brands.map(b => ({ Brand: b.brand, Sent: b.total, Delivered: b.delivered, Failed: b.failed })));
+  }
+  if (report.cost) {
+    push('Cost by service', report.cost.services.map((s, k) => ({ Service: s, 'Cost PHP': report.cost.serviceTotals[k].toFixed(2) })));
+  }
+
+  const blob = new Blob([out.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `operations-report-${period.key}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// =====================================================================
+// BOOT
+// =====================================================================
+function populateMonths() {
+  const select = document.getElementById('monthSelect');
+  const now = new Date();
+  const keys = [];
+  for (let i = 0; i < 12; i++) keys.push(monthKeyOf(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+  select.innerHTML = keys.map(k => `<option value="${k}">${monthLabel(k)}</option>`).join('');
+  select.value = keys[0];
+  select.addEventListener('change', () => setPeriod(select.value));
+}
+
+function applyPeriodChrome() {
+  document.getElementById('periodTitle').textContent = period.label;
+  document.getElementById('prevLabelInline').textContent = period.prevLabel;
+  document.getElementById('generatedAt').textContent = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  flag('periodFlag', period.isCurrent && period.days < daysInMonth(period.key)
+    ? `${period.label} is still running — this report covers day 1 to day ${period.days} of ${daysInMonth(period.key)}. Compare the per-day columns rather than the raw totals.`
+    : '');
+}
+
+function setPeriod(key) {
+  period = buildPeriod(key);
+  applyPeriodChrome();
+  if (allTickets.length) renderTickets();
+  loadChat();
+  loadSms();
+  loadCosts();
+}
+
+async function loadAvatars() {
+  try {
+    const data = await apiGet('/auth/directory');
+    avatarByName = new Map((data.users || []).filter(u => u.avatar).map(u => [nameKey(u.name), u.avatar]));
+    if (allTickets.length) renderTickets();
+  } catch (e) { /* initials are a fine fallback */ }
+}
+
+populateMonths();
+period = buildPeriod(document.getElementById('monthSelect').value);
+applyPeriodChrome();
+loadAvatars();
+loadChat();
+loadSms();
+loadCosts();
+
 TicketData.fetchTickets()
   .then(tickets => {
     allTickets = tickets;
-    currentPeriod = buildPeriodFromMonthKey(document.getElementById('monthSelect').value);
-    renderAll(currentPeriod);
-    TicketData.startAutoRefresh(tickets2 => {
-      allTickets = tickets2;
-      renderAll(currentPeriod);
-    }, 120000);
+    renderTickets();
+    TicketData.startAutoRefresh(t2 => { allTickets = t2; renderTickets(); }, 120000);
   })
   .catch(err => {
-    console.error(err);
-    document.getElementById('kpiTotalValue').textContent = 'Error';
+    console.error('Tickets failed:', err);
+    flag('periodFlag', 'Ticket figures are unavailable — the brand Google Sheets did not answer. Check the sheet links and refresh.');
+    document.getElementById('figTickets').textContent = '—';
+    document.getElementById('figResolution').textContent = '—';
   });
 </script>
 </body>
