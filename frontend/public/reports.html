@@ -180,6 +180,10 @@
   .speed-card .kpi-value{font-size:30px;}
   .speed-note{font-size:12px;color:var(--ink-faint);line-height:1.6;margin-top:14px;}
   .t-fast{color:var(--success);}
+  .sla-pass{color:var(--success);font-weight:800;letter-spacing:.02em;}
+  .sla-fail{color:var(--danger);font-weight:800;letter-spacing:.02em;}
+  .sla-table th:nth-child(4), .sla-table td:nth-child(4),
+  .sla-table th:nth-child(7), .sla-table td:nth-child(7){border-left:1px solid var(--line);}
   .t-slow{color:#B45309;}
   .flag{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:11px 14px;font-size:12.5px;font-weight:600;line-height:1.5;margin-bottom:14px;}
 
@@ -558,16 +562,16 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Agent detail</h3><span class="hint">Green is faster than the team average, amber is slower</span></div>
+        <div class="panel-head"><h3>CSR performance</h3><span class="hint" id="tkSlaHint">—</span></div>
         <div class="scroll tall">
-          <table class="rt">
+          <table class="rt sla-table">
             <thead><tr>
-              <th>Agent</th>
-              <th class="num">Acknowledged</th><th class="num">Avg FTR</th>
-              <th class="num">Closed</th><th class="num">Resolved</th><th class="num">Rejected</th>
-              <th class="num">Avg resolution</th><th class="num">Share</th>
+              <th>CSR</th>
+              <th class="num">Total Tickets</th><th class="num">Ticket %</th>
+              <th class="num">Avg FRT</th><th class="num">FRT SLA</th><th class="num">Status</th>
+              <th class="num">Avg ART</th><th class="num">ART SLA</th><th class="num">Status</th>
             </tr></thead>
-            <tbody id="tkAgentBody"><tr><td colspan="8"><div class="note">Loading…</div></td></tr></tbody>
+            <tbody id="tkAgentBody"><tr><td colspan="9"><div class="note">Loading…</div></td></tr></tbody>
             <tfoot id="tkAgentFoot"></tfoot>
           </table>
         </div>
@@ -858,18 +862,40 @@ function changeCell(cur, prev) {
 
 function avgOf(a) { return a.length ? a.reduce((s, v) => s + v, 0) / a.length : null; }
 
-// An agent's average, coloured against the team's: faster reads green,
-// slower amber. Within 10% of the team counts as level, so ordinary
-// variation doesn't paint the whole table. The sample size sits underneath
-// because an average of two tickets means far less than one of two hundred.
-function speedCell(value, team, n) {
-  if (value == null) return '<span style="color:var(--ink-faint);font-weight:600;">—</span>';
-  let cls = '';
-  if (team) {
-    if (value < team * 0.9) cls = 't-fast';
-    else if (value > team * 1.1) cls = 't-slow';
-  }
-  return `<span class="${cls}">${fmtDur(value)}</span><div style="font-size:10.5px;color:var(--ink-faint);font-weight:500;">${n} ticket${n === 1 ? '' : 's'}</div>`;
+// Accounts left out of the Ticket Resolution agent figures (added
+// 2026-09-21): they appear in the ticket sheets but are not team leaders,
+// so they don't belong in the agent breakdown, the distribution donut, or
+// the team speed averages. Their tickets still count everywhere else on the
+// tab — filed, resolved, rejected, resolution rate — because the work was
+// done; only the per-agent attribution skips them. Matched case-insensitively,
+// ignoring surrounding spaces. Add or remove names here.
+const EXCLUDED_AGENTS = new Set([
+  'csredriann',
+  'elrssu012',
+  'csrarabela',
+  'csr_joneel',
+]);
+// SLA thresholds for the CSR performance table (added 2026-09-21).
+//   FRT SLA — ticket acknowledged within FRT_SLA_MINUTES of being filed.
+//             Defaults to 30, the same threshold as the Dashboard's
+//             "Unacked > 30 min" card, and reads the same override key.
+//   ART SLA — ticket resolved within ART_SLA_MINUTES.
+//   Status  — PASS when at least SLA_PASS_TARGET % of the CSR's tickets
+//             met that SLA, FAIL below it.
+// Change the numbers here, or per browser through localStorage.
+const FRT_SLA_MINUTES = Number(localStorage.getItem('csr_sla_ack_minutes')) || 30;
+const ART_SLA_MINUTES = Number(localStorage.getItem('csr_sla_resolve_minutes')) || 60;
+const SLA_PASS_TARGET = Number(localStorage.getItem('csr_sla_pass_target')) || 90;
+
+function slaCells(within, n) {
+  if (!n) return '<td class="num" style="color:var(--ink-faint);">—</td><td class="num" style="color:var(--ink-faint);">—</td>';
+  const pct = (within / n) * 100;
+  const pass = pct >= SLA_PASS_TARGET;
+  return `<td class="num">${pct.toFixed(2)}%</td><td class="num"><span class="${pass ? 'sla-pass' : 'sla-fail'}">${pass ? 'PASS' : 'FAIL'}</span></td>`;
+}
+
+function isExcludedAgent(name) {
+  return !!name && EXCLUDED_AGENTS.has(String(name).trim().toLowerCase());
 }
 
 function rateTag(rate) {
@@ -1393,26 +1419,36 @@ function renderTicketResolution() {
   // FTR is credited to whoever acknowledged the ticket, in the period they
   // acknowledged it; resolution time to whoever resolved it, in the period
   // they resolved it. Rejected tickets have no resolution time to average.
+  // Total Tickets counts every ticket a CSR touched in the period — the ones
+  // they acknowledged and the ones they closed — once each, so a ticket they
+  // both picked up and finished isn't counted twice.
   const agents = new Map();
   const agent = name => {
-    if (!agents.has(name)) agents.set(name, { acked: 0, resolved: 0, rejected: 0, ftr: [], res: [] });
+    if (!agents.has(name)) agents.set(name, { acked: 0, resolved: 0, rejected: 0, ftr: [], res: [], ids: new Set() });
     return agents.get(name);
   };
   const teamFtr = [], teamRes = [];
+  const FRT_LIMIT = FRT_SLA_MINUTES * 60, ART_LIMIT = ART_SLA_MINUTES * 60;
   allTickets.forEach(t => {
-    if (t.acknowledgedBy && inWin(t.acknowledgedAt)) {
+    if (t.acknowledgedBy && inWin(t.acknowledgedAt) && !isExcludedAgent(t.acknowledgedBy)) {
       const a = agent(t.acknowledgedBy);
       a.acked++;
+      a.ids.add(`${t.brandCode}::${t.id}`);
       if (t.ackDurationSec != null && t.ackDurationSec >= 0) { a.ftr.push(t.ackDurationSec); teamFtr.push(t.ackDurationSec); }
     }
   });
   closed.forEach(t => {
+    if (isExcludedAgent(t.resolvedBy)) return;
     const a = agent(t.resolvedBy || 'Unassigned');
+    a.ids.add(`${t.brandCode}::${t.id}`);
     if (t.statusCls === 'done') {
       a.resolved++;
       if (t.resolveDurationSec != null && t.resolveDurationSec >= 0) { a.res.push(t.resolveDurationSec); teamRes.push(t.resolveDurationSec); }
     } else a.rejected++;
   });
+
+  document.getElementById('tkSlaHint').textContent =
+    `FRT SLA ≤ ${FRT_SLA_MINUTES}m · ART SLA ≤ ${ART_SLA_MINUTES}m · PASS at ${SLA_PASS_TARGET}%+`;
   const teamFtrAvg = avgOf(teamFtr), teamResAvg = avgOf(teamRes);
 
   document.getElementById('tkTeamFtr').textContent = teamFtrAvg == null ? '—' : fmtDur(teamFtrAvg);
@@ -1425,9 +1461,17 @@ function renderTicketResolution() {
     : 'No resolution times in this period';
 
   const agentRows = [...agents.entries()]
-    .map(([name, v]) => ({ name, ...v, closed: v.resolved + v.rejected, ftrAvg: avgOf(v.ftr), resAvg: avgOf(v.res) }))
-    .filter(a => a.closed > 0 || a.acked > 0)
-    .sort((a, b) => b.closed - a.closed || b.acked - a.acked);
+    .map(([name, v]) => ({
+      name, ...v,
+      closed: v.resolved + v.rejected,
+      total: v.ids.size,
+      ftrAvg: avgOf(v.ftr), resAvg: avgOf(v.res),
+      ftrWithin: v.ftr.filter(x => x <= FRT_LIMIT).length,
+      resWithin: v.res.filter(x => x <= ART_LIMIT).length,
+    }))
+    .filter(a => a.total > 0)
+    .sort((a, b) => b.total - a.total || b.closed - a.closed);
+  const handledTotal = agentRows.reduce((s, a) => s + a.total, 0);
   const closedTotal = agentRows.reduce((s, a) => s + a.closed, 0);
 
   const withClosed = agentRows.filter(a => a.closed > 0);
@@ -1452,7 +1496,7 @@ function renderTicketResolution() {
 
   const aBody = document.getElementById('tkAgentBody');
   if (!agentRows.length) {
-    aBody.innerHTML = '<tr><td colspan="8"><div class="note">No agent activity in this period.</div></td></tr>';
+    aBody.innerHTML = '<tr><td colspan="9"><div class="note">No CSR activity in this period.</div></td></tr>';
     document.getElementById('tkAgentFoot').innerHTML = '';
   } else {
     aBody.innerHTML = agentRows.map(a => {
@@ -1460,25 +1504,24 @@ function renderTicketResolution() {
       const face = avatar ? `<img src="${avatar}" alt="">` : escapeHtml(initialsForName(a.name));
       return `<tr>
         <td><div class="agent-cell"><div class="av-xs" style="background:${colorForName(a.name)};">${face}</div><span style="font-weight:600;">${escapeHtml(a.name)}</span></div></td>
-        <td class="num">${a.acked.toLocaleString()}</td>
-        <td class="num">${speedCell(a.ftrAvg, teamFtrAvg, a.ftr.length)}</td>
-        <td class="num">${a.closed.toLocaleString()}</td>
-        <td class="num" style="color:var(--success);">${a.resolved.toLocaleString()}</td>
-        <td class="num" style="color:var(--danger);">${a.rejected.toLocaleString()}</td>
-        <td class="num">${speedCell(a.resAvg, teamResAvg, a.res.length)}</td>
-        <td class="num" style="font-weight:600;color:var(--ink-soft);">${closedTotal ? Math.round((a.closed / closedTotal) * 100) + '%' : '—'}</td>
+        <td class="num">${a.total.toLocaleString()}</td>
+        <td class="num" style="font-weight:600;color:var(--ink-soft);">${handledTotal ? ((a.total / handledTotal) * 100).toFixed(2) + '%' : '—'}</td>
+        <td class="num">${a.ftrAvg == null ? '—' : fmtDur(a.ftrAvg)}</td>
+        ${slaCells(a.ftrWithin, a.ftr.length)}
+        <td class="num">${a.resAvg == null ? '—' : fmtDur(a.resAvg)}</td>
+        ${slaCells(a.resWithin, a.res.length)}
       </tr>`;
     }).join('');
-    const tot = agentRows.reduce((s, a) => ({ acked: s.acked + a.acked, closed: s.closed + a.closed, resolved: s.resolved + a.resolved, rejected: s.rejected + a.rejected }), { acked: 0, closed: 0, resolved: 0, rejected: 0 });
+    const ftrWithinAll = agentRows.reduce((s, a) => s + a.ftrWithin, 0);
+    const resWithinAll = agentRows.reduce((s, a) => s + a.resWithin, 0);
     document.getElementById('tkAgentFoot').innerHTML = `<tr>
-      <td>${agentRows.length} agent${agentRows.length === 1 ? '' : 's'}</td>
-      <td class="num">${tot.acked.toLocaleString()}</td>
-      <td class="num">${teamFtrAvg == null ? '—' : fmtDur(teamFtrAvg)}</td>
-      <td class="num">${tot.closed.toLocaleString()}</td>
-      <td class="num">${tot.resolved.toLocaleString()}</td>
-      <td class="num">${tot.rejected.toLocaleString()}</td>
-      <td class="num">${teamResAvg == null ? '—' : fmtDur(teamResAvg)}</td>
+      <td>${agentRows.length} CSR${agentRows.length === 1 ? '' : 's'}</td>
+      <td class="num">${handledTotal.toLocaleString()}</td>
       <td class="num">100%</td>
+      <td class="num">${teamFtrAvg == null ? '—' : fmtDur(teamFtrAvg)}</td>
+      ${slaCells(ftrWithinAll, teamFtr.length)}
+      <td class="num">${teamResAvg == null ? '—' : fmtDur(teamResAvg)}</td>
+      ${slaCells(resWithinAll, teamRes.length)}
     </tr>`;
   }
 
@@ -1991,10 +2034,14 @@ function exportActiveReport() {
     out.push('');
     out.push('By agent');
     out.push(Papa.unparse((d.agentRows || []).map(a => ({
-      Agent: a.name, Acknowledged: a.acked,
-      'Avg FTR (min)': a.ftrAvg == null ? '' : (a.ftrAvg / 60).toFixed(1),
-      Closed: a.closed, Resolved: a.resolved, Rejected: a.rejected,
-      'Avg resolution (min)': a.resAvg == null ? '' : (a.resAvg / 60).toFixed(1),
+      CSR: a.name,
+      'Total Tickets': a.total,
+      'Avg FRT (min)': a.ftrAvg == null ? '' : (a.ftrAvg / 60).toFixed(1),
+      'FRT SLA %': a.ftr.length ? ((a.ftrWithin / a.ftr.length) * 100).toFixed(2) : '',
+      'FRT Status': a.ftr.length ? ((a.ftrWithin / a.ftr.length) * 100 >= SLA_PASS_TARGET ? 'PASS' : 'FAIL') : '',
+      'Avg ART (min)': a.resAvg == null ? '' : (a.resAvg / 60).toFixed(1),
+      'ART SLA %': a.res.length ? ((a.resWithin / a.res.length) * 100).toFixed(2) : '',
+      'ART Status': a.res.length ? ((a.resWithin / a.res.length) * 100 >= SLA_PASS_TARGET ? 'PASS' : 'FAIL') : '',
     }))));
     downloadCsv(out.join('\n'), `ticket-resolution-${MONTH_B.key}.csv`);
     return;
