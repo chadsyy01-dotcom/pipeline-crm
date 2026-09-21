@@ -61,8 +61,22 @@
   .titlebar-actions{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;}
   .period-field{display:flex;flex-direction:column;gap:4px;}
   .period-field span{font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-faint);}
-  .period-select{font:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;border:1px solid var(--rule);background:var(--card);color:var(--ink);cursor:pointer;min-width:150px;}
-  .period-field.hidden{display:none;}
+  .period-select{font:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;border:1px solid var(--rule);background:var(--card);color:var(--ink);cursor:pointer;min-width:170px;}
+  .date-filter-wrap{position:relative;}
+  .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px -12px rgba(15,23,42,.25);padding:16px;z-index:60;width:300px;}
+  .custom-date-pop.open{display:block;}
+  .custom-date-pop .pop-title{font-size:12px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+  .custom-date-pop .pop-title span{font-weight:600;color:var(--ink-faint);font-size:11px;margin-left:4px;}
+  .custom-date-pop .pop-row{display:flex;gap:8px;}
+  .custom-date-pop .pop-row label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.02em;}
+  .custom-date-pop input[type="date"]{width:100%;padding:7px 8px;border-radius:8px;border:1px solid var(--line);font:inherit;font-size:12px;color:var(--ink);background:var(--bg);text-transform:none;}
+  .custom-date-pop .pop-hint{font-size:11px;color:var(--ink-faint);margin-top:8px;line-height:1.45;}
+  .custom-date-pop .pop-error{font-size:11.5px;color:var(--danger);min-height:14px;margin-top:6px;}
+  .custom-date-actions{display:flex;gap:8px;margin-top:10px;}
+  .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);}
+  .custom-date-actions #rpApply{background:var(--primary);color:#fff;border-color:var(--primary);}
+  #compareLine:empty{display:none;}
+  #compareLine{color:var(--ink);font-weight:600;}
 
   .subtabs{display:flex;gap:2px;margin-top:22px;border-bottom:1px solid var(--line);overflow-x:auto;}
   .subtab{font-size:13px;font-weight:700;padding:12px 16px;color:var(--ink-faint);cursor:pointer;border:none;background:none;font-family:inherit;white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-1px;}
@@ -300,20 +314,45 @@
       <div class="titlebar-top">
         <div>
           <h1>Customer Service Department — Monthly Reporting<span class="period" id="reportPeriod">—</span></h1>
-          <p class="meta">Prepared by <span id="preparedBy">—</span> · generated <span id="generatedAt">—</span></p>
+          <p class="meta"><span id="compareLine"></span>Prepared by <span id="preparedBy">—</span> · generated <span id="generatedAt">—</span></p>
         </div>
         <div class="titlebar-actions">
-          <!-- Date filter (added 2026-09-20). Every sub-tab follows the report
-               month; "Compare with" drives the Chats Comparison and defaults
-               to the month before. -->
-          <label class="period-field">
-            <span>Report month</span>
-            <select id="reportMonthSelect" class="period-select"></select>
-          </label>
-          <label class="period-field" id="compareField">
-            <span>Compare with</span>
-            <select id="compareMonthSelect" class="period-select"></select>
-          </label>
+          <!-- Date filter (reworked 2026-09-21 to match the Dashboard's):
+               Today / Yesterday / Last 7 / Last 30 / This Month / Custom.
+               Custom also takes an optional comparison range; every preset
+               compares with the equal stretch just before it (This Month
+               compares with the whole previous month). -->
+          <div class="date-filter-wrap" id="rpWrap">
+            <label class="period-field">
+              <span>Date range</span>
+              <select id="rpPreset" class="period-select">
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+                <option value="month" selected>This Month</option>
+                <option value="custom" id="rpCustomOption">Custom Date</option>
+              </select>
+            </label>
+            <div class="custom-date-pop" id="rpPop">
+              <div class="pop-title">Report period</div>
+              <div class="pop-row">
+                <label>From<input type="date" id="rpFrom"></label>
+                <label>To<input type="date" id="rpTo"></label>
+              </div>
+              <div class="pop-title" style="margin-top:14px;">Compare with <span>optional</span></div>
+              <div class="pop-row">
+                <label>From<input type="date" id="rpCFrom"></label>
+                <label>To<input type="date" id="rpCTo"></label>
+              </div>
+              <div class="pop-hint">Leave the comparison blank to compare with the same number of days just before.</div>
+              <div class="pop-error" id="rpError"></div>
+              <div class="custom-date-actions">
+                <button type="button" id="rpCancel">Cancel</button>
+                <button type="button" id="rpApply">Apply</button>
+              </div>
+            </div>
+          </div>
           <button class="btn" onclick="exportActiveReport()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
             Download CSV
@@ -445,7 +484,7 @@
 
       <div class="cols-2">
         <div class="panel">
-          <div class="panel-head"><h3>Top 5 ticket concerns</h3><span class="hint">Filed this month</span></div>
+          <div class="panel-head"><h3>Top 5 ticket concerns</h3><span class="hint">Filed in this period</span></div>
           <div id="tkTopConcerns"><div class="note">Loading…</div></div>
         </div>
 
@@ -601,21 +640,24 @@
 // =====================================================================
 // CUSTOMER SERVICE DEPARTMENT — MONTHLY REPORTING (built 2026-09-20)
 //
-// DATE FILTER (added 2026-09-20). Nothing here is tied to a fixed month any
-// more: the Report month picker in the title bar drives every sub-tab, and
-// Compare with picks the month the Chats Comparison sets it against
-// (defaulting to the month before). MONTH_B is always the report month and
-// MONTH_A the comparison month; both are rebuilt whenever a picker changes.
+// DATE FILTER (reworked 2026-09-21 to match the Dashboard's). The Date
+// range picker in the title bar drives every sub-tab:
+//   Today / Yesterday / Last 7 Days / Last 30 Days / This Month / Custom Date
+// MONTH_B is the report period and MONTH_A the comparison period (the names
+// predate the range filter; they now hold any stretch of days). Presets
+// compare with the equal stretch immediately before — This Month compares
+// with the WHOLE previous month, since that's how a monthly report is read.
+// Custom takes its own comparison range, or falls back to the same rule.
 //
-// Where each report's figures come from, for any month:
-//   Chats Comparison — a finished month is read from the department's
-//     chat-volume sheet (the official record, daily figures summed here);
-//     the month still running, or a finished month missing from the sheet,
-//     comes live from /chatwoot/stats. Live data only reaches back 70 days.
-//   Ticket Resolution — the brand ticket sheets via TicketData, which keep
-//     full history, so any month works.
-//   Customer Satisfaction — /chatwoot/csat, which is also bounded by the
-//     70-day retention on the chat event store.
+// Where each report's figures come from, for any range:
+//   Chats Comparison — the range is split by calendar month. Days in a
+//     finished month come from the department's chat-volume sheet (the
+//     official record, daily columns summed); days in the running month, or
+//     in a month the sheet lacks, come live from /chatwoot/stats.
+//   Ticket Resolution — the brand ticket sheets via TicketData, full history.
+//   Customer Satisfaction — /chatwoot/csat.
+// Live chat data only reaches back CHAT_RETENTION_DAYS; anything older says
+// so instead of showing zero.
 // =====================================================================
 
 // Published CSV of the department's chat volume sheet: one block per month,
@@ -628,36 +670,98 @@ const CHAT_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS5SwAp0
 const CHAT_RETENTION_DAYS = 70;
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-function monthKeyOf(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+const DAY_MS = 86400000;
 
-// Everything the page needs to know about one calendar month.
-function monthInfo(key) {
-  const [year, month] = key.split('-').map(Number);
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 0, 23, 59, 59, 999);
-  const daysInMonth = new Date(year, month, 0).getDate();
+const startOfDay = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const endOfDay = d => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+function isoDay(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function parseIsoDay(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function calendarDays(a, b) { return Math.round((startOfDay(b) - startOfDay(a)) / DAY_MS) + 1; }
+
+function isFullMonth(start, end) {
+  return start.getDate() === 1
+    && start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()
+    && end.getDate() === new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+}
+
+// "Sep 21, 2026", "Sep 1 – 15, 2026", "Aug 23 – Sep 21, 2026", or
+// "August 2026" for a whole calendar month.
+function fmtRange(start, end) {
+  if (isFullMonth(start, end)) return `${MONTH_NAMES[start.getMonth()]} ${start.getFullYear()}`;
+  const md = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (isoDay(start) === isoDay(end)) return `${md(start)}, ${start.getFullYear()}`;
+  if (start.getFullYear() === end.getFullYear()) {
+    if (start.getMonth() === end.getMonth()) return `${md(start)} – ${end.getDate()}, ${end.getFullYear()}`;
+    return `${md(start)} – ${md(end)}, ${end.getFullYear()}`;
+  }
+  return `${md(start)}, ${start.getFullYear()} – ${md(end)}, ${end.getFullYear()}`;
+}
+// Compact form for table headings and chart legends.
+function fmtShort(start, end) {
+  if (isFullMonth(start, end)) return `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getFullYear()}`;
+  const md = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (isoDay(start) === isoDay(end)) return md(start);
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) return `${md(start)}–${end.getDate()}`;
+  return `${md(start)}–${md(end)}`;
+}
+
+// Everything the page needs to know about one stretch of days. `prefix`
+// names the preset ("Last 7 Days") so the heading reads naturally.
+function rangeInfo(start, end, prefix) {
+  start = startOfDay(start); end = endOfDay(end);
   const now = new Date();
   const running = now >= start && now <= end;
-  const name = MONTH_NAMES[month - 1];
-  const retentionStart = new Date(now.getTime() - CHAT_RETENTION_DAYS * 86400000);
+  const effEnd = running ? now : end;
+  const totalDays = calendarDays(start, end);
+  const days = now < start ? 0 : calendarDays(start, effEnd);
+  const dates = fmtRange(start, end);
+  const retentionStart = new Date(now.getTime() - CHAT_RETENTION_DAYS * DAY_MS);
   return {
-    key, year, month, name,
-    label: `${name} ${year}`,
-    short: name.slice(0, 3),
-    sheetBlock: name.toUpperCase(),
-    start, end,
-    effEnd: running ? now : end,
-    daysInMonth,
-    days: running ? now.getDate() : daysInMonth,
-    running,
-    // Live chat data covers this month only if its first day is still
-    // inside the retention window.
-    inChatRetention: start >= retentionStart,
+    start, end, effEnd, running, totalDays, days,
+    daysInMonth: totalDays,          // kept for older call sites
+    label: prefix && !isFullMonth(start, end) ? `${prefix} · ${dates}` : dates,
+    short: fmtShort(start, end),
+    key: `${isoDay(start)}_to_${isoDay(end)}`,
+    inChatRetention: start >= startOfDay(retentionStart),
   };
 }
 
-let MONTH_B = monthInfo(monthKeyOf(new Date()));
-let MONTH_A = monthInfo(monthKeyOf(new Date(MONTH_B.year, MONTH_B.month - 2, 1)));
+const PRESET_LABELS = { today: 'Today', yesterday: 'Yesterday', '7d': 'Last 7 Days', '30d': 'Last 30 Days', month: 'This Month', custom: 'Custom' };
+
+// Report + comparison ranges for a preset. Custom uses the dates held in
+// customRange; its comparison is the one the user gave, or the equal stretch
+// just before.
+let currentPreset = 'month';
+let customRange = null;   // { from, to, cFrom, cTo } as Date objects (cFrom/cTo optional)
+
+function buildPeriods(preset) {
+  const today = startOfDay(new Date());
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  let bStart, bEnd, aStart, aEnd;
+  if (preset === 'today') { bStart = today; bEnd = today; }
+  else if (preset === 'yesterday') { bStart = addDays(today, -1); bEnd = bStart; }
+  else if (preset === '7d') { bStart = addDays(today, -6); bEnd = today; }
+  else if (preset === '30d') { bStart = addDays(today, -29); bEnd = today; }
+  else if (preset === 'custom' && customRange) {
+    bStart = customRange.from; bEnd = customRange.to;
+    if (customRange.cFrom && customRange.cTo) { aStart = customRange.cFrom; aEnd = customRange.cTo; }
+  } else {   // 'month'
+    bStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    bEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    aStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    aEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+  }
+  if (!aStart) {
+    const len = calendarDays(bStart, bEnd);
+    aEnd = addDays(bStart, -1);
+    aStart = addDays(aEnd, -(len - 1));
+  }
+  const prefix = preset === 'custom' ? null : PRESET_LABELS[preset];
+  return { B: rangeInfo(bStart, bEnd, prefix), A: rangeInfo(aStart, aEnd, null) };
+}
+
+let MONTH_B, MONTH_A;
+({ B: MONTH_B, A: MONTH_A } = buildPeriods(currentPreset));
 
 // The sheet names divisions its own way; the live chat service uses slugs.
 // This pairs them so a brand lines up across both months. A division with no
@@ -743,12 +847,11 @@ function rateTag(rate) {
   return `<span class="tag ${cls}">${Math.round(rate)}%</span>`;
 }
 
-// The report month's window: the first of the month to now while it runs,
-// to month end once it has finished. Every sub-tab reads its dates here.
+// The report period's window. Every sub-tab reads its dates here.
 function reportWindow() {
   return {
     start: MONTH_B.start, end: MONTH_B.end, effEnd: MONTH_B.effEnd,
-    daysInMonth: MONTH_B.daysInMonth, days: MONTH_B.days, running: MONTH_B.running,
+    daysInMonth: MONTH_B.totalDays, days: Math.max(MONTH_B.days, 1), running: MONTH_B.running,
   };
 }
 
@@ -756,7 +859,7 @@ function reportWindow() {
 // REPORT 1 · CHATS COMPARISON
 // =====================================================================
 
-// The sheet is fetched once per load and shared by both months.
+// The sheet is fetched once per load and shared by both periods.
 function loadChatSheetRows() {
   return new Promise((resolve, reject) => {
     Papa.parse(CHAT_SHEET_CSV + '&_cb=' + Date.now(), {
@@ -767,80 +870,126 @@ function loadChatSheetRows() {
   });
 }
 
-// Pull one month's block out of the sheet and total each division.
+// Reads every month block into { MONTHNAME: { division: [day1, day2, ...] } }.
 // Layout: column 0 holds a month name on the block's header row and is blank
 // on the division rows beneath it; column 1 holds the division name; columns
-// 2 onward hold one figure per day, as text with thousands separators.
-// Blocks are named by month only, with no year, so when a name appears more
-// than once the LAST block wins — the sheet runs oldest to newest, and the
-// picker only offers the past twelve months. Returns null if the month has
-// no block at all.
-function parseMonthBlock(rows, blockName) {
+// 2 onward hold one figure per day, as text with thousands separators. When
+// the header row numbers its columns, those numbers are used as the days;
+// otherwise column 2 is taken as day 1. Blocks are named by month only, so
+// if a name appears twice the LAST block wins — the sheet runs oldest to
+// newest.
+function parseSheetDaily(rows) {
   const MONTHS = MONTH_NAMES.map(m => m.toUpperCase());
-  let inBlock = false;
-  let found = null;
-  let current = null;
+  const blocks = {};
+  let current = null, dayForCol = null;
   for (const row of rows) {
     const first = String(row[0] || '').trim().toUpperCase();
     if (MONTHS.includes(first)) {
-      inBlock = first === blockName;
-      if (inBlock) { current = {}; found = current; }   // a later block replaces an earlier one
+      current = {};
+      blocks[first] = current;
+      dayForCol = {};
+      row.forEach((cell, i) => {
+        if (i < 2) return;
+        const n = parseInt(String(cell || '').trim(), 10);
+        if (n >= 1 && n <= 31) dayForCol[i] = n;
+      });
+      if (!Object.keys(dayForCol).length) dayForCol = null;   // fall back to position
       continue;
     }
-    if (!inBlock) continue;
+    if (!current) continue;
     const division = String(row[1] || '').trim();
     if (!division) continue;
-    current[division] = row.slice(2).reduce((sum, cell) => {
+    const daily = [];
+    row.forEach((cell, i) => {
+      if (i < 2) return;
+      const day = dayForCol ? dayForCol[i] : i - 1;
+      if (!day) return;
       const n = parseFloat(String(cell || '').replace(/[,\s]/g, ''));
-      return sum + (isNaN(n) ? 0 : n);
-    }, 0);
+      daily[day] = (daily[day] || 0) + (isNaN(n) ? 0 : n);
+    });
+    current[division] = daily;
   }
-  return found && Object.keys(found).length ? found : null;
+  return blocks;
 }
 
-// One month's chats by brand, from whichever source suits it. Always
-// resolves — a month with no usable source comes back with ok:false and a
-// reason, so the page can say which half of the comparison is missing.
-async function loadMonthChats(info, sheetRowsPromise) {
-  // A finished month: the sheet is the department's official record.
-  if (!info.running) {
+// Splits [start, end] at month boundaries.
+function monthSegments(start, end) {
+  const segs = [];
+  let cursor = new Date(start);
+  while (cursor <= end) {
+    const monthEnd = endOfDay(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0));
+    segs.push({ start: new Date(cursor), end: monthEnd < end ? monthEnd : new Date(end), year: cursor.getFullYear(), month: cursor.getMonth() });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  return segs;
+}
+
+// One period's chats by brand. Each month-slice of the range goes to the
+// sheet when that month is finished and the sheet has it, and to the live
+// feed otherwise. Always resolves; a slice with no usable source is
+// reported back so the page can say which part of the period is missing.
+async function loadPeriodChats(info, sheetPromise) {
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const retentionStart = startOfDay(new Date(now.getTime() - CHAT_RETENTION_DAYS * DAY_MS));
+
+  let blocks = null;
+  try { blocks = parseSheetDaily(await sheetPromise); } catch (e) { blocks = null; }
+
+  const byKey = new Map();
+  const add = (key, label, n) => {
+    const prev = byKey.get(key);
+    byKey.set(key, { label: prev ? prev.label : label, total: (prev ? prev.total : 0) + n });
+  };
+  const sources = new Set();
+  const unpaired = new Set();
+  const missing = [];
+
+  for (const seg of monthSegments(info.start, info.end)) {
+    if (seg.start > now) continue;   // the future has no chats yet
+    const segEnd = seg.end > now ? now : seg.end;
+    const finished = new Date(seg.year, seg.month, 1) < thisMonthStart;
+    const block = finished && blocks ? blocks[MONTH_NAMES[seg.month].toUpperCase()] : null;
+
+    if (block) {
+      const from = seg.start.getDate(), to = segEnd.getDate();
+      Object.entries(block).forEach(([division, daily]) => {
+        let sum = 0;
+        for (let d = from; d <= to; d++) sum += daily[d] || 0;
+        const slug = DIVISION_TO_CHAT_SLUG[division.trim().toLowerCase()] || null;
+        if (!slug) unpaired.add(division);
+        add(slug || 'division:' + division, division, sum);
+      });
+      sources.add('sheet');
+      continue;
+    }
+
+    if (seg.start < retentionStart) {
+      missing.push(fmtRange(seg.start, segEnd));
+      continue;
+    }
     try {
-      const rows = await sheetRowsPromise;
-      const block = parseMonthBlock(rows, info.sheetBlock);
-      if (block) {
-        const byKey = new Map();
-        const unpaired = [];
-        Object.entries(block).forEach(([division, total]) => {
-          const slug = DIVISION_TO_CHAT_SLUG[division.trim().toLowerCase()] || null;
-          if (!slug) unpaired.push(division);
-          const key = slug || 'division:' + division;
-          const prev = byKey.get(key);
-          byKey.set(key, { label: division, total: (prev ? prev.total : 0) + total });
-        });
-        const total = [...byKey.values()].reduce((s, v) => s + v.total, 0);
-        return { ok: true, source: 'sheet', byKey, total, days: info.daysInMonth, unpaired };
-      }
+      const stats = await apiGet(`/chatwoot/stats?from=${encodeURIComponent(seg.start.toISOString())}&to=${encodeURIComponent(segEnd.toISOString())}`);
+      Object.entries(stats.conversationsByBrand || {}).forEach(([slug, n]) => add(slug, chatBrandLabel(slug), n));
+      sources.add('live');
     } catch (err) {
-      console.warn(`${info.label}: chat sheet unavailable —`, err.message || err);
+      console.error(`Live chats failed for ${fmtRange(seg.start, segEnd)} —`, err);
+      missing.push(fmtRange(seg.start, segEnd));
     }
   }
 
-  // The running month, or a finished one the sheet doesn't have: live.
-  if (!info.inChatRetention) {
-    return { ok: false, reason: `${info.label} is not in the chat volume sheet and is older than the ${CHAT_RETENTION_DAYS} days the live chat data keeps.` };
+  if (!sources.size) {
+    return { ok: false, reason: `No chat figures are available for ${info.label} — it is not in the chat volume sheet and is older than the ${CHAT_RETENTION_DAYS} days the live data keeps.` };
   }
-  try {
-    const stats = await apiGet(`/chatwoot/stats?from=${encodeURIComponent(info.start.toISOString())}&to=${encodeURIComponent(info.effEnd.toISOString())}`);
-    const byKey = new Map();
-    Object.entries(stats.conversationsByBrand || {}).forEach(([slug, total]) => {
-      byKey.set(slug, { label: chatBrandLabel(slug), total });
-    });
-    const total = [...byKey.values()].reduce((s, v) => s + v.total, 0);
-    return { ok: true, source: 'live', byKey, total, days: info.days, unpaired: [] };
-  } catch (err) {
-    console.error(`${info.label}: live chats failed —`, err);
-    return { ok: false, reason: `${info.label} figures could not be loaded from the chat service.` };
-  }
+  const total = [...byKey.values()].reduce((s, v) => s + v.total, 0);
+  return {
+    ok: true,
+    source: sources.size > 1 ? 'mixed' : [...sources][0],
+    byKey, total,
+    days: Math.max(info.days, 1),
+    unpaired: [...unpaired],
+    missing,
+  };
 }
 
 let chatsLoadToken = 0;
@@ -855,12 +1004,12 @@ async function loadChatsComparison() {
   document.getElementById('legendB').textContent = B.label;
   document.getElementById('thA').textContent = A.short;
   document.getElementById('thB').textContent = B.short;
-  document.getElementById('sideBySideHint').textContent = `Sorted by ${A.name} volume`;
+  document.getElementById('sideBySideHint').textContent = `Sorted by ${A.short} volume`;
   ['kpiATotal', 'kpiBTotal', 'kpiChange', 'kpiPerDay'].forEach(id => { document.getElementById(id).textContent = '…'; });
 
   const sheetRows = loadChatSheetRows();
   sheetRows.catch(() => {});   // each month handles a sheet failure itself
-  const [resA, resB] = await Promise.all([loadMonthChats(A, sheetRows), loadMonthChats(B, sheetRows)]);
+  const [resA, resB] = await Promise.all([loadPeriodChats(A, sheetRows), loadPeriodChats(B, sheetRows)]);
   if (myToken !== chatsLoadToken) return;   // the pickers moved on while this was loading
 
   const byKey = new Map();
@@ -871,7 +1020,7 @@ async function loadChatsComparison() {
     else byKey.set(key, { key, label: v.label, a: null, b: v.total });
   });
 
-  const daysA = resA.ok ? resA.days : A.daysInMonth;
+  const daysA = resA.ok ? resA.days : A.totalDays;
   const daysB = resB.ok ? resB.days : B.days;
   const rows = [...byKey.values()].map(r => ({
     ...r,
@@ -882,12 +1031,15 @@ async function loadChatsComparison() {
   const notes = [];
   if (!resA.ok) notes.push(resA.reason);
   if (!resB.ok) notes.push(resB.reason);
-  if (resB.ok && B.running) notes.push(`${B.name} is still running — its column covers day 1 to day ${B.days} of ${B.daysInMonth}. Use the per-day view for a like-for-like comparison.`);
+  if (resB.ok && B.running && B.days < B.totalDays) notes.push(`The report period is still running — it covers ${B.days} of ${B.totalDays} days so far. Use the per-day view for a like-for-like comparison.`);
+  [resA, resB].forEach((r, i) => {
+    if (r.ok && r.missing && r.missing.length) notes.push(`${i ? 'Report' : 'Comparison'} period is missing ${r.missing.join(', ')} — older than the ${CHAT_RETENTION_DAYS} days the live data keeps and not in the sheet.`);
+  });
   // A division with no chat slug can only line up with a sheet month on the
   // other side; against a live month it shows one figure and a blank.
   const unpaired = [...new Set([...(resA.unpaired || []), ...(resB.unpaired || [])])];
-  if (unpaired.length && (resA.source !== resB.source)) {
-    notes.push(`No live chat feed is paired with ${unpaired.join(', ')}, so ${unpaired.length === 1 ? 'it shows' : 'they show'} a figure for one month only.`);
+  if (unpaired.length && (resA.source !== 'sheet' || resB.source !== 'sheet')) {
+    notes.push(`No live chat feed is paired with ${unpaired.join(', ')}, so ${unpaired.length === 1 ? 'its' : 'their'} figures only cover days read from the sheet.`);
   }
   flag('chatsFlag', notes);
 
@@ -907,9 +1059,12 @@ function renderChatsComparison() {
   const { rows, totalA, totalB, daysA, daysB } = chatsData;
 
   document.getElementById('kpiATotal').textContent = fmtInt(totalA);
-  const srcText = (src, days, running) => src === 'sheet'
-    ? `From the chat volume sheet · ${days} days`
-    : `Live${running ? ', month to date' : ''} · ${days} days`;
+  const srcText = (src, days, running) => {
+    const d = `${days} day${days === 1 ? '' : 's'}`;
+    if (src === 'sheet') return `From the chat volume sheet · ${d}`;
+    if (src === 'mixed') return `Sheet + live · ${d}`;
+    return `Live${running ? ', so far' : ''} · ${d}`;
+  };
   document.getElementById('kpiASub').textContent = totalA == null ? 'Unavailable' : srcText(chatsData.sourceA, daysA, MONTH_A.running);
   document.getElementById('kpiBTotal').textContent = fmtInt(totalB);
   document.getElementById('kpiBSub').textContent = totalB == null ? 'Unavailable' : srcText(chatsData.sourceB, daysB, MONTH_B.running);
@@ -920,7 +1075,7 @@ function renderChatsComparison() {
     const pct = Math.round(((totalB - totalA) / totalA) * 100);
     chgEl.textContent = `${pct >= 0 ? '+' : ''}${pct}%`;
     chgEl.style.color = pct >= 0 ? 'var(--success)' : 'var(--danger)';
-    chgSub.textContent = `${fmtInt(Math.abs(totalB - totalA))} ${totalB >= totalA ? 'more' : 'fewer'} than ${MONTH_A.name}${MONTH_B.running ? ' so far' : ''}`;
+    chgSub.textContent = `${fmtInt(Math.abs(totalB - totalA))} ${totalB >= totalA ? 'more' : 'fewer'} than ${MONTH_A.short}${MONTH_B.running ? ' so far' : ''}`;
   } else {
     chgEl.textContent = '—'; chgEl.style.color = '';
     chgSub.textContent = 'Needs both months';
@@ -932,7 +1087,7 @@ function renderChatsComparison() {
     const aPd = totalA / daysA, bPd = totalB / daysB;
     const pct = Math.round(((bPd - aPd) / aPd) * 100);
     pdEl.textContent = Math.round(bPd).toLocaleString();
-    pdSub.textContent = `${Math.round(aPd).toLocaleString()} a day in ${MONTH_A.name} · ${pct >= 0 ? '+' : ''}${pct}%`;
+    pdSub.textContent = `${Math.round(aPd).toLocaleString()} a day in ${MONTH_A.short} · ${pct >= 0 ? '+' : ''}${pct}%`;
     pdSub.className = 'kpi-delta ' + (pct >= 0 ? 'up' : 'down');
   } else {
     pdEl.textContent = '—';
@@ -1046,7 +1201,7 @@ function renderTicketResolution() {
   ticketsData = { filed, closed, resolved, rejected, stillOpen, rate, window: w };
 
   flag('ticketsFlag', w.running
-    ? `${MONTH_B.name} is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth} and refreshes on its own every two minutes.`
+    ? `This period is still running — it covers ${w.days} of ${w.daysInMonth} days so far and refreshes on its own every two minutes.`
     : '');
 
   // ---- KPIs ----
@@ -1068,7 +1223,7 @@ function renderTicketResolution() {
 
   document.getElementById('tkOpen').textContent = fmtInt(stillOpen.length);
   document.getElementById('tkOpenSub').textContent = filed.length
-    ? `${Math.round((stillOpen.length / filed.length) * 100)}% of ${MONTH_B.name}'s tickets`
+    ? `${Math.round((stillOpen.length / filed.length) * 100)}% of this period's tickets`
     : 'Nothing filed yet';
 
   // ---- Top 5 concerns ----
@@ -1077,7 +1232,7 @@ function renderTicketResolution() {
   const top5 = Object.entries(concerns).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const concernsEl = document.getElementById('tkTopConcerns');
   if (!top5.length) {
-    concernsEl.innerHTML = `<div class="note">No tickets filed in ${MONTH_B.name}.</div>`;
+    concernsEl.innerHTML = '<div class="note">No tickets filed in this period.</div>';
   } else {
     const max = top5[0][1];
     concernsEl.innerHTML = top5.map(([issue, n], i) => `
@@ -1119,7 +1274,7 @@ function renderTicketResolution() {
         <b style="margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums;">${r.n.toLocaleString()}</b>
         <span style="color:var(--ink-faint);width:38px;text-align:right;">${Math.round((r.n / filed.length) * 100)}%</span>
       </div>`).join('')
-    : `<div class="note">No tickets filed in ${MONTH_B.name}.</div>`;
+    : '<div class="note">No tickets filed in this period.</div>';
 
   // ---- Peak hour ----
   // Hours come from the browser's clock, which for this team is Philippine
@@ -1183,7 +1338,7 @@ function renderTicketResolution() {
 
   const bBody = document.getElementById('tkBrandBody');
   if (!brandRows.length) {
-    bBody.innerHTML = `<tr><td colspan="6"><div class="note">No tickets in ${MONTH_B.name}.</div></td></tr>`;
+    bBody.innerHTML = '<tr><td colspan="6"><div class="note">No tickets in this period.</div></td></tr>';
     document.getElementById('tkBrandFoot').innerHTML = '';
   } else {
     bBody.innerHTML = brandRows.map(r => `<tr>
@@ -1241,11 +1396,11 @@ function renderTicketResolution() {
         <b style="margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums;">${a.closed.toLocaleString()}</b>
         <span style="color:var(--ink-faint);width:38px;text-align:right;">${closedTotal ? Math.round((a.closed / closedTotal) * 100) : 0}%</span>
       </div>`).join('')
-    : `<div class="note">Nothing closed in ${MONTH_B.name}.</div>`;
+    : '<div class="note">Nothing closed in this period.</div>';
 
   const aBody = document.getElementById('tkAgentBody');
   if (!agentRows.length) {
-    aBody.innerHTML = `<tr><td colspan="6"><div class="note">No agent activity in ${MONTH_B.name}.</div></td></tr>`;
+    aBody.innerHTML = '<tr><td colspan="6"><div class="note">No agent activity in this period.</div></td></tr>';
     document.getElementById('tkAgentFoot').innerHTML = '';
   } else {
     aBody.innerHTML = agentRows.map(a => {
@@ -1286,7 +1441,7 @@ function renderHourChart() {
 
   document.getElementById('tkHourHint').textContent = perDay
     ? `Average per day over ${w.days} days`
-    : `Hour the ticket was filed · ${w.days} days so far`;
+    : `Hour the ticket was filed · ${w.days} day${w.days === 1 ? '' : 's'}`;
 
   // The peak hour carries the page's accent; every other hour stays quiet, so
   // the one number the reader is looking for is the one that stands out.
@@ -1326,7 +1481,7 @@ function renderHourChart() {
   const share = top3.reduce((s, x) => s + x.n, 0);
   el.innerHTML = `<div style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;">
     Busiest blocks: ${top3.map(x => `<b>${hourBlockLabel(x.h)}</b> (${x.n.toLocaleString()})`).join(', ')} —
-    together ${Math.round((share / total) * 100)}% of ${MONTH_B.name}'s tickets.
+    together ${Math.round((share / total) * 100)}% of this period's tickets.
   </div>`;
 }
 
@@ -1421,7 +1576,7 @@ async function loadSatisfaction() {
   // "no complaints" — worse than saying nothing — so say why instead.
   if (!MONTH_B.inChatRetention) {
     csData = null;
-    flag('csFlag', `Ratings for ${MONTH_B.label} are no longer available — chat data is only kept for ${CHAT_RETENTION_DAYS} days.`);
+    flag('csFlag', `Ratings for ${MONTH_B.label} are no longer available — chat data is only kept for ${CHAT_RETENTION_DAYS} days. Pick a range inside the last ${CHAT_RETENTION_DAYS} days.`);
     ['csCsatCount', 'csDsatCount', 'csAvg'].forEach(id => { document.getElementById(id).textContent = '—'; });
     ['csCsatSub', 'csDsatSub', 'csAvgSub'].forEach(id => { document.getElementById(id).textContent = 'Outside the data window'; });
     document.getElementById('csTopBrands').innerHTML = '<div class="panel"><div class="note">Outside the chat data window.</div></div>';
@@ -1467,7 +1622,7 @@ async function loadSatisfaction() {
   csData = { csat, rated, window: w, hasBrand };
 
   const notes = [];
-  if (w.running) notes.push(`${MONTH_B.name} is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth}.`);
+  if (w.running && w.days < w.daysInMonth) notes.push(`This period is still running — it covers ${w.days} of ${w.daysInMonth} days so far.`);
   flag('csFlag', notes);
 
   // Without a brand and a customer name on each rating, the two rankings
@@ -1530,7 +1685,7 @@ function renderSatisfaction() {
 
   const wrap = document.getElementById('csTopBrands');
   if (!top3.length) {
-    wrap.innerHTML = `<div class="panel"><div class="note">No dissatisfied ratings in ${MONTH_B.name}.</div></div>`;
+    wrap.innerHTML = '<div class="panel"><div class="note">No dissatisfied ratings in this period.</div></div>';
     csData.top3 = [];
     renderTopPlayers();
     return;
@@ -1628,7 +1783,7 @@ function renderTopPlayers() {
 
   const body = document.getElementById('csTopPlayers');
   if (!top5.length) {
-    body.innerHTML = `<tr><td colspan="7"><div class="note">No named player gave a DSAT in ${MONTH_B.name}.</div></td></tr>`;
+    body.innerHTML = '<tr><td colspan="7"><div class="note">No named player gave a DSAT in this period.</div></td></tr>';
   } else {
     body.innerHTML = top5.map((p, i) => {
       const colour = RANK_COLORS[i];
@@ -1751,17 +1906,15 @@ document.getElementById('chartModeTabs').addEventListener('click', (e) => {
 
 // The title bar's month follows whichever report is on screen, so the page
 // never names one month while showing figures for another.
-function pagePeriod(page) {
-  return page === 'chats' ? `${MONTH_A.label} vs ${MONTH_B.label}` : MONTH_B.label;
-}
 function activePage() {
   const btn = document.querySelector('.subtab.active');
   return btn ? btn.dataset.page : 'chats';
 }
 function applyPeriodChrome() {
-  document.getElementById('reportPeriod').textContent = pagePeriod(activePage());
-  // Compare with only means something on the Chats Comparison.
-  document.getElementById('compareField').classList.toggle('hidden', activePage() !== 'chats');
+  document.getElementById('reportPeriod').textContent = MONTH_B.label;
+  // The comparison only means something on the Chats Comparison.
+  document.getElementById('compareLine').textContent =
+    activePage() === 'chats' ? `Compared with ${MONTH_A.label} · ` : '';
 }
 
 document.getElementById('subtabs').addEventListener('click', (e) => {
@@ -1791,7 +1944,7 @@ function exportActiveReport() {
   if (page === 'chats' && chatsData) {
     const { rows, totalA, totalB, daysA, daysB } = chatsData;
     out.push('Report,Chats Comparison');
-    out.push(`Months,${MONTH_A.label},${MONTH_B.label}`);
+    out.push(`Periods,${MONTH_A.label},${MONTH_B.label}`);
     out.push(`Days counted,${daysA},${daysB}`);
     out.push('');
     out.push(Papa.unparse(rows.map(r => ({
@@ -1811,7 +1964,7 @@ function exportActiveReport() {
   if (page === 'tickets' && ticketsData) {
     const d = ticketsData;
     out.push('Report,Ticket Resolution');
-    out.push(`Month,${MONTH_B.label}`);
+    out.push(`Period,${MONTH_B.label}`);
     out.push(`Days counted,${d.window.days} of ${d.window.daysInMonth}`);
     out.push('');
     out.push(Papa.unparse([
@@ -1848,7 +2001,7 @@ function exportActiveReport() {
   if (page === 'satisfaction' && csData) {
     const { csat, window: w, top3 } = csData;
     out.push('Report,Customer Satisfaction');
-    out.push(`Month,${MONTH_B.label}`);
+    out.push(`Period,${MONTH_B.label}`);
     out.push(`Days counted,${w.days} of ${w.daysInMonth}`);
     out.push('');
     out.push(Papa.unparse([
@@ -1912,32 +2065,11 @@ async function loadAvatars() {
 }
 
 // ---- Date filter ----
-// Report month: this month and the eleven before it, newest first. Compare
-// with: any month before the report month, defaulting to the one just
-// before. Changing either reloads everything that depends on it; a finished
-// month needs no auto-refresh, so the timers below only reload while the
-// report month is still running.
-const PICKER_MONTHS = 12;
-
-function populateReportMonths() {
-  const sel = document.getElementById('reportMonthSelect');
-  const now = new Date();
-  const keys = [];
-  for (let i = 0; i < PICKER_MONTHS; i++) keys.push(monthKeyOf(new Date(now.getFullYear(), now.getMonth() - i, 1)));
-  sel.innerHTML = keys.map(k => `<option value="${k}">${monthInfo(k).label}${k === keys[0] ? ' (current)' : ''}</option>`).join('');
-  sel.value = MONTH_B.key;
-}
-
-function populateCompareMonths() {
-  const sel = document.getElementById('compareMonthSelect');
-  const keys = [];
-  for (let i = 1; i <= PICKER_MONTHS; i++) keys.push(monthKeyOf(new Date(MONTH_B.year, MONTH_B.month - 1 - i, 1)));
-  sel.innerHTML = keys.map(k => `<option value="${k}">${monthInfo(k).label}</option>`).join('');
-  // Keep the chosen comparison if it's still earlier than the report month;
-  // otherwise fall back to the month just before.
-  sel.value = keys.includes(MONTH_A.key) ? MONTH_A.key : keys[0];
-  MONTH_A = monthInfo(sel.value);
-}
+// Same behaviour as the Dashboard's: picking a preset applies it at once;
+// picking Custom Date opens the popover and waits for Apply. Every change
+// reloads everything that depends on the dates.
+const rpSelect = document.getElementById('rpPreset');
+const rpPop = document.getElementById('rpPop');
 
 function refreshAllReports() {
   applyPeriodChrome();
@@ -1946,27 +2078,70 @@ function refreshAllReports() {
   loadSatisfaction();
 }
 
-document.getElementById('reportMonthSelect').addEventListener('change', (e) => {
-  MONTH_B = monthInfo(e.target.value);
-  populateCompareMonths();
+function setPeriods(preset) {
+  currentPreset = preset;
+  ({ B: MONTH_B, A: MONTH_A } = buildPeriods(preset));
   refreshAllReports();
+}
+
+rpSelect.addEventListener('change', (e) => {
+  if (e.target.value === 'custom') {
+    // Pre-fill with whatever is showing now, so Custom starts from context.
+    document.getElementById('rpFrom').value = isoDay(MONTH_B.start);
+    document.getElementById('rpTo').value = isoDay(MONTH_B.end > new Date() ? new Date() : MONTH_B.end);
+    document.getElementById('rpCFrom').value = customRange && customRange.cFrom ? isoDay(customRange.cFrom) : '';
+    document.getElementById('rpCTo').value = customRange && customRange.cTo ? isoDay(customRange.cTo) : '';
+    document.getElementById('rpError').textContent = '';
+    rpPop.classList.add('open');
+    return;
+  }
+  rpPop.classList.remove('open');
+  setPeriods(e.target.value);
 });
-document.getElementById('compareMonthSelect').addEventListener('change', (e) => {
-  MONTH_A = monthInfo(e.target.value);
-  applyPeriodChrome();
-  loadChatsComparison();   // the only report that uses the comparison month
+
+document.getElementById('rpApply').addEventListener('click', () => {
+  const f = document.getElementById('rpFrom').value;
+  const t = document.getElementById('rpTo').value;
+  const cf = document.getElementById('rpCFrom').value;
+  const ct = document.getElementById('rpCTo').value;
+  const err = document.getElementById('rpError');
+  if (!f || !t) { err.textContent = 'Pick both a From and a To date for the report period.'; return; }
+  if (f > t) { err.textContent = 'The report period must start before it ends.'; return; }
+  if ((cf && !ct) || (!cf && ct)) { err.textContent = 'Fill in both comparison dates, or leave both blank.'; return; }
+  if (cf && cf > ct) { err.textContent = 'The comparison period must start before it ends.'; return; }
+  err.textContent = '';
+
+  customRange = {
+    from: parseIsoDay(f), to: parseIsoDay(t),
+    cFrom: cf ? parseIsoDay(cf) : null, cTo: ct ? parseIsoDay(ct) : null,
+  };
+  const opt = document.getElementById('rpCustomOption');
+  opt.textContent = fmtShort(customRange.from, endOfDay(customRange.to));
+  rpSelect.value = 'custom';
+  rpPop.classList.remove('open');
+  setPeriods('custom');
+});
+
+function cancelCustom() {
+  rpPop.classList.remove('open');
+  rpSelect.value = currentPreset;   // back to whatever is actually applied
+}
+document.getElementById('rpCancel').addEventListener('click', cancelCustom);
+document.addEventListener('click', (e) => {
+  if (!rpPop.classList.contains('open')) return;
+  if (document.getElementById('rpWrap').contains(e.target)) return;
+  cancelCustom();
 });
 
 // ---- Boot ----
 document.getElementById('generatedAt').textContent =
   new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-populateReportMonths();
-populateCompareMonths();
+rpSelect.value = currentPreset;
 applyPeriodChrome();
 
 loadChatsComparison();
 loadSatisfaction();
-// Only the running month changes under us; a finished month is settled.
+// Only a period that includes today changes under us; a finished one is settled.
 setInterval(() => { if (MONTH_B.running) loadChatsComparison(); }, 5 * 60 * 1000);
 setInterval(() => { if (MONTH_B.running) loadSatisfaction(); }, 5 * 60 * 1000);
 
