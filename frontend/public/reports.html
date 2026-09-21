@@ -91,6 +91,20 @@
   .panel-head .hint{font-size:11.5px;color:var(--ink-faint);font-weight:600;}
   .cols-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
 
+  .section-head{display:flex;align-items:baseline;gap:14px;padding-bottom:10px;border-bottom:2px solid var(--ink);margin-bottom:16px;flex-wrap:wrap;}
+  .section-head h2{margin:0;font-weight:800;letter-spacing:-.015em;}
+  .section-head .lede{margin-left:auto;font-size:12.5px;color:var(--ink-faint);font-weight:600;}
+
+  /* Reasons stacked inside one table cell — the Top 5 players table shows
+     every reason a player gave, each one opening its own conversation. */
+  .reason-list{display:flex;flex-direction:column;gap:6px;}
+  .reason-item{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;background:#F8FAFC;}
+  .reason-item:hover{background:var(--primary-tint);}
+  .reason-item .sev-pill{flex-shrink:0;margin-top:1px;}
+  .reason-item .txt{font-size:12.5px;color:var(--ink);line-height:1.45;word-break:break-word;}
+  .reason-item .when{margin-left:auto;font-size:11px;color:var(--ink-faint);white-space:nowrap;padding-left:8px;}
+  .reason-none{font-size:12.5px;color:var(--ink-faint);font-style:italic;}
+
   .legend{display:flex;gap:16px;flex-wrap:wrap;}
   .legend-row{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft);font-weight:600;}
   .legend-row .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
@@ -492,107 +506,59 @@
     </div>
 
     <!-- ================= REPORT 3: CUSTOMER SATISFACTION ================= -->
+    <!-- Rebuilt 2026-09-20 to two questions only: how did customers rate us,
+         and which three brands drew the most complaints — with the reasons
+         laid out in full, not hidden behind a click. -->
     <div class="report-page" id="page-satisfaction">
 
       <div id="csFlag"></div>
 
       <div class="kpi-row">
-        <div class="kpi-card">
-          <div class="kpi-label">Average rating</div>
-          <div class="kpi-value" id="csAvg">—</div>
-          <div class="kpi-delta flat" id="csAvgSub">Loading…</div>
-        </div>
         <div class="kpi-card accent-ok">
           <div class="kpi-label">CSAT — satisfied</div>
-          <div class="kpi-value" id="csCsat" style="color:var(--success);">—</div>
+          <div class="kpi-value" id="csCsatCount" style="color:var(--success);">—</div>
           <div class="kpi-delta flat" id="csCsatSub">Rated 4–5★</div>
         </div>
         <div class="kpi-card accent-bad">
           <div class="kpi-label">DSAT — dissatisfied</div>
-          <div class="kpi-value" id="csDsat" style="color:var(--danger);">—</div>
+          <div class="kpi-value" id="csDsatCount" style="color:var(--danger);">—</div>
           <div class="kpi-delta flat" id="csDsatSub">Rated 1–2★</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Average first reply</div>
-          <div class="kpi-value" id="csFtr">—</div>
-          <div class="kpi-delta flat" id="csFtrSub">Handoffs only</div>
+          <div class="kpi-label">Average rating</div>
+          <div class="kpi-value" id="csAvg">—</div>
+          <div class="kpi-delta flat" id="csAvgSub">Out of 5</div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Average chatting time</div>
-          <div class="kpi-value" id="csArt">—</div>
-          <div class="kpi-delta flat" id="csArtSub">Handoffs only</div>
-        </div>
+      </div>
+
+      <div class="section-head" style="margin-top:22px;">
+        <h2 style="font-size:17px;">Top 3 brands by DSAT</h2>
+        <span class="lede">Every written reason is listed · click one to open the conversation</span>
+      </div>
+
+      <div id="csTopBrands"><div class="panel"><div class="note">Loading…</div></div></div>
+
+      <div class="section-head" style="margin-top:26px;">
+        <h2 style="font-size:17px;">Top 5 players who gave DSATs</h2>
+        <span class="lede">Same name on two brands counts as two players · click a reason to open the chat</span>
       </div>
 
       <div class="panel">
-        <div class="panel-head">
-          <h3>Why customers were dissatisfied</h3>
-          <span class="hint">Same tagging as Quality Assurance · click a card to filter</span>
-        </div>
-        <div class="kpi-row" style="margin-bottom:0;">
-          <div class="kpi-card clickable" data-sev="all">
-            <div class="kpi-label">Total DSATs</div>
-            <div class="kpi-value" id="csSevTotal">—</div>
-            <div class="kpi-delta flat" id="csSevTotalSub">All brands</div>
-          </div>
-          <div class="kpi-card clickable bad" data-sev="high">
-            <div class="kpi-label" style="color:var(--danger);">High — legit complaints</div>
-            <div class="kpi-value" id="csSevHigh" style="color:var(--danger);">—</div>
-            <div class="kpi-delta flat">Service or payment issues with remarks</div>
-          </div>
-          <div class="kpi-card clickable" data-sev="medium">
-            <div class="kpi-label" style="color:var(--warning);">Medium — venting</div>
-            <div class="kpi-value" id="csSevMed" style="color:var(--warning);">—</div>
-            <div class="kpi-delta flat">Anger with nothing specific to fix</div>
-          </div>
-          <div class="kpi-card clickable" data-sev="low">
-            <div class="kpi-label">Low — no remarks</div>
-            <div class="kpi-value" id="csSevLow">—</div>
-            <div class="kpi-delta flat">Rating only, no explanation</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head">
-          <h3 id="csRankTitle">DSAT by Brand (This Month)</h3>
-          <span class="hint">Share is the brand's own rated chats · severity cards above switch the figure</span>
-        </div>
-        <div id="csRankBars"><div class="note">Loading…</div></div>
-      </div>
-
-      <div class="panel" id="csRemarksPanel" style="display:none;">
-        <div class="panel-head">
-          <h3 id="csRemarksTitle">—</h3>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <span class="hint">Click a row to open the conversation</span>
-            <button class="btn" id="csRemarksClose" type="button">Close</button>
-          </div>
-        </div>
-        <div class="scroll tall">
-          <table class="rt rowlink">
+        <div class="scroll">
+          <table class="rt" id="csTopPlayersTable">
             <thead><tr>
-              <th>Customer</th><th>Rating</th><th>Severity</th><th>Reason given</th><th class="num">When</th>
+              <th style="width:44px;"></th>
+              <th>Player</th>
+              <th>Brand</th>
+              <th class="num">DSATs</th>
+              <th class="num">Of their ratings</th>
+              <th>Reasons given</th>
+              <th class="num">Last DSAT</th>
             </tr></thead>
-            <tbody id="csRemarksBody"></tbody>
+            <tbody id="csTopPlayers"><tr><td colspan="7"><div class="note">Loading…</div></td></tr></tbody>
           </table>
         </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><h3>Brand detail</h3><span class="hint">Only brands with at least one rating</span></div>
-        <div class="scroll tall">
-          <table class="rt">
-            <thead><tr>
-              <th>Brand</th><th class="num">Chats</th><th class="num">Rated</th>
-              <th class="num">Satisfied</th><th class="num">DSATs</th>
-              <th class="num">High</th><th class="num">Medium</th><th class="num">Low</th>
-              <th class="num">DSAT rate</th>
-            </tr></thead>
-            <tbody id="csBrandBody"><tr><td colspan="9"><div class="note">Loading…</div></td></tr></tbody>
-            <tfoot id="csBrandFoot"></tfoot>
-          </table>
-        </div>
+        <div id="csTopPlayersNote" style="font-size:12px;color:var(--ink-faint);margin-top:10px;"></div>
       </div>
 
     </div>
@@ -1323,22 +1289,14 @@ function fmtDur(seconds) {
 }
 
 let csData = null;
-let csSevFilter = 'all';
-let csSelectedBrand = null;   // the brand whose DSAT reasons are open
-let csLoadToken = 0;           // cancels an in-flight load when a new one starts
+let csLoadToken = 0;          // cancels an in-flight load when a new one starts
 
-// A month of conversations across every brand in one request takes minutes
-// and sometimes never returns (seen 2026-09-20: the page sat on "Loading…"
-// while the rating totals had already arrived). Each brand is fetched on its
-// own instead, with a timeout, and the report redraws after each one — so
-// the big brands appear within seconds and one slow brand can't hold up the
-// rest. The headline figures come from /chatwoot/csat and never wait for
-// any of this.
-const CS_BRAND_TIMEOUT_MS = 25000;
-// 1,000 matches the QA page's cap, so the two pages count the same set of
-// conversations. Anything lower quietly truncated the busiest brands —
-// Manila Play PH alone files close to 400 rated chats a month.
-const CS_PER_BRAND = 1000;
+// Ratings come from /chatwoot/csat, which takes the latest rating per
+// conversation with NO per-brand cap — it is the only complete source for a
+// whole month. /chatwoot/conversations cannot answer this: its per-brand cap
+// silently truncates the busiest brands, which is why the QA tab reports far
+// fewer DSATs than actually exist (678 against 1,436 in September).
+const CS_TIMEOUT_MS = 30000;
 
 function apiGetWithTimeout(path, ms) {
   return Promise.race([
@@ -1352,298 +1310,226 @@ async function loadSatisfaction() {
   const w = septemberWindow();
   const range = `from=${encodeURIComponent(w.start.toISOString())}&to=${encodeURIComponent(w.effEnd.toISOString())}`;
 
-  // ---- Stage 1: the headline figures, which are one cheap query each ----
-  const [csatRes, statsRes] = await Promise.allSettled([
-    apiGetWithTimeout(`/chatwoot/csat?${range}`, CS_BRAND_TIMEOUT_MS),
-    apiGetWithTimeout(`/chatwoot/stats?${range}`, CS_BRAND_TIMEOUT_MS),
-  ]);
+  let csat = null;
+  try {
+    csat = await apiGetWithTimeout(`/chatwoot/csat?${range}`, CS_TIMEOUT_MS);
+  } catch (err) {
+    console.error('Satisfaction: ratings failed —', err.message);
+  }
   if (myToken !== csLoadToken) return;
 
-  const csat = csatRes.status === 'fulfilled' ? csatRes.value : null;
-  const stats = statsRes.status === 'fulfilled' ? statsRes.value : null;
-
-  csData = { csat, stats, convs: [], rated: [], window: w, loading: true, loadedBrands: 0, totalBrands: 0, failedBrands: [] };
-  flag('csFlag', w.running
-    ? `September is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth}.`
-    : '');
-  renderSatisfaction();
-
-  if (!csat && !stats) {
-    flag('csFlag', 'Satisfaction figures could not be loaded from the chat service.');
-    csData.loading = false;
-    renderSatisfaction();
+  if (!csat) {
+    flag('csFlag', 'Ratings could not be loaded from the chat service.');
+    document.getElementById('csTopBrands').innerHTML = '<div class="panel"><div class="note">No data.</div></div>';
     return;
   }
 
-  // ---- Stage 2: the rated threads, a few brands at a time ----
-  // The brand list normally comes from /chatwoot/stats, ordered by volume so
-  // the biggest brands load first. If that call failed, fall back to the
-  // known slugs rather than showing no remarks at all.
-  const brands = stats && stats.conversationsByBrand && Object.keys(stats.conversationsByBrand).length
-    ? Object.entries(stats.conversationsByBrand).sort((a, b) => b[1] - a[1]).map(([slug]) => slug)
-    : Object.keys(CHAT_BRAND_LABELS);
-  csData.totalBrands = brands.length;
-  renderSatisfaction();   // so the progress line says "0 of 13", not "0 of 0"
+  // Older deployments of /csat return ratings without a brand. Without it
+  // the brand ranking is impossible, so the page says what is missing
+  // rather than showing a single "Unknown" brand as if it were real.
+  const hasBrand = (csat.responses || []).some(r => r.brand);
+  const rated = (csat.responses || []).map(r => ({
+    conversationId: r.conversationId,
+    brand: r.brand || 'unknown',
+    contactName: r.contactName || null,
+    rating: r.rating,
+    feedback: r.feedback || null,
+    createdAt: r.createdAt,
+    severity: r.rating <= 2 ? dsatSeverity(r.feedback) : null,
+  }));
 
-  if (!brands.length) {
-    csData.loading = false;
-    flag('csFlag', w.running
-      ? `September is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth}.`
-      : '');
-    renderSatisfaction();
-    return;
-  }
+  csData = { csat, rated, window: w };
 
-  // Three at a time: one brand per request keeps each query small, but
-  // strictly one after another meant a slow brand held up every brand behind
-  // it. Three in flight is quick without putting the whole month back on the
-  // database at once. Biggest brands go first, so the bulk of the remarks
-  // land in the first wave.
-  const CONCURRENCY = 3;
-  const queue = [...brands];
-  const worker = async () => {
-    while (queue.length) {
-      if (myToken !== csLoadToken) return;
-      const slug = queue.shift();
-      try {
-        const data = await apiGetWithTimeout(
-          `/chatwoot/conversations?brand=${encodeURIComponent(slug)}&limit=${CS_PER_BRAND}&perBrand=${CS_PER_BRAND}&${range}`,
-          CS_BRAND_TIMEOUT_MS
-        );
-        if (myToken !== csLoadToken) return;
-        csData.convs.push(...(data.conversations || []));
-      } catch (err) {
-        console.warn(`Satisfaction: ${slug} failed —`, err.message);
-        csData.failedBrands.push(slug);
-      }
-      csData.loadedBrands++;
-      csData.rated = csData.convs
-        .filter(c => c.csatRating != null)
-        .map(c => ({ ...c, severity: c.csatRating <= 2 ? dsatSeverity(c.csatFeedback) : null }))
-        .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
-      renderSatisfaction();
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, brands.length) }, worker));
-  if (myToken !== csLoadToken) return;
-
-  csData.loading = false;
   const notes = [];
   if (w.running) notes.push(`September is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth}.`);
-  if (!csat) notes.push('The official rating totals are unavailable, so the percentages are counted from the loaded threads instead.');
-  if (csData.failedBrands.length) {
-    notes.push(`${csData.failedBrands.map(chatBrandLabel).join(', ')} took too long to load, so ${csData.failedBrands.length === 1 ? 'its' : 'their'} remarks are missing below. The percentages above still include them.`);
-  }
+  if (!hasBrand && rated.length) notes.push('The chat service is not returning a brand with each rating yet, so the brand ranking cannot be built. Deploy the updated /csat route on the backend.');
   flag('csFlag', notes);
   renderSatisfaction();
 }
 
 function renderSatisfaction() {
-  const { csat, convs, rated, stats } = csData;
+  const { csat, rated, stats } = csData;
 
-  // Prefer the CSAT endpoint's own totals; fall back to counting the loaded
-  // threads when it didn't answer, so the report still says something true.
-  const total = csat && csat.total ? csat.total : rated.length;
-  const csatCount = csat && csat.total ? csat.csatCount : rated.filter(c => c.csatRating >= 4).length;
-  const dsatCount = csat && csat.total ? csat.dsatCount : rated.filter(c => c.csatRating <= 2).length;
-  const csatPct = total ? Math.round((csatCount / total) * 100) : null;
-  const dsatPct = total ? Math.round((dsatCount / total) * 100) : null;
-  const avg = csat && csat.total ? csat.avgRating
-    : (rated.length ? (rated.reduce((s, c) => s + c.csatRating, 0) / rated.length).toFixed(2) : null);
+  // ---- Headline: counts, each with its share and the average ----
+  const total = csat ? csat.total : 0;
+  document.getElementById('csCsatCount').textContent = csat ? fmtInt(csat.csatCount) : '—';
+  document.getElementById('csCsatSub').textContent = total
+    ? `${Math.round(csat.csatPercent)}% of ${fmtInt(total)} ratings · 4–5★`
+    : 'No ratings yet';
+  document.getElementById('csDsatCount').textContent = csat ? fmtInt(csat.dsatCount) : '—';
+  document.getElementById('csDsatSub').textContent = total
+    ? `${Math.round(csat.dsatPercent)}% of ${fmtInt(total)} ratings · 1–2★`
+    : 'No ratings yet';
+  document.getElementById('csAvg').textContent = csat && csat.avgRating != null ? `${csat.avgRating} / 5` : '—';
+  document.getElementById('csAvgSub').textContent = total ? `Across ${fmtInt(total)} ratings` : 'No ratings yet';
 
-  document.getElementById('csAvg').textContent = avg == null ? '—' : `${avg} / 5`;
-  document.getElementById('csAvgSub').textContent = total ? `${fmtInt(total)} rating${total === 1 ? '' : 's'} received` : 'No ratings yet';
-  document.getElementById('csCsat').textContent = csatPct == null ? '—' : `${csatPct}%`;
-  document.getElementById('csCsatSub').textContent = total ? `${fmtInt(csatCount)} rated 4–5★` : 'No ratings yet';
-  document.getElementById('csDsat').textContent = dsatPct == null ? '—' : `${dsatPct}%`;
-  document.getElementById('csDsatSub').textContent = total ? `${fmtInt(dsatCount)} rated 1–2★` : 'No ratings yet';
-
-  const ftrVals = convs.filter(c => c.ftr != null).map(c => c.ftr);
-  const artVals = convs.filter(c => c.art != null).map(c => c.art);
-  const handoffSub = n => csData.loading ? `Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands` : (n ? `${fmtInt(n)} handoffs` : 'No handoffs yet');
-  document.getElementById('csFtr').textContent = ftrVals.length ? fmtDur(mean(ftrVals)) : '—';
-  document.getElementById('csFtrSub').textContent = handoffSub(ftrVals.length);
-  document.getElementById('csArt').textContent = artVals.length ? fmtDur(mean(artVals)) : '—';
-  document.getElementById('csArtSub').textContent = handoffSub(artVals.length);
-
-  // ---- Severity cards ----
-  // While brands are still arriving these counts are partial, so they say so
-  // rather than showing a confident number that changes under the reader.
-  const dsats = rated.filter(c => c.csatRating <= 2);
-  const sev = { high: 0, medium: 0, low: 0 };
-  dsats.forEach(c => { sev[c.severity]++; });
-  const progress = csData.loading && csData.totalBrands
-    ? `Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands`
-    : null;
-  document.getElementById('csSevTotal').textContent = fmtInt(dsats.length);
-  document.getElementById('csSevTotalSub').textContent = progress
-    || (dsats.length ? 'All brands' : 'No dissatisfied ratings');
-  document.getElementById('csSevHigh').textContent = fmtInt(sev.high);
-  document.getElementById('csSevMed').textContent = fmtInt(sev.medium);
-  document.getElementById('csSevLow').textContent = fmtInt(sev.low);
-
-  document.querySelectorAll('#page-satisfaction .kpi-card[data-sev]').forEach(el =>
-    el.classList.toggle('on', el.dataset.sev === csSevFilter));
-
-  // ---- Brands ranked by DSATs ----
-  // The severity cards re-rank this rather than filtering a list of
-  // individual ratings: the question this report answers is which brand is
-  // generating the complaints, and the QA tab is where a single remark gets
-  // read in full.
+  // ---- Top three brands by DSAT ----
   const byBrand = new Map();
-  const brandRow = slug => {
-    if (!byBrand.has(slug)) byBrand.set(slug, { chats: 0, rated: 0, good: 0, bad: 0, high: 0, medium: 0, low: 0 });
-    return byBrand.get(slug);
-  };
-  if (stats && stats.conversationsByBrand) {
-    Object.entries(stats.conversationsByBrand).forEach(([slug, n]) => { brandRow(slug).chats = n; });
-  }
   rated.forEach(c => {
-    const r = brandRow(c.brand);
-    r.rated++;
-    if (c.csatRating >= 4) r.good++;
-    else if (c.csatRating <= 2) { r.bad++; r[c.severity]++; }
+    if (!byBrand.has(c.brand)) byBrand.set(c.brand, { rated: 0, dsats: [] });
+    const b = byBrand.get(c.brand);
+    b.rated++;
+    if (c.rating <= 2) b.dsats.push(c);
+  });
+  const top3 = [...byBrand.entries()]
+    .map(([slug, v]) => ({ slug, label: chatBrandLabel(slug), rated: v.rated, dsats: v.dsats }))
+    .filter(b => b.dsats.length > 0)
+    .sort((a, b) => b.dsats.length - a.dsats.length)
+    .slice(0, 3);
+
+  const wrap = document.getElementById('csTopBrands');
+  if (!top3.length) {
+    wrap.innerHTML = '<div class="panel"><div class="note">No dissatisfied ratings in September.</div></div>';
+    csData.top3 = [];
+    renderTopPlayers();
+    return;
+  }
+
+  // Legit complaints first, then venting, newest within each — the reasons
+  // that point at something fixable are the ones a reader needs to see first.
+  const SEV_ORDER = { high: 0, medium: 1, low: 2 };
+
+  wrap.innerHTML = top3.map((b, i) => {
+    const sev = { high: 0, medium: 0, low: 0 };
+    b.dsats.forEach(c => { sev[c.severity]++; });
+    const withReason = b.dsats
+      .filter(c => c.feedback && c.feedback.trim())
+      .sort((x, y) => SEV_ORDER[x.severity] - SEV_ORDER[y.severity] || new Date(y.createdAt) - new Date(x.createdAt));
+    const noReason = b.dsats.length - withReason.length;
+    const rate = b.rated ? Math.round((b.dsats.length / b.rated) * 100) : 0;
+    const colour = RANK_COLORS[i];
+
+    const rows = withReason.length
+      ? withReason.map(c => {
+          const name = c.contactName || 'Unknown';
+          return `<tr data-conversation-id="${c.conversationId}" data-name="${escapeHtml(name)}" data-sub="${escapeHtml(b.label)}">
+            <td style="width:34%;"><div class="remarks" style="max-width:none;color:var(--ink);font-weight:500;">${escapeHtml(c.feedback)}</div></td>
+            <td><span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span></td>
+            <td><span style="font-weight:800;color:var(--danger);">★ ${c.rating}/5</span></td>
+            <td><div class="agent-cell"><div class="c-av" style="background:${colorForName(name)};">${escapeHtml(initialsFor(name))}</div><span style="font-weight:600;">${escapeHtml(name)}</span></div></td>
+            <td class="num" style="font-weight:600;color:var(--ink-faint);white-space:nowrap;">${timeAgo(c.createdAt)}</td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="5"><div class="note">No written reasons — every DSAT for this brand was a rating only.</div></td></tr>';
+
+    return `
+      <div class="panel" style="border-top:4px solid ${colour};">
+        <div class="panel-head" style="align-items:flex-start;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="rank-badge" style="background:${colour}22;color:${colour};">${i + 1}</div>
+            <div>
+              <h3 style="font-size:16px;">${escapeHtml(b.label)}</h3>
+              <div style="font-size:12.5px;color:var(--ink-soft);margin-top:3px;">
+                <b style="color:var(--danger);font-size:15px;">${fmtInt(b.dsats.length)}</b> DSATs ·
+                ${rate}% of ${fmtInt(b.rated)} ratings
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="sev-pill high">HIGH ${fmtInt(sev.high)}</span>
+            <span class="sev-pill medium">MEDIUM ${fmtInt(sev.medium)}</span>
+            <span class="sev-pill low">NO REASON ${fmtInt(sev.low)}</span>
+          </div>
+        </div>
+        <div class="scroll tall">
+          <table class="rt rowlink">
+            <thead><tr><th>Reason given</th><th>Severity</th><th>Rating</th><th>Customer</th><th class="num">When</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${noReason ? `<div style="font-size:12px;color:var(--ink-faint);margin-top:10px;">
+          Plus ${fmtInt(noReason)} customer${noReason === 1 ? '' : 's'} who rated 1–2★ without writing a reason.
+        </div>` : ''}
+      </div>`;
+  }).join('');
+
+  csData.top3 = top3;
+
+  renderTopPlayers();
+}
+
+// ---- Top 5 players who gave DSATs ----
+// Grouped by name AND brand, the same convention as the dashboard's Top
+// Players panel: one display name on two brands is almost always two
+// different people, and merging them would invent a serial complainer.
+// Ratings with no customer name can't be attributed, so they sit out of the
+// ranking — the note under the table says how many.
+function renderTopPlayers() {
+  const { rated } = csData;
+  const players = new Map();
+  let unnamed = 0;
+
+  rated.forEach(c => {
+    const name = (c.contactName || '').trim();
+    if (!name) { if (c.rating <= 2) unnamed++; return; }
+    const key = `${name.toLowerCase()}::${c.brand}`;
+    if (!players.has(key)) players.set(key, { name, brand: c.brand, ratings: 0, dsats: [] });
+    const p = players.get(key);
+    p.ratings++;
+    if (c.rating <= 2) p.dsats.push(c);
   });
 
-  const brandRows = [...byBrand.entries()]
-    .map(([slug, v]) => ({ slug, label: chatBrandLabel(slug), ...v, dsatRate: v.rated ? (v.bad / v.rated) * 100 : null }))
-    .filter(r => r.rated > 0);
+  const top5 = [...players.values()]
+    .filter(p => p.dsats.length > 0)
+    .map(p => ({ ...p, last: p.dsats.reduce((m, c) => (new Date(c.createdAt) > m ? new Date(c.createdAt) : m), new Date(0)) }))
+    .sort((a, b) => b.dsats.length - a.dsats.length || b.last - a.last)
+    .slice(0, 5);
 
-  // Which number the list uses follows whichever severity card is active.
-  const rankKey = csSevFilter === 'all' ? 'bad' : csSevFilter;
-  const rankLabel = csSevFilter === 'all' ? 'DSAT'
-    : csSevFilter === 'high' ? 'High-severity DSAT'
-    : csSevFilter === 'medium' ? 'Venting DSAT'
-    : 'No-remark DSAT';
-  document.getElementById('csRankTitle').textContent = `${rankLabel} by Brand (This Month)`;
-
-  // Every brand that received a rating is listed, including the ones on
-  // zero — a brand with no complaints is worth seeing next to one that has
-  // them, and dropping it would make the list look shorter than the estate.
-  const ranked = [...brandRows].sort((a, b) => b[rankKey] - a[rankKey] || b.rated - a.rated);
-  const rankEl = document.getElementById('csRankBars');
-  if (!ranked.length) {
-    rankEl.innerHTML = csData.loading
-      ? `<div class="note">Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands…</div>`
-      : '<div class="note">No ratings in September yet.</div>';
+  const body = document.getElementById('csTopPlayers');
+  if (!top5.length) {
+    body.innerHTML = '<tr><td colspan="7"><div class="note">No named player gave a DSAT in September.</div></td></tr>';
   } else {
-    const max = Math.max(...ranked.map(r => r[rankKey]), 1);
-    rankEl.innerHTML = ranked.map(r => {
-      const share = r.rated ? Math.round((r[rankKey] / r.rated) * 100) : 0;
-      return `
-      <div class="bar-row pick ${r.slug === csSelectedBrand ? 'on' : ''}" data-brand="${escapeHtml(r.slug)}" title="See the reasons behind ${escapeHtml(r.label)}'s DSATs">
-        <div class="bar-label">${escapeHtml(r.label)}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${r[rankKey] ? Math.max(1, Math.round((r[rankKey] / max) * 100)) : 0}%;background:var(--danger);"></div></div>
-        <div class="bar-val">${fmtInt(r[rankKey])}</div>
-        <div class="bar-sub">${share}% of ${fmtInt(r.rated)}</div>
-      </div>`;
+    body.innerHTML = top5.map((p, i) => {
+      const colour = RANK_COLORS[i];
+      const SEV_ORDER = { high: 0, medium: 1, low: 2 };
+      const reasons = p.dsats
+        .slice()
+        .sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity] || new Date(b.createdAt) - new Date(a.createdAt));
+      const written = reasons.filter(c => c.feedback && c.feedback.trim());
+      const silent = reasons.length - written.length;
+
+      const reasonHtml = written.length
+        ? `<div class="reason-list">${written.map(c => `
+            <div class="reason-item" data-conversation-id="${c.conversationId}" data-name="${escapeHtml(p.name)}" data-sub="${escapeHtml(chatBrandLabel(p.brand))}">
+              <span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span>
+              <span class="txt">${escapeHtml(c.feedback)}</span>
+              <span class="when">★${c.rating} · ${timeAgo(c.createdAt)}</span>
+            </div>`).join('')}
+            ${silent ? `<div class="reason-none">+ ${silent} more with no reason written</div>` : ''}
+          </div>`
+        : `<div class="reason-none">No reason written on any of the ${reasons.length}</div>`;
+
+      return `<tr>
+        <td style="vertical-align:top;"><div class="rank-badge" style="width:28px;height:28px;font-size:13px;background:${colour}22;color:${colour};">${i + 1}</div></td>
+        <td style="vertical-align:top;"><div class="agent-cell"><div class="c-av" style="background:${colorForName(p.name)};">${escapeHtml(initialsFor(p.name))}</div><span style="font-weight:700;">${escapeHtml(p.name)}</span></div></td>
+        <td style="vertical-align:top;white-space:nowrap;">${escapeHtml(chatBrandLabel(p.brand))}</td>
+        <td class="num" style="vertical-align:top;color:var(--danger);font-size:15px;font-weight:800;">${fmtInt(p.dsats.length)}</td>
+        <td class="num" style="vertical-align:top;font-weight:600;color:var(--ink-soft);white-space:nowrap;">${fmtInt(p.dsats.length)} of ${fmtInt(p.ratings)}</td>
+        <td style="vertical-align:top;min-width:320px;">${reasonHtml}</td>
+        <td class="num" style="vertical-align:top;font-weight:600;color:var(--ink-faint);white-space:nowrap;">${timeAgo(p.last)}</td>
+      </tr>`;
     }).join('');
   }
 
-  renderBrandRemarks();
+  document.getElementById('csTopPlayersNote').textContent = unnamed
+    ? `${fmtInt(unnamed)} DSAT${unnamed === 1 ? '' : 's'} came from chats with no customer name on record, so ${unnamed === 1 ? 'it is' : 'they are'} left out of this ranking.`
+    : '';
 
-  const bBody = document.getElementById('csBrandBody');
-  const detail = [...brandRows].sort((a, b) => b.bad - a.bad || b.rated - a.rated);
-  if (!detail.length) {
-    bBody.innerHTML = csData.loading
-      ? `<tr><td colspan="9"><div class="note">Loading — ${csData.loadedBrands} of ${csData.totalBrands} brands…</div></td></tr>`
-      : '<tr><td colspan="9"><div class="note">No ratings in September yet.</div></td></tr>';
-    document.getElementById('csBrandFoot').innerHTML = '';
-  } else {
-    bBody.innerHTML = detail.map(r => `<tr>
-      <td>${escapeHtml(r.label)}</td>
-      <td class="num" style="font-weight:500;color:var(--ink-soft);">${fmtInt(r.chats)}</td>
-      <td class="num">${fmtInt(r.rated)}</td>
-      <td class="num" style="color:var(--success);">${fmtInt(r.good)}</td>
-      <td class="num" style="color:var(--danger);">${fmtInt(r.bad)}</td>
-      <td class="num" style="color:var(--danger);font-weight:600;">${fmtInt(r.high)}</td>
-      <td class="num" style="color:#B45309;font-weight:600;">${fmtInt(r.medium)}</td>
-      <td class="num" style="font-weight:600;color:var(--ink-faint);">${fmtInt(r.low)}</td>
-      <td class="num">${r.dsatRate == null ? '—' : `<span class="tag ${r.dsatRate <= 20 ? 'good' : r.dsatRate <= 50 ? 'mid' : 'bad'}">${Math.round(r.dsatRate)}%</span>`}</td>
-    </tr>`).join('');
-    const t = detail.reduce((s, r) => ({
-      chats: s.chats + r.chats, rated: s.rated + r.rated, good: s.good + r.good,
-      bad: s.bad + r.bad, high: s.high + r.high, medium: s.medium + r.medium, low: s.low + r.low,
-    }), { chats: 0, rated: 0, good: 0, bad: 0, high: 0, medium: 0, low: 0 });
-    document.getElementById('csBrandFoot').innerHTML = `<tr>
-      <td>${detail.length} brands</td>
-      <td class="num">${fmtInt(t.chats)}</td><td class="num">${fmtInt(t.rated)}</td>
-      <td class="num">${fmtInt(t.good)}</td><td class="num">${fmtInt(t.bad)}</td>
-      <td class="num">${fmtInt(t.high)}</td><td class="num">${fmtInt(t.medium)}</td><td class="num">${fmtInt(t.low)}</td>
-      <td class="num">${t.rated ? Math.round((t.bad / t.rated) * 100) + '%' : '—'}</td>
-    </tr>`;
-  }
+  csData.top5Players = top5;
 }
 
-// ---- Satisfaction interactions ----
-// ---- Satisfaction interactions ----
-// Picking a brand opens the reasons behind its DSATs, rather than sending
-// the reader to the QA tab and asking them to filter their way back to the
-// same place.
-function renderBrandRemarks() {
-  const panel = document.getElementById('csRemarksPanel');
-  if (!csSelectedBrand || !csData) { panel.style.display = 'none'; return; }
-
-  const sevText = csSevFilter === 'all' ? '' :
-    csSevFilter === 'high' ? ' — high severity' :
-    csSevFilter === 'medium' ? ' — venting' : ' — no remarks';
-  let list = csData.rated.filter(c => c.brand === csSelectedBrand && c.csatRating <= 2);
-  if (csSevFilter !== 'all') list = list.filter(c => c.severity === csSevFilter);
-
-  panel.style.display = '';
-  document.getElementById('csRemarksTitle').textContent =
-    `${chatBrandLabel(csSelectedBrand)} — why customers rated 1–2★${sevText} · ${fmtInt(list.length)}`;
-
-  const body = document.getElementById('csRemarksBody');
-  if (!list.length) {
-    body.innerHTML = `<tr><td colspan="5"><div class="note">${csData.loading ? 'Still loading this brand…' : 'Nothing matches this view.'}</div></td></tr>`;
-    return;
-  }
-  // Remarks first: a rating with a written reason is the reason anyone opened
-  // this panel, and burying them under a run of "No remarks" rows hides them.
-  const ordered = [...list].sort((a, b) => {
-    const aHas = a.csatFeedback ? 1 : 0, bHas = b.csatFeedback ? 1 : 0;
-    return bHas - aHas || new Date(b.lastActivityAt) - new Date(a.lastActivityAt);
-  });
-  body.innerHTML = ordered.slice(0, 300).map(c => {
-    const name = c.contactName || 'Unknown';
-    return `<tr data-conversation-id="${c.conversationId}" data-name="${escapeHtml(name)}" data-sub="${escapeHtml(chatBrandLabel(c.brand))}">
-      <td><div class="agent-cell"><div class="c-av" style="background:${colorForName(name)};">${escapeHtml(initialsFor(name))}</div><span style="font-weight:600;">${escapeHtml(name)}</span></div></td>
-      <td><span style="font-weight:800;color:var(--danger);">★ ${c.csatRating}/5</span></td>
-      <td><span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span></td>
-      <td><div class="remarks ${c.csatFeedback ? '' : 'empty'}">${c.csatFeedback ? escapeHtml(c.csatFeedback) : 'No reason given'}</div></td>
-      <td class="num" style="font-weight:600;color:var(--ink-faint);">${timeAgo(c.lastActivityAt)}</td>
-    </tr>`;
-  }).join('') + (ordered.length > 300
-    ? `<tr><td colspan="5"><div class="note">Showing 300 of ${fmtInt(ordered.length)}.</div></td></tr>`
-    : '');
-}
-
-document.getElementById('csRankBars').addEventListener('click', (e) => {
-  const row = e.target.closest('.bar-row[data-brand]');
-  if (!row) return;
-  const slug = row.dataset.brand;
-  csSelectedBrand = csSelectedBrand === slug ? null : slug;   // click again to close
-  if (csData) renderSatisfaction();
-  if (csSelectedBrand) {
-    document.getElementById('csRemarksPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
+document.getElementById('csTopPlayers').addEventListener('click', (e) => {
+  const item = e.target.closest('.reason-item[data-conversation-id]');
+  if (!item) return;
+  openConversationModal(item.dataset.conversationId, item.dataset.name, item.dataset.sub);
 });
-document.getElementById('csRemarksClose').addEventListener('click', () => {
-  csSelectedBrand = null;
-  if (csData) renderSatisfaction();
-});
-document.getElementById('csRemarksBody').addEventListener('click', (e) => {
+
+// Reasons open the full conversation, same as the QA and Customers pages.
+document.getElementById('csTopBrands').addEventListener('click', (e) => {
   const row = e.target.closest('tr[data-conversation-id]');
   if (!row) return;
   openConversationModal(row.dataset.conversationId, row.dataset.name, row.dataset.sub);
 });
-
-document.querySelectorAll('#page-satisfaction .kpi-card[data-sev]').forEach(el => el.addEventListener('click', () => {
-  const sev = el.dataset.sev;
-  csSevFilter = (sev === 'all' || csSevFilter === sev) ? 'all' : sev;
-  if (csData) renderSatisfaction();
-}));
 
 // ---- Thread modal ----
 function closeConversationModal() { document.getElementById('convModalOverlay').classList.remove('open'); }
@@ -1798,37 +1684,47 @@ function exportActiveReport() {
   }
 
   if (page === 'satisfaction' && csData) {
-    const { csat, rated, window: w } = csData;
-    const dsats = rated.filter(c => c.csatRating <= 2);
+    const { csat, window: w, top3 } = csData;
     out.push('Report,Customer Satisfaction');
     out.push(`Month,${MONTH_B.label}`);
     out.push(`Days counted,${w.days} of ${w.daysInMonth}`);
     out.push('');
     out.push(Papa.unparse([
-      { Measure: 'Ratings received', Value: csat ? csat.total : rated.length },
-      { Measure: 'Average rating', Value: csat ? csat.avgRating : '' },
-      { Measure: 'CSAT %', Value: csat ? csat.csatPercent : '' },
-      { Measure: 'DSAT %', Value: csat ? csat.dsatPercent : '' },
-      { Measure: 'High severity', Value: dsats.filter(c => c.severity === 'high').length },
-      { Measure: 'Medium severity', Value: dsats.filter(c => c.severity === 'medium').length },
-      { Measure: 'Low severity', Value: dsats.filter(c => c.severity === 'low').length },
+      { Measure: 'Ratings received', Value: csat.total },
+      { Measure: 'CSAT count (4-5 stars)', Value: csat.csatCount },
+      { Measure: 'CSAT %', Value: csat.csatPercent },
+      { Measure: 'DSAT count (1-2 stars)', Value: csat.dsatCount },
+      { Measure: 'DSAT %', Value: csat.dsatPercent },
+      { Measure: 'Average rating', Value: csat.avgRating },
     ]));
-    out.push('');
-    out.push('Brands by DSATs');
-    const byBrandCsv = new Map();
-    rated.forEach(c => {
-      if (!byBrandCsv.has(c.brand)) byBrandCsv.set(c.brand, { rated: 0, bad: 0, high: 0, medium: 0, low: 0 });
-      const r = byBrandCsv.get(c.brand);
-      r.rated++;
-      if (c.csatRating <= 2) { r.bad++; r[c.severity]++; }
-    });
-    out.push(Papa.unparse([...byBrandCsv.entries()]
-      .sort((a, b) => b[1].bad - a[1].bad)
-      .map(([slug, v]) => ({
-        Brand: chatBrandLabel(slug), Rated: v.rated, DSATs: v.bad,
-        High: v.high, Medium: v.medium, Low: v.low,
-        'DSAT rate %': v.rated ? Math.round((v.bad / v.rated) * 100) : '',
+    (top3 || []).forEach((b, i) => {
+      out.push('');
+      out.push(`#${i + 1} ${b.label},${b.dsats.length} DSATs,${b.rated} ratings`);
+      out.push(Papa.unparse(b.dsats.map(c => ({
+        Reason: c.feedback || '',
+        Severity: SEV_LABEL[c.severity],
+        Rating: c.rating,
+        Customer: c.contactName || 'Unknown',
+        When: c.createdAt ? new Date(c.createdAt).toLocaleString() : '',
       }))));
+    });
+    out.push('');
+    out.push('Top 5 players who gave DSATs');
+    const playerRows = [];
+    (csData.top5Players || []).forEach((p, i) => {
+      p.dsats.forEach(c => playerRows.push({
+        Rank: i + 1,
+        Player: p.name,
+        Brand: chatBrandLabel(p.brand),
+        'DSATs from player': p.dsats.length,
+        'Ratings from player': p.ratings,
+        Rating: c.rating,
+        Severity: SEV_LABEL[c.severity],
+        Reason: c.feedback || '',
+        When: c.createdAt ? new Date(c.createdAt).toLocaleString() : '',
+      }));
+    });
+    out.push(Papa.unparse(playerRows));
     downloadCsv(out.join('\n'), 'customer-satisfaction-sep-2026.csv');
     return;
   }
@@ -1862,9 +1758,7 @@ loadChatsComparison();
 setInterval(loadChatsComparison, 5 * 60 * 1000);
 
 loadSatisfaction();
-// Slower than the other reports on purpose: a full pass walks every brand,
-// so refreshing too often would mean the page is almost always mid-load.
-setInterval(loadSatisfaction, 15 * 60 * 1000);
+setInterval(loadSatisfaction, 5 * 60 * 1000);
 
 loadAvatars();
 TicketData.fetchTickets()
