@@ -1021,7 +1021,16 @@ loadAccounts();
         : (d.dates[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : '')}</th>`).join('')
       + '<th>Total</th>' + (cbEditing ? '<th></th>' : '') + '</tr>';
 
-    const body = d.divisions.map((div, i) => {
+    // View mode lists divisions by TOTAL, highest first (2026-09-21), so the
+    // costliest brands are read first. Edit mode keeps the saved order: row
+    // delete buttons and collectEdits() work off each row's position in
+    // cbData.divisions, and re-sorting while someone types would also make
+    // rows jump around under the cursor.
+    const order = d.divisions.map((_, i) => i);
+    if (!cbEditing) order.sort((a, b) => (totals[b] ?? -1) - (totals[a] ?? -1));
+
+    const body = order.map(i => {
+      const div = d.divisions[i];
       const eff = effAll[i];
       const effTotal = totals[i];
       if (cbEditing) {
