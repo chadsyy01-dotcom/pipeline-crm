@@ -690,12 +690,11 @@
 // Custom takes its own comparison range, or falls back to the same rule.
 //
 // Where each report's figures come from, for any range:
-//   Chats Comparison — the range is split by calendar month. Days in a
-//     finished month come from the department's chat-volume sheet (the
-//     official record, daily columns summed); days in the running month, or
-//     in a month the sheet lacks, are left blank — SHEET ONLY since
-//     2026-09-21, see loadPeriodChats. The figure is Chatwoot's MESSAGES
-//     RECEIVED, which the team copies into the sheet at month end.
+//   Chats Comparison — the chat volume sheet ONLY (since 2026-09-21), for
+//     every month including the one running. The figure is Chatwoot's
+//     MESSAGES RECEIVED, entered by the team day by day; the page counts
+//     only days that have been filled in and re-reads the sheet every five
+//     minutes. See loadPeriodChats for why the live webhook count isn't used.
 //   Ticket Resolution — the brand ticket sheets via TicketData, full history.
 //   Customer Satisfaction — /chatwoot/csat.
 // Live chat data only reaches back CHAT_RETENTION_DAYS; anything older says
@@ -949,14 +948,20 @@ function loadChatSheetRows() {
   });
 }
 
-// Reads every month block into { MONTHNAME: { division: [day1, day2, ...] } }.
+// Reads every month block into
+//   { MONTHNAME: { divisions: { division: [day1, day2, ...] }, filled: Set<day> } }
 // Layout: column 0 holds a month name on the block's header row and is blank
 // on the division rows beneath it; column 1 holds the division name; columns
 // 2 onward hold one figure per day, as text with thousands separators. When
 // the header row numbers its columns, those numbers are used as the days;
-// otherwise column 2 is taken as day 1. Blocks are named by month only, so
+// otherwise column 2 is taken as day 1 (the sheet's headers read "Sep-1",
+// "Sep-2", so position is what's used). Blocks are named by month only, so
 // if a name appears twice the LAST block wins — the sheet runs oldest to
 // newest.
+//
+// `filled` records which days hold a figure for at least one division. An
+// empty cell is NOT zero: it means the team hasn't entered that day yet, and
+// treating it as zero would make a part-filled month look like a collapse.
 function parseSheetDaily(rows) {
   const MONTHS = MONTH_NAMES.map(m => m.toUpperCase());
   const blocks = {};
@@ -964,7 +969,7 @@ function parseSheetDaily(rows) {
   for (const row of rows) {
     const first = String(row[0] || '').trim().toUpperCase();
     if (MONTHS.includes(first)) {
-      current = {};
+      current = { divisions: {}, filled: new Set() };
       blocks[first] = current;
       dayForCol = {};
       row.forEach((cell, i) => {
@@ -983,10 +988,14 @@ function parseSheetDaily(rows) {
       if (i < 2) return;
       const day = dayForCol ? dayForCol[i] : i - 1;
       if (!day) return;
-      const n = parseFloat(String(cell || '').replace(/[,\s]/g, ''));
-      daily[day] = (daily[day] || 0) + (isNaN(n) ? 0 : n);
+      const raw = String(cell == null ? '' : cell).replace(/[,\s]/g, '');
+      if (raw === '') return;               // not entered yet
+      const n = parseFloat(raw);
+      if (isNaN(n)) return;
+      daily[day] = (daily[day] || 0) + n;
+      current.filled.add(day);
     });
-    current[division] = daily;
+    current.divisions[division] = daily;
   }
   return blocks;
 }
@@ -1003,27 +1012,22 @@ function monthSegments(start, end) {
   return segs;
 }
 
-// One period's chats by brand, SHEET ONLY (decided 2026-09-21).
+// One period's chats by brand — the chat volume sheet is the ONLY source
+// (2026-09-21). The figure is Chatwoot's "Messages received", which the team
+// enters day by day; whatever is in the sheet when the page loads is what
+// the report shows, and it re-reads the sheet every few minutes so an update
+// appears on its own. (The dashboard's own webhook count was tried and came
+// in far below Chatwoot's — missed deliveries during the Sep 14 migration
+// and the Sep 17–18 outage can't be recovered.)
 //
-// The live count from webhooks came in far below Chatwoot's own "Messages
-// received" (44,530 across all brands against 85,253 for Buenas PH alone in
-// September) because every missed delivery — the Sep 14 migration, the
-// Sep 17–18 outage — is simply gone from the database. Chatwoot is the
-// official figure, and the team copies it into the chat volume sheet at
-// month end. So this report reads only the sheet:
-//   - a finished month the sheet has figures for → used as-is;
-//   - the month still running → left blank until the month-end figures go in
-//     (even if the sheet already holds part of it, a half-filled month would
-//     read as a collapse);
-//   - a finished month with no figures in the sheet → blank, and the page
-//     says which one.
-// Always resolves; `pending` and `missing` tell the page what was left out.
+// Only days the sheet actually has figures for are counted, and per-day
+// averages divide by those days — so a month filled up to the 13th reads as
+// thirteen days of data, not thirty days with seventeen zeros.
 async function loadPeriodChats(info, sheetPromise) {
   const now = new Date();
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
   let blocks = null;
   try { blocks = parseSheetDaily(await sheetPromise); } catch (e) { blocks = null; }
+  if (!blocks) return { ok: false, reason: 'The chat volume sheet could not be read — check the published link.' };
 
   const byKey = new Map();
   const add = (key, label, n) => {
@@ -1031,54 +1035,43 @@ async function loadPeriodChats(info, sheetPromise) {
     byKey.set(key, { label: prev ? prev.label : label, total: (prev ? prev.total : 0) + n });
   };
   const unpaired = new Set();
-  const pending = [];   // the running month — waiting on month-end figures
-  const missing = [];   // finished, but not in the sheet
-  let usedDays = 0;
+  let coveredDays = 0, expectedDays = 0, lastFilled = null;
+  const missing = [];
 
   for (const seg of monthSegments(info.start, info.end)) {
     if (seg.start > now) continue;   // the future has no chats yet
     const segEnd = seg.end > now ? now : seg.end;
-    const finished = new Date(seg.year, seg.month, 1) < thisMonthStart;
-    const monthName = MONTH_NAMES[seg.month];
-
-    if (!finished) { pending.push(monthName); continue; }
-
-    const block = blocks ? blocks[monthName.toUpperCase()] : null;
     const from = seg.start.getDate(), to = segEnd.getDate();
-    // A block that exists but is still empty for these days counts as
-    // missing, not as zero chats.
-    let segTotal = 0;
-    if (block) {
-      Object.values(block).forEach(daily => { for (let d = from; d <= to; d++) segTotal += daily[d] || 0; });
-    }
-    if (!block || segTotal === 0) { missing.push(fmtRange(seg.start, segEnd)); continue; }
+    expectedDays += to - from + 1;
 
-    Object.entries(block).forEach(([division, daily]) => {
-      let sum = 0;
-      for (let d = from; d <= to; d++) sum += daily[d] || 0;
+    const block = blocks[MONTH_NAMES[seg.month].toUpperCase()];
+    const days = [];
+    if (block) for (let d = from; d <= to; d++) if (block.filled.has(d)) days.push(d);
+    if (!days.length) { missing.push(fmtRange(seg.start, segEnd)); continue; }
+
+    Object.entries(block.divisions).forEach(([division, daily]) => {
+      const sum = days.reduce((s, d) => s + (daily[d] || 0), 0);
       const slug = DIVISION_TO_CHAT_SLUG[division.trim().toLowerCase()] || null;
       if (!slug) unpaired.add(division);
       add(slug || 'division:' + division, division, sum);
     });
-    usedDays += calendarDays(seg.start, segEnd);
+    coveredDays += days.length;
+    const last = new Date(seg.year, seg.month, days[days.length - 1]);
+    if (!lastFilled || last > lastFilled) lastFilled = last;
   }
 
   if (!byKey.size) {
-    const reason = pending.length && !missing.length
-      ? `${pending.join(', ')} figures are added to the chat volume sheet at the end of the month.`
-      : `No figures in the chat volume sheet for ${info.label}.`;
-    return { ok: false, pendingOnly: pending.length && !missing.length, reason, pending, missing };
+    return { ok: false, reason: `The chat volume sheet has no figures yet for ${info.label}.`, missing };
   }
   const total = [...byKey.values()].reduce((s, v) => s + v.total, 0);
   return {
     ok: true,
     source: 'sheet',
     byKey, total,
-    // Per-day figures divide by the days actually covered, so a period that
-    // is half blank isn't averaged over days with no data.
-    days: Math.max(usedDays, 1),
+    days: Math.max(coveredDays, 1),
+    coveredDays, expectedDays, lastFilled,
     unpaired: [...unpaired],
-    pending, missing,
+    missing,
   };
 }
 
@@ -1123,8 +1116,12 @@ async function loadChatsComparison() {
   if (!resB.ok) notes.push(resB.reason);
   [resA, resB].forEach((r, i) => {
     const which = i ? 'Report period' : 'Comparison period';
-    if (r.ok && r.pending && r.pending.length) notes.push(`${which} leaves out ${r.pending.join(', ')} — added at the end of the month.`);
-    if (r.missing && r.missing.length) notes.push(`${which} has no sheet figures yet for ${r.missing.join(', ')}.`);
+    if (r.ok && r.coveredDays < r.expectedDays && r.lastFilled) {
+      const upTo = r.lastFilled.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      notes.push(`${which}: the sheet has figures up to ${upTo} — ${r.coveredDays} of ${r.expectedDays} days so far. Use the per-day view for a like-for-like comparison.`);
+    } else if (r.ok && r.missing && r.missing.length) {
+      notes.push(`${which}: no sheet figures yet for ${r.missing.join(', ')}.`);
+    }
   });
   // A division with no chat slug can only line up with a sheet month on the
   // other side; against a live month it shows one figure and a blank.
@@ -1139,8 +1136,8 @@ async function loadChatsComparison() {
     daysA, daysB,
     sourceA: resA.ok ? resA.source : null,
     sourceB: resB.ok ? resB.source : null,
-    pendingOnlyA: !resA.ok && !!resA.pendingOnly,
-    pendingOnlyB: !resB.ok && !!resB.pendingOnly,
+    coverageA: resA.ok ? { covered: resA.coveredDays, expected: resA.expectedDays, lastFilled: resA.lastFilled } : null,
+    coverageB: resB.ok ? { covered: resB.coveredDays, expected: resB.expectedDays, lastFilled: resB.lastFilled } : null,
     unpaired,
   };
   renderChatsComparison();
@@ -1150,16 +1147,16 @@ function renderChatsComparison() {
   const { rows, totalA, totalB, daysA, daysB } = chatsData;
 
   document.getElementById('kpiATotal').textContent = fmtInt(totalA);
-  const srcText = (src, days, running) => {
-    const d = `${days} day${days === 1 ? '' : 's'}`;
-    if (src === 'sheet') return `From the chat volume sheet · ${d}`;
-    if (src === 'mixed') return `Sheet + live · ${d}`;
-    return `Live${running ? ', so far' : ''} · ${d}`;
+  const coverText = cov => {
+    if (!cov) return 'No figures in the chat volume sheet yet';
+    const upTo = cov.lastFilled ? cov.lastFilled.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
+    return cov.covered < cov.expected
+      ? `Sheet · up to ${upTo} (${cov.covered} of ${cov.expected} days)`
+      : `Sheet · ${cov.covered} day${cov.covered === 1 ? '' : 's'}`;
   };
-  const blankText = pendingOnly => pendingOnly ? 'Added at the end of the month' : 'Not in the chat volume sheet yet';
-  document.getElementById('kpiASub').textContent = totalA == null ? blankText(chatsData.pendingOnlyA) : srcText(chatsData.sourceA, daysA, MONTH_A.running);
+  document.getElementById('kpiASub').textContent = coverText(chatsData.coverageA);
   document.getElementById('kpiBTotal').textContent = fmtInt(totalB);
-  document.getElementById('kpiBSub').textContent = totalB == null ? blankText(chatsData.pendingOnlyB) : srcText(chatsData.sourceB, daysB, MONTH_B.running);
+  document.getElementById('kpiBSub').textContent = coverText(chatsData.coverageB);
 
   const chgEl = document.getElementById('kpiChange');
   const chgSub = document.getElementById('kpiChangeSub');
@@ -1258,8 +1255,7 @@ function renderChatsComparison() {
     const list = rows.filter(r => r[key] != null && r[key] > 0).sort((x, y) => y[key] - x[key]);
     const sum = list.reduce((s, r) => s + r[key], 0);
     if (!list.length) {
-      const pendingOnly = key === 'b' ? chatsData.pendingOnlyB : chatsData.pendingOnlyA;
-      el.innerHTML = `<div class="note">${pendingOnly ? 'Added at the end of the month.' : 'No figures in the chat volume sheet for this period.'}</div>`;
+      el.innerHTML = '<div class="note">No figures in the chat volume sheet for this period yet.</div>';
       return;
     }
     const max = list[0][key];
@@ -2267,7 +2263,11 @@ applyPeriodChrome();
 loadChatsComparison();
 loadSatisfaction();
 // Only a period that includes today changes under us; a finished one is settled.
-setInterval(() => { if (MONTH_B.running) loadChatsComparison(); }, 5 * 60 * 1000);
+// The chat volume sheet is re-read every 5 minutes whatever period is
+// showing — the team can correct a past month as easily as fill today's.
+// (Google refreshes a published sheet's CSV on its own schedule, usually
+// within about 5 minutes of an edit.)
+setInterval(loadChatsComparison, 5 * 60 * 1000);
 setInterval(() => { if (MONTH_B.running) loadSatisfaction(); }, 5 * 60 * 1000);
 
 loadAvatars();
