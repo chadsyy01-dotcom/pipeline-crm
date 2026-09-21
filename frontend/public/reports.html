@@ -406,7 +406,7 @@
           <div class="kpi-delta flat" id="kpiChangeSub">Totals as they stand today</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Chats a day</div>
+          <div class="kpi-label">Messages a day</div>
           <div class="kpi-value" id="kpiPerDay">—</div>
           <div class="kpi-delta flat" id="kpiPerDaySub">Fairer read while the month runs</div>
         </div>
@@ -414,7 +414,7 @@
 
       <div class="panel">
         <div class="panel-head">
-          <h3>Chats by brand</h3>
+          <h3>Messages received by brand</h3>
           <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
             <div class="legend">
               <div class="legend-row"><span class="sw" style="background:var(--month-a);"></span><span id="legendA">—</span></div>
@@ -427,6 +427,26 @@
           </div>
         </div>
         <div style="position:relative;height:380px;"><canvas id="brandCompareChart"></canvas></div>
+      </div>
+
+      <!-- Total chats by brand for the report period (added 2026-09-21).
+           Same figure as the rest of this tab — messages received — so the
+           totals here add up to the report-period card above. -->
+      <div class="cols-2">
+        <div class="panel">
+          <div class="panel-head">
+            <h3 id="brandTotalsTitle">Total chats by brand</h3>
+            <span class="hint">Counted as messages received</span>
+          </div>
+          <div id="brandTotalsBars"><div class="note">Loading…</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3 id="brandTotalsTitleA">Total chats by brand</h3>
+            <span class="hint">Comparison period, same count</span>
+          </div>
+          <div id="brandTotalsBarsA"><div class="note">Loading…</div></div>
+        </div>
       </div>
 
       <div class="cols-2">
@@ -673,7 +693,9 @@
 //   Chats Comparison — the range is split by calendar month. Days in a
 //     finished month come from the department's chat-volume sheet (the
 //     official record, daily columns summed); days in the running month, or
-//     in a month the sheet lacks, come live from /chatwoot/stats.
+//     in a month the sheet lacks, come live from /chatwoot/messages-received.
+//     Both sides count MESSAGES RECEIVED (customer messages), matching the
+//     figure the sheet is filled from.
 //   Ticket Resolution — the brand ticket sheets via TicketData, full history.
 //   Customer Satisfaction — /chatwoot/csat.
 // Live chat data only reaches back CHAT_RETENTION_DAYS; anything older says
@@ -1026,8 +1048,11 @@ async function loadPeriodChats(info, sheetPromise) {
       continue;
     }
     try {
-      const stats = await apiGet(`/chatwoot/stats?from=${encodeURIComponent(seg.start.toISOString())}&to=${encodeURIComponent(segEnd.toISOString())}`);
-      Object.entries(stats.conversationsByBrand || {}).forEach(([slug, n]) => add(slug, chatBrandLabel(slug), n));
+      // Messages received, not conversations: the sheet's historical months
+      // hold Chatwoot's "Messages received" figure, so the live months must
+      // count the same thing or the comparison is meaningless (2026-09-21).
+      const live = await apiGet(`/chatwoot/messages-received?from=${encodeURIComponent(seg.start.toISOString())}&to=${encodeURIComponent(segEnd.toISOString())}`);
+      Object.entries(live.messagesReceivedByBrand || {}).forEach(([slug, n]) => add(slug, chatBrandLabel(slug), n));
       sources.add('live');
     } catch (err) {
       console.error(`Live chats failed for ${fmtRange(seg.start, segEnd)} —`, err);
@@ -1055,8 +1080,8 @@ async function loadChatsComparison() {
   const myToken = ++chatsLoadToken;
   const A = MONTH_A, B = MONTH_B;
 
-  document.getElementById('kpiALabel').textContent = `${A.label} — total chats`;
-  document.getElementById('kpiBLabel').textContent = `${B.label} — total chats`;
+  document.getElementById('kpiALabel').textContent = `${A.label} — messages received`;
+  document.getElementById('kpiBLabel').textContent = `${B.label} — messages received`;
   document.getElementById('legendA').textContent = A.label;
   document.getElementById('legendB').textContent = B.label;
   document.getElementById('thA').textContent = A.short;
@@ -1177,7 +1202,7 @@ function renderChatsComparison() {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString()}${perDay ? ' a day' : ' chats'}` } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString()}${perDay ? ' a day' : ' messages'}` } },
       },
       scales: {
         x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 50, minRotation: 30, font: { size: 11 } } },
@@ -1185,7 +1210,7 @@ function renderChatsComparison() {
           type: useLog ? 'logarithmic' : 'linear',
           beginAtZero: !useLog,
           grid: { color: '#EEF1F6' },
-          title: { display: true, text: (perDay ? 'Chats per day' : 'Chats') + (useLog ? ' (log scale)' : '') },
+          title: { display: true, text: (perDay ? 'Messages per day' : 'Messages received') + (useLog ? ' (log scale)' : '') },
           ticks: { callback: v => Number(v).toLocaleString() },
         },
       },
@@ -1212,6 +1237,34 @@ function renderChatsComparison() {
       <td class="num">${totalB == null ? '—' : Math.round(totalB / daysB).toLocaleString()}</td>
     </tr>`;
   }
+
+  // ---- Total chats by brand, one list per period ----
+  // Each list stands on its own: brands ranked by their total in that
+  // period, with their share of that period's total. The report period is
+  // blue and the comparison grey, matching the chart above.
+  const brandTotals = (elId, titleId, info, key, colour) => {
+    document.getElementById(titleId).textContent = `Total chats by brand · ${info.short}`;
+    const el = document.getElementById(elId);
+    const list = rows.filter(r => r[key] != null && r[key] > 0).sort((x, y) => y[key] - x[key]);
+    const sum = list.reduce((s, r) => s + r[key], 0);
+    if (!list.length) { el.innerHTML = '<div class="note">No figures for this period.</div>'; return; }
+    const max = list[0][key];
+    el.innerHTML = list.map(r => `
+      <div class="bar-row">
+        <div class="bar-label" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(1, Math.round((r[key] / max) * 100))}%;background:${colour};"></div></div>
+        <div class="bar-val">${fmtInt(r[key])}</div>
+        <div class="bar-sub">${((r[key] / sum) * 100).toFixed(1)}%</div>
+      </div>`).join('') + `
+      <div class="bar-row" style="border-top:2px solid var(--rule);margin-top:4px;">
+        <div class="bar-label" style="font-weight:800;">Total</div>
+        <div class="bar-track" style="background:none;"></div>
+        <div class="bar-val">${fmtInt(sum)}</div>
+        <div class="bar-sub">100%</div>
+      </div>`;
+  };
+  brandTotals('brandTotalsBars', 'brandTotalsTitle', MONTH_B, 'b', '#2563EB');
+  brandTotals('brandTotalsBarsA', 'brandTotalsTitleA', MONTH_A, 'a', '#94A3B8');
 
   const movers = rows
     .filter(r => r.aPerDay != null && r.bPerDay != null && r.aPerDay > 0)
