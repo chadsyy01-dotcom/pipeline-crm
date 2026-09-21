@@ -193,29 +193,6 @@
       <div id="kpiCompare" style="font-size:12.5px;font-weight:600;margin-top:8px;display:none;"></div>
     </div>
 
-    <div class="panel" id="creditsPanel">
-      <div class="panel-head">
-        <h3>API Credit Balance by Brand <span id="creditsStatus" style="font-size:11px;font-weight:600;color:var(--ink-faint);"></span></h3>
-        <div style="display:flex;gap:8px;">
-          <button id="creditsEditBtn" style="font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-family:inherit;">Edit balances</button>
-          <button id="creditsSaveBtn" style="display:none;font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-family:inherit;">Save</button>
-          <button id="creditsCancelBtn" style="display:none;font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-family:inherit;">Cancel</button>
-        </div>
-      </div>
-      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:10px;line-height:1.5;">
-        OpenAI has no public API for credit balance, so this is computed: enter each brand's balance (from platform.openai.com) once with its date — the dashboard then subtracts live spend since that date. Re-enter after every top-up.
-      </div>
-      <table class="li-table">
-        <thead><tr><th>Brand / Account</th><th class="num">Entered Balance</th><th>As of</th><th class="num">Spend Since</th><th class="num">Current Balance (est.)</th></tr></thead>
-        <tbody id="creditsBody"><tr><td colspan="5"><div class="empty-note">Loading…</div></td></tr></tbody>
-      </table>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><h3>Daily Spend</h3></div>
-      <canvas id="dailyChart" height="90"></canvas>
-    </div>
-
     <div class="panel" id="byAccountPanel" style="display:none;">
       <div class="panel-head"><h3>Spend by Account</h3></div>
       <table class="li-table">
@@ -289,7 +266,6 @@ function phpEquivalent(usd) {
   if (!usdToPhpRate) return '';
   return ` (₱${(usd * usdToPhpRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
 }
-let dailyChart = null;
 let lastBillingData = null;
 document.getElementById('rangeSelect').addEventListener('change', (e) => {
   currentRange = e.target.value;
@@ -309,8 +285,6 @@ function loadAccounts() {
     .then(data => {
       const select = document.getElementById('accountSelect');
       const accounts = data.accounts || [];
-      creditAccounts = accounts;
-      loadCredits();
       if (accounts.length === 0) {
         select.innerHTML = '<option value="0">No accounts configured</option>';
         return;
@@ -429,33 +403,6 @@ function renderBilling(data) {
     byAccountPanel.style.display = 'none';
   }
 
-  const daily = data.dailyTotals || [];
-  if (dailyChart) dailyChart.destroy();
-  dailyChart = new Chart(document.getElementById('dailyChart'), {
-    type: 'line',
-    data: {
-      labels: daily.map(d => d.date),
-      datasets: [{
-        label: 'Daily spend (USD)',
-        data: daily.map(d => d.amount),
-        borderColor: '#2563EB',
-        backgroundColor: 'rgba(37,99,235,.08)',
-        fill: true,
-        tension: .3,
-        pointRadius: 0,
-        borderWidth: 2.5
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false } },
-        y: { beginAtZero: true, grid: { color: '#EEF1F6' }, ticks: { callback: v => '$' + v } }
-      }
-    }
-  });
-
   const body = document.getElementById('lineItemsBody');
   const items = data.topLineItems || [];
   if (items.length === 0) {
@@ -507,162 +454,13 @@ function exportBillingCsv() {
   URL.revokeObjectURL(url);
 }
 
-// ---- API Credit Balance by Brand (added 2026-09-15) ----
-// No official balance API exists (see openaiBilling.js header), so balances
-// are computed: user-entered baseline (balance + as-of date, stored in the
-// BillingConfig table via /api/billing/openai-credits) minus LIVE spend
-// since that date (Costs API, per account). Refreshes every 10 minutes.
-let creditAccounts = [];
-let creditBaselines = { accounts: {} };
-let creditsEditing = false;
-
-const usd = n => '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-async function loadCredits() {
-  try {
-    const token = localStorage.getItem('pipeline_token');
-    const res = await fetch(`${API_BASE}/billing/openai-credits`, { headers: { Authorization: `Bearer ${token}` } });
-    if (res.ok) {
-      const body = await res.json();
-      if (body.data && body.data.accounts) creditBaselines = body.data;
-    }
-  } catch (e) { console.warn('Credit baselines load failed:', e.message); }
-  renderCredits();
-  computeCredits();
-}
-
-function renderCredits() {
-  const body = document.getElementById('creditsBody');
-  if (!creditAccounts.length) {
-    body.innerHTML = '<tr><td colspan="5"><div class="empty-note">No OpenAI accounts configured.</div></td></tr>';
-    return;
-  }
-  body.innerHTML = creditAccounts.map(a => {
-    const base = creditBaselines.accounts[a.name];
-    if (creditsEditing) {
-      return `<tr data-name="${a.name}">
-        <td>${a.name}</td>
-        <td class="num"><input class="cr-bal" data-name="${a.name}" inputmode="decimal" placeholder="0.00" value="${base ? base.balance : ''}" style="width:90px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12px;text-align:right;"></td>
-        <td><input class="cr-date" type="date" data-name="${a.name}" value="${base ? base.asOf : ''}" style="padding:5px 7px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12px;"></td>
-        <td class="num" style="color:var(--ink-faint);">\u2014</td>
-        <td class="num" style="color:var(--ink-faint);">\u2014</td>
-      </tr>`;
-    }
-    if (!base) {
-      return `<tr data-name="${a.name}">
-        <td>${a.name}</td>
-        <td class="num" style="color:var(--ink-faint);">not set</td>
-        <td style="color:var(--ink-faint);">\u2014</td>
-        <td class="num" style="color:var(--ink-faint);">\u2014</td>
-        <td class="num" style="color:var(--ink-faint);">\u2014</td>
-      </tr>`;
-    }
-    return `<tr data-name="${a.name}">
-      <td>${a.name}</td>
-      <td class="num">${usd(base.balance)}</td>
-      <td style="font-size:12px;color:var(--ink-soft);">${base.asOf}</td>
-      <td class="num cr-spend" style="color:var(--ink-faint);">computing\u2026</td>
-      <td class="num cr-current" style="color:var(--ink-faint);">computing\u2026</td>
-    </tr>`;
-  }).join('');
-}
-
-let creditsRetryTimer = null;
-
-async function computeCredits() {
-  if (creditsEditing) return;
-  clearTimeout(creditsRetryTimer);
-  const withBase = creditAccounts.filter(a => creditBaselines.accounts[a.name]);
-  document.getElementById('creditsStatus').textContent = withBase.length ? '\u25CF computing live\u2026' : 'Click \u201CEdit balances\u201D to set each brand\u2019s starting balance.';
-  // One account at a time, not all at once: each account is its own OpenAI
-  // organization with its own 10-a-minute allowance, but the page's other
-  // requests draw on those same allowances, and firing every account in
-  // parallel was what tipped them over. Answers come through the shared
-  // cache, so reopening the page within five minutes costs nothing.
-  let limited = false;
-  for (const a of withBase) {
-    const base = creditBaselines.accounts[a.name];
-    const row = document.querySelector(`#creditsBody tr[data-name="${CSS.escape(a.name)}"]`);
-    if (!row) continue;
-    try {
-      const result = await fetchOpenAiSummary(`/openai-billing/summary?range=custom&start=${base.asOf}&account=${a.index}&compare=false`);
-      if (isRateLimited(result)) {
-        limited = true;
-        const sp = row.querySelector('.cr-spend'); if (sp) sp.textContent = 'waiting\u2026';
-        const cu = row.querySelector('.cr-current'); if (cu) cu.textContent = 'waiting\u2026';
-        continue;
-      }
-      if (!result.ok) throw new Error(result.data.error || `HTTP ${result.status}`);
-      const spend = result.data.totalUsd || 0;
-      const current = base.balance - spend;
-      row.querySelector('.cr-spend').textContent = usd(spend);
-      row.querySelector('.cr-spend').style.color = '';
-      const curEl = row.querySelector('.cr-current');
-      curEl.textContent = usd(current);
-      curEl.style.fontWeight = '800';
-      curEl.style.color = current < 10 ? 'var(--danger)' : (current < 25 ? 'var(--warning)' : 'var(--success)');
-    } catch (e) {
-      const sp = row.querySelector('.cr-spend'); if (sp) { sp.textContent = 'error'; sp.title = e.message; }
-      console.warn('Credit compute failed for', a.name, e.message);
-    }
-  }
-  if (limited) {
-    document.getElementById('creditsStatus').textContent = '\u23F3 OpenAI rate limit \u2014 finishing in about a minute';
-    creditsRetryTimer = setTimeout(computeCredits, OA_RETRY_MS);
-  } else if (withBase.length) {
-    document.getElementById('creditsStatus').textContent = `\u25CF live \u00B7 updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  }
-}
-
-document.getElementById('creditsEditBtn').addEventListener('click', () => {
-  creditsEditing = true;
-  document.getElementById('creditsEditBtn').style.display = 'none';
-  document.getElementById('creditsSaveBtn').style.display = '';
-  document.getElementById('creditsCancelBtn').style.display = '';
-  renderCredits();
-});
-document.getElementById('creditsCancelBtn').addEventListener('click', () => {
-  creditsEditing = false;
-  document.getElementById('creditsEditBtn').style.display = '';
-  document.getElementById('creditsSaveBtn').style.display = 'none';
-  document.getElementById('creditsCancelBtn').style.display = 'none';
-  renderCredits();
-  computeCredits();
-});
-document.getElementById('creditsSaveBtn').addEventListener('click', async () => {
-  const accountsOut = {};
-  document.querySelectorAll('#creditsBody .cr-bal').forEach(inp => {
-    const name = inp.dataset.name;
-    const bal = parseFloat(inp.value.replace(/[$,\s]/g, ''));
-    const dateInp = document.querySelector(`#creditsBody .cr-date[data-name="${CSS.escape(name)}"]`);
-    const asOf = dateInp ? dateInp.value : '';
-    if (!isNaN(bal) && asOf) accountsOut[name] = { balance: Math.round(bal * 100) / 100, asOf };
-  });
-  const btn = document.getElementById('creditsSaveBtn');
-  btn.disabled = true; btn.textContent = 'Saving\u2026';
-  try {
-    const token = localStorage.getItem('pipeline_token');
-    const res = await fetch(`${API_BASE}/billing/openai-credits`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ data: { accounts: accountsOut } }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
-    creditBaselines = { accounts: accountsOut };
-    creditsEditing = false;
-    document.getElementById('creditsEditBtn').style.display = '';
-    btn.style.display = 'none';
-    document.getElementById('creditsCancelBtn').style.display = 'none';
-    renderCredits();
-    computeCredits();
-  } catch (e) {
-    alert('Could not save balances: ' + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Save';
-  }
-});
-setInterval(() => { if (!creditsEditing && creditAccounts.length) computeCredits(); }, 10 * 60 * 1000);
+// API Credit Balance by Brand and the Daily Spend chart were removed
+// 2026-09-21. The balance had to be typed in by hand after every top-up
+// (OpenAI has no balance API), which nobody could keep current, and it made
+// one Costs API call per brand on every load — the main reason the page
+// kept hitting OpenAI's 10-requests-a-minute limit. Balances can still be
+// read at platform.openai.com. The BillingConfig row that held the entered
+// balances (/api/billing/openai-credits) is left in place, unused.
 
 fetchPhpRate().then(() => { if (lastBillingData) renderBilling(lastBillingData); });
 loadAccounts();
@@ -1166,5 +964,8 @@ loadAccounts();
 })();
 </script>
 <!-- ============== END CONSOLIDATED BILLING BLOCK v5 ============== -->
+<!-- OpenAI credit alert — red banner when a brand's AI bot starts sending
+     its "technical issues" fallback, the sign its credits have run out. -->
+<script src="bot-health.js"></script>
 </body>
 </html>
