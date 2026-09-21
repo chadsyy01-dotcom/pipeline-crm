@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api/client';
 
 // Login page — redesigned 2026-09-21 to the approved mockup (dark-to-light
@@ -14,22 +14,67 @@ import { api, setToken } from '../api/client';
 //   - a show/hide toggle on the password field (it's in the design);
 //   - the button is disabled while the request is in flight, so a double
 //     click can't send two logins.
+// Sign-up calls POST /auth/register with { name, email, password,
+// inviteCode } (routes/auth.js): password must be 8+ characters, the invite
+// code is required once any account exists unless REGISTRATION_OPEN=true,
+// and a token comes back so the new user lands straight in the dashboard.
+//
+// Sign-up lives in the same card (2026-09-21): "Create one" swaps the form
+// in place instead of sending people to a separate /register page. The
+// address bar follows along (/login <-> /register) without a page change, so
+// a bookmarked or shared /register link still opens straight to sign-up —
+// as long as the /register route renders this component (see App.jsx).
 export default function Login() {
+  const [mode, setMode] = useState(() =>
+    typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '').endsWith('/register') ? 'register' : 'login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const isRegister = mode === 'register';
+
+  function switchMode(next) {
+    setMode(next);
+    setError('');
+    setNotice('');
+    setShowPassword(false);
+    // Update the address without a route change, so the card simply swaps.
+    try { window.history.replaceState(null, '', next === 'register' ? '/register' : '/login'); } catch (e) { /* fine */ }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setNotice('');
     setLoading(true);
     try {
-      const { token } = await api.login({ email, password });
-      setToken(token);
-      navigate('/');
+      if (isRegister) {
+        // Same body as routes/auth.js expects: { name, email, password,
+        // inviteCode }. The invite code is only checked once an account
+        // exists (unless REGISTRATION_OPEN=true on the server), so it's sent
+        // only when filled in.
+        const body = { name, email, password };
+        const code = inviteCode.trim();
+        if (code) body.inviteCode = code;
+        const result = await api.register(body);
+        if (result && result.token) {
+          setToken(result.token);
+          navigate('/');
+        } else {
+          // /auth/register hands back a token, so this is only a safety net.
+          switchMode('login');
+          setNotice('Account created. Log in with your new email and password.');
+        }
+      } else {
+        const { token } = await api.login({ email, password });
+        setToken(token);
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -231,8 +276,17 @@ export default function Login() {
         .csrLogin-or::before,.csrLogin-or::after{content:"";flex:1;height:3px;border-radius:3px;background:var(--nm-bg);
           box-shadow:inset 1px 1px 2px var(--nm-shadow-dark), inset -1px -1px 2px var(--nm-shadow-light);}
         .csrLogin-foot{text-align:center;font-size:15px;color:#334155;}
-        .csrLogin-foot a{color:var(--blue);font-weight:700;text-decoration:none;}
-        .csrLogin-foot a:hover{text-decoration:underline;}
+        .csrLogin-link{border:none;background:none;padding:0;font:inherit;color:var(--blue);font-weight:700;cursor:pointer;}
+        .csrLogin-link:hover{text-decoration:underline;}
+        .csrLogin-field label .opt{font-weight:500;font-size:12.5px;color:var(--ink-faint);}
+        .csrLogin-hint{font-size:12.5px;color:var(--ink-faint);margin:-18px 0 22px 18px;}
+        .csrLogin-notice{
+          margin:-14px 0 22px;padding:11px 16px;border-radius:14px;font-size:13.5px;font-weight:600;color:#166534;
+          background:var(--nm-bg);box-shadow:inset 3px 3px 6px var(--nm-shadow-dark), inset -3px -3px 6px var(--nm-shadow-light);
+        }
+        /* The form swaps in place; a short fade shows it changed. */
+        .csrLogin-card form{animation:csrLoginSwap .22s ease;}
+        @keyframes csrLoginSwap{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
         .csrLogin-screen :focus-visible{outline:3px solid #60A5FA;outline-offset:2px;}
 
@@ -254,7 +308,7 @@ export default function Login() {
           .csrLogin-card h2{font-size:28px;}
         }
         @media (prefers-reduced-motion:reduce){
-          .csrLogin-tile{animation:none;}
+          .csrLogin-tile, .csrLogin-card form{animation:none;}
         }
       `}</style>
 
@@ -355,10 +409,29 @@ export default function Login() {
         {/* ---- sign-in card ---- */}
         <main className="csrLogin-card">
           <div className="logoDisc"><img className="logo" src="/logo.png" alt="CSR Dashboard" /></div>
-          <h2>Welcome back</h2>
-          <p className="sub">Sign in to your support console.</p>
+          <h2>{isRegister ? 'Create your account' : 'Welcome back'}</h2>
+          <p className="sub">{isRegister ? "Join your team's support console." : 'Sign in to your support console.'}</p>
 
-          <form onSubmit={handleSubmit} noValidate={false}>
+          {notice && <div className="csrLogin-notice" role="status">{notice}</div>}
+
+          <form onSubmit={handleSubmit} key={mode}>
+            {isRegister && (
+              <div className="csrLogin-field">
+                <label htmlFor="csrLoginName">Name</label>
+                <div className="csrLogin-inputWrap">
+                  <svg className="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.9 3.6-6.5 8-6.5s8 2.6 8 6.5"/></svg>
+                  <input
+                    id="csrLoginName"
+                    type="text"
+                    autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="csrLogin-field">
               <label htmlFor="csrLoginEmail">Email</label>
               <div className="csrLogin-inputWrap">
@@ -381,7 +454,9 @@ export default function Login() {
                 <input
                   id="csrLoginPassword"
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
+                  minLength={isRegister ? 8 : undefined}
+                  aria-describedby={isRegister ? 'csrLoginPwHint' : undefined}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -402,16 +477,40 @@ export default function Login() {
               </div>
             </div>
 
+            {isRegister && (
+              <div className="csrLogin-hint" id="csrLoginPwHint">At least 8 characters.</div>
+            )}
+
+            {isRegister && (
+              <div className="csrLogin-field">
+                <label htmlFor="csrLoginInvite">Invite code <span className="opt">— only needed after the first account exists</span></label>
+                <div className="csrLogin-inputWrap">
+                  <svg className="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2a2 2 0 000-4V8z"/><path d="M13 7v10" strokeDasharray="2 2"/></svg>
+                  <input
+                    id="csrLoginInvite"
+                    type="text"
+                    autoComplete="off"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
             {error && <div className="csrLogin-error" role="alert">{error}</div>}
 
             <button className="csrLogin-submit" type="submit" disabled={loading}>
-              {loading ? 'Logging in…' : 'Log in'}
+              {loading ? (isRegister ? 'Creating account…' : 'Logging in…') : (isRegister ? 'Create account' : 'Log in')}
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </button>
           </form>
 
           <div className="csrLogin-or">OR</div>
-          <div className="csrLogin-foot">No account? <Link to="/register">Create one</Link></div>
+          <div className="csrLogin-foot">
+            {isRegister
+              ? <>Already have one? <button type="button" className="csrLogin-link" onClick={() => switchMode('login')}>Log in</button></>
+              : <>No account? <button type="button" className="csrLogin-link" onClick={() => switchMode('register')}>Create one</button></>}
+          </div>
         </main>
       </div>
     </div>
