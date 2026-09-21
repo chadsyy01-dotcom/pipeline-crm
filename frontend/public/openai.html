@@ -239,6 +239,41 @@ let currentRange = 'month';
 let currentAccount = 0;
 let usdToPhpRate = null;
 
+// ---- Shared OpenAI summary cache (added 2026-09-21) ----
+// OpenAI's Costs API allows only 10 requests a minute per organization, and
+// this page used to spend that in one load: the Total spend card and the
+// Consolidated Billing block both asked for this month's all-accounts
+// summary separately, and the backend may page a month into several Costs
+// calls. Every summary request on the page now goes through here — an
+// identical request made within OA_CACHE_MS reuses the first answer instead
+// of calling OpenAI again. Failures are never cached, so a retry actually
+// retries.
+const OA_CACHE_MS = 5 * 60 * 1000;
+const oaSummaryCache = new Map();   // path -> { at, promise }
+function fetchOpenAiSummary(path) {
+  const hit = oaSummaryCache.get(path);
+  if (hit && Date.now() - hit.at < OA_CACHE_MS) return hit.promise;
+  const promise = (async () => {
+    const token = localStorage.getItem('pipeline_token');
+    const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  })();
+  oaSummaryCache.set(path, { at: Date.now(), promise });
+  promise.then(r => { if (!r.ok) oaSummaryCache.delete(path); }, () => oaSummaryCache.delete(path));
+  return promise;
+}
+window.fetchOpenAiSummary = fetchOpenAiSummary;
+
+// OpenAI answers 429 when the per-minute allowance is used up. The message it
+// sends back is a wall of JSON, so it's recognised and replaced with a plain
+// sentence, and the caller waits out the window before trying again.
+const OA_RETRY_MS = 65 * 1000;
+function isRateLimited(result) {
+  const msg = JSON.stringify((result && result.data) || '');
+  return (result && result.status === 429) || /429|rate limit/i.test(msg);
+}
+
 // Free, no-API-key exchange rate service — fetched once per page load and
 // cached, since exchange rates don't meaningfully change minute-to-minute.
 function fetchPhpRate() {
@@ -317,39 +352,41 @@ function showSetupNote(msg) {
   el.style.display = msg ? 'block' : 'none';
 }
 
+let billingRetryTimer = null;
+
 function loadBilling() {
   if (currentRange === 'custom' && !document.getElementById('customStart').value) {
     return; // wait for the user to pick a start date and click Apply
   }
+  clearTimeout(billingRetryTimer);
   document.getElementById('kpiLabel').textContent = `Total spend — ${rangeLabelText(currentRange)}`;
-  const token = localStorage.getItem('pipeline_token');
   const compare = document.getElementById('compareToggle').checked;
 
-  let url = `${API_BASE}/openai-billing/summary?range=${currentRange}&account=${currentAccount}&compare=${compare}`;
+  let path = `/openai-billing/summary?range=${currentRange}&account=${currentAccount}&compare=${compare}`;
   if (currentRange === 'custom') {
     const start = document.getElementById('customStart').value;
     const end = document.getElementById('customEnd').value;
-    url += `&start=${start}`;
-    if (end) url += `&end=${end}`;
+    path += `&start=${start}`;
+    if (end) path += `&end=${end}`;
   }
 
-  fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(async res => {
-      if (res.status === 404) {
+  fetchOpenAiSummary(path)
+    .then(result => {
+      if (result.status === 404) {
         showSetupNote("⚠️ The /api/openai-billing/summary endpoint isn't live on the backend yet. Add the OpenAI proxy route to your Railway API to activate this page.");
-        return null;
+        return;
       }
-      const data = await res.json();
-      if (!res.ok) {
-        showSetupNote(`⚠️ ${data.error || 'Could not load OpenAI billing data.'}`);
-        return null;
+      if (isRateLimited(result)) {
+        showSetupNote('⏳ OpenAI is limiting how often its billing data can be read (10 times a minute). Trying again in about a minute — no need to refresh.');
+        billingRetryTimer = setTimeout(loadBilling, OA_RETRY_MS);
+        return;
       }
-      return data;
-    })
-    .then(data => {
-      if (!data) return;
+      if (!result.ok) {
+        showSetupNote(`⚠️ ${result.data.error || 'Could not load OpenAI billing data.'}`);
+        return;
+      }
       showSetupNote('');
-      renderBilling(data);
+      renderBilling(result.data);
     })
     .catch(err => {
       console.error(err);
@@ -530,20 +567,33 @@ function renderCredits() {
   }).join('');
 }
 
+let creditsRetryTimer = null;
+
 async function computeCredits() {
   if (creditsEditing) return;
-  const token = localStorage.getItem('pipeline_token');
+  clearTimeout(creditsRetryTimer);
   const withBase = creditAccounts.filter(a => creditBaselines.accounts[a.name]);
   document.getElementById('creditsStatus').textContent = withBase.length ? '\u25CF computing live\u2026' : 'Click \u201CEdit balances\u201D to set each brand\u2019s starting balance.';
-  await Promise.all(withBase.map(async a => {
+  // One account at a time, not all at once: each account is its own OpenAI
+  // organization with its own 10-a-minute allowance, but the page's other
+  // requests draw on those same allowances, and firing every account in
+  // parallel was what tipped them over. Answers come through the shared
+  // cache, so reopening the page within five minutes costs nothing.
+  let limited = false;
+  for (const a of withBase) {
     const base = creditBaselines.accounts[a.name];
     const row = document.querySelector(`#creditsBody tr[data-name="${CSS.escape(a.name)}"]`);
-    if (!row) return;
+    if (!row) continue;
     try {
-      const res = await fetch(`${API_BASE}/openai-billing/summary?range=custom&start=${base.asOf}&account=${a.index}&compare=false`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      const spend = data.totalUsd || 0;
+      const result = await fetchOpenAiSummary(`/openai-billing/summary?range=custom&start=${base.asOf}&account=${a.index}&compare=false`);
+      if (isRateLimited(result)) {
+        limited = true;
+        const sp = row.querySelector('.cr-spend'); if (sp) sp.textContent = 'waiting\u2026';
+        const cu = row.querySelector('.cr-current'); if (cu) cu.textContent = 'waiting\u2026';
+        continue;
+      }
+      if (!result.ok) throw new Error(result.data.error || `HTTP ${result.status}`);
+      const spend = result.data.totalUsd || 0;
       const current = base.balance - spend;
       row.querySelector('.cr-spend').textContent = usd(spend);
       row.querySelector('.cr-spend').style.color = '';
@@ -555,8 +605,11 @@ async function computeCredits() {
       const sp = row.querySelector('.cr-spend'); if (sp) { sp.textContent = 'error'; sp.title = e.message; }
       console.warn('Credit compute failed for', a.name, e.message);
     }
-  }));
-  if (withBase.length) {
+  }
+  if (limited) {
+    document.getElementById('creditsStatus').textContent = '\u23F3 OpenAI rate limit \u2014 finishing in about a minute';
+    creditsRetryTimer = setTimeout(computeCredits, OA_RETRY_MS);
+  } else if (withBase.length) {
     document.getElementById('creditsStatus').textContent = `\u25CF live \u00B7 updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   }
 }
@@ -701,12 +754,24 @@ loadAccounts();
 
   async function loadLiveOpenAi() {
     try {
-      const [sumRes, rateRes] = await Promise.all([
-        fetch(`${CB_API}/openai-billing/summary?range=month&account=all&compare=false`, { headers: authHeaders() }),
+      // Same request as the Total spend card's This Month view, sent through
+      // the page's shared cache — so opening the page asks OpenAI once for
+      // this, not twice (2026-09-21, after the Costs API's 10-a-minute limit
+      // was being hit on every load).
+      const summaryPath = '/openai-billing/summary?range=month&account=all&compare=false';
+      const [sumResult, rateRes] = await Promise.all([
+        window.fetchOpenAiSummary
+          ? window.fetchOpenAiSummary(summaryPath)
+          : fetch(`${CB_API}${summaryPath}`, { headers: authHeaders() }).then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
         fetch('https://open.er-api.com/v6/latest/USD').catch(() => null),
       ]);
-      if (!sumRes.ok) throw new Error('openai-billing HTTP ' + sumRes.status);
-      const sum = await sumRes.json();
+      if (typeof isRateLimited === 'function' && isRateLimited(sumResult)) {
+        liveOpenAi = { ok: false, limited: true, byDivision: new Map(), unmatched: [], rate: null, asOf: null };
+        setTimeout(() => { loadLiveOpenAi().then(() => { if (!cbEditing && cbData) render(); }); }, typeof OA_RETRY_MS === 'number' ? OA_RETRY_MS : 65000);
+        return;
+      }
+      if (!sumResult.ok) throw new Error('openai-billing HTTP ' + sumResult.status);
+      const sum = sumResult.data;
       let rate = null;
       if (rateRes && rateRes.ok) {
         const r = await rateRes.json();
@@ -1052,7 +1117,9 @@ loadAccounts();
       ? (liveOpenAi.unmatched.length
           ? `<div class="cb-note" style="margin-top:8px;color:var(--warning,#F59E0B);">Open AI accounts not matched to a division: ${esc(liveOpenAi.unmatched.join(', '))} — add them to OPENAI_ACCOUNT_TO_DIVISION in openai.html.</div>`
           : '')
-      : `<div class="cb-note" style="margin-top:8px;">Open AI live column unavailable right now — totals shown without it.</div>`;
+      : (liveOpenAi.limited
+          ? `<div class="cb-note" style="margin-top:8px;">⏳ Open AI column is waiting on OpenAI's rate limit — it fills in on its own in about a minute. Totals below are shown without it for now.</div>`
+          : `<div class="cb-note" style="margin-top:8px;">Open AI live column unavailable right now — totals shown without it.</div>`);
     const noteHtml = cbEditing
       ? `<div style="margin-top:12px;"><input class="cb-input" id="cbNoteInput" style="width:100%;text-align:left;font-weight:500;" placeholder="Optional note shown under the table" value="${esc(d.note || '')}"></div>`
       : (d.note ? `<div class="cb-note" style="margin-top:12px;">${esc(d.note)}</div>` : '');
