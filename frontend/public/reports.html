@@ -1338,12 +1338,37 @@ async function loadSatisfaction() {
     severity: r.rating <= 2 ? dsatSeverity(r.feedback) : null,
   }));
 
-  csData = { csat, rated, window: w };
+  csData = { csat, rated, window: w, hasBrand };
 
   const notes = [];
   if (w.running) notes.push(`September is still running — this report covers day 1 to day ${w.days} of ${w.daysInMonth}.`);
-  if (!hasBrand && rated.length) notes.push('The chat service is not returning a brand with each rating yet, so the brand ranking cannot be built. Deploy the updated /csat route on the backend.');
   flag('csFlag', notes);
+
+  // Without a brand and a customer name on each rating, the two rankings
+  // below would lump every DSAT into one "Unknown" brand and one "Unknown"
+  // player — a number that looks like a finding but is really a missing
+  // field. Show the headline counts, which are correct either way, and say
+  // plainly what the rankings are waiting on.
+  if (!hasBrand && rated.length) {
+    renderSatisfaction();
+    const waiting = `
+      <div class="panel" style="border-left:4px solid var(--warning);">
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Waiting on a backend update</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;">
+          The chat service is returning ratings without a brand or customer name, so this ranking
+          can't be built yet. The CSAT and DSAT counts above are correct. Deploy the updated
+          <code>/csat</code> route in <code>backend/routes/chatwoot.js</code> and refresh this page.
+        </div>
+      </div>`;
+    document.getElementById('csTopBrands').innerHTML = waiting;
+    document.getElementById('csTopPlayers').innerHTML =
+      '<tr><td colspan="7"><div class="note">Waiting on the same backend update — player names are not in the ratings yet.</div></td></tr>';
+    document.getElementById('csTopPlayersNote').textContent = '';
+    csData.top3 = [];
+    csData.top5Players = [];
+    return;
+  }
+
   renderSatisfaction();
 }
 
