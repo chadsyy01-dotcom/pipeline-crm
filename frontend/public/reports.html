@@ -331,7 +331,8 @@
                 <option value="7d">Last 7 Days</option>
                 <option value="30d">Last 30 Days</option>
                 <option value="month" selected>This Month</option>
-                <option value="custom" id="rpCustomOption">Custom Date</option>
+                <option value="custom" id="rpCustomOption">Custom Date…</option>
+                <option value="custom-applied" id="rpAppliedOption" hidden></option>
               </select>
             </label>
             <div class="custom-date-pop" id="rpPop">
@@ -1313,7 +1314,7 @@ function renderTicketResolution() {
     .map(([name, v]) => ({ name, ...v, rate: (v.resolved + v.rejected) ? (v.resolved / (v.resolved + v.rejected)) * 100 : null }))
     .sort((a, b) => b.filed - a.filed || b.resolved - a.resolved);
 
-  if (tkCharts.brand) tkCharts.brand.destroy();
+  if (tkCharts.brand) { tkCharts.brand.destroy(); tkCharts.brand = null; }
   if (brandRows.length) {
     tkCharts.brand = new Chart(document.getElementById('tkBrandChart'), {
       type: 'bar',
@@ -1926,10 +1927,14 @@ document.getElementById('subtabs').addEventListener('click', (e) => {
   const page = document.getElementById('page-' + btn.dataset.page);
   if (page) page.classList.add('active');
   applyPeriodChrome();
-  // Chart.js needs a nudge after a hidden canvas becomes visible, otherwise
-  // it keeps the zero width it measured while the tab was closed.
-  Object.values(tkCharts).forEach(c => c && c.resize());
-  if (brandChart) brandChart.resize();
+  // Redraw the tab that just became visible. A chart drawn while its tab was
+  // hidden measured a zero-size box; resizing it afterwards was unreliable —
+  // it threw on charts that had been destroyed, which stopped the Chats
+  // chart from ever appearing, and it blew the fixed-size donuts up to the
+  // full panel width. Redrawing at the real size avoids both.
+  const shown = btn.dataset.page;
+  if (shown === 'chats' && chatsData) renderChatsComparison();
+  if (shown === 'tickets' && allTickets.length) renderTicketResolution();
 });
 
 function exportActiveReport() {
@@ -2085,6 +2090,11 @@ function setPeriods(preset) {
 }
 
 rpSelect.addEventListener('change', (e) => {
+  if (e.target.value === 'custom-applied') {
+    rpPop.classList.remove('open');
+    if (customRange) setPeriods('custom');
+    return;
+  }
   if (e.target.value === 'custom') {
     // Pre-fill with whatever is showing now, so Custom starts from context.
     document.getElementById('rpFrom').value = isoDay(MONTH_B.start);
@@ -2115,16 +2125,20 @@ document.getElementById('rpApply').addEventListener('click', () => {
     from: parseIsoDay(f), to: parseIsoDay(t),
     cFrom: cf ? parseIsoDay(cf) : null, cTo: ct ? parseIsoDay(ct) : null,
   };
-  const opt = document.getElementById('rpCustomOption');
-  opt.textContent = fmtShort(customRange.from, endOfDay(customRange.to));
-  rpSelect.value = 'custom';
+  // "Custom Date…" stays as it is so it can always be opened again; the
+  // applied range gets its own entry, which is what shows in the box.
+  const applied = document.getElementById('rpAppliedOption');
+  applied.textContent = `📅 ${fmtShort(customRange.from, endOfDay(customRange.to))}`
+    + (customRange.cFrom ? ` vs ${fmtShort(customRange.cFrom, endOfDay(customRange.cTo))}` : '');
+  applied.hidden = false;
+  rpSelect.value = 'custom-applied';
   rpPop.classList.remove('open');
   setPeriods('custom');
 });
 
 function cancelCustom() {
   rpPop.classList.remove('open');
-  rpSelect.value = currentPreset;   // back to whatever is actually applied
+  rpSelect.value = currentPreset === 'custom' ? 'custom-applied' : currentPreset;   // back to what's applied
 }
 document.getElementById('rpCancel').addEventListener('click', cancelCustom);
 document.addEventListener('click', (e) => {
