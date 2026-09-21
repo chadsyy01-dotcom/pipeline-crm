@@ -805,6 +805,53 @@ router.get('/stats', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/chatwoot/messages-received?from=...&to=...
+// Incoming customer messages per brand for the window (added 2026-09-21).
+// Powers the Reports page's Chats Comparison, whose historical months come
+// from a sheet filled with Chatwoot's "Messages received" figure — so the
+// live months have to count the same thing. /stats counts CONVERSATIONS,
+// which is a different and much smaller number (roughly one conversation to
+// every six messages), and comparing the two made every live month look
+// like a collapse.
+//
+// "Received" = a message_created event sent by the customer (senderType
+// 'contact'). Private notes are agent-side and never match. Each message is
+// counted once by its messageId — scoped by brand, because every brand runs
+// its own Chatwoot instance and message ids can repeat across them — so a
+// webhook delivered twice cannot double-count. Rows without a messageId
+// fall back to their own row id.
+router.get('/messages-received', requireAuth, async (req, res) => {
+  try {
+    const from = req.query.from || null;
+    const to = req.query.to || null;
+    if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
+
+    const rows = await sequelize.query(`
+      SELECT "brand",
+             COUNT(DISTINCT CASE
+               WHEN "messageId" IS NOT NULL THEN "brand" || ':' || "messageId"::text
+               ELSE 'row:' || "id"::text
+             END) AS n
+      FROM "ChatwootEvents"
+      WHERE event = 'message_created'
+        AND "senderType" = 'contact'
+        AND "isPrivate" = false
+        AND "createdAt" BETWEEN :from AND :to
+      GROUP BY "brand"
+    `, { replacements: { from, to }, type: QueryTypes.SELECT });
+
+    const byBrand = {};
+    rows.forEach(r => { byBrand[r.brand] = Number(r.n); });
+    res.json({
+      messagesReceivedByBrand: byBrand,
+      total: Object.values(byBrand).reduce((a, b) => a + b, 0),
+    });
+  } catch (err) {
+    console.error('Chatwoot messages-received error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/chatwoot/pending
 // Lightweight feed for the "Needs Attention — Waiting for Agent" widget
 // (added 2026-09-14 for egress control). Returns ONLY conversations whose
