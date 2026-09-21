@@ -693,9 +693,9 @@
 //   Chats Comparison — the range is split by calendar month. Days in a
 //     finished month come from the department's chat-volume sheet (the
 //     official record, daily columns summed); days in the running month, or
-//     in a month the sheet lacks, come live from /chatwoot/messages-received.
-//     Both sides count MESSAGES RECEIVED (customer messages), matching the
-//     figure the sheet is filled from.
+//     in a month the sheet lacks, are left blank — SHEET ONLY since
+//     2026-09-21, see loadPeriodChats. The figure is Chatwoot's MESSAGES
+//     RECEIVED, which the team copies into the sheet at month end.
 //   Ticket Resolution — the brand ticket sheets via TicketData, full history.
 //   Customer Satisfaction — /chatwoot/csat.
 // Live chat data only reaches back CHAT_RETENTION_DAYS; anything older says
@@ -1003,14 +1003,24 @@ function monthSegments(start, end) {
   return segs;
 }
 
-// One period's chats by brand. Each month-slice of the range goes to the
-// sheet when that month is finished and the sheet has it, and to the live
-// feed otherwise. Always resolves; a slice with no usable source is
-// reported back so the page can say which part of the period is missing.
+// One period's chats by brand, SHEET ONLY (decided 2026-09-21).
+//
+// The live count from webhooks came in far below Chatwoot's own "Messages
+// received" (44,530 across all brands against 85,253 for Buenas PH alone in
+// September) because every missed delivery — the Sep 14 migration, the
+// Sep 17–18 outage — is simply gone from the database. Chatwoot is the
+// official figure, and the team copies it into the chat volume sheet at
+// month end. So this report reads only the sheet:
+//   - a finished month the sheet has figures for → used as-is;
+//   - the month still running → left blank until the month-end figures go in
+//     (even if the sheet already holds part of it, a half-filled month would
+//     read as a collapse);
+//   - a finished month with no figures in the sheet → blank, and the page
+//     says which one.
+// Always resolves; `pending` and `missing` tell the page what was left out.
 async function loadPeriodChats(info, sheetPromise) {
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const retentionStart = startOfDay(new Date(now.getTime() - CHAT_RETENTION_DAYS * DAY_MS));
 
   let blocks = null;
   try { blocks = parseSheetDaily(await sheetPromise); } catch (e) { blocks = null; }
@@ -1020,57 +1030,55 @@ async function loadPeriodChats(info, sheetPromise) {
     const prev = byKey.get(key);
     byKey.set(key, { label: prev ? prev.label : label, total: (prev ? prev.total : 0) + n });
   };
-  const sources = new Set();
   const unpaired = new Set();
-  const missing = [];
+  const pending = [];   // the running month — waiting on month-end figures
+  const missing = [];   // finished, but not in the sheet
+  let usedDays = 0;
 
   for (const seg of monthSegments(info.start, info.end)) {
     if (seg.start > now) continue;   // the future has no chats yet
     const segEnd = seg.end > now ? now : seg.end;
     const finished = new Date(seg.year, seg.month, 1) < thisMonthStart;
-    const block = finished && blocks ? blocks[MONTH_NAMES[seg.month].toUpperCase()] : null;
+    const monthName = MONTH_NAMES[seg.month];
 
+    if (!finished) { pending.push(monthName); continue; }
+
+    const block = blocks ? blocks[monthName.toUpperCase()] : null;
+    const from = seg.start.getDate(), to = segEnd.getDate();
+    // A block that exists but is still empty for these days counts as
+    // missing, not as zero chats.
+    let segTotal = 0;
     if (block) {
-      const from = seg.start.getDate(), to = segEnd.getDate();
-      Object.entries(block).forEach(([division, daily]) => {
-        let sum = 0;
-        for (let d = from; d <= to; d++) sum += daily[d] || 0;
-        const slug = DIVISION_TO_CHAT_SLUG[division.trim().toLowerCase()] || null;
-        if (!slug) unpaired.add(division);
-        add(slug || 'division:' + division, division, sum);
-      });
-      sources.add('sheet');
-      continue;
+      Object.values(block).forEach(daily => { for (let d = from; d <= to; d++) segTotal += daily[d] || 0; });
     }
+    if (!block || segTotal === 0) { missing.push(fmtRange(seg.start, segEnd)); continue; }
 
-    if (seg.start < retentionStart) {
-      missing.push(fmtRange(seg.start, segEnd));
-      continue;
-    }
-    try {
-      // Messages received, not conversations: the sheet's historical months
-      // hold Chatwoot's "Messages received" figure, so the live months must
-      // count the same thing or the comparison is meaningless (2026-09-21).
-      const live = await apiGet(`/chatwoot/messages-received?from=${encodeURIComponent(seg.start.toISOString())}&to=${encodeURIComponent(segEnd.toISOString())}`);
-      Object.entries(live.messagesReceivedByBrand || {}).forEach(([slug, n]) => add(slug, chatBrandLabel(slug), n));
-      sources.add('live');
-    } catch (err) {
-      console.error(`Live chats failed for ${fmtRange(seg.start, segEnd)} —`, err);
-      missing.push(fmtRange(seg.start, segEnd));
-    }
+    Object.entries(block).forEach(([division, daily]) => {
+      let sum = 0;
+      for (let d = from; d <= to; d++) sum += daily[d] || 0;
+      const slug = DIVISION_TO_CHAT_SLUG[division.trim().toLowerCase()] || null;
+      if (!slug) unpaired.add(division);
+      add(slug || 'division:' + division, division, sum);
+    });
+    usedDays += calendarDays(seg.start, segEnd);
   }
 
-  if (!sources.size) {
-    return { ok: false, reason: `No chat figures are available for ${info.label} — it is not in the chat volume sheet and is older than the ${CHAT_RETENTION_DAYS} days the live data keeps.` };
+  if (!byKey.size) {
+    const reason = pending.length && !missing.length
+      ? `${pending.join(', ')} figures are added to the chat volume sheet at the end of the month.`
+      : `No figures in the chat volume sheet for ${info.label}.`;
+    return { ok: false, pendingOnly: pending.length && !missing.length, reason, pending, missing };
   }
   const total = [...byKey.values()].reduce((s, v) => s + v.total, 0);
   return {
     ok: true,
-    source: sources.size > 1 ? 'mixed' : [...sources][0],
+    source: 'sheet',
     byKey, total,
-    days: Math.max(info.days, 1),
+    // Per-day figures divide by the days actually covered, so a period that
+    // is half blank isn't averaged over days with no data.
+    days: Math.max(usedDays, 1),
     unpaired: [...unpaired],
-    missing,
+    pending, missing,
   };
 }
 
@@ -1113,16 +1121,15 @@ async function loadChatsComparison() {
   const notes = [];
   if (!resA.ok) notes.push(resA.reason);
   if (!resB.ok) notes.push(resB.reason);
-  if (resB.ok && B.running && B.days < B.totalDays) notes.push(`The report period is still running — it covers ${B.days} of ${B.totalDays} days so far. Use the per-day view for a like-for-like comparison.`);
   [resA, resB].forEach((r, i) => {
-    if (r.ok && r.missing && r.missing.length) notes.push(`${i ? 'Report' : 'Comparison'} period is missing ${r.missing.join(', ')} — older than the ${CHAT_RETENTION_DAYS} days the live data keeps and not in the sheet.`);
+    const which = i ? 'Report period' : 'Comparison period';
+    if (r.ok && r.pending && r.pending.length) notes.push(`${which} leaves out ${r.pending.join(', ')} — added at the end of the month.`);
+    if (r.missing && r.missing.length) notes.push(`${which} has no sheet figures yet for ${r.missing.join(', ')}.`);
   });
   // A division with no chat slug can only line up with a sheet month on the
   // other side; against a live month it shows one figure and a blank.
   const unpaired = [...new Set([...(resA.unpaired || []), ...(resB.unpaired || [])])];
-  if (unpaired.length && (resA.source !== 'sheet' || resB.source !== 'sheet')) {
-    notes.push(`No live chat feed is paired with ${unpaired.join(', ')}, so ${unpaired.length === 1 ? 'its' : 'their'} figures only cover days read from the sheet.`);
-  }
+
   flag('chatsFlag', notes);
 
   chatsData = {
@@ -1132,6 +1139,8 @@ async function loadChatsComparison() {
     daysA, daysB,
     sourceA: resA.ok ? resA.source : null,
     sourceB: resB.ok ? resB.source : null,
+    pendingOnlyA: !resA.ok && !!resA.pendingOnly,
+    pendingOnlyB: !resB.ok && !!resB.pendingOnly,
     unpaired,
   };
   renderChatsComparison();
@@ -1147,9 +1156,10 @@ function renderChatsComparison() {
     if (src === 'mixed') return `Sheet + live · ${d}`;
     return `Live${running ? ', so far' : ''} · ${d}`;
   };
-  document.getElementById('kpiASub').textContent = totalA == null ? 'Unavailable' : srcText(chatsData.sourceA, daysA, MONTH_A.running);
+  const blankText = pendingOnly => pendingOnly ? 'Added at the end of the month' : 'Not in the chat volume sheet yet';
+  document.getElementById('kpiASub').textContent = totalA == null ? blankText(chatsData.pendingOnlyA) : srcText(chatsData.sourceA, daysA, MONTH_A.running);
   document.getElementById('kpiBTotal').textContent = fmtInt(totalB);
-  document.getElementById('kpiBSub').textContent = totalB == null ? 'Unavailable' : srcText(chatsData.sourceB, daysB, MONTH_B.running);
+  document.getElementById('kpiBSub').textContent = totalB == null ? blankText(chatsData.pendingOnlyB) : srcText(chatsData.sourceB, daysB, MONTH_B.running);
 
   const chgEl = document.getElementById('kpiChange');
   const chgSub = document.getElementById('kpiChangeSub');
@@ -1247,7 +1257,11 @@ function renderChatsComparison() {
     const el = document.getElementById(elId);
     const list = rows.filter(r => r[key] != null && r[key] > 0).sort((x, y) => y[key] - x[key]);
     const sum = list.reduce((s, r) => s + r[key], 0);
-    if (!list.length) { el.innerHTML = '<div class="note">No figures for this period.</div>'; return; }
+    if (!list.length) {
+      const pendingOnly = key === 'b' ? chatsData.pendingOnlyB : chatsData.pendingOnlyA;
+      el.innerHTML = `<div class="note">${pendingOnly ? 'Added at the end of the month.' : 'No figures in the chat volume sheet for this period.'}</div>`;
+      return;
+    }
     const max = list[0][key];
     el.innerHTML = list.map(r => `
       <div class="bar-row">
