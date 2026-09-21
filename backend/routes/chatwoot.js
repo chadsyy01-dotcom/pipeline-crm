@@ -852,6 +852,104 @@ router.get('/messages-received', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/chatwoot/bot-health?minutes=30&minFallbacks=2
+// OpenAI credit-exhaustion detector (added 2026-09-21, reworked the same day).
+//
+// OpenAI has no API for a credit balance. What it does have is a visible
+// symptom: when a brand's prepaid credits run out — or its auto recharge
+// fails — the AI bot can no longer generate answers and falls back to a
+// canned apology instead, e.g.
+//   "Pasensya na po, meron lang po kaming nararanasang technical issues sa
+//    ngayon. If you need help with your account, you may submit a ticket
+//    here: https://tmtplayrequest.netlify.app/ ..."
+// The bot keeps "replying", so watching for silence never fires. Watching
+// for this message does.
+//
+// A message counts as the fallback when it is an outgoing message (not the
+// customer's) and matches EVERY pattern in one of FALLBACK_SIGNATURES — the
+// whole template, not one phrase, so an agent who types "sorry, technical
+// issue" in a normal reply doesn't raise an alarm. Add a signature here if a
+// brand words its fallback differently.
+//
+// For each brand, over the last `minutes`:
+//   fallbacks   = fallback messages sent
+//   status      = 'credits' when fallbacks >= minFallbacks AND no normal bot
+//                 reply has gone out since the latest fallback. A normal bot
+//                 reply after the fallbacks means the bot has recovered (top-up
+//                 landed, or it was a brief OpenAI hiccup), so the alert
+//                 clears on its own.
+//   since       = when the current run of fallbacks started — the first
+//                 fallback after the last normal bot reply.
+const FALLBACK_SIGNATURES = [
+  [/technical\s+issue/i, /submit\s+a\s+ticket/i],
+  [/nararanasang\s+technical/i],
+];
+function isFallbackMessage(text) {
+  const t = stripHtml(text || '');
+  return !!t && FALLBACK_SIGNATURES.some(sig => sig.every(re => re.test(t)));
+}
+
+router.get('/bot-health', requireAuth, async (req, res) => {
+  try {
+    const minutes = Math.min(Math.max(Number(req.query.minutes) || 30, 10), 240);
+    const minFallbacks = Math.min(Math.max(Number(req.query.minFallbacks) || 2, 1), 50);
+
+    // Outgoing messages only — the fallback is something the bot sends.
+    const rows = await sequelize.query(`
+      SELECT "brand", "conversationId", "senderName", "content", "createdAt"
+      FROM "ChatwootEvents"
+      WHERE event = 'message_created'
+        AND "senderType" = 'user'
+        AND "isPrivate" = false
+        AND "content" IS NOT NULL
+        AND "createdAt" >= NOW() - (:minutes || ' minutes')::interval
+      ORDER BY "createdAt" ASC
+    `, { replacements: { minutes: String(minutes) }, type: QueryTypes.SELECT });
+
+    const perBrand = new Map();
+    const brandState = b => {
+      if (!perBrand.has(b)) perBrand.set(b, { fallbacks: 0, conversations: new Set(), normalBotReplies: 0, runStart: null, lastFallbackAt: null, recovered: false });
+      return perBrand.get(b);
+    };
+    for (const r of rows) {
+      const s = brandState(r.brand);
+      if (isFallbackMessage(r.content)) {
+        s.fallbacks++;
+        s.conversations.add(r.conversationId);
+        if (!s.runStart || s.recovered) s.runStart = r.createdAt;   // a new run begins
+        s.lastFallbackAt = r.createdAt;
+        s.recovered = false;
+      } else if (AI_BOT_SENDER_NAMES.has(r.senderName)) {
+        s.normalBotReplies++;
+        if (s.lastFallbackAt) s.recovered = true;   // bot answered properly after a fallback
+      }
+    }
+
+    const brands = [...perBrand.entries()]
+      .filter(([, s]) => s.fallbacks > 0)
+      .map(([brand, s]) => ({
+        brand,
+        status: s.fallbacks >= minFallbacks && !s.recovered ? 'credits' : 'ok',
+        fallbacks: s.fallbacks,
+        affectedConversations: s.conversations.size,
+        since: s.runStart ? new Date(s.runStart).toISOString() : null,
+        lastFallbackAt: s.lastFallbackAt ? new Date(s.lastFallbackAt).toISOString() : null,
+        recovered: s.recovered,
+      }));
+
+    res.json({
+      checkedAt: new Date().toISOString(),
+      windowMinutes: minutes,
+      minFallbacks,
+      brands,
+      alerts: brands.filter(b => b.status === 'credits'),
+    });
+  } catch (err) {
+    console.error('Chatwoot bot-health error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/chatwoot/pending
 // Lightweight feed for the "Needs Attention — Waiting for Agent" widget
 // (added 2026-09-14 for egress control). Returns ONLY conversations whose
