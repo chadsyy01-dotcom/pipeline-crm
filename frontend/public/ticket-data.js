@@ -108,6 +108,34 @@
     return STATUS_MAP[key] || { label: raw || 'Unknown', cls: 'unknown' };
   }
 
+  // Sheet date parser (added 2026-09-21): iba-iba ang date format ng mga
+  // sheets — ang ilan (hal. HypePlay BD) ay DD/MM/YYYY, na binabasa ng
+  // JavaScript bilang MM/DD/YYYY. Ang "12/09/2026" (Sep 12) ay nagiging
+  // Dec 9 — HINAHARAP — kaya "just now" ang Updated at umaakyat pa sa
+  // taas ng list ang mga lumang ticket. Ayos: kapag slash-format at ang
+  // MM/DD na basa ay lampas sa kasalukuyan (imposible para sa submitted/
+  // resolved timestamps), i-swap sa DD/MM. Ang mga malinaw na format
+  // (ISO, "Sep 12, 2026") ay hindi ginagalaw.
+  function parseSheetDate(raw) {
+    if (raw == null) return new Date(NaN);
+    const s = String(raw).trim();
+    if (!s) return new Date(NaN);
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(.*)$/);
+    if (m) {
+      const a = Number(m[1]), b = Number(m[2]), y = Number(m[3]), rest = m[4] || '';
+      const build = (mm, dd) => new Date(`${mm}/${dd}/${y}${rest}`);
+      const now = Date.now() + 24 * 60 * 60 * 1000; // 1 araw na palugit (timezone drift)
+      if (a > 12 && b <= 12) return build(b, a); // tiyak na DD/MM (hal. 25/09/2026)
+      if (b > 12 && a <= 12) return build(a, b); // tiyak na MM/DD (hal. 09/25/2026)
+      const asMdy = build(a, b);
+      if (!isNaN(asMdy.getTime()) && asMdy.getTime() <= now) return asMdy; // MM/DD, makatwiran
+      const asDmy = build(b, a);
+      if (!isNaN(asDmy.getTime()) && asDmy.getTime() <= now) return asDmy; // future ang MM/DD → DD/MM pala
+      return asMdy;
+    }
+    return new Date(s);
+  }
+
   // Rejection reason (added 2026-09-21): kinukuha mula sa kung anong column
   // ang ginagamit ng sheet. Ang standard ay "Reject Reason" — idagdag ito
   // sa mga ticket sheets at punan tuwing nirereject; ang mga lumang sheets
@@ -225,13 +253,13 @@
   // Maps a normal ticket-sheet row (Ticket ID / Username / Category / ...) to our common shape.
   function mapTicketRow(row, brandOverride, sheetMeta) {
     if (!row['Ticket ID']) return null;
-    const submitted = new Date(row['Submitted At']);
+    const submitted = parseSheetDate(row['Submitted At']);
     if (isNaN(submitted.getTime())) return null;
     const name = row['Username'] || row['Full Name'] || 'Unknown';
     const category = (row['Category'] || '').trim();
     const subcategory = (row['Subcategory'] || '').trim();
-    const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
-    const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
+    const acknowledgedAt = row['Acknowledged At'] ? parseSheetDate(row['Acknowledged At']) : null;
+    const resolvedAt = row['Resolved At'] ? parseSheetDate(row['Resolved At']) : null;
     const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
     const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
     const si = statusInfo(row['Status']);
@@ -267,12 +295,12 @@
   // same common shape, so it flows through every KPI/chart/list alongside real tickets.
   function mapFollowupRow(row, sheetMeta) {
     if (!row['Reference ID']) return null;
-    const submitted = new Date(row['Submitted At']);
+    const submitted = parseSheetDate(row['Submitted At']);
     if (isNaN(submitted.getTime())) return null;
     const query = row['Query'] || 'Unknown';
     const queryType = row['Query Type'] || 'General';
-    const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
-    const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
+    const acknowledgedAt = row['Acknowledged At'] ? parseSheetDate(row['Acknowledged At']) : null;
+    const resolvedAt = row['Resolved At'] ? parseSheetDate(row['Resolved At']) : null;
     const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
     const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
     const si = statusInfo(row['Status']);
@@ -308,12 +336,12 @@
   // same common shape.
   function mapCallbackRow(row, sheetMeta) {
     if (!row['Reference ID']) return null;
-    const submitted = new Date(row['Submitted At']);
+    const submitted = parseSheetDate(row['Submitted At']);
     if (isNaN(submitted.getTime())) return null;
     const name = row['Username'] || row['Full Name'] || row['Mobile'] || 'Unknown';
     const concernCategory = (row['Concern Category'] || '').trim();
-    const acknowledgedAt = row['Acknowledged At'] ? new Date(row['Acknowledged At']) : null;
-    const resolvedAt = row['Resolved At'] ? new Date(row['Resolved At']) : null;
+    const acknowledgedAt = row['Acknowledged At'] ? parseSheetDate(row['Acknowledged At']) : null;
+    const resolvedAt = row['Resolved At'] ? parseSheetDate(row['Resolved At']) : null;
     const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
     const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
     const si = statusInfo(row['Status']);
@@ -354,13 +382,13 @@
     if (!row['Reference ID']) return null;
     const brand = DIVISION_BRAND_MAP[(row['Division'] || '').trim().toLowerCase()];
     if (!brand) return null;
-    const submitted = new Date(row['Bot Notif Time']);
+    const submitted = parseSheetDate(row['Bot Notif Time']);
     if (isNaN(submitted.getTime())) return null;
     const name = row['Username'] || 'Unknown';
     const category = (row['Concern Type'] || '').trim();
     const subcategory = (row['Subcategory'] || '').trim();
-    const acknowledgedAt = row['Checking Time'] ? new Date(row['Checking Time']) : null;
-    const resolvedAt = row['Done Time'] ? new Date(row['Done Time']) : null;
+    const acknowledgedAt = row['Checking Time'] ? parseSheetDate(row['Checking Time']) : null;
+    const resolvedAt = row['Done Time'] ? parseSheetDate(row['Done Time']) : null;
     const si = statusInfo(row['Status']);
     const handledBy = row['Handled By'] || null;
     return {
