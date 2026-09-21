@@ -108,6 +108,15 @@
     return STATUS_MAP[key] || { label: raw || 'Unknown', cls: 'unknown' };
   }
 
+  // Rejection reason (added 2026-09-21): kinukuha mula sa kung anong column
+  // ang ginagamit ng sheet. Ang standard ay "Reject Reason" — idagdag ito
+  // sa mga ticket sheets at punan tuwing nirereject; ang mga lumang sheets
+  // na Remarks/Notes ang gamit ay sakop pa rin ng fallbacks.
+  function rejectReasonFrom(row) {
+    const v = row['Reject Reason'] || row['Rejection Reason'] || row['Reject Remarks'] || row['Remarks'] || row['Notes'] || '';
+    return String(v).trim() || null;
+  }
+
   // Used only by mapDivisionRow — this sheet has no Ticket ID prefix scheme
   // (Reference IDs are just timestamp+username), so brand comes from its
   // "Division" column instead. Any Division not listed here is deliberately
@@ -249,6 +258,7 @@
       resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
       ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
       resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
+      rejectReason: rejectReasonFrom(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -289,6 +299,7 @@
       resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
       ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
       resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
+      rejectReason: rejectReasonFrom(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -329,6 +340,7 @@
       resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
       ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
       resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
+      rejectReason: rejectReasonFrom(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -373,6 +385,7 @@
       resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
       ackDurationSec: parseHmsToSeconds(row['Acknowledge Duration']),
       resolveDurationSec: parseHmsToSeconds(row['Task Duration']),
+      rejectReason: rejectReasonFrom(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
