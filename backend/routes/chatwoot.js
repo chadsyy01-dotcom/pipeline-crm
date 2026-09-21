@@ -678,13 +678,35 @@ router.get('/csat', requireAuth, async (req, res) => {
     // One response per conversation — a customer could technically answer
     // more than once if surveyed again, so take their latest answer only
     // (within the date window, when one is given).
+    //
+    // "brand" added 2026-09-20: the Reports page needs ratings broken down
+    // by brand over a whole month, and /conversations can't answer that —
+    // its per-brand cap silently truncates the busiest brands (Buenas PH
+    // returned 66 of its 767 DSATs). This query has no such cap, so it is
+    // the only complete source of ratings.
     const responses = await sequelize.query(`
       SELECT DISTINCT ON ("conversationId")
-        "conversationId", "csatRating", "csatFeedback", "createdAt"
+        "conversationId", "brand", "csatRating", "csatFeedback", "createdAt"
       FROM "ChatwootEvents"
       WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${brandClause} ${dateClause}
       ORDER BY "conversationId", "createdAt" DESC
     `, { replacements: { brand, from, to }, type: QueryTypes.SELECT });
+
+    // Customer names live on other events of the same conversation (the
+    // rating itself arrives as a message_updated with no contact on it), so
+    // they need their own lookup. Scoped to the rated conversations only.
+    // Added 2026-09-20 for the Reports page's top-players ranking.
+    let nameMap = new Map();
+    if (responses.length) {
+      const ids = responses.map(r => r.conversationId);
+      const names = await sequelize.query(`
+        SELECT DISTINCT ON ("conversationId") "conversationId", "contactName"
+        FROM "ChatwootEvents"
+        WHERE "conversationId" IN (:ids) AND "contactName" IS NOT NULL
+        ORDER BY "conversationId", "createdAt" DESC
+      `, { replacements: { ids }, type: QueryTypes.SELECT });
+      nameMap = new Map(names.map(r => [r.conversationId, r.contactName]));
+    }
 
     const total = responses.length;
     const csatCount = responses.filter(r => r.csatRating >= 4).length;
@@ -700,7 +722,17 @@ router.get('/csat', requireAuth, async (req, res) => {
       neutralCount,
       csatPercent: total ? Math.round((csatCount / total) * 1000) / 10 : null,
       dsatPercent: total ? Math.round((dsatCount / total) * 1000) / 10 : null,
-      responses: responses.map(r => ({ conversationId: r.conversationId, rating: r.csatRating, feedback: r.csatFeedback, createdAt: r.createdAt })),
+      // brand + contactName added 2026-09-20 — additive only, so the
+      // Customers page and Dashboard (which read the fields above) are
+      // unaffected.
+      responses: responses.map(r => ({
+        conversationId: r.conversationId,
+        brand: r.brand,
+        contactName: nameMap.get(r.conversationId) || null,
+        rating: r.csatRating,
+        feedback: r.csatFeedback,
+        createdAt: r.createdAt,
+      })),
     });
   } catch (err) {
     console.error('Chatwoot CSAT stats error:', err);
