@@ -175,6 +175,12 @@
   .tag.bad{background:var(--danger-tint);color:var(--danger);}
   .tag.neutral{background:#F1F5F9;color:var(--ink-soft);}
   .note{color:var(--ink-faint);font-size:12.5px;padding:20px 4px;text-align:center;}
+  .speed-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .speed-card{border:1px solid var(--line);border-radius:12px;padding:16px;}
+  .speed-card .kpi-value{font-size:30px;}
+  .speed-note{font-size:12px;color:var(--ink-faint);line-height:1.6;margin-top:14px;}
+  .t-fast{color:var(--success);}
+  .t-slow{color:#B45309;}
   .flag{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:11px 14px;font-size:12.5px;font-weight:600;line-height:1.5;margin-bottom:14px;}
 
   /* Clickable KPI cards — used on Customer Satisfaction, where a figure is
@@ -500,21 +506,6 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head">
-          <h3>When tickets come in</h3>
-          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-            <span class="hint" id="tkHourHint">Hour the ticket was filed</span>
-            <div class="tabs" id="tkHourModeTabs">
-              <button class="tab active" data-mode="total">Totals</button>
-              <button class="tab" data-mode="perday">Per day</button>
-            </div>
-          </div>
-        </div>
-        <div style="position:relative;height:300px;"><canvas id="tkHourChart"></canvas></div>
-        <div id="tkHourTop" style="margin-top:14px;"></div>
-      </div>
-
-      <div class="panel">
         <div class="panel-head"><h3>Tickets by brand</h3><span class="hint">Resolved, rejected and still open</span></div>
         <div style="position:relative;height:340px;"><canvas id="tkBrandChart"></canvas></div>
       </div>
@@ -544,17 +535,41 @@
         </div>
 
         <div class="panel">
-          <div class="panel-head"><h3>Agent detail</h3><span class="hint">Acknowledged counts the pick-up, closed counts the outcome</span></div>
-          <div class="scroll tall">
-            <table class="rt">
-              <thead><tr>
-                <th>Agent</th><th class="num">Acknowledged</th><th class="num">Closed</th>
-                <th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Share</th>
-              </tr></thead>
-              <tbody id="tkAgentBody"><tr><td colspan="6"><div class="note">Loading…</div></td></tr></tbody>
-              <tfoot id="tkAgentFoot"></tfoot>
-            </table>
+          <div class="panel-head"><h3>Team speed</h3><span class="hint">Averaged over every ticket, not every agent</span></div>
+          <div class="speed-grid">
+            <div class="speed-card">
+              <div class="kpi-label">Average FTR</div>
+              <div class="kpi-value" id="tkTeamFtr">—</div>
+              <div class="kpi-delta flat" id="tkTeamFtrSub">First response — filing to acknowledgement</div>
+            </div>
+            <div class="speed-card">
+              <div class="kpi-label">Average resolution</div>
+              <div class="kpi-value" id="tkTeamRes">—</div>
+              <div class="kpi-delta flat" id="tkTeamResSub">Time to resolve, resolved tickets only</div>
+            </div>
           </div>
+          <div class="speed-note">
+            Per-agent figures are in the table below. An agent's FTR counts the tickets they
+            acknowledged in this period; their resolution time counts the tickets they resolved.
+            Durations come straight from the ticket sheets' Acknowledgement Duration and
+            Resolving Duration columns.
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Agent detail</h3><span class="hint">Green is faster than the team average, amber is slower</span></div>
+        <div class="scroll tall">
+          <table class="rt">
+            <thead><tr>
+              <th>Agent</th>
+              <th class="num">Acknowledged</th><th class="num">Avg FTR</th>
+              <th class="num">Closed</th><th class="num">Resolved</th><th class="num">Rejected</th>
+              <th class="num">Avg resolution</th><th class="num">Share</th>
+            </tr></thead>
+            <tbody id="tkAgentBody"><tr><td colspan="8"><div class="note">Loading…</div></td></tr></tbody>
+            <tfoot id="tkAgentFoot"></tfoot>
+          </table>
         </div>
       </div>
 
@@ -807,8 +822,7 @@ let chatsData = null;
 let allTickets = [];
 let ticketsData = null;
 let avatarByName = new Map();
-let tkCharts = { status: null, brand: null, agent: null, hour: null };
-let tkHourMode = 'total';
+let tkCharts = { status: null, brand: null, agent: null };
 
 // "3 PM" reads faster in a report than "15:00", and the hour block is what
 // the reader actually schedules against, so each label names the whole hour.
@@ -840,6 +854,22 @@ function changeCell(cur, prev) {
   const pct = Math.round(((cur - prev) / prev) * 100);
   if (pct === 0) return '<span style="color:var(--ink-faint);">level</span>';
   return `<span style="color:${pct >= 0 ? 'var(--success)' : 'var(--danger)'};">${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
+}
+
+function avgOf(a) { return a.length ? a.reduce((s, v) => s + v, 0) / a.length : null; }
+
+// An agent's average, coloured against the team's: faster reads green,
+// slower amber. Within 10% of the team counts as level, so ordinary
+// variation doesn't paint the whole table. The sample size sits underneath
+// because an average of two tickets means far less than one of two hundred.
+function speedCell(value, team, n) {
+  if (value == null) return '<span style="color:var(--ink-faint);font-weight:600;">—</span>';
+  let cls = '';
+  if (team) {
+    if (value < team * 0.9) cls = 't-fast';
+    else if (value > team * 1.1) cls = 't-slow';
+  }
+  return `<span class="${cls}">${fmtDur(value)}</span><div style="font-size:10.5px;color:var(--ink-faint);font-weight:500;">${n} ticket${n === 1 ? '' : 's'}</div>`;
 }
 
 function rateTag(rate) {
@@ -1293,7 +1323,6 @@ function renderTicketResolution() {
     ? 'No tickets filed yet'
     : `${fmtInt(peakCount)} tickets · ${(peakCount / w.days).toFixed(1)} a day`;
 
-  renderHourChart();
 
   // ---- By brand ----
   const brands = new Map();
@@ -1361,20 +1390,42 @@ function renderTicketResolution() {
   }
 
   // ---- By agent ----
+  // FTR is credited to whoever acknowledged the ticket, in the period they
+  // acknowledged it; resolution time to whoever resolved it, in the period
+  // they resolved it. Rejected tickets have no resolution time to average.
   const agents = new Map();
   const agent = name => {
-    if (!agents.has(name)) agents.set(name, { acked: 0, resolved: 0, rejected: 0 });
+    if (!agents.has(name)) agents.set(name, { acked: 0, resolved: 0, rejected: 0, ftr: [], res: [] });
     return agents.get(name);
   };
+  const teamFtr = [], teamRes = [];
   allTickets.forEach(t => {
-    if (t.acknowledgedBy && inWin(t.acknowledgedAt)) agent(t.acknowledgedBy).acked++;
+    if (t.acknowledgedBy && inWin(t.acknowledgedAt)) {
+      const a = agent(t.acknowledgedBy);
+      a.acked++;
+      if (t.ackDurationSec != null && t.ackDurationSec >= 0) { a.ftr.push(t.ackDurationSec); teamFtr.push(t.ackDurationSec); }
+    }
   });
   closed.forEach(t => {
     const a = agent(t.resolvedBy || 'Unassigned');
-    if (t.statusCls === 'done') a.resolved++; else a.rejected++;
+    if (t.statusCls === 'done') {
+      a.resolved++;
+      if (t.resolveDurationSec != null && t.resolveDurationSec >= 0) { a.res.push(t.resolveDurationSec); teamRes.push(t.resolveDurationSec); }
+    } else a.rejected++;
   });
+  const teamFtrAvg = avgOf(teamFtr), teamResAvg = avgOf(teamRes);
+
+  document.getElementById('tkTeamFtr').textContent = teamFtrAvg == null ? '—' : fmtDur(teamFtrAvg);
+  document.getElementById('tkTeamFtrSub').textContent = teamFtr.length
+    ? `Across ${fmtInt(teamFtr.length)} acknowledged tickets`
+    : 'No acknowledgement times in this period';
+  document.getElementById('tkTeamRes').textContent = teamResAvg == null ? '—' : fmtDur(teamResAvg);
+  document.getElementById('tkTeamResSub').textContent = teamRes.length
+    ? `Across ${fmtInt(teamRes.length)} resolved tickets`
+    : 'No resolution times in this period';
+
   const agentRows = [...agents.entries()]
-    .map(([name, v]) => ({ name, ...v, closed: v.resolved + v.rejected }))
+    .map(([name, v]) => ({ name, ...v, closed: v.resolved + v.rejected, ftrAvg: avgOf(v.ftr), resAvg: avgOf(v.res) }))
     .filter(a => a.closed > 0 || a.acked > 0)
     .sort((a, b) => b.closed - a.closed || b.acked - a.acked);
   const closedTotal = agentRows.reduce((s, a) => s + a.closed, 0);
@@ -1401,7 +1452,7 @@ function renderTicketResolution() {
 
   const aBody = document.getElementById('tkAgentBody');
   if (!agentRows.length) {
-    aBody.innerHTML = '<tr><td colspan="6"><div class="note">No agent activity in this period.</div></td></tr>';
+    aBody.innerHTML = '<tr><td colspan="8"><div class="note">No agent activity in this period.</div></td></tr>';
     document.getElementById('tkAgentFoot').innerHTML = '';
   } else {
     aBody.innerHTML = agentRows.map(a => {
@@ -1410,9 +1461,11 @@ function renderTicketResolution() {
       return `<tr>
         <td><div class="agent-cell"><div class="av-xs" style="background:${colorForName(a.name)};">${face}</div><span style="font-weight:600;">${escapeHtml(a.name)}</span></div></td>
         <td class="num">${a.acked.toLocaleString()}</td>
+        <td class="num">${speedCell(a.ftrAvg, teamFtrAvg, a.ftr.length)}</td>
         <td class="num">${a.closed.toLocaleString()}</td>
         <td class="num" style="color:var(--success);">${a.resolved.toLocaleString()}</td>
         <td class="num" style="color:var(--danger);">${a.rejected.toLocaleString()}</td>
+        <td class="num">${speedCell(a.resAvg, teamResAvg, a.res.length)}</td>
         <td class="num" style="font-weight:600;color:var(--ink-soft);">${closedTotal ? Math.round((a.closed / closedTotal) * 100) + '%' : '—'}</td>
       </tr>`;
     }).join('');
@@ -1420,9 +1473,11 @@ function renderTicketResolution() {
     document.getElementById('tkAgentFoot').innerHTML = `<tr>
       <td>${agentRows.length} agent${agentRows.length === 1 ? '' : 's'}</td>
       <td class="num">${tot.acked.toLocaleString()}</td>
+      <td class="num">${teamFtrAvg == null ? '—' : fmtDur(teamFtrAvg)}</td>
       <td class="num">${tot.closed.toLocaleString()}</td>
       <td class="num">${tot.resolved.toLocaleString()}</td>
       <td class="num">${tot.rejected.toLocaleString()}</td>
+      <td class="num">${teamResAvg == null ? '—' : fmtDur(teamResAvg)}</td>
       <td class="num">100%</td>
     </tr>`;
   }
@@ -1432,59 +1487,6 @@ function renderTicketResolution() {
   ticketsData.top5 = top5;
 }
 
-// Drawn separately from the rest of the ticket report so the Totals/Per-day
-// toggle can redraw just this chart without recomputing the whole month.
-function renderHourChart() {
-  if (!ticketsData || !ticketsData.hourly) return;
-  const { hourly, peakHour, window: w, filed } = ticketsData;
-  const perDay = tkHourMode === 'perday';
-  const values = perDay ? hourly.map(n => n / w.days) : hourly.slice();
-
-  document.getElementById('tkHourHint').textContent = perDay
-    ? `Average per day over ${w.days} days`
-    : `Hour the ticket was filed · ${w.days} day${w.days === 1 ? '' : 's'}`;
-
-  // The peak hour carries the page's accent; every other hour stays quiet, so
-  // the one number the reader is looking for is the one that stands out.
-  const colors = values.map((_, h) => (h === peakHour ? '#2563EB' : '#C7D6F5'));
-
-  if (tkCharts.hour) tkCharts.hour.destroy();
-  tkCharts.hour = new Chart(document.getElementById('tkHourChart'), {
-    type: 'bar',
-    data: {
-      labels: hourly.map((_, h) => hourLabel(h)),
-      datasets: [{ label: 'Tickets filed', data: values, backgroundColor: colors, borderRadius: 4, maxBarThickness: 26 }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: it => hourBlockLabel(it[0].dataIndex),
-            label: c => perDay ? `${c.parsed.y.toFixed(1)} tickets a day` : `${Math.round(c.parsed.y).toLocaleString()} tickets`,
-          },
-        },
-      },
-      scales: {
-        x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 0, font: { size: 10 } } },
-        y: { beginAtZero: true, grid: { color: '#EEF1F6' }, title: { display: true, text: perDay ? 'Tickets per day' : 'Tickets' } },
-      },
-    },
-  });
-
-  // Top three hours, stated in plain terms under the chart — the shape of the
-  // bars shows the pattern, this says what to do about it.
-  const el = document.getElementById('tkHourTop');
-  const total = filed.length;
-  if (!total) { el.innerHTML = ''; return; }
-  const top3 = hourly.map((n, h) => ({ h, n })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
-  const share = top3.reduce((s, x) => s + x.n, 0);
-  el.innerHTML = `<div style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;">
-    Busiest blocks: ${top3.map(x => `<b>${hourBlockLabel(x.h)}</b> (${x.n.toLocaleString()})`).join(', ')} —
-    together ${Math.round((share / total) * 100)}% of this period's tickets.
-  </div>`;
-}
 
 // =====================================================================
 // REPORT 3 · CUSTOMER SATISFACTION — the report month
@@ -1887,14 +1889,6 @@ async function openConversationModal(conversationId, customerName, customerSub) 
 // =====================================================================
 // SHARED CHROME
 // =====================================================================
-document.getElementById('tkHourModeTabs').addEventListener('click', (e) => {
-  const btn = e.target.closest('.tab');
-  if (!btn) return;
-  document.querySelectorAll('#tkHourModeTabs .tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  tkHourMode = btn.dataset.mode;
-  renderHourChart();
-});
 
 document.getElementById('chartModeTabs').addEventListener('click', (e) => {
   const btn = e.target.closest('.tab');
@@ -1997,7 +1991,10 @@ function exportActiveReport() {
     out.push('');
     out.push('By agent');
     out.push(Papa.unparse((d.agentRows || []).map(a => ({
-      Agent: a.name, Acknowledged: a.acked, Closed: a.closed, Resolved: a.resolved, Rejected: a.rejected,
+      Agent: a.name, Acknowledged: a.acked,
+      'Avg FTR (min)': a.ftrAvg == null ? '' : (a.ftrAvg / 60).toFixed(1),
+      Closed: a.closed, Resolved: a.resolved, Rejected: a.rejected,
+      'Avg resolution (min)': a.resAvg == null ? '' : (a.resAvg / 60).toFixed(1),
     }))));
     downloadCsv(out.join('\n'), `ticket-resolution-${MONTH_B.key}.csv`);
     return;
