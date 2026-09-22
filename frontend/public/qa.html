@@ -298,6 +298,11 @@
       <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.5;">
         Kinukuha ang mga reply ng <b>agents AT bots</b> (parehong chat data ng Customers tab) at dine-diretsong ini-match sa <b>sariling KB ng napiling brand</b> — strict per brand, hindi kailanman ibang brand ang basehan. Fina-flag: <b>links na wala sa KB</b> (maling/unofficial na site) at <b>amounts na wala sa KB</b> (₱, %, x, o numerong may deposit/withdraw/turnover/bonus na konteksto). Exact matching ito, hindi AI — kayang hulihin ang maling links at figures, pero HINDI ang maling paliwanag na walang numbers/links, kaya "I-VERIFY" ang label: i-click ang row para sa buong thread at ikaw ang huhusga. Kailangan lang: naka-sync ang KB ng brand sa Knowledge Base page.
       </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+        <input id="kbaccTestInput" placeholder="🧪 I-paste dito ang isang reply para malaman kung bakit PASADO / FLAGGED / SKIPPED ito vs KB ng napiling brand\u2026" style="flex:1;font-size:12px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);" />
+        <button class="qa-refresh" id="kbaccTestBtn">🧪 Test reply</button>
+      </div>
+      <div id="kbaccTestOut" style="display:none;font-size:12px;line-height:1.6;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;background:var(--card);"></div>
       <div class="table-wrap">
         <table class="qa-table">
           <thead><tr><th>Sender</th><th>Flagged Reply</th><th>Hindi Tugma sa KB</th><th>KB Section</th><th>When</th></tr></thead>
@@ -841,6 +846,53 @@
   }
 
   document.getElementById('kbaccScanBtn').addEventListener('click', kbaccScan);
+
+  async function kbaccTestReply() {
+    const token = localStorage.getItem('pipeline_token');
+    const brand = document.getElementById('kbaccBrandSelect').value;
+    const text = document.getElementById('kbaccTestInput').value.trim();
+    const out = document.getElementById('kbaccTestOut');
+    if (!text) return;
+    out.style.display = '';
+    out.innerHTML = 'Tine-test vs KB ng ' + escapeHtml(brandLabel(brand)) + '\u2026';
+    try {
+      const res = await fetch(`${API_BASE}/qa/kb-accuracy/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ brand, text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const tr = data.trace || {};
+      const lines = [];
+      const color = data.verdict === 'FLAGGED' ? 'var(--danger)' : (data.verdict === 'PASADO' ? 'var(--success)' : 'var(--ink-soft)');
+      lines.push(`<b style="color:${color};font-size:13px;">${data.verdict}</b> \u2014 vs KB ng ${escapeHtml(brandLabel(brand))}`);
+      if (data.skippedBy === 'ticket') lines.push('May Ticket ID sa reply \u2192 buong reply disregarded (hard restrict sa ticket statuses).');
+      (data.findings || []).forEach(f => lines.push(`<span style="color:var(--danger);">\u26a0 ${escapeHtml(f)}</span>`));
+      if (!data.skippedBy && !(data.findings || []).length) {
+        if (tr.playerTxn) lines.push(`May transactional wording (\u201C${escapeHtml(tr.playerTxn.trim())}\u2026\u201D) \u2192 transaksyon ng player ito, hindi KB claim \u2014 amounts skipped.`);
+        else if (!tr.claimContext) lines.push('Walang policy/promo claim language (minimum/promo/turnover/required\u2026) \u2192 hindi pumasok sa amount check.');
+        (tr.amounts || []).forEach(a => {
+          if (a.verdict === 'pasado') {
+            const km = a.kbMatch;
+            lines.push(`\u2713 \u201C${escapeHtml(a.token)}\u201D tumama sa KB${km && km.topic ? ' (' + escapeHtml(km.topic) + ')' : ''}${km ? `: <i style="color:var(--ink-faint);">\u201C\u2026${escapeHtml(km.snippet)}\u2026\u201D</i>` : ''}`);
+          } else if (a.verdict === 'skipped-centavo') {
+            lines.push(`\u25CB \u201C${escapeHtml(a.token)}\u201D may sentimo \u2192 itinuring na transactional figure, skipped.`);
+          }
+        });
+        (tr.links || []).filter(l => l.inKb).forEach(l => lines.push(`\u2713 Link \u201C${escapeHtml(l.host)}\u201D nasa KB.`));
+        (tr.providers || []).filter(pv => pv.inKb).forEach(pv => lines.push(`\u2713 Provider \u201C${escapeHtml(pv.name)}\u201D nasa KB.`));
+        (tr.math || []).filter(x => x.ok).forEach(x => lines.push(`\u2713 Tama ang computation: ${escapeHtml(x.expr)}.`));
+        if (lines.length === 1) lines.push('Walang link, amount, computation, o provider claim na makikita sa reply \u2014 walang che-checkin.');
+      }
+      lines.push('<span style="font-size:11px;color:var(--ink-faint);">Parehong engine ito ng buong scan (ang scan lang ang may dagdag na relay check vs messages ng player).</span>');
+      out.innerHTML = lines.join('<br>');
+    } catch (err) {
+      out.innerHTML = `Test failed \u2014 ${escapeHtml(err.message)}<br><span style="font-size:11.5px;">Kailangan naka-deploy ang pinakabagong qa-kb.js (may /kb-accuracy/test endpoint na).</span>`;
+    }
+  }
+  document.getElementById('kbaccTestBtn').addEventListener('click', kbaccTestReply);
+  document.getElementById('kbaccTestInput').addEventListener('keydown', e => { if (e.key === 'Enter') kbaccTestReply(); });
   document.getElementById('kbaccClearBtn').addEventListener('click', () => {
     const when = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     kbaccFlagged = [];
