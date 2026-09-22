@@ -1,1009 +1,283 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quality Assurance · CSR Dashboard</title>
-<link rel="icon" type="image/x-icon" href="favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --primary:#2563EB; --primary-dark:#1D4ED8; --primary-tint:#EFF4FF;
-    --success:#22C55E; --success-tint:#EAFBF1;
-    --warning:#F59E0B; --warning-tint:#FEF6E7;
-    --danger:#EF4444; --danger-tint:#FDECEC;
-    --purple:#8B5CF6; --purple-tint:#F3EEFE;
-    --teal:#14B8A6; --teal-tint:#E9FAF8;
-    --bg:#F8FAFC; --card:#FFFFFF; --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
-    --line:#EEF1F6; --radius-sm:10px; --radius-md:14px; --radius-lg:18px;
-    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+// backend/routes/qa-kb.js
+//
+// KB ACCURACY QA — v2 EXACT-MATCH (2026-09-22): per decision, WALANG
+// OpenAI dependency. Ang mga reply ng agents AT bots (mula sa parehong
+// ChatwootEvents na pinupuno ng routes/chatwoot.js — ang data din ng
+// Customers tab) ay dine-derive-an ng mga KONKRETONG claims na kayang
+// i-match nang deretso sa KB text ng brand:
+//   1. LINKS — bawat URL/website sa reply na ang host ay WALA kahit saan
+//      sa KB ng brand ay fina-flag (maling site / unofficial link).
+//   2. AMOUNTS — mga halagang may kontekstong pinansyal (₱100, 20%, 5x, o
+//      numerong katabi ng deposit/withdraw/turnover/bonus keywords) na
+//      WALA sa KB ay fina-flag bilang "i-verify".
+//
+// STRICT PER BRAND: replies at KB ay parehong WHERE brand = :brand.
+//
+// HONEST LIMITATION (basahin!): exact matching ito, hindi pag-unawa.
+//   - Kayang hulihin: maling/lumang links, mga amount na wala sa KB.
+//   - HINDI kayang hulihin: maling PALIWANAG na walang numbers/links
+//     (hal. "hindi na po kailangan ng KYC" — salungat sa KB pero walang
+//     ma-ma-match). Posible ring may false positives (hal. amount na
+//     galing sa transaksyon mismo ng player). Kaya "I-VERIFY" ang label
+//     ng findings, hindi "mali" — ang QA reviewer pa rin ang huhusga,
+//     one click away ang buong thread.
+//
+// WIRING (server.js) — unchanged:
+//   app.use('/api/qa', require('./routes/qa-kb'));
+// WALANG environment variable na kailangan.
+
+const express = require('express');
+const router = express.Router();
+const { sequelize } = require('../models');
+const { QueryTypes } = require('sequelize');
+const { requireAuth } = require('../middleware/auth');
+
+// KEEP IN SYNC with AI_BOT_SENDER_NAMES in backend/routes/chatwoot.js.
+// Bots are INCLUDED in the scan; the set only tags each row as BOT o AGENT.
+const AI_BOT_SENDER_NAMES = new Set([
+  'Admin Joy',
+  'Admin Love',
+  'Agent Jem',
+  'Manila Play Admin',
+  'Mona',
+  'Hype Play PH Admin',
+  'Bogchi',
+  'Lucky Stacks Admin',
+  'Admin May',
+  'TMTPlay Admin',
+  'Buenas88 Admin',
+  'Maya',
+]);
+
+function stripHtml(html) {
+  if (!html) return html;
+  return String(html).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// ---- URL extraction ----
+const URL_RE = /\bhttps?:\/\/[^\s<>"')\]]+|\bwww\.[^\s<>"')\]]+|\b[a-z0-9][a-z0-9-]{1,60}\.(?:com|net|org|ph|vip|asia|online|site|app|io|co|me|bet|casino|link|club|live|pro|xyz)(?:\/[^\s<>"')\]]*)?/gi;
+function hostOf(url) {
+  let h = String(url).toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+  h = h.split(/[\/?#]/)[0];
+  return h.replace(/[.,!?;:]+$/, '');
+}
+
+// ---- Amount extraction ----
+// Financial-context keywords: numbers in a reply only get checked when the
+// reply talks about money/requirements (para hindi ma-flag ang "wait 5
+// minutes" at mga reference numbers sa ordinaryong usapan).
+const MONEY_CONTEXT_RE = /(deposit|withdraw|turnover|rollover|bonus|promo|promotion|cash\s*in|cash\s*out|minimum|maximum|\bmin\b|\bmax\b|fee|limit|requirement|free\s*(spin|bet|credit)|ডিপোজিট|উইথড্র|বোনাস|টার্নওভার)/i;
+const AMOUNT_RE = /(₱|\bphp\s*)?\b(\d[\d,]*(?:\.\d+)?)\s*(%|x\b|\bphp\b|\bpesos\b)?/gi;
+function extractAmountTokens(text) {
+  const tokens = [];
+  let m;
+  AMOUNT_RE.lastIndex = 0;
+  while ((m = AMOUNT_RE.exec(text)) !== null) {
+    const hasUnit = !!(m[1] || m[3]);
+    const core = m[2].replace(/,/g, '');
+    const digitsLen = core.replace(/\D/g, '').length;
+    if (digitsLen >= 7) continue;                    // ref numbers / phone — skip
+    const val = Number(core);
+    if (!isFinite(val)) continue;
+    if (!hasUnit && (val < 50 || (val >= 1900 && val <= 2099))) continue; // maliit na counts at years — skip
+    tokens.push({ display: (m[1] || '') + m[2] + (m[3] ? m[3] : ''), core });
   }
-  *{box-sizing:border-box;}
-  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
-  a{color:inherit;text-decoration:none;}
-  button{font-family:inherit;}
-  .app{display:flex;min-height:100vh;}
-  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
-  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
-  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
-  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
-  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
-  .nav-group{margin-bottom:6px;}
-  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;margin-bottom:2px;position:relative;}
-  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
-  .nav-item:hover{background:#151E30;color:#fff;}
-  .nav-item.active{background:var(--primary);color:#fff;}
-  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
-  .main{flex:1;min-width:0;padding:26px 32px 40px;}
-  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
-  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
-  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
-  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
-  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
-  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+  return tokens;
+}
 
-  .qa-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
-  @media (max-width:1000px){.qa-cards{grid-template-columns:1fr 1fr;}}
-  .qa-card{background:var(--card);border-radius:var(--radius-md);padding:16px;box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s;border:2px solid transparent;}
-  .qa-card:hover{transform:translateY(-1px);}
-  .qa-card.active{border-color:var(--primary);}
-  .qa-card .qa-label{font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;}
-  .qa-card .qa-value{font-size:24px;font-weight:800;letter-spacing:-.01em;}
-  .qa-card .qa-sub{font-size:11.5px;color:var(--ink-faint);margin-top:4px;}
+// Numeric cores present anywhere in the KB (commas stripped) — the lookup
+// table an agent's amount must land in to pass.
+function kbNumberSet(kbText) {
+  const set = new Set();
+  const re = /\b\d[\d,]*(?:\.\d+)?\b/g;
+  let m;
+  while ((m = re.exec(kbText)) !== null) set.add(m[0].replace(/,/g, ''));
+  return set;
+}
 
-  .filter-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
-  .ftab{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
-  .ftab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
-  .ftab .count{margin-left:6px;opacity:.75;}
-  .date-filter-wrap{position:relative;display:inline-block;margin-bottom:10px;}
-  .date-filter-wrap select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
-  .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:60;width:210px;}
-  .custom-date-pop.open{display:block;}
-  .custom-date-pop label{display:block;font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;}
-  .custom-date-pop label:first-child{margin-top:0;}
-  .custom-date-pop input[type="date"]{width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--line);font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--bg);}
-  .custom-date-actions{display:flex;gap:8px;margin-top:14px;}
-  .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);}
-  #customDateCancel{background:var(--card);color:var(--ink-soft);}
-  #customDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
+// Replies worth checking at all (may factual/financial content o link).
+const FACT_HINT_RE = /(\d|%|₱|php|http|www\.|\.com|\.ph|deposit|withdraw|turnover|rollover|bonus|promo|minimum|maximum|fee|limit|requirement|ডিপোজিট|উইথড্র|বোনাস)/i;
 
-  .qa-table{width:100%;border-collapse:collapse;}
-  .qa-table th{text-align:left;font-size:11.5px;letter-spacing:.02em;color:var(--ink-faint);font-weight:700;text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--line);}
-  .qa-table td{padding:12px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:top;}
-  .qa-table tr:last-child td{border-bottom:none;}
-  .qa-table tbody tr{cursor:pointer;transition:background .15s;}
-  .qa-table tbody tr:hover{background:#F8FAFC;}
-  .c-customer{display:flex;align-items:center;gap:9px;}
-  .c-av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
-  .c-cname{font-weight:700;font-size:13px;white-space:nowrap;}
-  .c-brand{font-size:11px;font-weight:700;color:var(--ink-soft);background:var(--bg);padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
-  .sev-pill{font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
-  .sev-pill.high{background:var(--danger-tint);color:var(--danger);}
-  .sev-pill.medium{background:var(--warning-tint);color:var(--warning);}
-  .sev-pill.low{background:var(--bg);color:var(--ink-faint);}
-  .bot-pill{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:12px;background:var(--purple-tint);color:var(--purple);margin-left:6px;vertical-align:middle;white-space:nowrap;}
-  .qa-remarks{font-size:12.5px;color:var(--ink-soft);line-height:1.5;max-width:420px;word-break:break-word;}
-  .qa-remarks.empty{color:var(--ink-faint);font-style:italic;}
-  .kbacc-finding{font-size:12.5px;line-height:1.55;max-width:380px;word-break:break-word;}
-  .kbacc-finding .f-wrong{color:var(--danger);font-weight:600;}
-  .kbacc-finding .f-correct{color:#15803D;font-weight:600;}
-  .kbacc-finding .f-sec{color:var(--ink-faint);font-size:11px;font-weight:700;}
-  .qa-star{font-weight:800;font-size:12px;white-space:nowrap;}
-  .c-time{color:var(--ink-faint);font-size:12px;white-space:nowrap;}
-  .empty-note{padding:40px 12px;text-align:center;color:var(--ink-faint);font-size:13px;}
-  .table-wrap{overflow-x:auto;}
-  .qa-refresh{font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);}
+// HARD RESTRICT (2026-09-22, per QA review): ticket-status replies are
+// DISREGARDED entirely — a reply carrying a Ticket/Reference ID (hal.
+// "BPH-20260922-67358") ay tungkol sa isang partikular na ticket, at lahat
+// ng numero doon (ticket no., timeframes, atbp.) ay hindi KB facts.
+const TICKET_ID_RE = /\b[A-Z]{2,5}[-_ ]?\d{6,8}[-_ ]?\d{3,6}\b/;
 
-  /* THREAD MODAL (same as customers.html) */
-  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:100;align-items:center;justify-content:center;padding:24px;}
-  .modal-overlay.open{display:flex;}
-  .modal-panel{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
-  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
-  .modal-title{font-size:15px;font-weight:800;}
-  .modal-sub{font-size:12px;color:var(--ink-faint);margin-top:2px;}
-  .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .modal-close svg{width:15px;height:15px;color:var(--ink-soft);}
-  .modal-body{padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px;}
-  .msg-row{display:flex;flex-direction:column;max-width:82%;}
-  .msg-row.from-customer{align-self:flex-start;align-items:flex-start;}
-  .msg-row.from-agent{align-self:flex-end;align-items:flex-end;}
-  .msg-meta{font-size:11px;color:var(--ink-faint);margin-bottom:3px;padding:0 3px;}
-  .msg-bubble{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
-  .from-customer .msg-bubble{background:var(--bg);color:var(--ink);border-bottom-left-radius:4px;}
-  .from-agent .msg-bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px;}
-  .from-agent.is-bot .msg-bubble{background:var(--purple);}
-  .msg-row.from-system{align-self:center;align-items:center;max-width:90%;}
-  .from-system .msg-bubble{background:#F1F5F9;color:var(--ink-faint);font-size:12px;font-style:italic;text-align:center;border-radius:10px;}
+// Player-transactional context: kapag ang reply ay tungkol sa SARILING
+// balance/bets/wagering ng player ("your balance is ₱1,300.43", "you still
+// need to bet 55,740"), ang mga amount doon ay computed per player — hindi
+// KB facts — kaya nilalaktawan ang amount check (links chine-check pa rin).
+const PLAYER_TXN_RE = /(balance|wager|wagering|you still need|kailangan (mo|nyo|niyo) pang?|nag[- ]?avail|na[- ]?avail|your account shows|iyong (balance|account)|winnings|panalo mo|total bets?|na[- ]?deposit mo|na[- ]?withdraw mo)/i;
 
-  @media (max-width:860px){.sidebar{display:none;}.main{padding:20px 16px 32px;}}
-</style>
-</head>
-<body>
-<script>
-  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
-  const LOGIN_PATH = "/login";
-  (async function checkAuth() {
-    const token = localStorage.getItem("pipeline_token");
-    if (!token) { window.location.href = LOGIN_PATH; return; }
-    try {
-      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error("Invalid session");
-    } catch (err) {
-      localStorage.removeItem("pipeline_token");
-      window.location.href = LOGIN_PATH;
+// POST /api/qa/kb-accuracy   body: { brand, from, to, sample? }
+router.post('/kb-accuracy', requireAuth, async (req, res) => {
+  try {
+    const brand = String(req.body?.brand || '').trim();
+    const from = req.body?.from || null;
+    const to = req.body?.to || null;
+    if (!brand) return res.status(400).json({ error: 'brand required' });
+    if (!from || !to) return res.status(400).json({ error: 'from and to required' });
+    const sample = Math.min(Math.max(Number(req.body?.sample) || 500, 10), 2000);
+
+    // 1) The brand's OWN KB — the single source of truth for this scan.
+    const kbRows = await sequelize.query(`
+      SELECT "title", "content"
+      FROM "KnowledgeBaseSections"
+      WHERE "brand" = :brand AND "content" IS NOT NULL AND "content" <> ''
+      ORDER BY "title" ASC
+    `, { replacements: { brand }, type: QueryTypes.SELECT });
+    if (!kbRows.length) {
+      return res.status(400).json({ error: `Walang naka-sync na KB sections ang brand "${brand}" — i-Import/Sync muna sa Knowledge Base page bago mag-accuracy scan.` });
     }
-  })();
-</script>
-<div class="app">
+    const kbText = kbRows.map(r => `### ${r.title}\n${String(r.content)}`).join('\n\n');
+    const kbLower = kbText.toLowerCase();
+    const kbNums = kbNumberSet(kbText);
+    // Hosts mentioned anywhere in the KB — the official links.
+    const kbHosts = new Set();
+    let hm;
+    URL_RE.lastIndex = 0;
+    while ((hm = URL_RE.exec(kbText)) !== null) kbHosts.add(hostOf(hm[0]));
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="brand">
-      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
-      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
-    </div>
-    <div class="nav-group">
-      <a href="csr-dashboard.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
-        Dashboard
-      </a>
-      <a href="tickets.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
-        Tickets
-      </a>
-      <a href="kyc.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M4 17c0-1.5 1.5-3 4.5-3s4.5 1.5 4.5 3"/><path d="M15 10h5M15 14h3"/></svg>
-        KYC
-      </a>
-      <a href="customers.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        Customers
-      </a>
-      <a href="qa.html" class="nav-item active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-        Quality Assurance
-      </a>
-      <a href="kb.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-        Knowledge Base
-      </a>
-      <a href="reports.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-        Reports
-      </a>
-      <a href="openai.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        OpenAI
-      </a>
-      <a href="agents.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        Agents
-      </a>
-      <a href="settings.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-        Settings
-      </a>
-    </div>
-  </aside>
-
-  <!-- MAIN -->
-  <main class="main">
-    <div class="topbar">
-      <div class="greeting">
-        <h1>Quality Assurance</h1>
-        <p>DSAT remarks review — tagged by severity so the legit service complaints surface first.</p>
-      </div>
-      <button class="qa-refresh" id="qaRefreshBtn">↻ Refresh</button>
-    </div>
-
-    <div class="qa-cards">
-      <div class="qa-card" data-sev="all">
-        <div class="qa-label">Total DSATs</div>
-        <div class="qa-value" id="qaTotal">—</div>
-        <div class="qa-sub" id="qaTotalSub"></div>
-      </div>
-      <div class="qa-card" data-sev="high">
-        <div class="qa-label" style="color:var(--danger);">High — Legit Complaints</div>
-        <div class="qa-value" style="color:var(--danger);" id="qaHigh">—</div>
-        <div class="qa-sub">Service/payment issues + may remarks</div>
-      </div>
-      <div class="qa-card" data-sev="medium">
-        <div class="qa-label" style="color:var(--warning);">Medium — Venting</div>
-        <div class="qa-value" style="color:var(--warning);" id="qaMed">—</div>
-        <div class="qa-sub">Mura/insulto, walang specific na aayusin</div>
-      </div>
-      <div class="qa-card" data-sev="low">
-        <div class="qa-label">Low — No Remarks</div>
-        <div class="qa-value" id="qaLow">—</div>
-        <div class="qa-sub">Rating lang, walang paliwanag</div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head">
-        <h3>DSAT Remarks <span id="liveIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;">Loading…</span></h3>
-      </div>
-      <div class="filter-tabs" id="brandTabs"></div>
-      <div class="date-filter-wrap" id="dateFilterWrap">
-        <select id="dateFilter">
-          <option value="today" selected>Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="7d">Last 7 Days</option>
-          <option value="30d">Last 30 Days</option>
-          <option value="month">This Month</option>
-          <option value="custom" id="customDateOption">Custom Date</option>
-        </select>
-        <div class="custom-date-pop" id="customDatePop">
-          <label for="customDateFrom">From</label>
-          <input type="date" id="customDateFrom">
-          <label for="customDateTo">To</label>
-          <input type="date" id="customDateTo">
-          <div class="custom-date-actions">
-            <button type="button" id="customDateCancel">Cancel</button>
-            <button type="button" id="customDateApply">Apply</button>
-          </div>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table class="qa-table">
-          <thead><tr><th>Customer</th><th>Brand</th><th>Severity</th><th>Rating</th><th>Remarks</th><th>When</th></tr></thead>
-          <tbody id="qaBody"><tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="panel" style="margin-top:18px;">
-      <div class="panel-head">
-        <h3>Agent Conduct — TMTCash, Buenas PH &amp; LiveChat Brands <span id="conductIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;"></span></h3>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <select id="conductDateSelect" style="font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);background:var(--card);cursor:pointer;">
-            <option value="today" selected>Today</option>
-            <option value="yesterday">Yesterday</option>
-          </select>
-          <button class="qa-refresh" id="conductScanBtn">⚲ Scan agent replies</button>
-          <button class="qa-refresh" id="conductClearBtn" style="display:none;color:var(--success);border-color:var(--success-tint);">✓ Clear — done checking</button>
-        </div>
-      </div>
-      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.5;">
-        Scans <b>real agents'</b> replies in the selected date range for rude language — insults, cursing, dismissive phrases, and all-caps shouting. Covers TMTCash, Buenas PH (bots excluded) + Casinyeam, Manila Casino &amp; SuperScatter PH (all human agents). Keyword-based: catches the obvious; tone/sarcasm needs human review. Pick Today or Yesterday, scan, then Clear once reviewed.
-      </div>
-      <div class="filter-tabs" id="conductAgentTabs" style="display:none;"></div>
-      <div class="table-wrap">
-        <table class="qa-table">
-          <thead><tr><th>Agent</th><th>Brand</th><th>Flagged Message</th><th>Reason</th><th>When</th></tr></thead>
-          <tbody id="conductBody"><tr><td colspan="5"><div class="empty-note">Click “Scan agent replies” to check the current date range.</div></td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- KB ACCURACY (added 2026-09-22): AI check of agent + bot replies vs the brand's OWN KB -->
-    <div class="panel" style="margin-top:18px;">
-      <div class="panel-head">
-        <h3>KB Accuracy — Agent &amp; Bot vs Brand KB <span id="kbaccIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;"></span></h3>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <select id="kbaccBrandSelect" style="font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);background:var(--card);cursor:pointer;max-width:200px;"></select>
-          <select id="kbaccDateSelect" style="font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);background:var(--card);cursor:pointer;">
-            <option value="today" selected>Today</option>
-            <option value="yesterday">Yesterday</option>
-          </select>
-          <button class="qa-refresh" id="kbaccScanBtn">✓ Check vs KB</button>
-          <button class="qa-refresh" id="kbaccClearBtn" style="display:none;color:var(--success);border-color:var(--success-tint);">✓ Clear — done checking</button>
-        </div>
-      </div>
-      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.5;">
-        Kinukuha ang mga reply ng <b>agents AT bots</b> (parehong chat data ng Customers tab) at dine-diretsong ini-match sa <b>sariling KB ng napiling brand</b> — strict per brand, hindi kailanman ibang brand ang basehan. Fina-flag: <b>links na wala sa KB</b> (maling/unofficial na site) at <b>amounts na wala sa KB</b> (₱, %, x, o numerong may deposit/withdraw/turnover/bonus na konteksto). Exact matching ito, hindi AI — kayang hulihin ang maling links at figures, pero HINDI ang maling paliwanag na walang numbers/links, kaya "I-VERIFY" ang label: i-click ang row para sa buong thread at ikaw ang huhusga. Kailangan lang: naka-sync ang KB ng brand sa Knowledge Base page.
-      </div>
-      <div class="table-wrap">
-        <table class="qa-table">
-          <thead><tr><th>Sender</th><th>Flagged Reply</th><th>Hindi Tugma sa KB</th><th>KB Section</th><th>When</th></tr></thead>
-          <tbody id="kbaccBody"><tr><td colspan="5"><div class="empty-note">Pumili ng brand at date, tapos i-click ang “Check vs KB”.</div></td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </main>
-
-  <!-- THREAD MODAL -->
-  <div class="modal-overlay" id="convModalOverlay">
-    <div class="modal-panel">
-      <div class="modal-head">
-        <div>
-          <div class="modal-title" id="modalCustomerName">—</div>
-          <div class="modal-sub" id="modalCustomerSub">—</div>
-        </div>
-        <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div class="modal-body" id="modalBody"><div class="empty-note">Loading…</div></div>
-    </div>
-  </div>
-</div>
-
-<script>
-  // ---- shared helpers (mirrors customers.html conventions) ----
-  const BRAND_LABELS = {
-    buenasph: 'Buenas PH', tmtcash: 'TMTCash', mcp: 'Mobile Casino Play', manilaplayph: 'Manila Play PH',
-    HypleplayPH: 'HypePlay PH', HypeplayBD: 'HypePlay BD', Tmtplay: 'TMTPLAY', MGK: '88MGK',
-    BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH',
-    casinyeam: 'Casinyeam', manilacasino: 'Manila Casino', superscatterph: 'SuperScatter PH',
-    'livechat-general': 'LC General',
-  };
-  function brandLabel(slug) {
-    if (!slug) return 'Unknown';
-    return BRAND_LABELS[slug] || slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  }
-  function escapeHtml(str) {
-    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-  function colorForName(name) {
-    let hash = 0; const s = name || '';
-    for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
-    const palette = ['#2563EB','#8B5CF6','#EC4899','#F59E0B','#14B8A6','#22C55E','#EF4444','#0EA5E9'];
-    return palette[Math.abs(hash) % palette.length];
-  }
-  function initialsForName(name) {
-    if (!name) return '?';
-    return name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
-  }
-  function timeAgo(dateStr) {
-    if (!dateStr) return '—';
-    const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days} day${days === 1 ? '' : 's'} ago`;
-  }
-  function stripHtmlClient(html) {
-    if (!html) return '';
-    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-  }
-  const AI_BOT_NAMES_CLIENT = new Set([
-    'Admin Joy','Admin Love','Agent Jem','Manila Play Admin','Mona','Hype Play PH Admin','Bogchi',
-    'Lucky Stacks Admin','Admin May','TMTPlay Admin','Buenas88 Admin','Maya',
-  ]);
-
-  // ---- DSAT severity classifier — KEEP IN SYNC with customers.html ----
-  // HIGH = legit service/payment complaints + any unmatched written remark
-  // MEDIUM = pure venting (mura/insulto/blanket scam) ; LOW = no remarks
-  const DSAT_SERVICE_WORDS = [
-    'slow','mabagal','matagal','bagal','late','delay','no response','walang sagot','hindi sinagot','di sinagot',
-    'hindi sumagot','poor','bad service','not helpful','walang tulong','hindi nakatulong','unresolved','hindi naayos',
-    'di naayos','paulit ulit','paulit-ulit','ignored','dedma',
-    'refund','hindi binayaran','di binayaran','not paid','no payout','walang payout','hindi na withdraw','di na withdraw',
-    'খারাপ','বাজে','সমস্যা','দেরি','ধীর','টাকা মেরে','টাকা খেয়ে',
-  ];
-  const DSAT_VENT_WORDS = [
-    'scam','fraud','estafa','budol','niloko','nloko','panloloko','manloloko','nakaw','magnanakaw',
-    'putang','tang ina','tangina','tanga','bobo','gago','ulol','walang kwenta','walangkwenta','basura',
-    'প্রতারণা','ধোকা','চিটার','বাটপার',
-  ];
-  function dsatSeverity(feedback) {
-    const t = (feedback || '').toLowerCase().trim();
-    if (!t) return 'low';
-    if (DSAT_SERVICE_WORDS.some(w => t.includes(w))) return 'high';
-    if (DSAT_VENT_WORDS.some(w => t.includes(w))) return 'medium';
-    return 'high';
-  }
-  const SEV_LABEL = { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
-
-  // ---- state ----
-  let allDsats = [];
-  let currentBrand = 'all';
-  let currentSev = 'all';
-  let currentDateFilter = 'today';
-  let customDateFrom = null;
-  let customDateTo = null;
-
-  function getDateRangeParams() {
-    const now = new Date();
-    let from, to;
-    if (currentDateFilter === 'today') { from = new Date(now); from.setHours(0,0,0,0); to = new Date(now); to.setHours(23,59,59,999); }
-    else if (currentDateFilter === 'yesterday') { const y = new Date(now); y.setDate(y.getDate()-1); from = new Date(y); from.setHours(0,0,0,0); to = new Date(y); to.setHours(23,59,59,999); }
-    else if (currentDateFilter === '7d') { from = new Date(now); from.setDate(from.getDate()-7); from.setHours(0,0,0,0); to = new Date(now); to.setHours(23,59,59,999); }
-    else if (currentDateFilter === '30d') { from = new Date(now); from.setDate(from.getDate()-30); from.setHours(0,0,0,0); to = new Date(now); to.setHours(23,59,59,999); }
-    else if (currentDateFilter === 'month') { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now); to.setHours(23,59,59,999); }
-    else if (currentDateFilter === 'custom' && customDateFrom && customDateTo) { from = customDateFrom; to = customDateTo; }
-    else return null;
-    return { from: from.toISOString(), to: to.toISOString() };
-  }
-
-  // Loads DSATs from the CSAT endpoint (small payload: ratings + feedback
-  // only). No auto-poll — QA is a review page, loaded on open / on filter
-  // change / on the Refresh button (egress-friendly by design).
-  async function loadDsats() {
-    const token = localStorage.getItem('pipeline_token');
-    if (!token) return;
-    const ind = document.getElementById('liveIndicator');
-    ind.textContent = 'Loading…'; ind.style.color = 'var(--ink-faint)';
-    try {
-      const params = new URLSearchParams();
-      const range = getDateRangeParams();
-      if (range) { params.set('from', range.from); params.set('to', range.to); }
-      // /csat responses lack brand+name, so pull rated conversations from
-      // /conversations instead (has contact, brand, feedback, thread link).
-      params.set('limit', '1000'); params.set('perBrand', '1000');
-      const res = await fetch(`${API_BASE}/chatwoot/conversations?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      allDsats = (data.conversations || [])
-        .filter(c => c.csatRating != null && c.csatRating <= 2)
-        .map(c => ({ ...c, severity: dsatSeverity(c.csatFeedback) }))
-        .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
-      ind.textContent = '● Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      ind.style.color = 'var(--success)';
-      renderAll();
-    } catch (err) {
-      console.error('QA load failed:', err);
-      ind.textContent = '● Error loading'; ind.style.color = 'var(--danger)';
-    }
-  }
-
-  function renderAll() {
-    // cards
-    const counts = { high: 0, medium: 0, low: 0 };
-    const scoped = currentBrand === 'all' ? allDsats : allDsats.filter(c => c.brand === currentBrand);
-    scoped.forEach(c => counts[c.severity]++);
-    document.getElementById('qaTotal').textContent = scoped.length;
-    document.getElementById('qaTotalSub').textContent = currentBrand === 'all' ? 'All brands' : brandLabel(currentBrand);
-    document.getElementById('qaHigh').textContent = counts.high;
-    document.getElementById('qaMed').textContent = counts.medium;
-    document.getElementById('qaLow').textContent = counts.low;
-    document.querySelectorAll('.qa-card').forEach(card => card.classList.toggle('active', card.dataset.sev === currentSev));
-
-    // brand tabs
-    const brandCounts = {};
-    allDsats.forEach(c => { brandCounts[c.brand] = (brandCounts[c.brand] || 0) + 1; });
-    const tabs = document.getElementById('brandTabs');
-    tabs.innerHTML = `<div class="ftab ${currentBrand === 'all' ? 'active' : ''}" data-brand="all">All Brands <span class="count">${allDsats.length}</span></div>` +
-      Object.keys(brandCounts).sort((a, b) => brandCounts[b] - brandCounts[a]).map(b =>
-        `<div class="ftab ${currentBrand === b ? 'active' : ''}" data-brand="${escapeHtml(b)}">${escapeHtml(brandLabel(b))} <span class="count">${brandCounts[b]}</span></div>`).join('');
-    tabs.querySelectorAll('.ftab').forEach(tab => tab.addEventListener('click', () => {
-      currentBrand = tab.dataset.brand; renderAll();
-    }));
-
-    // table
-    const list = scoped.filter(c => currentSev === 'all' || c.severity === currentSev);
-    const tbody = document.getElementById('qaBody');
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-note">No DSATs match this view — nice!</div></td></tr>';
-      return;
-    }
-    tbody.innerHTML = list.map(c => {
-      const name = c.contactName || 'Unknown';
-      return `<tr data-conversation-id="${c.conversationId}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
-        <td><div class="c-customer"><div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div><div class="c-cname">${escapeHtml(name)}</div></div></td>
-        <td><span class="c-brand">${escapeHtml(brandLabel(c.brand))}</span></td>
-        <td><span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span></td>
-        <td><span class="qa-star" style="color:var(--danger);">★ ${c.csatRating}/5</span></td>
-        <td><div class="qa-remarks ${c.csatFeedback ? '' : 'empty'}">${c.csatFeedback ? escapeHtml(c.csatFeedback) : 'No remarks'}</div></td>
-        <td><div class="c-time">${timeAgo(c.lastActivityAt)}</div></td>
-      </tr>`;
-    }).join('');
-  }
-
-  // ---- interactions ----
-  document.querySelectorAll('.qa-card').forEach(card => card.addEventListener('click', () => {
-    const sev = card.dataset.sev;
-    currentSev = (currentSev === sev || sev === 'all') ? 'all' : sev;
-    if (sev === 'all') currentSev = 'all';
-    renderAll();
-  }));
-  document.getElementById('qaRefreshBtn').addEventListener('click', loadDsats);
-
-  // date filter (chat retention cap: 70 days — see backend EVENT_RETENTION_DAYS)
-  (function setupDateFilter() {
-    const select = document.getElementById('dateFilter');
-    const pop = document.getElementById('customDatePop');
-    const fromInput = document.getElementById('customDateFrom');
-    const toInput = document.getElementById('customDateTo');
-    const RETENTION_DAYS = 70;
-    const minD = new Date(); minD.setDate(minD.getDate() - RETENTION_DAYS);
-    const minStr = minD.toISOString().slice(0, 10);
-    fromInput.min = minStr; toInput.min = minStr;
-    const note = document.createElement('div');
-    note.style.cssText = 'font-size:10.5px;color:var(--ink-faint);margin-top:8px;';
-    note.textContent = `Chat data available: last ${RETENTION_DAYS} days`;
-    pop.appendChild(note);
-
-    select.addEventListener('change', (e) => {
-      if (e.target.value === 'custom') { pop.classList.add('open'); fromInput.focus(); return; }
-      pop.classList.remove('open');
-      currentDateFilter = e.target.value;
-      loadDsats();
-    });
-    document.getElementById('customDateApply').addEventListener('click', () => {
-      if (!fromInput.value || !toInput.value) { alert('Please pick both a start and end date.'); return; }
-      if (fromInput.value > toInput.value) { alert('Start date must be before the end date.'); return; }
-      customDateFrom = new Date(fromInput.value + 'T00:00:00');
-      customDateTo = new Date(toInput.value + 'T23:59:59.999');
-      currentDateFilter = 'custom';
-      select.value = 'custom';
-      const f = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      document.getElementById('customDateOption').textContent = `${f(customDateFrom)} – ${f(customDateTo)}`;
-      pop.classList.remove('open');
-      loadDsats();
-    });
-    document.getElementById('customDateCancel').addEventListener('click', () => {
-      pop.classList.remove('open');
-      select.value = currentDateFilter;
-    });
-    document.addEventListener('click', (e) => {
-      if (!pop.classList.contains('open')) return;
-      if (document.getElementById('dateFilterWrap').contains(e.target)) return;
-      pop.classList.remove('open');
-      select.value = currentDateFilter;
-    });
-  })();
-
-  // ---- thread modal (same behavior as customers.html) ----
-  document.getElementById('qaBody').addEventListener('click', (e) => {
-    const row = e.target.closest('tr[data-conversation-id]');
-    if (!row) return;
-    openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
-  });
-  document.getElementById('modalCloseBtn').addEventListener('click', closeConversationModal);
-  document.getElementById('convModalOverlay').addEventListener('click', (e) => {
-    if (e.target.id === 'convModalOverlay') closeConversationModal();
-  });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeConversationModal(); });
-  function closeConversationModal() { document.getElementById('convModalOverlay').classList.remove('open'); }
-
-  async function openConversationModal(conversationId, customerName, customerSub) {
-    const overlay = document.getElementById('convModalOverlay');
-    const body = document.getElementById('modalBody');
-    document.getElementById('modalCustomerName').textContent = customerName || 'Unknown';
-    document.getElementById('modalCustomerSub').textContent = customerSub || '';
-    body.innerHTML = '<div class="empty-note">Loading…</div>';
-    overlay.classList.add('open');
-    const token = localStorage.getItem('pipeline_token');
-    if (!token) return;
-    try {
-      const res = await fetch(`${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&limit=200`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const messages = (data.events || []).slice().reverse();
-      const byMessageId = new Map();
-      let syntheticKey = 0;
-      messages.filter(m => m.content).forEach(m => { byMessageId.set(m.messageId ?? `__no_id_${syntheticKey++}`, m); });
-      const withContent = [...byMessageId.values()];
-      if (!withContent.length) {
-        body.innerHTML = '<div class="empty-note">No messages found for this conversation. (Common for imported ratings whose full thread predates the current database — the rating is real, the thread lives in the old DB until the history restore.)</div>';
-        return;
-      }
-      body.innerHTML = withContent.map(m => {
-        let cls, who;
-        if (m.senderType === 'contact') { cls = 'from-customer'; who = m.contactName || 'Customer'; }
-        else if (m.senderType === 'user') {
-          const isBot = AI_BOT_NAMES_CLIENT.has(m.senderName);
-          cls = 'from-agent' + (isBot ? ' is-bot' : '');
-          who = m.senderName || 'Agent';
-        } else { cls = 'from-system'; who = 'Automated Message'; }
-        const when = m.createdAt ? new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
-        return `<div class="msg-row ${cls}"><div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div><div class="msg-bubble">${escapeHtml(stripHtmlClient(m.content))}</div></div>`;
-      }).join('');
-      body.scrollTop = body.scrollHeight;
-    } catch (err) {
-      console.error('Failed to load thread:', err);
-      body.innerHTML = '<div class="empty-note">Could not load this conversation. Please try again.</div>';
-    }
-  }
-
-  // ---- AGENT CONDUCT SCANNER (TMTCash + Buenas PH + LiveChat brands, real agents only) ----
-  // Keyword-based rudeness check on agent replies. Editable pattern list --
-  // each entry: regex + reason label. Obvious rudeness only; sarcasm and
-  // tone need a human (or a future AI upgrade).
-  // LiveChat brands added 2026-09-17 — all LiveChat agents are real humans
-  // (Admin-Eve, Jen, Jace, Barbie, Astrid), so no bot exclusion needed there.
-  // ('livechat-general' / LC General intentionally NOT included.)
-  const CONDUCT_BRANDS = ['buenasph', 'tmtcash', 'casinyeam', 'manilacasino', 'superscatterph'];
-  const RUDE_PATTERNS = [
-    { re: /\b(bobo|tanga|gago|ulol|engot|inutil|abnormal)\b/i, label: 'Insult' },
-    { re: /(tang\s*ina|tangina|putang|punyeta|gagi|bwisit|leche|pakshet|pakyu|fuck|shit|stupid|idiot)/i, label: 'Cursing' },
-    { re: /(edi\s*wow|wag\s+kang?\s+makulit|ang\s+kulit\s+mo|makulit\s+ka|problema\s+mo\s+yan|hindi\s+ko\s+problema|di\s+ko\s+problema|wala\s+akong\s+pakialam|pakialam\s+mo|bahala\s+ka|kaw\s+na\s+bahala|eh\s+ano\s+ngayon|so\s+what|shut\s*up|tumigil\s+ka|ang\s+ingay\s+mo|marunong\s+ka\s+bang?\s+magbasa|hindi\s+ka\s+ba\s+marunong\s+magbasa|nakakainis\s+ka|ang\s+tigas\s+ng\s+ulo|matigas\s+ang\s+ulo|deadma|dedma)/i, label: 'Dismissive' },
-    // Pabalang na walang mura (added 2026-09-14 after Admin Heart example:
-    // "Hindi ba kayo makapag hintay?" / "Hintayin niyo nalang").
-    { re: /((hindi|di)\s+(ba\s+)?(kayo|ka)\s+(ba\s+)?maka(pag)?\s*hintay|(hindi|di)\s+ba\s+(kayo|ka)\s+marunong|ang\s+dami\s+(niyong|nyong|mong)\s+(tanong|reklamo|arte|satsat)|sabi\s+ko\s+na\s+nga\s+ba|kaya\s+nga\s+sinabi\s+ko|paulit[\s-]*ulit\s+(ka|kayo)|inuulit\s+ko\s+na|kanina\s+pa\s+sinabi)/i, label: 'Impatient' },
-    // Curt brush-offs — SKIPPED kapag may politeness marker (po/paki/please),
-    // para hindi ma-flag ang magalang na "paki-hintay na lang po".
-    { re: /(hintayin\s+(niyo|nyo|mo)\s+na\s*lang|maghintay\s+(ka|kayo)\s+na\s*lang|antayin\s+(niyo|nyo|mo)\s+na\s*lang|antay\s+(ka|kayo)\s+na\s*lang|bahala\s+na\s+kayo|ayusin\s+(niyo|nyo|mo)\s+na\s*lang\s+sarili)/i, label: 'Curt', politenessSoftened: true },
-  ];
-  const POLITE_RE = /\b(po|paki|please|pls|opo)\b/i;
-  function conductCheck(text) {
-    const t = (text || '').trim();
-    if (!t) return null;
-    const reasons = [];
-    for (const p of RUDE_PATTERNS) {
-      const m = t.match(p.re);
-      if (m) {
-        // A curt phrase said with po/paki/please reads as normal service
-        // language, not rudeness — skip only those softened categories.
-        if (p.politenessSoftened && POLITE_RE.test(t)) continue;
-        reasons.push({ label: p.label, match: m[0] });
-      }
-    }
-    const letters = t.replace(/[^A-Za-z]/g, '');
-    if (letters.length >= 12) {
-      const upper = letters.replace(/[^A-Z]/g, '');
-      if (upper.length / letters.length > 0.8) reasons.push({ label: 'Shouting (all caps)', match: t.slice(0, 30) });
-    }
-    return reasons.length ? reasons : null;
-  }
-
-  let conductAgentFilter = 'all';
-  let conductFlagged = [];
-
-  // Conduct panel keeps its OWN Today/Yesterday range — the shift-review
-  // rhythm — independent of the page-wide DSAT date filter above.
-  function conductRange() {
-    const sel = document.getElementById('conductDateSelect').value;
-    const now = new Date();
-    let from, to;
-    if (sel === 'yesterday') {
-      const y = new Date(now); y.setDate(y.getDate() - 1);
-      from = new Date(y); from.setHours(0, 0, 0, 0);
-      to = new Date(y); to.setHours(23, 59, 59, 999);
-    } else {
-      from = new Date(now); from.setHours(0, 0, 0, 0);
-      to = new Date(now); to.setHours(23, 59, 59, 999);
-    }
-    return { from: from.toISOString(), to: to.toISOString() };
-  }
-
-  async function scanConduct() {
-    const token = localStorage.getItem('pipeline_token');
-    const ind = document.getElementById('conductIndicator');
-    const btn = document.getElementById('conductScanBtn');
-    const tbody = document.getElementById('conductBody');
-    btn.disabled = true;
-    ind.textContent = 'Scanning\u2026'; ind.style.color = 'var(--ink-faint)';
-    try {
-      const params = new URLSearchParams({ brands: CONDUCT_BRANDS.join(',') });
-      const range = conductRange();
-      params.set('from', range.from); params.set('to', range.to);
-      const res = await fetch(`${API_BASE}/chatwoot/agent-messages?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const msgs = data.messages || [];
-      conductFlagged = [];
-      msgs.forEach(m => {
-        const reasons = conductCheck(m.content);
-        if (reasons) conductFlagged.push({ ...m, reasons });
-      });
-      const rangeName = document.getElementById('conductDateSelect').value === 'yesterday' ? 'Yesterday' : 'Today';
-      ind.textContent = `\u25CF ${rangeName}: scanned ${msgs.length} agent replies \u2014 ${conductFlagged.length} flagged`;
-      ind.style.color = conductFlagged.length ? 'var(--danger)' : 'var(--success)';
-      conductAgentFilter = 'all';
-      document.getElementById('conductClearBtn').style.display = '';
-      renderConduct();
-    } catch (err) {
-      console.error('Conduct scan failed:', err);
-      ind.textContent = '\u25CF Scan failed'; ind.style.color = 'var(--danger)';
-      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Scan failed \u2014 check that the backend has the /agent-messages endpoint deployed.</div></td></tr>';
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
-  function renderConduct() {
-    const tabs = document.getElementById('conductAgentTabs');
-    const tbody = document.getElementById('conductBody');
-
-    const byAgent = {};
-    conductFlagged.forEach(f => { byAgent[f.agent] = (byAgent[f.agent] || 0) + 1; });
-    if (conductFlagged.length) {
-      tabs.style.display = 'flex';
-      tabs.innerHTML = `<div class="ftab ${conductAgentFilter === 'all' ? 'active' : ''}" data-agent="all">All Agents <span class="count">${conductFlagged.length}</span></div>` +
-        Object.keys(byAgent).sort((a, b) => byAgent[b] - byAgent[a]).map(a =>
-          `<div class="ftab ${conductAgentFilter === a ? 'active' : ''}" data-agent="${escapeHtml(a)}">${escapeHtml(a)} <span class="count">${byAgent[a]}</span></div>`).join('');
-      tabs.querySelectorAll('.ftab').forEach(tab => tab.addEventListener('click', () => {
-        conductAgentFilter = tab.dataset.agent; renderConduct();
-      }));
-    } else {
-      tabs.style.display = 'none';
+    // Section attribution: unang section na may financial keyword na tugma
+    // sa reply — best effort lang, para may mabilisang jump-off ang reviewer.
+    function guessSection(msgLower) {
+      const topics = ['deposit', 'withdraw', 'turnover', 'bonus', 'promo', 'kyc', 'maintenance', 'vip', 'game', 'error', 'account'];
+      const hit = topics.find(t => msgLower.includes(t));
+      if (!hit) return '';
+      const sec = kbRows.find(r => (r.title + ' ' + r.content).toLowerCase().includes(hit));
+      return sec ? sec.title : '';
     }
 
-    const list = conductAgentFilter === 'all' ? conductFlagged : conductFlagged.filter(f => f.agent === conductAgentFilter);
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">No rude replies flagged in this range \u2014 good conduct! \ud83c\udf89<br><span style="font-size:11.5px;">(Keyword-based scan \u2014 spot-check threads occasionally for tone.)</span></div></td></tr>';
-      return;
-    }
-    tbody.innerHTML = list.map(f => {
-      let msgHtml = escapeHtml(f.content);
-      const firstMatch = f.reasons[0] ? f.reasons[0].match : null;
-      if (firstMatch) {
-        const escMatch = escapeHtml(firstMatch);
-        msgHtml = msgHtml.replace(escMatch, `<mark style="background:var(--danger-tint);color:var(--danger);font-weight:700;border-radius:3px;padding:0 2px;">${escMatch}</mark>`);
-      }
-      return `<tr data-conversation-id="${f.conversationId}" data-customer-name="Conversation #${f.conversationId}" data-customer-sub="${escapeHtml(brandLabel(f.brand))} \u00B7 agent: ${escapeHtml(f.agent)}">
-        <td><div class="c-customer"><div class="c-av" style="background:${colorForName(f.agent)};">${initialsForName(f.agent)}</div><div class="c-cname">${escapeHtml(f.agent)}</div></div></td>
-        <td><span class="c-brand">${escapeHtml(brandLabel(f.brand))}</span></td>
-        <td><div class="qa-remarks">${msgHtml}</div></td>
-        <td>${f.reasons.map(r => `<span class="sev-pill high" style="margin-right:4px;">${escapeHtml(r.label)}</span>`).join('')}</td>
-        <td><div class="c-time">${timeAgo(f.createdAt)}</div></td>
-      </tr>`;
-    }).join('');
-  }
+    // 2) Agent + bot replies for the SAME brand, in the window — the same
+    //    ChatwootEvents rows the Customers tab is built from.
+    const rows = await sequelize.query(`
+      SELECT "conversationId", "senderName", "content", "createdAt"
+      FROM "ChatwootEvents"
+      WHERE event = 'message_created'
+        AND "senderType" = 'user'
+        AND "isPrivate" = false
+        AND "content" IS NOT NULL
+        AND "senderName" IS NOT NULL
+        AND "brand" = :brand
+        AND "createdAt" BETWEEN :from AND :to
+      ORDER BY "createdAt" DESC
+      LIMIT 5000
+    `, { replacements: { brand, from, to }, type: QueryTypes.SELECT });
 
-  document.getElementById('conductScanBtn').addEventListener('click', scanConduct);
-  document.getElementById('conductClearBtn').addEventListener('click', () => {
-    const rangeName = document.getElementById('conductDateSelect').value === 'yesterday' ? 'Yesterday' : 'Today';
-    const when = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    conductFlagged = [];
-    conductAgentFilter = 'all';
-    document.getElementById('conductAgentTabs').style.display = 'none';
-    document.getElementById('conductBody').innerHTML =
-      `<tr><td colspan="5"><div class="empty-note" style="color:var(--success);font-weight:600;">\u2713 ${rangeName} check complete \u2014 cleared at ${when}.<br><span style="font-weight:500;color:var(--ink-faint);font-size:11.5px;">Run a new scan anytime.</span></div></td></tr>`;
-    const ind = document.getElementById('conductIndicator');
-    ind.textContent = `\u2713 ${rangeName} \u2014 done checking (${when})`;
-    ind.style.color = 'var(--success)';
-    document.getElementById('conductClearBtn').style.display = 'none';
-  });
-  document.getElementById('conductDateSelect').addEventListener('change', () => {
-    document.getElementById('conductClearBtn').style.display = 'none';
-    document.getElementById('conductIndicator').textContent = '';
-    document.getElementById('conductAgentTabs').style.display = 'none';
-    conductFlagged = [];
-    document.getElementById('conductBody').innerHTML =
-      '<tr><td colspan="5"><div class="empty-note">Click \u201CScan agent replies\u201D to check the selected day.</div></td></tr>';
-  });
-  document.getElementById('conductBody').addEventListener('click', (e) => {
-    const row = e.target.closest('tr[data-conversation-id]');
-    if (!row) return;
-    openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
-  });
+    let msgs = rows
+      .map(r => ({
+        conversationId: r.conversationId,
+        sender: r.senderName,
+        isBot: AI_BOT_SENDER_NAMES.has(r.senderName),
+        content: stripHtml(r.content),
+        createdAt: r.createdAt,
+      }))
+      .filter(m => m.content && m.content.length >= 15);
+    const totalReplies = msgs.length;
+    msgs = msgs.filter(m => FACT_HINT_RE.test(m.content)).slice(0, sample);
 
-  // ---- KB ACCURACY SCANNER (added 2026-09-22) ----
-  // AI check: agent + bot replies vs the SELECTED brand's OWN KB, strictly
-  // per brand (the backend queries both replies and KB with the same
-  // brand). Heavy lifting happens server-side (/api/qa/kb-accuracy) so the
-  // OpenAI key never touches the browser.
-  const KBACC_BRANDS = [
-    'buenasph', 'tmtcash', 'mcp', 'manilaplayph', 'HypleplayPH', 'HypeplayBD', 'Tmtplay',
-    'MGK', 'BuenasCredit', 'LuckystacksPH', 'casinyeam', 'manilacasino', 'superscatterph',
-  ];
-  let kbaccFlagged = [];
+    // 3) Deterministic matching — walang AI, walang external calls.
+    // Two-pass (2026-09-22): (1) collect candidate findings; (2) RELAY
+    // CHECK — kung ang amount ay BINANGGIT DIN NG PLAYER sa parehong
+    // conversation, ang agent ay nag-relay/umulit lang ng numero ng player
+    // (hal. inulit ang balance o hiniling na halaga) — hindi ito KB claim,
+    // kaya dini-drop ang finding.
+    let skippedTickets = 0;
+    const candidates = [];
+    for (const m of msgs) {
+      // HARD RESTRICT: ticket-status reply → disregard nang buo.
+      if (TICKET_ID_RE.test(m.content)) { skippedTickets++; continue; }
+      const findings = [];
 
-  (function initKbaccBrandSelect() {
-    const sel = document.getElementById('kbaccBrandSelect');
-    sel.innerHTML = KBACC_BRANDS.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(brandLabel(b))}</option>`).join('');
-  })();
-
-  function kbaccRange() {
-    const sel = document.getElementById('kbaccDateSelect').value;
-    const now = new Date();
-    let from, to;
-    if (sel === 'yesterday') {
-      const y = new Date(now); y.setDate(y.getDate() - 1);
-      from = new Date(y); from.setHours(0, 0, 0, 0);
-      to = new Date(y); to.setHours(23, 59, 59, 999);
-    } else {
-      from = new Date(now); from.setHours(0, 0, 0, 0);
-      to = new Date(now); to.setHours(23, 59, 59, 999);
-    }
-    return { from: from.toISOString(), to: to.toISOString() };
-  }
-
-  async function kbaccScan() {
-    const token = localStorage.getItem('pipeline_token');
-    const ind = document.getElementById('kbaccIndicator');
-    const btn = document.getElementById('kbaccScanBtn');
-    const tbody = document.getElementById('kbaccBody');
-    const brand = document.getElementById('kbaccBrandSelect').value;
-    btn.disabled = true;
-    ind.textContent = 'Checking replies vs KB\u2026';
-    ind.style.color = 'var(--ink-faint)';
-    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Kinukuha ang replies at KB, tapos minamatch\u2026</div></td></tr>';
-    try {
-      const range = kbaccRange();
-      const res = await fetch(`${API_BASE}/qa/kb-accuracy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ brand, from: range.from, to: range.to }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      kbaccFlagged = data.flagged || [];
-      const rangeName = document.getElementById('kbaccDateSelect').value === 'yesterday' ? 'Yesterday' : 'Today';
-      ind.textContent = `\u25CF ${rangeName} \u00B7 ${brandLabel(brand)}: checked ${data.scanned}/${data.considered} replies vs ${data.kbSections} KB sections \u2014 ${kbaccFlagged.length} for review`;
-      ind.style.color = kbaccFlagged.length ? 'var(--danger)' : 'var(--success)';
-      document.getElementById('kbaccClearBtn').style.display = '';
-      renderKbacc();
-    } catch (err) {
-      console.error('KB accuracy scan failed:', err);
-      ind.textContent = '\u25CF Scan failed'; ind.style.color = 'var(--danger)';
-      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-note">Scan failed \u2014 ${escapeHtml(err.message)}<br><span style="font-size:11.5px;">I-check: naka-deploy ang /api/qa/kb-accuracy (routes/qa-kb.js naka-wire sa server.js) at may naka-sync na KB ang brand na ito.</span></div></td></tr>`;
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
-  function renderKbacc() {
-    const tbody = document.getElementById('kbaccBody');
-    if (!kbaccFlagged.length) {
-      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Walang link o amount na wala sa KB sa range na ito \u2014 malinis! \ud83c\udf89<br><span style="font-size:11.5px;">(Exact-match check \u2014 hindi nito huhulihin ang maling paliwanag na walang numbers/links, kaya mag-spot check pa rin ng threads.)</span></div></td></tr>';
-      return;
-    }
-    tbody.innerHTML = kbaccFlagged.map(f => `
-      <tr data-conversation-id="${f.conversationId}" data-customer-name="Conversation #${f.conversationId}" data-customer-sub="${escapeHtml(brandLabel(document.getElementById('kbaccBrandSelect').value))} \u00B7 ${f.isBot ? 'bot' : 'agent'}: ${escapeHtml(f.sender)}">
-        <td><div class="c-customer"><div class="c-av" style="background:${colorForName(f.sender)};">${initialsForName(f.sender)}</div><div><span class="c-cname">${escapeHtml(f.sender)}</span>${f.isBot ? '<span class="bot-pill">BOT</span>' : ''}</div></div></td>
-        <td><div class="qa-remarks">${escapeHtml(f.content)}</div></td>
-        <td><div class="kbacc-finding"><span class="f-wrong">\u26A0 ${escapeHtml(f.wrong)}</span>${f.correct ? `<br><span class="f-correct">${escapeHtml(f.correct)}</span>` : ''}</div></td>
-        <td><div class="kbacc-finding"><span class="f-sec">${f.section ? '\u00A7 ' + escapeHtml(f.section) : '\u2014'}</span></div></td>
-        <td><div class="c-time">${timeAgo(f.createdAt)}</div></td>
-      </tr>`).join('');
-  }
-
-  document.getElementById('kbaccScanBtn').addEventListener('click', kbaccScan);
-  document.getElementById('kbaccClearBtn').addEventListener('click', () => {
-    const when = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    kbaccFlagged = [];
-    document.getElementById('kbaccBody').innerHTML =
-      `<tr><td colspan="5"><div class="empty-note" style="color:var(--success);font-weight:600;">\u2713 KB accuracy check complete \u2014 cleared at ${when}.<br><span style="font-weight:500;color:var(--ink-faint);font-size:11.5px;">Run a new scan anytime.</span></div></td></tr>`;
-    const ind = document.getElementById('kbaccIndicator');
-    ind.textContent = `\u2713 Done checking (${when})`;
-    ind.style.color = 'var(--success)';
-    document.getElementById('kbaccClearBtn').style.display = 'none';
-  });
-  function kbaccReset() {
-    document.getElementById('kbaccClearBtn').style.display = 'none';
-    document.getElementById('kbaccIndicator').textContent = '';
-    kbaccFlagged = [];
-    document.getElementById('kbaccBody').innerHTML =
-      '<tr><td colspan="5"><div class="empty-note">Pumili ng brand at date, tapos i-click ang \u201CCheck vs KB\u201D.</div></td></tr>';
-  }
-  document.getElementById('kbaccBrandSelect').addEventListener('change', kbaccReset);
-  document.getElementById('kbaccDateSelect').addEventListener('change', kbaccReset);
-  document.getElementById('kbaccBody').addEventListener('click', (e) => {
-    const row = e.target.closest('tr[data-conversation-id]');
-    if (!row) return;
-    openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
-  });
-
-  loadDsats();
-</script>
-
-<!-- ================================================================
-  TRANSLATE TO ENGLISH (free — MyMemory) — same widget as customers.html,
-  for reading Bengali (HypePlay BD) remarks and threads on this page.
-================================================================= -->
-<style>
-  #btTranslateBtn{position:fixed;bottom:22px;right:22px;z-index:9999;display:none;align-items:center;gap:8px;padding:11px 16px;border:none;cursor:pointer;border-radius:999px;font-family:inherit;font-size:13px;font-weight:700;background:#2563EB;color:#fff;box-shadow:0 4px 14px rgba(37,99,235,.35);}
-  #btTranslateBtn.bt-on{background:#0F172A;}
-  #btTranslateBtn:disabled{opacity:.6;cursor:wait;}
-  .bt-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:8px;background:#EFF4FF;color:#2563EB;font-size:9.5px;font-weight:800;vertical-align:middle;letter-spacing:.02em;}
-</style>
-<button id="btTranslateBtn" type="button">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
-  <span id="btTranslateLabel">Translate to English</span>
-</button>
-<script>
-(function () {
-  const MYMEMORY_EMAIL = '';
-  const BN_REGEX = /[\u0980-\u09FF]/;
-  const CACHE_PREFIX = 'bt_bn_en::';
-  const btn = document.getElementById('btTranslateBtn');
-  const label = document.getElementById('btTranslateLabel');
-  let translatedNow = false;
-  let working = false;
-
-  function cacheGet(text) { try { return localStorage.getItem(CACHE_PREFIX + text); } catch { return null; } }
-  function cacheSet(text, translation) { try { localStorage.setItem(CACHE_PREFIX + text, translation); } catch { /* full */ } }
-
-  function translationRoot() {
-    const modal = document.querySelector('#convModalOverlay.open .modal-body');
-    return modal || document.body;
-  }
-  function bengaliTextNodes() {
-    const walker = document.createTreeWalker(translationRoot(), NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        if (!BN_REGEX.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
-        const el = node.parentElement;
-        if (!el) return NodeFilter.FILTER_REJECT;
-        const tag = el.tagName;
-        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') return NodeFilter.FILTER_REJECT;
-        const rect = el.getBoundingClientRect();
-        if (rect.width === 0 && rect.height === 0) return NodeFilter.FILTER_REJECT;
-        return NodeFilter.FILTER_ACCEPT;
-      }
-    });
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    return nodes;
-  }
-
-  async function translateText(text) {
-    const cached = cacheGet(text);
-    if (cached) return cached;
-    const email = MYMEMORY_EMAIL ? `&de=${encodeURIComponent(MYMEMORY_EMAIL)}` : '';
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=bn|en${email}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`translate HTTP ${res.status}`);
-    const data = await res.json();
-    const out = data?.responseData?.translatedText;
-    if (!out || Number(data.responseStatus) !== 200 || /MYMEMORY WARNING|USED ALL AVAILABLE/i.test(out)) {
-      throw new Error(data?.responseDetails || out || 'translation failed');
-    }
-    cacheSet(text, out);
-    return out;
-  }
-
-  async function translateVisible() {
-    working = true;
-    btn.disabled = true;
-    const nodes = bengaliTextNodes();
-    let done = 0, failed = 0, quotaHit = false;
-    for (const node of nodes) {
-      if (node.__btOriginal) { done++; continue; }
-      const original = node.nodeValue;
-      const trimmed = original.trim();
-      if (!trimmed) continue;
-      label.textContent = `Translating… ${done + 1}/${nodes.length}`;
-      try {
-        const translated = await translateText(trimmed);
-        node.__btOriginal = original;
-        node.nodeValue = original.replace(trimmed, translated);
-        const el = node.parentElement;
-        if (el && !el.querySelector(':scope > .bt-tag')) {
-          const tag = document.createElement('span');
-          tag.className = 'bt-tag';
-          tag.textContent = 'EN';
-          el.appendChild(tag);
+      // 3a. Links na wala sa KB
+      URL_RE.lastIndex = 0;
+      let um;
+      const seenHosts = new Set();
+      while ((um = URL_RE.exec(m.content)) !== null) {
+        const host = hostOf(um[0]);
+        if (!host || host.length < 4 || seenHosts.has(host)) continue;
+        seenHosts.add(host);
+        if (!kbHosts.has(host) && !kbLower.includes(host)) {
+          findings.push({ text: `Link na WALA sa KB: ${host}` });
         }
-        done++;
-        await new Promise(r => setTimeout(r, 350));
-      } catch (e) {
-        console.warn('Translate failed for one message:', e.message);
-        failed++;
-        if (/429|quota|403|TOO MANY|USED ALL/i.test(e.message)) { quotaHit = true; break; }
+      }
+
+      // 3b. Amounts na wala sa KB (financial context lang; nilalaktawan
+      //     ang mga reply tungkol sa sariling balance/bets ng player)
+      if (MONEY_CONTEXT_RE.test(m.content) && !PLAYER_TXN_RE.test(m.content)) {
+        const seenCores = new Set();
+        for (const tok of extractAmountTokens(m.content)) {
+          if (seenCores.has(tok.core)) continue;
+          seenCores.add(tok.core);
+          // May sentimo (hal. 5000.44): laging transactional na figure
+          // (balance/winnings/na-compute) — hindi kailanman KB fact — skip.
+          if (/\.\d*[1-9]/.test(tok.core)) continue;
+          if (!kbNums.has(tok.core)) {
+            findings.push({ text: `Amount na wala sa KB: ${tok.display}`, core: tok.core });
+          }
+        }
+      }
+
+      if (findings.length) candidates.push({ m, findings });
+    }
+
+    // RELAY CHECK: kunin ang mga mensahe ng PLAYER (senderType='contact')
+    // sa mga apektadong conversation lang; kung lumalabas doon ang
+    // parehong numero, relay lang ito — drop.
+    const amountConvIds = [...new Set(candidates
+      .filter(c => c.findings.some(f => f.core))
+      .map(c => c.m.conversationId)
+      .filter(Boolean))];
+    const playerCores = new Map();
+    if (amountConvIds.length) {
+      const custRows = await sequelize.query(`
+        SELECT "conversationId", "content"
+        FROM "ChatwootEvents"
+        WHERE event = 'message_created'
+          AND "senderType" = 'contact'
+          AND "content" IS NOT NULL
+          AND "brand" = :brand
+          AND "conversationId" IN (:amountConvIds)
+        LIMIT 8000
+      `, { replacements: { brand, amountConvIds }, type: QueryTypes.SELECT });
+      for (const r of custRows) {
+        const set = playerCores.get(r.conversationId) || new Set();
+        const txt = stripHtml(r.content) || '';
+        const re = /\b\d[\d,]*(?:\.\d+)?\b/g;
+        let nm;
+        while ((nm = re.exec(txt)) !== null) set.add(nm[0].replace(/,/g, ''));
+        playerCores.set(r.conversationId, set);
       }
     }
-    translatedNow = true;
-    btn.classList.add('bt-on');
-    if (quotaHit) {
-      label.textContent = done ? `Show original (limit hit after ${done})` : 'Show original';
-      alert('The free translation service hit its rate/daily limit.\n\n' +
-            (done ? `${done} message(s) were translated before it stopped. ` : 'Nothing was translated. ') +
-            'Wait a minute and try again — or ask the admin to set MYMEMORY_EMAIL in qa.html to raise the free daily limit.');
-    } else {
-      label.textContent = failed ? `Show original (${failed} failed)` : 'Show original';
+
+    const flagged = [];
+    let relayDropped = 0;
+    for (const c of candidates) {
+      const custSet = playerCores.get(c.m.conversationId);
+      const kept = c.findings.filter(f => {
+        if (f.core && custSet && custSet.has(f.core)) { relayDropped++; return false; }
+        return true;
+      });
+      if (!kept.length) continue;
+      flagged.push({
+        conversationId: c.m.conversationId,
+        sender: c.m.sender,
+        isBot: c.m.isBot,
+        content: c.m.content,
+        createdAt: c.m.createdAt,
+        wrong: kept.map(f => f.text).join(' \u00B7 ').slice(0, 500),
+        correct: 'I-verify vs KB \u2014 buksan ang thread at i-compare sa section.',
+        section: guessSection(c.m.content.toLowerCase()),
+      });
     }
-    btn.disabled = false;
-    working = false;
+
+    console.log(`KB accuracy (match) [${brand}]: ${msgs.length} replies checked (of ${totalReplies} total, ${skippedTickets} ticket replies disregarded, ${relayDropped} player-relayed amounts dropped) — ${flagged.length} flagged.`);
+    res.json({ brand, scanned: msgs.length - skippedTickets, considered: totalReplies, totalReplies, skippedTickets, flagged, kbSections: kbRows.length, kbTruncated: false, matcher: 'exact-match-v4' });
+  } catch (err) {
+    console.error('KB accuracy scan error:', err);
+    res.status(500).json({ error: err.message });
   }
+});
 
-  function revertAll() {
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      const node = walker.currentNode;
-      if (node.__btOriginal) { node.nodeValue = node.__btOriginal; delete node.__btOriginal; }
-    }
-    document.querySelectorAll('.bt-tag').forEach(t => t.remove());
-    translatedNow = false;
-    btn.classList.remove('bt-on');
-    label.textContent = 'Translate to English';
-  }
-
-  btn.addEventListener('click', () => {
-    if (working) return;
-    if (translatedNow) revertAll();
-    else translateVisible();
-  });
-
-  setInterval(() => {
-    if (working) return;
-    const hasBengali = BN_REGEX.test(document.body.innerText || '');
-    if (hasBengali) { btn.style.display = 'flex'; }
-    else { if (translatedNow) revertAll(); btn.style.display = 'none'; }
-  }, 1500);
-})();
-</script>
-<!-- ============== END TRANSLATE TO ENGLISH BLOCK ============== -->
-</body>
-</html>
+module.exports = router;
