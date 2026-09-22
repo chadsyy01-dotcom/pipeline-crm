@@ -86,8 +86,13 @@
   .sev-pill.high{background:var(--danger-tint);color:var(--danger);}
   .sev-pill.medium{background:var(--warning-tint);color:var(--warning);}
   .sev-pill.low{background:var(--bg);color:var(--ink-faint);}
+  .bot-pill{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:12px;background:var(--purple-tint);color:var(--purple);margin-left:6px;vertical-align:middle;white-space:nowrap;}
   .qa-remarks{font-size:12.5px;color:var(--ink-soft);line-height:1.5;max-width:420px;word-break:break-word;}
   .qa-remarks.empty{color:var(--ink-faint);font-style:italic;}
+  .kbacc-finding{font-size:12.5px;line-height:1.55;max-width:380px;word-break:break-word;}
+  .kbacc-finding .f-wrong{color:var(--danger);font-weight:600;}
+  .kbacc-finding .f-correct{color:#15803D;font-weight:600;}
+  .kbacc-finding .f-sec{color:var(--ink-faint);font-size:11px;font-weight:700;}
   .qa-star{font-weight:800;font-size:12px;white-space:nowrap;}
   .c-time{color:var(--ink-faint);font-size:12px;white-space:nowrap;}
   .empty-note{padding:40px 12px;text-align:center;color:var(--ink-faint);font-size:13px;}
@@ -272,6 +277,31 @@
         <table class="qa-table">
           <thead><tr><th>Agent</th><th>Brand</th><th>Flagged Message</th><th>Reason</th><th>When</th></tr></thead>
           <tbody id="conductBody"><tr><td colspan="5"><div class="empty-note">Click “Scan agent replies” to check the current date range.</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- KB ACCURACY (added 2026-09-22): AI check of agent + bot replies vs the brand's OWN KB -->
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-head">
+        <h3>KB Accuracy — Agent &amp; Bot vs Brand KB <span id="kbaccIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;"></span></h3>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <select id="kbaccBrandSelect" style="font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);background:var(--card);cursor:pointer;max-width:200px;"></select>
+          <select id="kbaccDateSelect" style="font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);background:var(--card);cursor:pointer;">
+            <option value="today" selected>Today</option>
+            <option value="yesterday">Yesterday</option>
+          </select>
+          <button class="qa-refresh" id="kbaccScanBtn">✓ AI-check vs KB</button>
+          <button class="qa-refresh" id="kbaccClearBtn" style="display:none;color:var(--success);border-color:var(--success-tint);">✓ Clear — done checking</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.5;">
+        Ike-compare ng AI ang mga reply ng <b>agents AT bots</b> laban sa <b>sariling KB ng napiling brand</b> — strict per brand, hindi kailanman ibang brand ang basehan. Fina-flag LANG ang mga sagot na <b>sumasalungat sa KB</b>: maling amounts/percent, maling requirements (turnover, KYC, min/max), maling links, maling schedule, o pangakong wala sa KB. Para makatipid, mga reply lang na may factual claims (numbers, links, promo terms) ang ipinapadala sa AI, hanggang 150 kada scan. Kailangan: naka-sync ang KB ng brand sa Knowledge Base page + <b>OPENAI_API_KEY</b> sa backend.
+      </div>
+      <div class="table-wrap">
+        <table class="qa-table">
+          <thead><tr><th>Sender</th><th>Flagged Reply</th><th>Mali vs KB</th><th>KB Section</th><th>When</th></tr></thead>
+          <tbody id="kbaccBody"><tr><td colspan="5"><div class="empty-note">Pumili ng brand at date, tapos i-click ang “AI-check vs KB”.</div></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -724,6 +754,113 @@
       '<tr><td colspan="5"><div class="empty-note">Click \u201CScan agent replies\u201D to check the selected day.</div></td></tr>';
   });
   document.getElementById('conductBody').addEventListener('click', (e) => {
+    const row = e.target.closest('tr[data-conversation-id]');
+    if (!row) return;
+    openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
+  });
+
+  // ---- KB ACCURACY SCANNER (added 2026-09-22) ----
+  // AI check: agent + bot replies vs the SELECTED brand's OWN KB, strictly
+  // per brand (the backend queries both replies and KB with the same
+  // brand). Heavy lifting happens server-side (/api/qa/kb-accuracy) so the
+  // OpenAI key never touches the browser.
+  const KBACC_BRANDS = [
+    'buenasph', 'tmtcash', 'mcp', 'manilaplayph', 'HypleplayPH', 'HypeplayBD', 'Tmtplay',
+    'MGK', 'BuenasCredit', 'LuckystacksPH', 'casinyeam', 'manilacasino', 'superscatterph',
+  ];
+  let kbaccFlagged = [];
+
+  (function initKbaccBrandSelect() {
+    const sel = document.getElementById('kbaccBrandSelect');
+    sel.innerHTML = KBACC_BRANDS.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(brandLabel(b))}</option>`).join('');
+  })();
+
+  function kbaccRange() {
+    const sel = document.getElementById('kbaccDateSelect').value;
+    const now = new Date();
+    let from, to;
+    if (sel === 'yesterday') {
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      from = new Date(y); from.setHours(0, 0, 0, 0);
+      to = new Date(y); to.setHours(23, 59, 59, 999);
+    } else {
+      from = new Date(now); from.setHours(0, 0, 0, 0);
+      to = new Date(now); to.setHours(23, 59, 59, 999);
+    }
+    return { from: from.toISOString(), to: to.toISOString() };
+  }
+
+  async function kbaccScan() {
+    const token = localStorage.getItem('pipeline_token');
+    const ind = document.getElementById('kbaccIndicator');
+    const btn = document.getElementById('kbaccScanBtn');
+    const tbody = document.getElementById('kbaccBody');
+    const brand = document.getElementById('kbaccBrandSelect').value;
+    btn.disabled = true;
+    ind.textContent = 'AI checking vs KB \u2014 maaaring abutin ng 30s\u20132min\u2026';
+    ind.style.color = 'var(--ink-faint)';
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Kinukuha ang replies at KB, tapos chine-check ng AI\u2026</div></td></tr>';
+    try {
+      const range = kbaccRange();
+      const res = await fetch(`${API_BASE}/qa/kb-accuracy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ brand, from: range.from, to: range.to }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      kbaccFlagged = data.flagged || [];
+      const rangeName = document.getElementById('kbaccDateSelect').value === 'yesterday' ? 'Yesterday' : 'Today';
+      ind.textContent = `\u25CF ${rangeName} \u00B7 ${brandLabel(brand)}: AI-checked ${data.scanned}/${data.considered} factual replies vs ${data.kbSections} KB sections \u2014 ${kbaccFlagged.length} mali${data.kbTruncated ? ' \u00B7 \u26A0 KB truncated (sobrang haba)' : ''}`;
+      ind.style.color = kbaccFlagged.length ? 'var(--danger)' : 'var(--success)';
+      document.getElementById('kbaccClearBtn').style.display = '';
+      renderKbacc();
+    } catch (err) {
+      console.error('KB accuracy scan failed:', err);
+      ind.textContent = '\u25CF Scan failed'; ind.style.color = 'var(--danger)';
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-note">Scan failed \u2014 ${escapeHtml(err.message)}<br><span style="font-size:11.5px;">I-check: naka-deploy ang /api/qa/kb-accuracy (routes/qa-kb.js naka-wire sa server.js), may OPENAI_API_KEY sa Railway, at may naka-sync na KB ang brand na ito.</span></div></td></tr>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderKbacc() {
+    const tbody = document.getElementById('kbaccBody');
+    if (!kbaccFlagged.length) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Walang sagot na sumalungat sa KB sa range na ito \u2014 accurate ang team! \ud83c\udf89<br><span style="font-size:11.5px;">(AI check \u2014 i-spot check pa rin paminsan-minsan, lalo na ang mga bagong promo.)</span></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = kbaccFlagged.map(f => `
+      <tr data-conversation-id="${f.conversationId}" data-customer-name="Conversation #${f.conversationId}" data-customer-sub="${escapeHtml(brandLabel(document.getElementById('kbaccBrandSelect').value))} \u00B7 ${f.isBot ? 'bot' : 'agent'}: ${escapeHtml(f.sender)}">
+        <td><div class="c-customer"><div class="c-av" style="background:${colorForName(f.sender)};">${initialsForName(f.sender)}</div><div><span class="c-cname">${escapeHtml(f.sender)}</span>${f.isBot ? '<span class="bot-pill">BOT</span>' : ''}</div></div></td>
+        <td><div class="qa-remarks">${escapeHtml(f.content)}</div></td>
+        <td><div class="kbacc-finding"><span class="f-wrong">\u2717 ${escapeHtml(f.wrong)}</span>${f.correct ? `<br><span class="f-correct">\u2713 Ayon sa KB: ${escapeHtml(f.correct)}</span>` : ''}</div></td>
+        <td><div class="kbacc-finding"><span class="f-sec">${f.section ? '\u00A7 ' + escapeHtml(f.section) : '\u2014'}</span></div></td>
+        <td><div class="c-time">${timeAgo(f.createdAt)}</div></td>
+      </tr>`).join('');
+  }
+
+  document.getElementById('kbaccScanBtn').addEventListener('click', kbaccScan);
+  document.getElementById('kbaccClearBtn').addEventListener('click', () => {
+    const when = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    kbaccFlagged = [];
+    document.getElementById('kbaccBody').innerHTML =
+      `<tr><td colspan="5"><div class="empty-note" style="color:var(--success);font-weight:600;">\u2713 KB accuracy check complete \u2014 cleared at ${when}.<br><span style="font-weight:500;color:var(--ink-faint);font-size:11.5px;">Run a new scan anytime.</span></div></td></tr>`;
+    const ind = document.getElementById('kbaccIndicator');
+    ind.textContent = `\u2713 Done checking (${when})`;
+    ind.style.color = 'var(--success)';
+    document.getElementById('kbaccClearBtn').style.display = 'none';
+  });
+  function kbaccReset() {
+    document.getElementById('kbaccClearBtn').style.display = 'none';
+    document.getElementById('kbaccIndicator').textContent = '';
+    kbaccFlagged = [];
+    document.getElementById('kbaccBody').innerHTML =
+      '<tr><td colspan="5"><div class="empty-note">Pumili ng brand at date, tapos i-click ang \u201CAI-check vs KB\u201D.</div></td></tr>';
+  }
+  document.getElementById('kbaccBrandSelect').addEventListener('change', kbaccReset);
+  document.getElementById('kbaccDateSelect').addEventListener('change', kbaccReset);
+  document.getElementById('kbaccBody').addEventListener('click', (e) => {
     const row = e.target.closest('tr[data-conversation-id]');
     if (!row) return;
     openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
