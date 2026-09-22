@@ -108,7 +108,12 @@ const TICKET_ID_RE = /\b[A-Z]{2,5}[-_ ]?\d{6,8}[-_ ]?\d{3,6}\b/;
 // balance/bets/wagering ng player ("your balance is ₱1,300.43", "you still
 // need to bet 55,740"), ang mga amount doon ay computed per player — hindi
 // KB facts — kaya nilalaktawan ang amount check (links chine-check pa rin).
-const PLAYER_TXN_RE = /(balance|wager|wagering|you still need|kailangan (mo|nyo|niyo) pang?|nag[- ]?avail|na[- ]?avail|your account shows|iyong (balance|account)|winnings|panalo mo|total bets?|na[- ]?deposit mo|na[- ]?withdraw mo)/i;
+// (pinalawak 2026-09-22 pt.2 — mula sa aktwal na false positives: ang
+// bot ay nagde-describe ng transaksyon ng player mula sa screenshot/
+// system, kaya wala ang amounts sa TEXT ng player at hindi sila nahuhuli
+// ng relay check. Ang wording mismo ng reply ang nagsasabing transaksyon
+// ito, hindi KB policy.)
+const PLAYER_TXN_RE = /(balance|wager|wagering|you still need|kailangan (mo|nyo|niyo) pang?|nag[- ]?avail|na[- ]?avail|your account|iyong (balance|account)|winnings|panalo mo|total bets?|na[- ]?deposit mo|na[- ]?withdraw mo|your (withdrawal|deposit|payment|transaction|request)|(withdrawal|deposit|payment|transaction)s?\s+(of|for|records?|request)|successful (withdrawal|deposit|payment|cash\s*out|cash\s*in|transaction)|payment notification|reference (number|no\.?)|processed (at|on)|you have (a |an |two |\d)|you received|natanggap (mo|nyo|niyo|na)|na[- ]?receive|currently ("|&quot;)?(processing|transferring|pending|on[- ]?hold)|("|&quot;)?transferring("|&quot;)?,?\s|remaining turnover|left to meet|natitirang? (turnover|balanse|requirement)|meron (ka|kayo|po kayo) pang)/i;
 
 // POST /api/qa/kb-accuracy   body: { brand, from, to, sample? }
 router.post('/kb-accuracy', requireAuth, async (req, res) => {
