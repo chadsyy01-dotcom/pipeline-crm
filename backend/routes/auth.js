@@ -53,6 +53,32 @@ const MIN_PASSWORD = 8;
 const MAX_AVATAR_CHARS = 300_000;   // ~220 kB of image; a 256px JPEG is ~40 kB
 const PUBLIC_FIELDS = ['id', 'name', 'email', 'role', 'avatar'];
 
+// ---------------------------------------------------------------------------
+// WHO IS SIGNED IN (fix 2026-09-22)
+//
+// The signed-in account is looked up by the token's id AND email together,
+// never by id alone. After the move to Railway Postgres (2026-09-19) the
+// Users table lost its primary key and its id counter restarted at 1, so two
+// new sign-ups were given ids that already belonged to other people:
+// Manilyn Castillo got id 1 (Chad Syy, admin) and Faye Placios got id 2
+// (PatPat). A lookup by id alone returned the FIRST row with that id, so
+// each of them saw — and acted as — someone else's account, and Manilyn had
+// admin rights.
+//
+// Matching on email as well means a token can only ever resolve to the one
+// person it was issued to: if the id has since been reassigned, the email
+// won't match and the session is refused (the person simply logs in again
+// and gets a correct token). Every token issued by this file carries the
+// email, so no one with a valid session is affected.
+// ---------------------------------------------------------------------------
+async function findSelf(req, attributes) {
+  const where = { id: req.user.id };
+  if (req.user.email) where.email = req.user.email;
+  return User.findOne({ where, ...(attributes ? { attributes } : {}) });
+}
+
+const SESSION_MISMATCH = 'Your session no longer matches your account. Please log in again.';
+
 function validateAvatar(avatar) {
   if (avatar === null) return null;                       // explicit removal
   if (typeof avatar !== 'string') return 'avatar must be a data URL string or null';
@@ -96,6 +122,16 @@ router.post('/register', registerLimiter, async (req, res) => {
       role: isFirstUser ? 'admin' : 'member',
     });
 
+    // Guard (2026-09-22): refuse to hand out a session if the new account's
+    // id is already held by someone else — that is exactly what gave new
+    // sign-ups another person's profile. The account is kept; an admin fixes
+    // the id counter and the person can then log in normally.
+    const sameId = await User.count({ where: { id: user.id } });
+    if (sameId > 1) {
+      console.error(`REGISTER ID CLASH: ${email} was given id ${user.id}, which another account already has. Fix the Users id sequence.`);
+      return res.status(500).json({ error: 'Your account was created, but it needs an admin to finish setting it up before you can log in. Please let an admin know.' });
+    }
+
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (err) {
@@ -124,10 +160,14 @@ router.post('/login', loginLimiter, async (req, res) => {
 // unhandled promise rejection, which Node 18+ turns into a process exit —
 // one slow DB moment on this single route took the whole API down. Every
 // other route in this file already guards its awaits; this one didn't.
+//
+// Every dashboard page calls this on load to check the session, so a 401
+// here (token no longer matches its account) sends the person back to the
+// login page on its own.
 router.get('/me', requireAuth, async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id, { attributes: PUBLIC_FIELDS });
-    if (!user) return res.status(404).json({ error: 'Account not found' });
+    const user = await findSelf(req, PUBLIC_FIELDS);
+    if (!user) return res.status(401).json({ error: SESSION_MISMATCH });
     res.json({ user });
   } catch (err) {
     console.error('Auth /me error:', err.message);
@@ -144,8 +184,8 @@ router.get('/me', requireAuth, async (req, res) => {
 // for hijacking the account.
 router.patch('/me', requireAuth, accountLimiter, async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id);
-    if (!user) return res.status(404).json({ error: 'Account not found' });
+    const user = await findSelf(req);
+    if (!user) return res.status(401).json({ error: SESSION_MISMATCH });
 
     const { avatar, name, currentPassword, newPassword } = req.body || {};
     const isAdmin = user.role === 'admin';
@@ -208,7 +248,7 @@ router.get('/directory', requireAuth, async (req, res) => {
 // Profile page. No password material is ever returned.
 router.get('/users', requireAuth, async (req, res) => {
   try {
-    const me = await User.findByPk(req.user.id, { attributes: ['role'] });
+    const me = await findSelf(req, ['role']);
     if (me?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
     const users = await User.findAll({ attributes: PUBLIC_FIELDS, order: [['name', 'ASC']] });
     res.json({ users });
@@ -226,8 +266,15 @@ router.get('/users', requireAuth, async (req, res) => {
 // Every reset is logged with who did it to whom.
 router.patch('/users/:id', requireAuth, accountLimiter, async (req, res) => {
   try {
-    const me = await User.findByPk(req.user.id, { attributes: ['id', 'name', 'email', 'role'] });
+    const me = await findSelf(req, ['id', 'name', 'email', 'role']);
     if (me?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+
+    // Refuse to edit when the id is shared by more than one account — with
+    // duplicate ids there's no way to be sure which person would be changed.
+    const matches = await User.count({ where: { id: req.params.id } });
+    if (matches > 1) {
+      return res.status(409).json({ error: 'More than one account has this id. Fix the duplicate ids in the database before editing.' });
+    }
 
     const target = await User.findByPk(req.params.id);
     if (!target) return res.status(404).json({ error: 'User not found' });
