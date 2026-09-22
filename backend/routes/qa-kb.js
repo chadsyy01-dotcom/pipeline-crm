@@ -162,6 +162,143 @@ const TICKET_ID_RE = /\b[A-Z]{2,5}[-_ ]?\d{6,8}[-_ ]?\d{3,6}\b/;
 // ito, hindi KB policy.)
 const PLAYER_TXN_RE = /(balance|wager|wagering|you still need|kailangan (mo|nyo|niyo) pang?|nag[- ]?avail|na[- ]?avail|your account|iyong (balance|account)|winnings|panalo mo|total bets?|na[- ]?deposit mo|na[- ]?withdraw mo|your (withdrawal|deposit|payment|transaction|request)|(withdrawal|deposit|payment|transaction)s?\s+(of|for|records?|request)|successful (withdrawal|deposit|payment|cash\s*out|cash\s*in|transaction)|payment notification|reference (number|no\.?)|processed (at|on)|you have (a |an |two |\d)|you received|natanggap (mo|nyo|niyo|na)|na[- ]?receive|currently ("|&quot;)?(processing|transferring|pending|on[- ]?hold)|("|&quot;)?transferring("|&quot;)?,?\s|remaining turnover|left to meet|natitirang? (turnover|balanse|requirement)|meron (ka|kayo|po kayo) pang|(your|iyong|inyong)\s+(php\s*|\u20b1)?\d|cancellation of your|you (had|got|won)\b|\bwin of\b|nanalo (ka|kayo|po)|panalo (mo|nyo|niyo))/i;
 
+// ---------------------------------------------------------------------------
+// SHARED ENGINE (refactor 2026-09-22): iisang analyzeReply() ang ginagamit
+// ng buong scan AT ng single-reply test endpoint sa ibaba — kung ano ang
+// hatol sa test, yun din ang hatol ng scan sa parehong reply.
+// ---------------------------------------------------------------------------
+
+async function loadKbCtx(brand) {
+  const kbRows = await sequelize.query(`
+    SELECT "title", "content"
+    FROM "KnowledgeBaseSections"
+    WHERE "brand" = :brand AND "content" IS NOT NULL AND "content" <> ''
+    ORDER BY "title" ASC
+  `, { replacements: { brand }, type: QueryTypes.SELECT });
+  if (!kbRows.length) return null;
+  const kbText = kbRows.map(r => `### ${r.title}\n${String(r.content)}`).join('\n\n');
+  const kbLower = kbText.toLowerCase();
+  const kbHosts = new Set();
+  URL_RE.lastIndex = 0;
+  let hm;
+  while ((hm = URL_RE.exec(kbText)) !== null) kbHosts.add(hostOf(hm[0]));
+  return { kbRows, kbText, kbLower, kbNums: kbNumberSet(kbText), kbTopicNums: topicNumberSets(kbText), kbHosts };
+}
+
+// Section attribution — best-effort jump-off para sa reviewer.
+function guessSection(ctx, msgLower) {
+  const topics = ['deposit', 'withdraw', 'turnover', 'bonus', 'promo', 'kyc', 'maintenance', 'vip', 'game', 'error', 'account'];
+  const hit = topics.find(t => msgLower.includes(t));
+  if (!hit) return '';
+  const sec = ctx.kbRows.find(r => (r.title + ' ' + r.content).toLowerCase().includes(hit));
+  return sec ? sec.title : '';
+}
+
+// Para sa test tool: SAAN sa KB tumama ang numero — ipinapakita ang mismong
+// KB snippet na nag-validate, para makita agad kung tama nga o KB ang mali.
+function findKbSnippet(ctx, core, topicKeys) {
+  const coreRe = new RegExp('\\b' + core.replace(/\./g, '\\.') + '\\b');
+  const clean = x => x.replace(/\s+/g, ' ').trim();
+  if (topicKeys && topicKeys.length) {
+    for (const key of topicKeys) {
+      const topic = AMOUNT_TOPICS.find(t => t.key === key);
+      if (!topic) continue;
+      const re = new RegExp(topic.re.source, 'gi');
+      let m;
+      while ((m = re.exec(ctx.kbText)) !== null) {
+        const win = ctx.kbText.slice(Math.max(0, m.index - 250), Math.min(ctx.kbText.length, m.index + 250));
+        const hit = coreRe.exec(win);
+        if (hit) return { topic: key, snippet: clean(win.slice(Math.max(0, hit.index - 80), hit.index + 90)) };
+      }
+    }
+    return null;
+  }
+  const hit = coreRe.exec(ctx.kbText);
+  if (!hit) return null;
+  return { topic: null, snippet: clean(ctx.kbText.slice(Math.max(0, hit.index - 80), hit.index + 90)) };
+}
+
+// Ang iisang hatulan para sa isang reply. trace=true → detalyadong "bakit".
+function analyzeReply(content, ctx, trace) {
+  const t = trace ? { ticket: false, claimContext: false, playerTxn: null, links: [], amounts: [], math: [], providers: [] } : null;
+  if (TICKET_ID_RE.test(content)) {
+    if (t) t.ticket = true;
+    return { skippedBy: 'ticket', findings: [], trace: t };
+  }
+  const findings = [];
+  const claimCtx = CLAIM_CONTEXT_RE.test(content);
+  const txnMatch = content.match(PLAYER_TXN_RE);
+  if (t) { t.claimContext = claimCtx; t.playerTxn = txnMatch ? txnMatch[0] : null; }
+
+  // 3a. Links na wala sa KB
+  URL_RE.lastIndex = 0;
+  let um;
+  const seenHosts = new Set();
+  while ((um = URL_RE.exec(content)) !== null) {
+    const host = hostOf(um[0]);
+    if (!host || host.length < 4 || seenHosts.has(host)) continue;
+    seenHosts.add(host);
+    const inKb = ctx.kbHosts.has(host) || ctx.kbLower.includes(host);
+    if (t) t.links.push({ host, inKb });
+    if (!inKb) findings.push({ text: `Link na WALA sa KB: ${host}` });
+  }
+
+  // 3b. Amounts na wala sa KB — claim context lang, hindi transactional,
+  //     TOPIC-SCOPED sa deposit/withdraw/turnover/bonus.
+  if (claimCtx && !txnMatch) {
+    const replyTopics = AMOUNT_TOPICS.filter(tp => tp.re.test(content));
+    const topicKeys = replyTopics.map(tp => tp.key);
+    let allowed = ctx.kbNums;
+    let topicLabel = '';
+    if (replyTopics.length) {
+      allowed = new Set();
+      for (const tp of replyTopics) for (const n of ctx.kbTopicNums[tp.key]) allowed.add(n);
+      topicLabel = ` (${topicKeys.join('/')})`;
+    }
+    const seenCores = new Set();
+    for (const tok of extractAmountTokens(content)) {
+      if (seenCores.has(tok.core)) continue;
+      seenCores.add(tok.core);
+      // May sentimo (hal. 5000.44): transactional figure — skip.
+      if (/\.\d*[1-9]/.test(tok.core)) { if (t) t.amounts.push({ token: tok.display, verdict: 'skipped-centavo' }); continue; }
+      if (!allowed.has(tok.core)) {
+        if (t) t.amounts.push({ token: tok.display, verdict: 'FLAGGED', topics: topicKeys });
+        findings.push({ text: `Amount na wala sa KB${topicLabel}: ${tok.display}`, core: tok.core });
+      } else if (t) {
+        t.amounts.push({ token: tok.display, verdict: 'pasado', topics: topicKeys, kbMatch: findKbSnippet(ctx, tok.core, topicKeys) });
+      }
+    }
+  }
+
+  // 3c. COMPUTATION CHECK — laging tumatakbo: maling arithmetic ay mali.
+  for (const pair of [[MATH_MUL_RE, 'mul'], [MATH_PCT_RE, 'pct']]) {
+    const re = pair[0], kind = pair[1];
+    re.lastIndex = 0;
+    let mm;
+    while ((mm = re.exec(content)) !== null) {
+      const a = numOf(mm[1]), b = numOf(mm[2]), c = numOf(mm[3]);
+      if (!isFinite(a) || !isFinite(b) || !isFinite(c)) continue;
+      const expect = kind === 'mul' ? a * b : (a / 100) * b;
+      const okMath = Math.abs(expect - c) <= 0.01;
+      if (t) t.math.push({ expr: mm[0].trim(), ok: okMath });
+      if (!okMath) findings.push({ text: `MALING COMPUTATION: ${mm[0].trim()} (dapat ${expect.toLocaleString()})` });
+    }
+  }
+
+  // 3d. GAME PROVIDER CHECK — sa promo/claim context lang.
+  if (claimCtx) {
+    for (const pv of PROVIDER_RES) {
+      if (!pv.re.test(content)) continue;
+      const needle = pv.name.toLowerCase();
+      const inKb = ctx.kbLower.includes(needle) || ctx.kbLower.replace(/\s+/g, '').includes(needle.replace(/\s+/g, ''));
+      if (t) t.providers.push({ name: pv.name, inKb });
+      if (!inKb) findings.push({ text: `Game provider na wala sa KB: ${pv.name}` });
+    }
+  }
+
+  return { skippedBy: null, findings, trace: t };
+}
+
 // POST /api/qa/kb-accuracy   body: { brand, from, to, sample? }
 router.post('/kb-accuracy', requireAuth, async (req, res) => {
   try {
@@ -173,33 +310,9 @@ router.post('/kb-accuracy', requireAuth, async (req, res) => {
     const sample = Math.min(Math.max(Number(req.body?.sample) || 500, 10), 2000);
 
     // 1) The brand's OWN KB — the single source of truth for this scan.
-    const kbRows = await sequelize.query(`
-      SELECT "title", "content"
-      FROM "KnowledgeBaseSections"
-      WHERE "brand" = :brand AND "content" IS NOT NULL AND "content" <> ''
-      ORDER BY "title" ASC
-    `, { replacements: { brand }, type: QueryTypes.SELECT });
-    if (!kbRows.length) {
+    const ctx = await loadKbCtx(brand);
+    if (!ctx) {
       return res.status(400).json({ error: `Walang naka-sync na KB sections ang brand "${brand}" — i-Import/Sync muna sa Knowledge Base page bago mag-accuracy scan.` });
-    }
-    const kbText = kbRows.map(r => `### ${r.title}\n${String(r.content)}`).join('\n\n');
-    const kbLower = kbText.toLowerCase();
-    const kbNums = kbNumberSet(kbText);
-    const kbTopicNums = topicNumberSets(kbText);
-    // Hosts mentioned anywhere in the KB — the official links.
-    const kbHosts = new Set();
-    let hm;
-    URL_RE.lastIndex = 0;
-    while ((hm = URL_RE.exec(kbText)) !== null) kbHosts.add(hostOf(hm[0]));
-
-    // Section attribution: unang section na may financial keyword na tugma
-    // sa reply — best effort lang, para may mabilisang jump-off ang reviewer.
-    function guessSection(msgLower) {
-      const topics = ['deposit', 'withdraw', 'turnover', 'bonus', 'promo', 'kyc', 'maintenance', 'vip', 'game', 'error', 'account'];
-      const hit = topics.find(t => msgLower.includes(t));
-      if (!hit) return '';
-      const sec = kbRows.find(r => (r.title + ' ' + r.content).toLowerCase().includes(hit));
-      return sec ? sec.title : '';
     }
 
     // 2) Agent + bot replies for the SAME brand, in the window — the same
@@ -230,88 +343,13 @@ router.post('/kb-accuracy', requireAuth, async (req, res) => {
     const totalReplies = msgs.length;
     msgs = msgs.filter(m => FACT_HINT_RE.test(m.content)).slice(0, sample);
 
-    // 3) Deterministic matching — walang AI, walang external calls.
-    // Two-pass (2026-09-22): (1) collect candidate findings; (2) RELAY
-    // CHECK — kung ang amount ay BINANGGIT DIN NG PLAYER sa parehong
-    // conversation, ang agent ay nag-relay/umulit lang ng numero ng player
-    // (hal. inulit ang balance o hiniling na halaga) — hindi ito KB claim,
-    // kaya dini-drop ang finding.
+    // 3) Iisang engine kada reply.
     let skippedTickets = 0;
     const candidates = [];
     for (const m of msgs) {
-      // HARD RESTRICT: ticket-status reply → disregard nang buo.
-      if (TICKET_ID_RE.test(m.content)) { skippedTickets++; continue; }
-      const findings = [];
-
-      // 3a. Links na wala sa KB
-      URL_RE.lastIndex = 0;
-      let um;
-      const seenHosts = new Set();
-      while ((um = URL_RE.exec(m.content)) !== null) {
-        const host = hostOf(um[0]);
-        if (!host || host.length < 4 || seenHosts.has(host)) continue;
-        seenHosts.add(host);
-        if (!kbHosts.has(host) && !kbLower.includes(host)) {
-          findings.push({ text: `Link na WALA sa KB: ${host}` });
-        }
-      }
-
-      // 3b. Amounts na wala sa KB (financial context lang; nilalaktawan
-      //     ang mga reply tungkol sa sariling balance/bets ng player).
-      //     TOPIC-SCOPED: ang claim tungkol sa deposit/withdraw/turnover/
-      //     bonus ay dapat tumama sa mga numerong MALAPIT sa topic na yun
-      //     sa KB — hindi kahit saang numero sa buong KB.
-      if (CLAIM_CONTEXT_RE.test(m.content) && !PLAYER_TXN_RE.test(m.content)) {
-        const replyTopics = AMOUNT_TOPICS.filter(t => t.re.test(m.content));
-        let allowed = kbNums;
-        let topicLabel = '';
-        if (replyTopics.length) {
-          allowed = new Set();
-          for (const t of replyTopics) for (const n of kbTopicNums[t.key]) allowed.add(n);
-          topicLabel = ` (${replyTopics.map(t => t.key).join('/')})`;
-        }
-        const seenCores = new Set();
-        for (const tok of extractAmountTokens(m.content)) {
-          if (seenCores.has(tok.core)) continue;
-          seenCores.add(tok.core);
-          // May sentimo (hal. 5000.44): laging transactional na figure
-          // (balance/winnings/na-compute) — hindi kailanman KB fact — skip.
-          if (/\.\d*[1-9]/.test(tok.core)) continue;
-          if (!allowed.has(tok.core)) {
-            findings.push({ text: `Amount na wala sa KB${topicLabel}: ${tok.display}`, core: tok.core });
-          }
-        }
-      }
-
-      // 3c. COMPUTATION CHECK — laging tumatakbo (kahit transactional):
-      //     maling arithmetic ay maling arithmetic.
-      for (const pair of [[MATH_MUL_RE, 'mul'], [MATH_PCT_RE, 'pct']]) {
-        const re = pair[0], kind = pair[1];
-        re.lastIndex = 0;
-        let mm;
-        while ((mm = re.exec(m.content)) !== null) {
-          const a = numOf(mm[1]), b = numOf(mm[2]), c = numOf(mm[3]);
-          if (!isFinite(a) || !isFinite(b) || !isFinite(c)) continue;
-          const expect = kind === 'mul' ? a * b : (a / 100) * b;
-          if (Math.abs(expect - c) > 0.01) {
-            findings.push({ text: `MALING COMPUTATION: ${mm[0].trim()} (dapat ${expect.toLocaleString()})` });
-          }
-        }
-      }
-
-      // 3d. GAME PROVIDER CHECK — sa promo/claim context lang: provider
-      //     na binanggit pero WALA sa KB ng brand → flag.
-      if (CLAIM_CONTEXT_RE.test(m.content)) {
-        for (const pv of PROVIDER_RES) {
-          if (!pv.re.test(m.content)) continue;
-          const needle = pv.name.toLowerCase();
-          if (!kbLower.includes(needle) && !kbLower.replace(/\s+/g, '').includes(needle.replace(/\s+/g, ''))) {
-            findings.push({ text: `Game provider na wala sa KB: ${pv.name}` });
-          }
-        }
-      }
-
-      if (findings.length) candidates.push({ m, findings });
+      const r = analyzeReply(m.content, ctx, false);
+      if (r.skippedBy === 'ticket') { skippedTickets++; continue; }
+      if (r.findings.length) candidates.push({ m, findings: r.findings });
     }
 
     // RELAY CHECK: kunin ang mga mensahe ng PLAYER (senderType='contact')
@@ -360,14 +398,40 @@ router.post('/kb-accuracy', requireAuth, async (req, res) => {
         createdAt: c.m.createdAt,
         wrong: kept.map(f => f.text).join(' \u00B7 ').slice(0, 500),
         correct: 'I-verify vs KB \u2014 buksan ang thread at i-compare sa section.',
-        section: guessSection(c.m.content.toLowerCase()),
+        section: guessSection(ctx, c.m.content.toLowerCase()),
       });
     }
 
     console.log(`KB accuracy (match) [${brand}]: ${msgs.length} replies checked (of ${totalReplies} total, ${skippedTickets} ticket replies disregarded, ${relayDropped} player-relayed amounts dropped) — ${flagged.length} flagged.`);
-    res.json({ brand, scanned: msgs.length - skippedTickets, considered: totalReplies, totalReplies, skippedTickets, flagged, kbSections: kbRows.length, kbTruncated: false, matcher: 'exact-match-v6' });
+    res.json({ brand, scanned: msgs.length - skippedTickets, considered: totalReplies, totalReplies, skippedTickets, flagged, kbSections: ctx.kbRows.length, kbTruncated: false, matcher: 'exact-match-v7' });
   } catch (err) {
     console.error('KB accuracy scan error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🧪 SINGLE-REPLY TEST — POST /api/qa/kb-accuracy/test { brand, text }
+// Sinasagot ang "bakit hindi na-flag / bakit na-flag?" para sa isang
+// partikular na reply, gamit ang EKSAKTONG parehong engine ng scan, na may
+// buong trace: aling guard ang lumaktaw, o aling KB snippet ang tumama.
+router.post('/kb-accuracy/test', requireAuth, async (req, res) => {
+  try {
+    const brand = String(req.body?.brand || '').trim();
+    const text = (stripHtml(String(req.body?.text || '')) || '').trim();
+    if (!brand || !text) return res.status(400).json({ error: 'brand at text required' });
+    const ctx = await loadKbCtx(brand);
+    if (!ctx) return res.status(400).json({ error: `Walang naka-sync na KB sections ang brand "${brand}".` });
+    const r = analyzeReply(text, ctx, true);
+    res.json({
+      brand,
+      verdict: r.skippedBy ? 'SKIPPED' : (r.findings.length ? 'FLAGGED' : 'PASADO'),
+      skippedBy: r.skippedBy,
+      findings: r.findings.map(f => f.text),
+      trace: r.trace,
+      note: 'Sa buong scan, may dagdag pang RELAY CHECK (amounts na binanggit ng player sa parehong conversation ay dini-drop) na wala dito dahil walang kasamang conversation.',
+    });
+  } catch (err) {
+    console.error('KB accuracy test error:', err);
     res.status(500).json({ error: err.message });
   }
 });
