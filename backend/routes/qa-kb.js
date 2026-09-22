@@ -63,10 +63,27 @@ function hostOf(url) {
 }
 
 // ---- Amount extraction ----
-// Financial-context keywords: numbers in a reply only get checked when the
-// reply talks about money/requirements (para hindi ma-flag ang "wait 5
-// minutes" at mga reference numbers sa ordinaryong usapan).
-const MONEY_CONTEXT_RE = /(deposit|withdraw|turnover|rollover|bonus|promo|promotion|cash\s*in|cash\s*out|minimum|maximum|\bmin\b|\bmax\b|fee|limit|requirement|free\s*(spin|bet|credit)|ডিপোজিট|উইথড্র|বোনাস|টার্নওভার)/i;
+// CLAIM CONTEXT (hinigpitan 2026-09-22 pt.4, per QA direction): ang
+// amount check ay tumatakbo LANG kapag ang reply ay POLICY/PROMO CLAIM —
+// promo mechanics, required deposit, min/max, multiplier, turnover,
+// exclusivity, eligibility. Hindi na sapat ang basta may salitang
+// "deposit" — dapat requirement/promo language talaga.
+const CLAIM_CONTEXT_RE = /(promo(tion)?s?\b|bonus|free\s*(spin|bet|credit)|reload|cashback|welcome|minimum|maximum|\bmin\b|\bmax\b|requirements?|required?\b|kailangan(g|in)?\b|turnover|rollover|wagering?|multiplier|\b\d+\s*x\b|\bx\s*\d+\b|exclusive|valid\s+(for|sa|until|hanggang)|eligible|qualif(y|ied|ication)|বোনাস|টার্নওভার)/i;
+
+// GAME PROVIDERS master vocabulary (2026-09-22): kapag ang promo/claim
+// reply ay may binanggit na provider na WALA sa KB ng brand, flag —
+// posibleng mali ang sinabing saklaw ng promo (hal. "valid sa JILI slots"
+// pero PG Soft lang ang nasa KB). Distinct multi-char names lang para
+// walang aksidenteng tama sa ordinaryong salita.
+const GAME_PROVIDERS = ['CQ9','JILI','JDB','FACHAI','FA CHAI','PG SOFT','PGSOFT','SPADE GAMING','SPADEGAMING','HABANERO','PRAGMATIC PLAY','PRAGMATIC','EVOLUTION GAMING','EVOLUTION','MICROGAMING','NEXTSPIN','NOLIMIT CITY','NO LIMIT CITY','PLAYSTAR','RICH88','ASKMEBET','EZUGI','BOONGO','YGGDRASIL','RED TIGER','NETENT','TADA GAMING','TADA','KA GAMING','SA GAMING','WM CASINO','DREAM GAMING','AE SEXY','YELLOW BAT','YGR'];
+const PROVIDER_RES = GAME_PROVIDERS.map(pv => ({ name: pv, re: new RegExp('\\b' + pv.replace(/\s+/g, '\\s+') + '\\b', 'i') }));
+
+// COMPUTATION CHECK (2026-09-22): kapag ang reply ay may mismong
+// kalkulasyon ("20 x 10 = 200", "10% of 5,000 = 500"), vine-verify ang
+// arithmetic mismo — maling computation ay laging mali, KB man o hindi.
+const MATH_MUL_RE = /(\d[\d,]*(?:\.\d+)?)\s*[x\u00d7\*]\s*(\d[\d,]*(?:\.\d+)?)\s*=\s*(\d[\d,]*(?:\.\d+)?)/gi;
+const MATH_PCT_RE = /(\d[\d,]*(?:\.\d+)?)\s*%\s*(?:of|ng)\s*(\d[\d,]*(?:\.\d+)?)\s*=\s*(\d[\d,]*(?:\.\d+)?)/gi;
+const numOf = t => Number(String(t).replace(/,/g, ''));
 const AMOUNT_RE = /(₱|\bphp\s*)?\b(\d[\d,]*(?:\.\d+)?)\s*(%|x\b|\bphp\b|\bpesos\b)?/gi;
 function extractAmountTokens(text) {
   const tokens = [];
@@ -85,14 +102,44 @@ function extractAmountTokens(text) {
   return tokens;
 }
 
-// Numeric cores present anywhere in the KB (commas stripped) — the lookup
-// table an agent's amount must land in to pass.
+// Numeric cores present anywhere in the KB (commas stripped) — fallback
+// lookup para sa mga claim na walang malinaw na topic.
 function kbNumberSet(kbText) {
   const set = new Set();
   const re = /\b\d[\d,]*(?:\.\d+)?\b/g;
   let m;
   while ((m = re.exec(kbText)) !== null) set.add(m[0].replace(/,/g, ''));
   return set;
+}
+
+// TOPIC-SCOPED matching (2026-09-22 pt.3, after the "minimum deposit ay 50"
+// test na nakalusot): hindi sapat na ang numero ay nasa KB KAHIT SAAN —
+// ang "50" ng ibang section (50 free spins, 50% promo) ay hindi dapat
+// makapag-validate ng maling minimum deposit. Kada topic, kinukuha LANG
+// ang mga numerong nasa loob ng ±250 chars ng mga banggit ng topic
+// keyword sa KB; ang claim tungkol sa topic na yun ay dapat tumama DOON.
+const AMOUNT_TOPICS = [
+  { key: 'deposit',  re: /(deposit|cash\s*in|\u09a1\u09bf\u09aa\u09cb\u099c\u09bf\u099f)/i },
+  { key: 'withdraw', re: /(withdraw|cash\s*out|payout|\u0989\u0987\u09a5\u09a1\u09cd\u09b0)/i },
+  { key: 'turnover', re: /(turnover|rollover|wagering?|\u099f\u09be\u09b0\u09cd\u09a8\u0993\u09ad\u09be\u09b0)/i },
+  { key: 'bonus',    re: /(bonus|promo(tion)?|free\s*(spin|bet|credit)|reload|cashback|\u09ac\u09cb\u09a8\u09be\u09b8)/i },
+];
+function topicNumberSets(kbText) {
+  const sets = {};
+  const numRe = /\b\d[\d,]*(?:\.\d+)?\b/g;
+  for (const t of AMOUNT_TOPICS) {
+    const set = new Set();
+    const re = new RegExp(t.re.source, 'gi');
+    let m;
+    while ((m = re.exec(kbText)) !== null) {
+      const win = kbText.slice(Math.max(0, m.index - 250), Math.min(kbText.length, m.index + 250));
+      numRe.lastIndex = 0;
+      let nm;
+      while ((nm = numRe.exec(win)) !== null) set.add(nm[0].replace(/,/g, ''));
+    }
+    sets[t.key] = set;
+  }
+  return sets;
 }
 
 // Replies worth checking at all (may factual/financial content o link).
@@ -138,6 +185,7 @@ router.post('/kb-accuracy', requireAuth, async (req, res) => {
     const kbText = kbRows.map(r => `### ${r.title}\n${String(r.content)}`).join('\n\n');
     const kbLower = kbText.toLowerCase();
     const kbNums = kbNumberSet(kbText);
+    const kbTopicNums = topicNumberSets(kbText);
     // Hosts mentioned anywhere in the KB — the official links.
     const kbHosts = new Set();
     let hm;
@@ -209,8 +257,19 @@ router.post('/kb-accuracy', requireAuth, async (req, res) => {
       }
 
       // 3b. Amounts na wala sa KB (financial context lang; nilalaktawan
-      //     ang mga reply tungkol sa sariling balance/bets ng player)
-      if (MONEY_CONTEXT_RE.test(m.content) && !PLAYER_TXN_RE.test(m.content)) {
+      //     ang mga reply tungkol sa sariling balance/bets ng player).
+      //     TOPIC-SCOPED: ang claim tungkol sa deposit/withdraw/turnover/
+      //     bonus ay dapat tumama sa mga numerong MALAPIT sa topic na yun
+      //     sa KB — hindi kahit saang numero sa buong KB.
+      if (CLAIM_CONTEXT_RE.test(m.content) && !PLAYER_TXN_RE.test(m.content)) {
+        const replyTopics = AMOUNT_TOPICS.filter(t => t.re.test(m.content));
+        let allowed = kbNums;
+        let topicLabel = '';
+        if (replyTopics.length) {
+          allowed = new Set();
+          for (const t of replyTopics) for (const n of kbTopicNums[t.key]) allowed.add(n);
+          topicLabel = ` (${replyTopics.map(t => t.key).join('/')})`;
+        }
         const seenCores = new Set();
         for (const tok of extractAmountTokens(m.content)) {
           if (seenCores.has(tok.core)) continue;
@@ -218,8 +277,36 @@ router.post('/kb-accuracy', requireAuth, async (req, res) => {
           // May sentimo (hal. 5000.44): laging transactional na figure
           // (balance/winnings/na-compute) — hindi kailanman KB fact — skip.
           if (/\.\d*[1-9]/.test(tok.core)) continue;
-          if (!kbNums.has(tok.core)) {
-            findings.push({ text: `Amount na wala sa KB: ${tok.display}`, core: tok.core });
+          if (!allowed.has(tok.core)) {
+            findings.push({ text: `Amount na wala sa KB${topicLabel}: ${tok.display}`, core: tok.core });
+          }
+        }
+      }
+
+      // 3c. COMPUTATION CHECK — laging tumatakbo (kahit transactional):
+      //     maling arithmetic ay maling arithmetic.
+      for (const pair of [[MATH_MUL_RE, 'mul'], [MATH_PCT_RE, 'pct']]) {
+        const re = pair[0], kind = pair[1];
+        re.lastIndex = 0;
+        let mm;
+        while ((mm = re.exec(m.content)) !== null) {
+          const a = numOf(mm[1]), b = numOf(mm[2]), c = numOf(mm[3]);
+          if (!isFinite(a) || !isFinite(b) || !isFinite(c)) continue;
+          const expect = kind === 'mul' ? a * b : (a / 100) * b;
+          if (Math.abs(expect - c) > 0.01) {
+            findings.push({ text: `MALING COMPUTATION: ${mm[0].trim()} (dapat ${expect.toLocaleString()})` });
+          }
+        }
+      }
+
+      // 3d. GAME PROVIDER CHECK — sa promo/claim context lang: provider
+      //     na binanggit pero WALA sa KB ng brand → flag.
+      if (CLAIM_CONTEXT_RE.test(m.content)) {
+        for (const pv of PROVIDER_RES) {
+          if (!pv.re.test(m.content)) continue;
+          const needle = pv.name.toLowerCase();
+          if (!kbLower.includes(needle) && !kbLower.replace(/\s+/g, '').includes(needle.replace(/\s+/g, ''))) {
+            findings.push({ text: `Game provider na wala sa KB: ${pv.name}` });
           }
         }
       }
@@ -278,7 +365,7 @@ router.post('/kb-accuracy', requireAuth, async (req, res) => {
     }
 
     console.log(`KB accuracy (match) [${brand}]: ${msgs.length} replies checked (of ${totalReplies} total, ${skippedTickets} ticket replies disregarded, ${relayDropped} player-relayed amounts dropped) — ${flagged.length} flagged.`);
-    res.json({ brand, scanned: msgs.length - skippedTickets, considered: totalReplies, totalReplies, skippedTickets, flagged, kbSections: kbRows.length, kbTruncated: false, matcher: 'exact-match-v4' });
+    res.json({ brand, scanned: msgs.length - skippedTickets, considered: totalReplies, totalReplies, skippedTickets, flagged, kbSections: kbRows.length, kbTruncated: false, matcher: 'exact-match-v6' });
   } catch (err) {
     console.error('KB accuracy scan error:', err);
     res.status(500).json({ error: err.message });
