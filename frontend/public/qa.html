@@ -291,17 +291,17 @@
             <option value="today" selected>Today</option>
             <option value="yesterday">Yesterday</option>
           </select>
-          <button class="qa-refresh" id="kbaccScanBtn">✓ AI-check vs KB</button>
+          <button class="qa-refresh" id="kbaccScanBtn">✓ Check vs KB</button>
           <button class="qa-refresh" id="kbaccClearBtn" style="display:none;color:var(--success);border-color:var(--success-tint);">✓ Clear — done checking</button>
         </div>
       </div>
       <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.5;">
-        Ike-compare ng AI ang mga reply ng <b>agents AT bots</b> laban sa <b>sariling KB ng napiling brand</b> — strict per brand, hindi kailanman ibang brand ang basehan. Fina-flag LANG ang mga sagot na <b>sumasalungat sa KB</b>: maling amounts/percent, maling requirements (turnover, KYC, min/max), maling links, maling schedule, o pangakong wala sa KB. Para makatipid, mga reply lang na may factual claims (numbers, links, promo terms) ang ipinapadala sa AI, hanggang 150 kada scan. Kailangan: naka-sync ang KB ng brand sa Knowledge Base page + <b>OPENAI_API_KEY</b> sa backend.
+        Kinukuha ang mga reply ng <b>agents AT bots</b> (parehong chat data ng Customers tab) at dine-diretsong ini-match sa <b>sariling KB ng napiling brand</b> — strict per brand, hindi kailanman ibang brand ang basehan. Fina-flag: <b>links na wala sa KB</b> (maling/unofficial na site) at <b>amounts na wala sa KB</b> (₱, %, x, o numerong may deposit/withdraw/turnover/bonus na konteksto). Exact matching ito, hindi AI — kayang hulihin ang maling links at figures, pero HINDI ang maling paliwanag na walang numbers/links, kaya "I-VERIFY" ang label: i-click ang row para sa buong thread at ikaw ang huhusga. Kailangan lang: naka-sync ang KB ng brand sa Knowledge Base page.
       </div>
       <div class="table-wrap">
         <table class="qa-table">
-          <thead><tr><th>Sender</th><th>Flagged Reply</th><th>Mali vs KB</th><th>KB Section</th><th>When</th></tr></thead>
-          <tbody id="kbaccBody"><tr><td colspan="5"><div class="empty-note">Pumili ng brand at date, tapos i-click ang “AI-check vs KB”.</div></td></tr></tbody>
+          <thead><tr><th>Sender</th><th>Flagged Reply</th><th>Hindi Tugma sa KB</th><th>KB Section</th><th>When</th></tr></thead>
+          <tbody id="kbaccBody"><tr><td colspan="5"><div class="empty-note">Pumili ng brand at date, tapos i-click ang “Check vs KB”.</div></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -797,9 +797,9 @@
     const tbody = document.getElementById('kbaccBody');
     const brand = document.getElementById('kbaccBrandSelect').value;
     btn.disabled = true;
-    ind.textContent = 'AI checking vs KB \u2014 maaaring abutin ng 30s\u20132min\u2026';
+    ind.textContent = 'Checking replies vs KB\u2026';
     ind.style.color = 'var(--ink-faint)';
-    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Kinukuha ang replies at KB, tapos chine-check ng AI\u2026</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Kinukuha ang replies at KB, tapos minamatch\u2026</div></td></tr>';
     try {
       const range = kbaccRange();
       const res = await fetch(`${API_BASE}/qa/kb-accuracy`, {
@@ -811,14 +811,14 @@
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       kbaccFlagged = data.flagged || [];
       const rangeName = document.getElementById('kbaccDateSelect').value === 'yesterday' ? 'Yesterday' : 'Today';
-      ind.textContent = `\u25CF ${rangeName} \u00B7 ${brandLabel(brand)}: AI-checked ${data.scanned}/${data.considered} factual replies vs ${data.kbSections} KB sections \u2014 ${kbaccFlagged.length} mali${data.kbTruncated ? ' \u00B7 \u26A0 KB truncated (sobrang haba)' : ''}`;
+      ind.textContent = `\u25CF ${rangeName} \u00B7 ${brandLabel(brand)}: checked ${data.scanned}/${data.considered} replies vs ${data.kbSections} KB sections \u2014 ${kbaccFlagged.length} for review`;
       ind.style.color = kbaccFlagged.length ? 'var(--danger)' : 'var(--success)';
       document.getElementById('kbaccClearBtn').style.display = '';
       renderKbacc();
     } catch (err) {
       console.error('KB accuracy scan failed:', err);
       ind.textContent = '\u25CF Scan failed'; ind.style.color = 'var(--danger)';
-      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-note">Scan failed \u2014 ${escapeHtml(err.message)}<br><span style="font-size:11.5px;">I-check: naka-deploy ang /api/qa/kb-accuracy (routes/qa-kb.js naka-wire sa server.js), may OPENAI_API_KEY sa Railway, at may naka-sync na KB ang brand na ito.</span></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-note">Scan failed \u2014 ${escapeHtml(err.message)}<br><span style="font-size:11.5px;">I-check: naka-deploy ang /api/qa/kb-accuracy (routes/qa-kb.js naka-wire sa server.js) at may naka-sync na KB ang brand na ito.</span></div></td></tr>`;
     } finally {
       btn.disabled = false;
     }
@@ -827,14 +827,14 @@
   function renderKbacc() {
     const tbody = document.getElementById('kbaccBody');
     if (!kbaccFlagged.length) {
-      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Walang sagot na sumalungat sa KB sa range na ito \u2014 accurate ang team! \ud83c\udf89<br><span style="font-size:11.5px;">(AI check \u2014 i-spot check pa rin paminsan-minsan, lalo na ang mga bagong promo.)</span></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-note">Walang link o amount na wala sa KB sa range na ito \u2014 malinis! \ud83c\udf89<br><span style="font-size:11.5px;">(Exact-match check \u2014 hindi nito huhulihin ang maling paliwanag na walang numbers/links, kaya mag-spot check pa rin ng threads.)</span></div></td></tr>';
       return;
     }
     tbody.innerHTML = kbaccFlagged.map(f => `
       <tr data-conversation-id="${f.conversationId}" data-customer-name="Conversation #${f.conversationId}" data-customer-sub="${escapeHtml(brandLabel(document.getElementById('kbaccBrandSelect').value))} \u00B7 ${f.isBot ? 'bot' : 'agent'}: ${escapeHtml(f.sender)}">
         <td><div class="c-customer"><div class="c-av" style="background:${colorForName(f.sender)};">${initialsForName(f.sender)}</div><div><span class="c-cname">${escapeHtml(f.sender)}</span>${f.isBot ? '<span class="bot-pill">BOT</span>' : ''}</div></div></td>
         <td><div class="qa-remarks">${escapeHtml(f.content)}</div></td>
-        <td><div class="kbacc-finding"><span class="f-wrong">\u2717 ${escapeHtml(f.wrong)}</span>${f.correct ? `<br><span class="f-correct">\u2713 Ayon sa KB: ${escapeHtml(f.correct)}</span>` : ''}</div></td>
+        <td><div class="kbacc-finding"><span class="f-wrong">\u26A0 ${escapeHtml(f.wrong)}</span>${f.correct ? `<br><span class="f-correct">${escapeHtml(f.correct)}</span>` : ''}</div></td>
         <td><div class="kbacc-finding"><span class="f-sec">${f.section ? '\u00A7 ' + escapeHtml(f.section) : '\u2014'}</span></div></td>
         <td><div class="c-time">${timeAgo(f.createdAt)}</div></td>
       </tr>`).join('');
@@ -856,7 +856,7 @@
     document.getElementById('kbaccIndicator').textContent = '';
     kbaccFlagged = [];
     document.getElementById('kbaccBody').innerHTML =
-      '<tr><td colspan="5"><div class="empty-note">Pumili ng brand at date, tapos i-click ang \u201CAI-check vs KB\u201D.</div></td></tr>';
+      '<tr><td colspan="5"><div class="empty-note">Pumili ng brand at date, tapos i-click ang \u201CCheck vs KB\u201D.</div></td></tr>';
   }
   document.getElementById('kbaccBrandSelect').addEventListener('change', kbaccReset);
   document.getElementById('kbaccDateSelect').addEventListener('change', kbaccReset);
