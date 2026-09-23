@@ -985,7 +985,18 @@
   function applyFiltersAndRender() {
     let filtered = allConversations;
     if (currentBrand !== 'all') filtered = filtered.filter(c => c.brand === currentBrand);
-    if (currentStatus === 'active') filtered = filtered.filter(c => (c.status || '').toLowerCase() !== 'resolved');
+    if (currentStatus === 'active') {
+      // Active = tapos na ang usapan → alis sa default view. Kasama dito ang
+      // Resolved status AT ang HH Closed handoffs (sa LiveChat brands ang
+      // status ay madalas 'Unknown', kaya ang handoffStage 'closed' ang
+      // tunay na marker na tapos na). Kapag HH Closed mismo ang pinili sa
+      // Handoff dropdown, hindi ito itinatago para may makita pa rin.
+      filtered = filtered.filter(c => {
+        if ((c.status || '').toLowerCase() === 'resolved') return false;
+        if (currentHandoff !== 'closed' && c.handoffStage === 'closed') return false;
+        return true;
+      });
+    }
     else if (currentStatus !== 'all') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
     if (currentHandoff !== 'all') filtered = filtered.filter(c => c.handoffStage === currentHandoff);
     if (currentCater !== 'all') {
