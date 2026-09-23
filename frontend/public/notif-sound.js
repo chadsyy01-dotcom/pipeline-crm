@@ -33,6 +33,13 @@
   var PENDING_SPEECH_TEXT = 'Alert! Pending tickets!';
   var INPROG_ALERT_MINUTES = 10;   // In Progress 10+ mins → "Ticket pending! <agent>" 3x
   var INPROG_REALERT_MINUTES = 5;
+  // SPECIAL RULE: aliases sa binabanggit na pangalan (lowercase keys).
+  // KEEP IN SYNC sa SPOKEN_NAME_ALIASES ng tickets.html.
+  var SPOKEN_NAME_ALIASES = { 'sapphire': 'Johnlloyd' };
+  function spokenName(n) {
+    var key = String(n || '').trim().toLowerCase();
+    return SPOKEN_NAME_ALIASES[key] || n;
+  }
 
   if (typeof window.TicketData === 'undefined' || typeof window.Papa === 'undefined') {
     console.warn('[notif-sound] TicketData/PapaParse wala sa page na ito — isama muna ang papaparse + ticket-data.js bago ang notif-sound.js.');
@@ -258,7 +265,7 @@
       fresh.forEach(function (t) { inprogAlertedIds.add(t.id); });
       lastInprogReminderAt = Date.now();
       var names = [];
-      overdue.forEach(function (t) { if (t.acknowledgedBy && names.indexOf(t.acknowledgedBy) === -1) names.push(t.acknowledgedBy); });
+      overdue.forEach(function (t) { var n = spokenName(t.acknowledgedBy); if (n && names.indexOf(n) === -1) names.push(n); });
       playInProgressAlertSound(names);
       if (localStorage.getItem('csr_desktop_notif') === 'true' &&
           typeof Notification !== 'undefined' && Notification.permission === 'granted' && isLeader()) {
