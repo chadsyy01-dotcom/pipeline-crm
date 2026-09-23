@@ -225,13 +225,16 @@
     return Math.round(((current - previous) / previous) * 100);
   }
 
-  function parseSheetCsv(source) {
+  function parseSheetCsv(source, bust) {
     return new Promise((resolve, reject) => {
       if (typeof Papa === 'undefined') {
         reject(new Error('PapaParse is required but was not found on the page.'));
         return;
       }
-      const bustUrl = source.url + (source.url.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+      // Cache-bust LANG kapag force refresh (auto-refresh / Refresh button):
+      // ang unang page load ay dumadaan sa Google/browser cache para mabilis
+      // ang first paint — ang 10s auto-refresh naman agad ang magpapasariwa.
+      const bustUrl = bust ? source.url + (source.url.includes('?') ? '&' : '?') + '_cb=' + Date.now() : source.url;
       const gidMatch = source.url.match(/[?&]gid=(\d+)/);
       const gid = gidMatch ? gidMatch[1] : '0';
       Papa.parse(bustUrl, {
@@ -435,23 +438,21 @@
   const SOURCE_TIMEOUT_MS = 15000;
 
   let cachedPromise = null;
-  function fetchTickets(forceRefresh) {
+  // PROGRESSIVE LOADING (2026-09-23): dati, hinihintay ang LAHAT ng 20+ na
+  // sheets (ang pinakamabagal ang gate ng buong page, hanggang 15s). Ngayon,
+  // habang dumarating ang bawat sheet, tinatawag agad ang optional
+  // onProgress(partialTickets, doneCount, totalCount) para makapag-render na
+  // ang page nang maaga; ang final promise ay nagre-resolve pa rin sa
+  // kumpletong dataset (parehong shape ng dati — backward compatible).
+  function fetchTickets(forceRefresh, onProgress) {
     if (cachedPromise && !forceRefresh) return cachedPromise;
-    cachedPromise = Promise.allSettled(SHEET_SOURCES.map(source => withTimeout(parseSheetCsv(source), SOURCE_TIMEOUT_MS, source.url)))
-      .then(settled => {
-        const sheetResults = [];
-        settled.forEach((result, i) => {
-          if (result.status === 'fulfilled') {
-            sheetResults.push(result.value);
-          } else {
-            // One flaky/unreachable sheet (e.g. a transient CORS or network
-            // error from Google's CDN) shouldn't break every other brand's
-            // data — log it and continue with whatever did load successfully.
-            console.warn(`Skipping sheet source #${i} (${SHEET_SOURCES[i].url}) — failed to load:`, result.reason);
-          }
-        });
-        const seen = new Map();
-        sheetResults.forEach(({ rows, brandOverride, kind, sheetId, gid }) => {
+    const seen = new Map();
+    let completed = 0;
+    const total = SHEET_SOURCES.length;
+    const build = () => Array.from(seen.values()).sort((a, b) => b.submitted - a.submitted);
+    const tasks = SHEET_SOURCES.map((source, i) =>
+      withTimeout(parseSheetCsv(source, !!forceRefresh), SOURCE_TIMEOUT_MS, source.url)
+        .then(({ rows, brandOverride, kind, sheetId, gid }) => {
           const sheetMeta = { sheetId, gid };
           rows.forEach(row => {
             const ticket = kind === 'followup' ? mapFollowupRow(row, sheetMeta)
@@ -459,15 +460,24 @@
               : kind === 'division' ? mapDivisionRow(row, sheetMeta)
               : mapTicketRow(row, brandOverride, sheetMeta);
             if (!ticket) return;
-            // De-dupe by brand+id (scoped per brand so that two different
-            // brands sharing the same ID prefix/format can never collide with
-            // or overwrite each other, even in the rare case their generated
-            // IDs happen to match).
+            // De-dupe by brand+id (scoped per brand so two brands sharing an
+            // ID prefix/format can never collide or overwrite each other).
             seen.set(`${ticket.brandCode}::${ticket.id}`, ticket);
           });
-        });
-        return Array.from(seen.values()).sort((a, b) => b.submitted - a.submitted);
-      });
+        })
+        .catch(err => {
+          // One flaky/unreachable sheet shouldn't break every other brand's
+          // data — log it and continue with whatever did load successfully.
+          console.warn(`Skipping sheet source #${i} (${source.url}) — failed to load:`, err);
+        })
+        .then(() => {
+          completed++;
+          if (onProgress) {
+            try { onProgress(build(), completed, total); } catch (e) { console.error('onProgress error:', e); }
+          }
+        })
+    );
+    cachedPromise = Promise.all(tasks).then(build);
     return cachedPromise;
   }
 
