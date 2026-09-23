@@ -121,6 +121,9 @@
   .ftab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
   .ftab .count{margin-left:6px;opacity:.75;}
   .issue-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);max-width:240px;}
+  .filter-bar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;}
+  .f-group{display:flex;flex-direction:column;gap:5px;}
+  .f-label{font-size:10.5px;font-weight:700;letter-spacing:.07em;color:var(--ink-faint);text-transform:uppercase;padding-left:2px;}
   .date-filter-wrap{position:relative;}
   .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:60;width:210px;}
   .custom-date-pop.open{display:block;}
@@ -352,22 +355,36 @@
     <div class="panel">
       <div class="panel-head">
         <h3>All Tickets <span id="liveIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;">● Live</span></h3>
-        <select id="statusFilter" class="issue-select">
-          <option value="all" selected>All (0)</option>
-          <option value="pending">New (0)</option>
-          <option value="checking">In Progress (0)</option>
-          <option value="backlog">Backlog (0)</option>
-          <option value="done">Done (0)</option>
-          <option value="rejected">Rejected (0)</option>
-        </select>
       </div>
 
-      <div class="panel-head" style="margin-top:-8px;">
-        <select id="brandFilter" class="issue-select" style="max-width:260px;"></select>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div class="filter-bar">
+        <div class="f-group">
+          <span class="f-label">Brand</span>
+          <select id="brandFilter" class="issue-select" style="max-width:240px;"></select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Status</span>
+          <select id="statusFilter" class="issue-select">
+            <option value="open" selected>All open statuses (0)</option>
+            <option value="all">All statuses (0)</option>
+            <option value="pending">New (0)</option>
+            <option value="checking">In Progress (0)</option>
+            <option value="backlog">Backlog (0)</option>
+            <option value="done">Done (0)</option>
+            <option value="rejected">Rejected (0)</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Category</span>
+          <select id="issueFilter" class="issue-select">
+            <option value="all">All categories</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Submitted</span>
           <div class="date-filter-wrap" id="dateFilterWrap">
             <select id="dateFilter" class="issue-select">
-              <option value="all">All Time</option>
+              <option value="all">Any time</option>
               <option value="today">Today</option>
               <option value="yesterday">Yesterday</option>
               <option value="7d">Last 7 Days</option>
@@ -386,9 +403,9 @@
               </div>
             </div>
           </div>
-          <select id="issueFilter" class="issue-select">
-            <option value="all">All Issues</option>
-          </select>
+        </div>
+        <div class="f-group" style="margin-left:auto;">
+          <span class="f-label">&nbsp;</span>
           <button id="exportCsvBtn" onclick="exportTicketsToCsv()" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
             Export CSV
@@ -464,7 +481,7 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
-  let currentFilter = 'all';
+  let currentFilter = 'open'; // default view: New + In Progress (2026-09-23)
   let currentBrand = 'all';
   let currentIssue = 'all';
   let currentDateFilter = 'all';
@@ -645,6 +662,8 @@
         const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
         const isToday = TicketData.isSameLocalDay(t.submitted, new Date());
         if (!(isOpen && !isToday)) return false;
+      } else if (currentFilter === 'open') {
+        if (!(t.statusCls === 'pending' || t.statusCls === 'checking')) return false;
       } else if (currentFilter !== 'all' && t.statusCls !== currentFilter) {
         return false;
       }
@@ -782,14 +801,15 @@
   function renderFilterCounts() {
     const subset = allTickets.filter(t => ticketMatchesFilters(t, { skipStatus: true }));
     const now = new Date();
-    const counts = { all: subset.length, pending: 0, checking: 0, done: 0, rejected: 0, backlog: 0 };
+    const counts = { all: subset.length, open: 0, pending: 0, checking: 0, done: 0, rejected: 0, backlog: 0 };
     subset.forEach(t => {
       if (counts[t.statusCls] !== undefined) counts[t.statusCls]++;
-      if ((t.statusCls === 'pending' || t.statusCls === 'checking') && !TicketData.isSameLocalDay(t.submitted, now)) {
-        counts.backlog++;
+      if (t.statusCls === 'pending' || t.statusCls === 'checking') {
+        counts.open++;
+        if (!TicketData.isSameLocalDay(t.submitted, now)) counts.backlog++;
       }
     });
-    const STATUS_LABELS = { all: 'All', pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected' };
+    const STATUS_LABELS = { open: 'All open statuses', all: 'All statuses', pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected' };
     const select = document.getElementById('statusFilter');
     if (!select) return;
     Array.from(select.options).forEach(opt => {
@@ -932,7 +952,7 @@
     allTickets.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
     const issues = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
     const select = document.getElementById('issueFilter');
-    select.innerHTML = `<option value="all">All Issues (${allTickets.length.toLocaleString()})</option>` +
+    select.innerHTML = `<option value="all">All categories (${allTickets.length.toLocaleString()})</option>` +
       issues.map(issue => `<option value="${escapeHtml(issue)}">${escapeHtml(issue)} (${counts[issue].toLocaleString()})</option>`).join('');
     select.addEventListener('change', () => {
       currentIssue = select.value;
@@ -949,7 +969,7 @@
     const select = document.getElementById('issueFilter');
     Array.from(select.options).forEach(opt => {
       if (opt.value === 'all') {
-        opt.textContent = `All Issues (${subset.length.toLocaleString()})`;
+        opt.textContent = `All categories (${subset.length.toLocaleString()})`;
       } else {
         opt.textContent = `${opt.value} (${(counts[opt.value] || 0).toLocaleString()})`;
       }
