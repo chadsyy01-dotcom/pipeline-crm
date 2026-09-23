@@ -520,6 +520,29 @@
   // file na kailangan. May toggle button (persisted sa localStorage). Ang
   // browser ay nagba-block ng tunog bago ang unang user interaction, kaya
   // ang AudioContext ay ina-unlock sa unang click kahit saan sa page.
+  // Flag para sa shared notif-sound.js: may sariling engine ang page na
+  // ito, kaya hindi na siya magpapatakbo dito (iwas dobleng tunog).
+  window.__CSR_NOTIF_INLINE__ = true;
+  // Cross-tab leader election (2026-09-23): kapareho ng notif-sound.js —
+  // kapag maraming bukas na dashboard tabs, IISA lang ang tutunog.
+  const NOTIF_LEADER_KEY = 'csr_notif_leader';
+  const NOTIF_TAB_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  function notifHeartbeat() {
+    let cur = null;
+    try { cur = JSON.parse(localStorage.getItem(NOTIF_LEADER_KEY) || 'null'); } catch (e) {}
+    const nowT = Date.now();
+    if (!cur || nowT - cur.t > 12000 || cur.id === NOTIF_TAB_ID) {
+      try { localStorage.setItem(NOTIF_LEADER_KEY, JSON.stringify({ id: NOTIF_TAB_ID, t: nowT })); } catch (e) {}
+    }
+  }
+  notifHeartbeat();
+  setInterval(notifHeartbeat, 5000);
+  function notifIsLeader() {
+    try {
+      const cur = JSON.parse(localStorage.getItem(NOTIF_LEADER_KEY) || 'null');
+      return !cur || cur.id === NOTIF_TAB_ID || Date.now() - cur.t > 12000;
+    } catch (e) { return true; }
+  }
   let audioCtx = null;
   function soundEnabled() { return localStorage.getItem('csr_sound_notif') !== 'false'; } // default ON
   function ensureAudioCtx() {
@@ -533,8 +556,9 @@
   // ibang gustong mensahe (per team decision 2026-09-23: English para
   // pareho ang tunog sa lahat ng computers).
   const NOTIF_SPEECH_TEXT = 'New ticket received!';
-  function playNotifSound() {
+  function playNotifSound(force) {
     if (!soundEnabled()) return;
+    if (!force && !notifIsLeader()) return; // ibang tab ang naka-duty sa tunog
     try {
       // 1) Triple ding — FULL BLAST: dalawang layer kada ding (pangunahing
       //    tono + isang octave pababa para makapal), peak ~0.95, dumadaan sa
@@ -592,6 +616,7 @@
   let lastPendingReminderAt = 0;
   function playPendingAlertSound() {
     if (!soundEnabled()) return;
+    if (!notifIsLeader()) return; // ibang tab ang naka-duty sa tunog
     try {
       ensureAudioCtx();
       if (audioCtx) {
@@ -656,7 +681,7 @@
   document.getElementById('soundToggleBtn').addEventListener('click', () => {
     localStorage.setItem('csr_sound_notif', soundEnabled() ? 'false' : 'true');
     renderSoundToggle();
-    if (soundEnabled()) playNotifSound(); // preview para marinig agad
+    if (soundEnabled()) playNotifSound(true); // preview — laging tumutunog dito kahit hindi leader
   });
   renderSoundToggle();
 
