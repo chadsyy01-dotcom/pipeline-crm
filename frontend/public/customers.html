@@ -14,7 +14,7 @@
      that customer's tickets (added 2026-09-18). Loaded here, fetched lazily
      the first time a profile is opened, so the page load isn't slowed. -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=5"></script>
+<script src="ticket-data.js?v=8"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -133,6 +133,13 @@
   .ftab{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
   .ftab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
   .ftab .count{margin-left:6px;opacity:.75;}
+  /* Labeled filter bar (2026-09-23) — dating tatlong tab rows, ngayon
+     dropdowns na may maliit na uppercase label sa taas, gaya ng Tickets. */
+  .filter-bar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;}
+  .f-group{display:flex;flex-direction:column;gap:5px;}
+  .f-label{font-size:10.5px;font-weight:700;letter-spacing:.07em;color:var(--ink-faint);text-transform:uppercase;padding-left:2px;}
+  .filter-bar .admin-select{margin-bottom:0;}
+  .filter-bar .date-filter-wrap{margin:0;}
 
   /* CONVERSATION LIST */
   .conv-table{width:100%;border-collapse:collapse;}
@@ -443,40 +450,60 @@
           <button id="backfillBtn" type="button" style="font-size:12px;font-weight:700;color:var(--ink-soft);background:var(--card);border:1px solid var(--line);padding:7px 13px;border-radius:8px;cursor:pointer;">Fix old customer names</button>
         </div>
       </div>
-      <div class="filter-tabs" id="brandTabs"></div>
-      <div class="filter-tabs" id="statusTabs">
-        <div class="ftab active" data-status="all">All</div>
-        <div class="ftab" data-status="open">Open</div>
-        <div class="ftab" data-status="pending">Pending</div>
-        <div class="ftab" data-status="resolved">Resolved</div>
-      </div>
-      <div class="filter-tabs" id="handoffTabs">
-        <div class="ftab active" data-handoff="all">All Handoff</div>
-        <div class="ftab" data-handoff="pending">HH Pending</div>
-        <div class="ftab" data-handoff="opened">HH Opened</div>
-        <div class="ftab" data-handoff="closed">HH Closed</div>
-      </div>
-      <select id="adminFilter" class="admin-select">
-        <option value="all">All Admins</option>
-      </select>
-      <div class="date-filter-wrap" id="dateFilterWrap">
-        <select id="dateFilter">
-          <option value="all">All Time</option>
-          <option value="today" selected>Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="7d">Last 7 Days</option>
-          <option value="30d">Last 30 Days</option>
-          <option value="month">This Month</option>
-          <option value="custom" id="customDateOption">Custom Date</option>
-        </select>
-        <div class="custom-date-pop" id="customDatePop">
-          <label for="customDateFrom">From</label>
-          <input type="date" id="customDateFrom">
-          <label for="customDateTo">To</label>
-          <input type="date" id="customDateTo">
-          <div class="custom-date-actions">
-            <button type="button" id="customDateCancel">Cancel</button>
-            <button type="button" id="customDateApply">Apply</button>
+      <!-- Labeled filter bar (2026-09-23) — dating tatlong tab rows
+           (brands / status / handoff), ngayon dropdowns na kagaya ng
+           Tickets page: BRAND / STATUS / HANDOFF / ADMIN / ACTIVITY. -->
+      <div class="filter-bar">
+        <div class="f-group">
+          <span class="f-label">Brand</span>
+          <select id="brandFilter" class="admin-select" style="max-width:240px;"></select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Status</span>
+          <select id="statusFilter" class="admin-select">
+            <option value="all" selected>All statuses</option>
+            <option value="open">Open</option>
+            <option value="pending">Pending</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Handoff</span>
+          <select id="handoffFilter" class="admin-select">
+            <option value="all" selected>All handoff</option>
+            <option value="pending">HH Pending</option>
+            <option value="opened">HH Opened</option>
+            <option value="closed">HH Closed</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Admin</span>
+          <select id="adminFilter" class="admin-select">
+            <option value="all">All Admins</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Activity</span>
+          <div class="date-filter-wrap" id="dateFilterWrap">
+            <select id="dateFilter">
+              <option value="all">Any time</option>
+              <option value="today" selected>Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="month">This Month</option>
+              <option value="custom" id="customDateOption">Custom Date</option>
+            </select>
+            <div class="custom-date-pop" id="customDatePop">
+              <label for="customDateFrom">From</label>
+              <input type="date" id="customDateFrom">
+              <label for="customDateTo">To</label>
+              <input type="date" id="customDateTo">
+              <div class="custom-date-actions">
+                <button type="button" id="customDateCancel">Cancel</button>
+                <button type="button" id="customDateApply">Apply</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -785,25 +812,26 @@
     }
   }
 
+  // Brand filter dropdown (converted from tabs, 2026-09-23) — options carry
+  // the same counts the tabs showed, rebuilt on every refresh without losing
+  // the current selection (select.onchange is idempotent across rebuilds).
   function renderBrandTabs() {
     const counts = {};
     allConversations.forEach(c => { counts[c.brand] = (counts[c.brand] || 0) + 1; });
-    const container = document.getElementById('brandTabs');
-    const allTab = `<div class="ftab ${currentBrand === 'all' ? 'active' : ''}" data-brand="all">All Brands <span class="count">${allConversations.length}</span></div>`;
-    const brandTabsHtml = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(brand => {
-      const active = currentBrand === brand ? 'active' : '';
-      return `<div class="ftab ${active}" data-brand="${escapeHtml(brand)}">${escapeHtml(brandLabel(brand))} <span class="count">${counts[brand]}</span></div>`;
-    }).join('');
-    container.innerHTML = allTab + brandTabsHtml;
-    container.querySelectorAll('.ftab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        currentBrand = tab.dataset.brand;
-        renderBrandTabs();
-        applyFiltersAndRender();
-        loadCsatStats();
-        renderArtFtrStats();
-      });
-    });
+    const select = document.getElementById('brandFilter');
+    if (!select) return;
+    select.innerHTML = `<option value="all">All Brands (${allConversations.length})</option>` +
+      Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(brand =>
+        `<option value="${escapeHtml(brand)}">${escapeHtml(brandLabel(brand))} (${counts[brand]})</option>`
+      ).join('');
+    select.value = (currentBrand === 'all' || counts[currentBrand]) ? currentBrand : 'all';
+    currentBrand = select.value;
+    select.onchange = () => {
+      currentBrand = select.value;
+      applyFiltersAndRender();
+      loadCsatStats();
+      renderArtFtrStats();
+    };
   }
 
   async function loadCsatStats() {
@@ -892,20 +920,15 @@
     }
   }
 
-  document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      currentStatus = tab.dataset.status;
-      document.querySelectorAll('#statusTabs .ftab').forEach(t => t.classList.toggle('active', t === tab));
-      applyFiltersAndRender();
-    });
+  // Status + handoff dropdowns (converted from tabs, 2026-09-23)
+  document.getElementById('statusFilter').addEventListener('change', (e) => {
+    currentStatus = e.target.value;
+    applyFiltersAndRender();
   });
 
-  document.querySelectorAll('#handoffTabs .ftab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      currentHandoff = tab.dataset.handoff;
-      document.querySelectorAll('#handoffTabs .ftab').forEach(t => t.classList.toggle('active', t === tab));
-      applyFiltersAndRender();
-    });
+  document.getElementById('handoffFilter').addEventListener('change', (e) => {
+    currentHandoff = e.target.value;
+    applyFiltersAndRender();
   });
 
   document.getElementById('searchInput').addEventListener('input', (e) => {
