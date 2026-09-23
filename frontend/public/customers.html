@@ -461,7 +461,8 @@
         <div class="f-group">
           <span class="f-label">Status</span>
           <select id="statusFilter" class="admin-select">
-            <option value="all" selected>All statuses</option>
+            <option value="active" selected>Active (not resolved)</option>
+            <option value="all">All statuses</option>
             <option value="open">Open</option>
             <option value="pending">Pending</option>
             <option value="resolved">Resolved</option>
@@ -479,8 +480,8 @@
         <div class="f-group">
           <span class="f-label">Catered By</span>
           <select id="caterFilter" class="admin-select">
-            <option value="all" selected>All</option>
-            <option value="human">🧑 Live Agent (Handoff + LiveChat)</option>
+            <option value="all">All</option>
+            <option value="human" selected>🧑 Live Agent (Handoff + LiveChat)</option>
             <option value="bot">🤖 Bot / AI</option>
           </select>
         </div>
@@ -708,9 +709,9 @@
 
   let allConversations = [];
   let currentBrand = 'all';
-  let currentStatus = 'all';
+  let currentStatus = 'active'; // DEFAULT: itago ang Resolved — lalabas lang kapag pinili sa dropdown (2026-09-23)
   let currentHandoff = 'all';
-  let currentCater = 'all'; // all | human (handoff/LiveChat live agents) | bot (AI personas) — 2026-09-23
+  let currentCater = 'human'; // DEFAULT: live-agent view (handoff + LiveChat) — 2026-09-23; all | human | bot
   let currentAdmin = 'all';
   let currentCsatFilter = 'all';
   let currentDateFilter = 'today'; // default Today, was 'all' (egress diet, 2026-09-14 — All Time pulled every conversation in retention on every poll)
@@ -984,7 +985,8 @@
   function applyFiltersAndRender() {
     let filtered = allConversations;
     if (currentBrand !== 'all') filtered = filtered.filter(c => c.brand === currentBrand);
-    if (currentStatus !== 'all') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
+    if (currentStatus === 'active') filtered = filtered.filter(c => (c.status || '').toLowerCase() !== 'resolved');
+    else if (currentStatus !== 'all') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
     if (currentHandoff !== 'all') filtered = filtered.filter(c => c.handoffStage === currentHandoff);
     if (currentCater !== 'all') {
       // Human = LiveChat brand (laging real agent) O may handoff stage O ang
