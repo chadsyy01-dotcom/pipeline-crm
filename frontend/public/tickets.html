@@ -124,6 +124,8 @@
   .filter-bar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;}
   .f-group{display:flex;flex-direction:column;gap:5px;}
   .f-label{font-size:10.5px;font-weight:700;letter-spacing:.07em;color:var(--ink-faint);text-transform:uppercase;padding-left:2px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spinning{animation:spin .8s linear infinite;}
   .date-filter-wrap{position:relative;}
   .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:60;width:210px;}
   .custom-date-pop.open{display:block;}
@@ -406,6 +408,13 @@
         </div>
         <div class="f-group" style="margin-left:auto;">
           <span class="f-label">&nbsp;</span>
+          <button id="hardRefreshBtn" onclick="hardRefreshTickets()" title="Hard refresh — kunin agad ang pinakabagong data mula sa sheets" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
+            <svg id="hardRefreshIcon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            Refresh
+          </button>
+        </div>
+        <div class="f-group">
+          <span class="f-label">&nbsp;</span>
           <button id="exportCsvBtn" onclick="exportTicketsToCsv()" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
             Export CSV
@@ -539,6 +548,25 @@
       console.error(err);
       showMessage('Could not load tickets from the Google Sheet. Please check the sheet link and try again.');
     });
+
+  // HARD REFRESH (2026-09-23): force-fetch mula sa sheets ngayon mismo,
+  // hindi hinihintay ang 10s auto-refresh at nilalagpasan ang cache.
+  function hardRefreshTickets() {
+    const btn = document.getElementById('hardRefreshBtn');
+    const icon = document.getElementById('hardRefreshIcon');
+    const ind = document.getElementById('liveIndicator');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    icon.classList.add('spinning');
+    if (ind) { ind.textContent = '\u25CF Refreshing\u2026'; ind.style.color = 'var(--warning)'; }
+    TicketData.fetchTickets(true)
+      .then(tickets => { handleAutoRefresh(tickets); })
+      .catch(err => {
+        console.error('Hard refresh failed:', err);
+        if (ind) { ind.textContent = '\u25CF Refresh failed'; ind.style.color = 'var(--danger)'; }
+      })
+      .finally(() => { btn.disabled = false; icon.classList.remove('spinning'); });
+  }
 
   // Refreshes the underlying data in the background every ~60s without
   // resetting the page/filters the agent currently has open.
