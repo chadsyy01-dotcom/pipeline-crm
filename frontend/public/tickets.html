@@ -555,6 +555,19 @@
   // ibang gustong mensahe (per team decision 2026-09-23: English para
   // pareho ang tunog sa lahat ng computers).
   const NOTIF_SPEECH_TEXT = 'New ticket received!';
+  // VOICE PICKER (2026-09-23): ang napiling boses ay naka-save sa
+  // localStorage 'csr_notif_voice' (voice name, pinipili sa Settings page —
+  // admin only). Fallback: unang English voice ng computer kapag wala o
+  // hindi available sa machine na ito ang napiling boses.
+  function pickNotifVoice() {
+    const voices = speechSynthesis.getVoices();
+    const wanted = localStorage.getItem('csr_notif_voice');
+    if (wanted) {
+      const hit = voices.find(v => v.name === wanted);
+      if (hit) return hit;
+    }
+    return voices.find(v => /^en/i.test(v.lang)) || null;
+  }
   function playNotifSound(force) {
     if (!soundEnabled()) return;
     if (!force && !notifIsLeader()) return; // ibang tab ang naka-duty sa tunog
@@ -593,8 +606,8 @@
           try {
             speechSynthesis.cancel(); // huwag magpatong-patong sa sunod-sunod na tickets
             const u = new SpeechSynthesisUtterance(NOTIF_SPEECH_TEXT);
-            const enVoice = speechSynthesis.getVoices().find(v => /^en/i.test(v.lang));
-            if (enVoice) u.voice = enVoice;
+            const chosenVoice = pickNotifVoice();
+            if (chosenVoice) u.voice = chosenVoice;
             u.volume = 1;
             u.rate = 1;
             speechSynthesis.speak(u);
@@ -645,8 +658,8 @@
           try {
             speechSynthesis.cancel();
             const u = new SpeechSynthesisUtterance(PENDING_SPEECH_TEXT);
-            const enVoice = speechSynthesis.getVoices().find(v => /^en/i.test(v.lang));
-            if (enVoice) u.voice = enVoice;
+            const chosenVoice = pickNotifVoice();
+            if (chosenVoice) u.voice = chosenVoice;
             u.volume = 1;
             u.rate = 1;
             speechSynthesis.speak(u);
@@ -722,8 +735,8 @@
             speechSynthesis.cancel();
             for (let i = 0; i < 3; i++) { // 3 beses sunod-sunod (per team decision)
               const u = new SpeechSynthesisUtterance(phrase);
-              const enVoice = speechSynthesis.getVoices().find(v => /^en/i.test(v.lang));
-              if (enVoice) u.voice = enVoice;
+              const chosenVoice = pickNotifVoice();
+              if (chosenVoice) u.voice = chosenVoice;
               u.volume = 1;
               u.rate = 1;
               speechSynthesis.speak(u); // naka-queue — magsusunuran sila
