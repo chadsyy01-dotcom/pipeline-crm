@@ -63,7 +63,9 @@
 
   // ---- Sound engine (kapareho ng tickets.html) ----
   var audioCtx = null;
-  function soundEnabled() { return localStorage.getItem('csr_sound_notif') !== 'false'; } // default ON
+  // LAGING ON (desisyon 2026-09-23): walang in-app off switch — browser
+  // tab mute o system volume ang paraan kung gustong patahimikin.
+  function soundEnabled() { return true; }
   function ensureAudioCtx() {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
