@@ -477,6 +477,14 @@
           </select>
         </div>
         <div class="f-group">
+          <span class="f-label">Catered By</span>
+          <select id="caterFilter" class="admin-select">
+            <option value="all" selected>All</option>
+            <option value="human">🧑 Live Agent (Handoff + LiveChat)</option>
+            <option value="bot">🤖 Bot / AI</option>
+          </select>
+        </div>
+        <div class="f-group">
           <span class="f-label">Admin</span>
           <select id="adminFilter" class="admin-select">
             <option value="all">All Admins</option>
@@ -602,6 +610,12 @@
     luckystacksph: 'LuckyStacks PH',
     tmtplay: 'TMTPLAY',
   };
+  // LiveChat.com brands — walang bot persona doon, laging REAL AGENT ang
+  // sumasagot (Admin-Eve, Jen, Jace, Barbie, Astrid). Ginagamit ng
+  // "Catered By" filter para ibilang silang live-agent kahit walang
+  // pormal na handoff stage.
+  const LIVECHAT_BRANDS = new Set(['casinyeam', 'manilacasino', 'superscatterph', 'livechat-general']);
+
   function brandLabel(slug) {
     if (!slug) return 'Unknown';
     return BRAND_LABELS[slug] || slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -696,6 +710,7 @@
   let currentBrand = 'all';
   let currentStatus = 'all';
   let currentHandoff = 'all';
+  let currentCater = 'all'; // all | human (handoff/LiveChat live agents) | bot (AI personas) — 2026-09-23
   let currentAdmin = 'all';
   let currentCsatFilter = 'all';
   let currentDateFilter = 'today'; // default Today, was 'all' (egress diet, 2026-09-14 — All Time pulled every conversation in retention on every poll)
@@ -931,6 +946,11 @@
     applyFiltersAndRender();
   });
 
+  document.getElementById('caterFilter').addEventListener('change', (e) => {
+    currentCater = e.target.value;
+    applyFiltersAndRender();
+  });
+
   document.getElementById('searchInput').addEventListener('input', (e) => {
     currentSearch = e.target.value.trim().toLowerCase();
     applyFiltersAndRender();
@@ -966,6 +986,16 @@
     if (currentBrand !== 'all') filtered = filtered.filter(c => c.brand === currentBrand);
     if (currentStatus !== 'all') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
     if (currentHandoff !== 'all') filtered = filtered.filter(c => c.handoffStage === currentHandoff);
+    if (currentCater !== 'all') {
+      // Human = LiveChat brand (laging real agent) O may handoff stage O ang
+      // huling reply ay galing sa taong agent na wala sa bot-name list.
+      // Bot = lahat ng hindi pasok doon (AI persona pa rin ang humahawak).
+      filtered = filtered.filter(c => {
+        const humanHandled = LIVECHAT_BRANDS.has(c.brand) || !!c.handoffStage ||
+          (c.lastMessageSenderType === 'user' && c.lastMessageSender && !AI_BOT_NAMES_CLIENT.has(c.lastMessageSender));
+        return currentCater === 'human' ? humanHandled : !humanHandled;
+      });
+    }
     if (currentAdmin !== 'all') filtered = filtered.filter(c => c.lastMessageSender === currentAdmin);
     if (currentCsatFilter === 'csat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating >= 4);
     if (currentCsatFilter === 'dsat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating <= 2);
