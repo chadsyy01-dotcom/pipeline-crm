@@ -51,6 +51,7 @@
   // Maps the sheet's real Status values to display label + CSS class.
   const STATUS_MAP = {
     pending:  { label: 'New',         cls: 'pending'  },
+    new:      { label: 'New',         cls: 'pending'  }, // may sheets (hal. MCP) na literal "NEW" ang sinusulat (2026-09-23)
     checking: { label: 'In Progress', cls: 'checking' },
     'otp pending verification': { label: 'OTP Pending', cls: 'checking' },
     'line up': { label: 'Line Up',    cls: 'checking' },
