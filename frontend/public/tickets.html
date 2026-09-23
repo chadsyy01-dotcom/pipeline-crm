@@ -352,18 +352,18 @@
     <div class="panel">
       <div class="panel-head">
         <h3>All Tickets <span id="liveIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;">● Live</span></h3>
-        <div class="filter-tabs" id="statusTabs">
-          <div class="ftab active" data-status="all">All <span class="count">0</span></div>
-          <div class="ftab" data-status="pending">New <span class="count">0</span></div>
-          <div class="ftab" data-status="checking">In Progress <span class="count">0</span></div>
-          <div class="ftab" data-status="backlog">Backlog <span class="count">0</span></div>
-          <div class="ftab" data-status="done">Done <span class="count">0</span></div>
-          <div class="ftab" data-status="rejected">Rejected <span class="count">0</span></div>
-        </div>
+        <select id="statusFilter" class="issue-select">
+          <option value="all" selected>All (0)</option>
+          <option value="pending">New (0)</option>
+          <option value="checking">In Progress (0)</option>
+          <option value="backlog">Backlog (0)</option>
+          <option value="done">Done (0)</option>
+          <option value="rejected">Rejected (0)</option>
+        </select>
       </div>
 
       <div class="panel-head" style="margin-top:-8px;">
-        <div class="filter-tabs" id="brandTabs"></div>
+        <select id="brandFilter" class="issue-select" style="max-width:260px;"></select>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <div class="date-filter-wrap" id="dateFilterWrap">
             <select id="dateFilter" class="issue-select">
@@ -789,21 +789,18 @@
         counts.backlog++;
       }
     });
-    document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
-      const key = tab.dataset.status;
-      const countEl = tab.querySelector('.count');
-      if (countEl && counts[key] !== undefined) countEl.textContent = counts[key].toLocaleString();
+    const STATUS_LABELS = { all: 'All', pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected' };
+    const select = document.getElementById('statusFilter');
+    if (!select) return;
+    Array.from(select.options).forEach(opt => {
+      if (counts[opt.value] !== undefined) opt.textContent = `${STATUS_LABELS[opt.value]} (${counts[opt.value].toLocaleString()})`;
     });
   }
 
-  // Status filter tab interaction
-  document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('#statusTabs .ftab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      currentFilter = tab.dataset.status;
-      applyFilters();
-    });
+  // Status filter dropdown (converted from tabs, 2026-09-23)
+  document.getElementById('statusFilter').addEventListener('change', (e) => {
+    currentFilter = e.target.value;
+    applyFilters();
   });
 
   // Deep-linking: read ?status=, ?date=, ?issue=, and ?search= from the URL (used by
@@ -818,9 +815,8 @@
     pendingIssueParam = params.get('issue');
     if (statusParam) {
       currentFilter = statusParam;
-      document.querySelectorAll('#statusTabs .ftab').forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.status === statusParam);
-      });
+      const statusSelect = document.getElementById('statusFilter');
+      if (statusSelect) statusSelect.value = statusParam;
     }
     if (dateParam === 'custom' && dateFromParam && dateToParam) {
       customDateFrom = new Date(dateFromParam + 'T00:00:00');
@@ -843,39 +839,39 @@
     }
   })();
 
-  // Brand filter tabs — built dynamically from whatever brand prefixes appear in the data
+  // Brand filter dropdown — built dynamically from whatever brand prefixes
+  // appear in the data (converted from tabs to a select, 2026-09-23).
   function renderBrandTabs() {
     const counts = {};
     allTickets.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || 0) + 1; });
     const codes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
-    const container = document.getElementById('brandTabs');
-    const allTab = `<div class="ftab active" data-brand="all">All Brands <span class="count">${allTickets.length.toLocaleString()}</span></div>`;
-    const brandTabsHtml = codes.map(code => {
-      const label = TicketData.BRAND_MAP[code] || code;
-      return `<div class="ftab" data-brand="${escapeHtml(code)}">${escapeHtml(label)} <span class="count">${counts[code].toLocaleString()}</span></div>`;
-    }).join('');
-    container.innerHTML = allTab + brandTabsHtml;
-    container.querySelectorAll('.ftab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        container.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        currentBrand = tab.dataset.brand;
-        applyFilters();
-      });
+    const select = document.getElementById('brandFilter');
+    select.innerHTML = `<option value="all" selected>All Brands (${allTickets.length.toLocaleString()})</option>` +
+      codes.map(code => {
+        const label = TicketData.BRAND_MAP[code] || code;
+        return `<option value="${escapeHtml(code)}">${escapeHtml(label)} (${counts[code].toLocaleString()})</option>`;
+      }).join('');
+    select.addEventListener('change', () => {
+      currentBrand = select.value;
+      applyFilters();
     });
   }
 
-  // Updates just the numbers on the brand tabs (based on the other active filters)
-  // without rebuilding the DOM or losing the click handlers set up above.
+  // Updates just the counts in the brand dropdown labels (based on the other
+  // active filters) without rebuilding the list or losing the selection.
   function renderBrandTabCounts() {
     const subset = allTickets.filter(t => ticketMatchesFilters(t, { skipBrand: true }));
     const counts = {};
     subset.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || 0) + 1; });
-    document.querySelectorAll('#brandTabs .ftab').forEach(tab => {
-      const code = tab.dataset.brand;
-      const countEl = tab.querySelector('.count');
-      if (!countEl) return;
-      countEl.textContent = code === 'all' ? subset.length.toLocaleString() : (counts[code] || 0).toLocaleString();
+    const select = document.getElementById('brandFilter');
+    if (!select) return;
+    Array.from(select.options).forEach(opt => {
+      if (opt.value === 'all') {
+        opt.textContent = `All Brands (${subset.length.toLocaleString()})`;
+      } else {
+        const label = TicketData.BRAND_MAP[opt.value] || opt.value;
+        opt.textContent = `${label} (${(counts[opt.value] || 0).toLocaleString()})`;
+      }
     });
   }
 
