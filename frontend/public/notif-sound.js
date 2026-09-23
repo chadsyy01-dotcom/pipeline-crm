@@ -196,14 +196,13 @@
         setTimeout(function () {
           try {
             speechSynthesis.cancel();
-            for (var i = 0; i < 3; i++) { // 3 beses sunod-sunod
-              var u = new SpeechSynthesisUtterance(phrase);
-              var chosenVoice = pickNotifVoice();
-              if (chosenVoice) u.voice = chosenVoice;
-              u.volume = 1;
-              u.rate = 1;
-              speechSynthesis.speak(u);
-            }
+            // ISANG beses lang babanggitin (binago 2026-09-23, dating 3x)
+            var u = new SpeechSynthesisUtterance(phrase);
+            var chosenVoice = pickNotifVoice();
+            if (chosenVoice) u.voice = chosenVoice;
+            u.volume = 1;
+            u.rate = 1;
+            speechSynthesis.speak(u);
           } catch (e) { console.warn('[notif-sound] inprog speech failed:', e); }
         }, 1250);
       }
