@@ -408,7 +408,7 @@
         </div>
         <div class="f-group" style="margin-left:auto;">
           <span class="f-label">&nbsp;</span>
-          <button id="soundToggleBtn" title="Notification sound kapag may bagong ticket" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">🔔 Sound: On</button>
+          <button id="soundTestBtn" title="I-test ang notification sound (laging naka-ON ang sound — browser/system mute lang ang paraan para patayin)" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">🔔 Test Sound</button>
         </div>
         <div class="f-group">
           <span class="f-label">&nbsp;</span>
@@ -544,7 +544,10 @@
     } catch (e) { return true; }
   }
   let audioCtx = null;
-  function soundEnabled() { return localStorage.getItem('csr_sound_notif') !== 'false'; } // default ON
+  // LAGING ON ang notification sound (desisyon 2026-09-23): walang in-app
+  // na off switch — kung gusto ng agent na patahimikin, browser tab mute o
+  // system volume ang paraan. (Dating toggle sa csr_sound_notif — tinanggal.)
+  function soundEnabled() { return true; }
   function ensureAudioCtx() {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -674,16 +677,9 @@
     }
   }
 
-  function renderSoundToggle() {
-    const btn = document.getElementById('soundToggleBtn');
-    if (btn) btn.textContent = soundEnabled() ? '\uD83D\uDD14 Sound: On' : '\uD83D\uDD15 Sound: Off';
-  }
-  document.getElementById('soundToggleBtn').addEventListener('click', () => {
-    localStorage.setItem('csr_sound_notif', soundEnabled() ? 'false' : 'true');
-    renderSoundToggle();
-    if (soundEnabled()) playNotifSound(true); // preview — laging tumutunog dito kahit hindi leader
+  document.getElementById('soundTestBtn').addEventListener('click', () => {
+    playNotifSound(true); // preview — laging tumutunog dito kahit hindi leader
   });
-  renderSoundToggle();
 
   function checkForNewTicketNotifications() {
     const pending = allTickets.filter(t => t.statusCls === 'pending');
