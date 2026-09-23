@@ -83,16 +83,26 @@
   }
   document.addEventListener('click', ensureAudioCtx, { once: true });
 
+  // Napiling boses mula sa Settings (localStorage 'csr_notif_voice');
+  // fallback sa unang English voice ng computer na ito.
+  function pickNotifVoice() {
+    var voices = speechSynthesis.getVoices();
+    var wanted = localStorage.getItem('csr_notif_voice');
+    if (wanted) {
+      for (var i = 0; i < voices.length; i++) if (voices[i].name === wanted) return voices[i];
+    }
+    for (var j = 0; j < voices.length; j++) if (/^en/i.test(voices[j].lang)) return voices[j];
+    return null;
+  }
+
   function speak(text, delayMs) {
     if (!('speechSynthesis' in window)) return;
     setTimeout(function () {
       try {
         speechSynthesis.cancel();
         var u = new SpeechSynthesisUtterance(text);
-        var voices = speechSynthesis.getVoices();
-        for (var i = 0; i < voices.length; i++) {
-          if (/^en/i.test(voices[i].lang)) { u.voice = voices[i]; break; }
-        }
+        var chosenVoice = pickNotifVoice();
+        if (chosenVoice) u.voice = chosenVoice;
         u.volume = 1;
         u.rate = 1;
         speechSynthesis.speak(u);
@@ -188,10 +198,8 @@
             speechSynthesis.cancel();
             for (var i = 0; i < 3; i++) { // 3 beses sunod-sunod
               var u = new SpeechSynthesisUtterance(phrase);
-              var voices = speechSynthesis.getVoices();
-              for (var j = 0; j < voices.length; j++) {
-                if (/^en/i.test(voices[j].lang)) { u.voice = voices[j]; break; }
-              }
+              var chosenVoice = pickNotifVoice();
+              if (chosenVoice) u.voice = chosenVoice;
               u.volume = 1;
               u.rate = 1;
               speechSynthesis.speak(u);
