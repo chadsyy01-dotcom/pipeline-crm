@@ -673,6 +673,83 @@
     }
   }
 
+  // ---- IN-PROGRESS STUCK ALERT (2026-09-23) ----
+  // Kapag 10+ minuto nang In Progress ang ticket (may umako na pero hindi
+  // pa natatapos), alarma + "Ticket pending! <pangalan ng nag-acknowledge>"
+  // na SINASABI NG 3 BESES SUNOD-SUNOD — para malinaw kung kanino
+  // nakabinbin. Umuulit din kada 5 minuto habang may stuck pa rin.
+  const INPROG_ALERT_MINUTES = 10;
+  const INPROG_REALERT_MINUTES = 5;
+  let inprogAlertedIds = new Set();
+  let lastInprogReminderAt = 0;
+  function playInProgressAlertSound(names) {
+    if (!soundEnabled()) return;
+    if (!notifIsLeader()) return;
+    try {
+      ensureAudioCtx();
+      if (audioCtx) {
+        const now = audioCtx.currentTime;
+        const comp = audioCtx.createDynamicsCompressor();
+        comp.threshold.setValueAtTime(-12, now);
+        comp.ratio.setValueAtTime(12, now);
+        comp.connect(audioCtx.destination);
+        [0, 0.4, 0.8].forEach(delay => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(1600, now + delay);
+          osc.frequency.exponentialRampToValueAtTime(500, now + delay + 0.3); // pababa — kabaligtaran ng pending alarm
+          gain.gain.setValueAtTime(0.0001, now + delay);
+          gain.gain.exponentialRampToValueAtTime(0.9, now + delay + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.32);
+          osc.connect(gain).connect(comp);
+          osc.start(now + delay);
+          osc.stop(now + delay + 0.36);
+        });
+      }
+      if ('speechSynthesis' in window) {
+        const phrase = 'Ticket pending! ' + (names && names.length ? names.join(', ') : '');
+        setTimeout(() => {
+          try {
+            speechSynthesis.cancel();
+            for (let i = 0; i < 3; i++) { // 3 beses sunod-sunod (per team decision)
+              const u = new SpeechSynthesisUtterance(phrase);
+              const enVoice = speechSynthesis.getVoices().find(v => /^en/i.test(v.lang));
+              if (enVoice) u.voice = enVoice;
+              u.volume = 1;
+              u.rate = 1;
+              speechSynthesis.speak(u); // naka-queue — magsusunuran sila
+            }
+          } catch (e) { console.warn('In-progress alert speech failed:', e); }
+        }, 1250);
+      }
+    } catch (e) { console.warn('In-progress alert sound failed:', e); }
+  }
+  function checkInProgressTicketAlerts() {
+    if (!initialLoadComplete) return;
+    const cutoff = Date.now() - INPROG_ALERT_MINUTES * 60000;
+    // Basehan ng oras: kailan ito naging In Progress (acknowledgedAt);
+    // fallback sa submitted kapag walang timestamp.
+    const overdue = allTickets.filter(t => {
+      if (t.statusCls !== 'checking') return false;
+      const basis = t.acknowledgedAt || t.submitted;
+      return basis && basis.getTime() <= cutoff;
+    });
+    if (!overdue.length) return;
+    const fresh = overdue.filter(t => !inprogAlertedIds.has(t.id));
+    const remindDue = Date.now() - lastInprogReminderAt >= INPROG_REALERT_MINUTES * 60000;
+    if (fresh.length || remindDue) {
+      fresh.forEach(t => inprogAlertedIds.add(t.id));
+      lastInprogReminderAt = Date.now();
+      const names = [...new Set(overdue.map(t => t.acknowledgedBy).filter(Boolean))];
+      playInProgressAlertSound(names);
+      if (localStorage.getItem('csr_desktop_notif') === 'true' &&
+          typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('TICKET PENDING!', { body: `${overdue.length} In Progress ${INPROG_ALERT_MINUTES}+ mins — ${names.join(', ') || 'walang pangalan'}` });
+      }
+    }
+  }
+
 
 
   function checkForNewTicketNotifications() {
@@ -761,6 +838,7 @@
     syncFilterOptionLists();
     checkForNewTicketNotifications();
     checkPendingTicketAlerts();
+    checkInProgressTicketAlerts();
     renderFilterCounts();
     renderBrandTabCounts();
     renderIssueFilterCounts();
