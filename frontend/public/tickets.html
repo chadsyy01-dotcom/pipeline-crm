@@ -972,13 +972,18 @@
   // count be if I picked this tab" for each facet (status/brand/issue).
   function ticketMatchesFilters(t, skip = {}) {
     if (!skip.skipStatus) {
-      if (currentFilter === 'backlog') {
+      // SEARCH OVERRIDE (2026-09-23): kapag may search query at nasa
+      // DEFAULT na "All open statuses" pa ang dropdown, huwag itago ang
+      // Done/Rejected — ang hinahanap ay dapat mahanap anuman ang status.
+      // Kapag SADYANG pumili ng specific na status, nirerespeto pa rin.
+      const effFilter = (currentSearch && currentFilter === 'open') ? 'all' : currentFilter;
+      if (effFilter === 'backlog') {
         const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
         const isToday = TicketData.isSameLocalDay(t.submitted, new Date());
         if (!(isOpen && !isToday)) return false;
-      } else if (currentFilter === 'open') {
+      } else if (effFilter === 'open') {
         if (!(t.statusCls === 'pending' || t.statusCls === 'checking')) return false;
-      } else if (currentFilter !== 'all' && t.statusCls !== currentFilter) {
+      } else if (effFilter !== 'all' && t.statusCls !== effFilter) {
         return false;
       }
     }
