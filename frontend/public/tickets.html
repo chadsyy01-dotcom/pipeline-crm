@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=7"></script>
+<script src="ticket-data.js?v=8"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -408,6 +408,10 @@
         </div>
         <div class="f-group" style="margin-left:auto;">
           <span class="f-label">&nbsp;</span>
+          <button id="soundToggleBtn" title="Notification sound kapag may bagong ticket" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">🔔 Sound: On</button>
+        </div>
+        <div class="f-group">
+          <span class="f-label">&nbsp;</span>
           <button id="hardRefreshBtn" onclick="hardRefreshTickets()" title="Hard refresh — kunin agad ang pinakabagong data mula sa sheets" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
             <svg id="hardRefreshIcon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
             Refresh
@@ -511,37 +515,204 @@
 
   let notifiedTicketIds = new Set();
 
-  function checkForNewTicketNotifications() {
-    if (localStorage.getItem('csr_desktop_notif') !== 'true') return;
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    const pending = allTickets.filter(t => t.statusCls === 'pending');
-    pending.forEach(t => {
-      if (!notifiedTicketIds.has(t.id)) {
-        notifiedTicketIds.add(t.id);
-        new Notification('New ticket', { body: `${t.id} — ${t.name}: ${t.issue}` });
+  // ---- NOTIFICATION SOUND (2026-09-23) ----
+  // Web Audio chime (dalawang tono) kapag may BAGONG ticket — walang audio
+  // file na kailangan. May toggle button (persisted sa localStorage). Ang
+  // browser ay nagba-block ng tunog bago ang unang user interaction, kaya
+  // ang AudioContext ay ina-unlock sa unang click kahit saan sa page.
+  let audioCtx = null;
+  function soundEnabled() { return localStorage.getItem('csr_sound_notif') !== 'false'; } // default ON
+  function ensureAudioCtx() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { /* walang Web Audio support — tahimik lang */ }
+  }
+  document.addEventListener('click', ensureAudioCtx, { once: true });
+  // Ang sinasabing words kapag may bagong ticket — palitan dito kung may
+  // ibang gustong mensahe (per team decision 2026-09-23: English para
+  // pareho ang tunog sa lahat ng computers).
+  const NOTIF_SPEECH_TEXT = 'New ticket received!';
+  function playNotifSound() {
+    if (!soundEnabled()) return;
+    try {
+      // 1) Triple ding — FULL BLAST: dalawang layer kada ding (pangunahing
+      //    tono + isang octave pababa para makapal), peak ~0.95, dumadaan sa
+      //    compressor para malakas nang hindi basag. (Naka-max na ito sa
+      //    kayang ilakas ng browser — ang system/speaker volume na ang
+      //    magpapalakas pa lampas dito.)
+      ensureAudioCtx();
+      if (audioCtx) {
+        const now = audioCtx.currentTime;
+        const comp = audioCtx.createDynamicsCompressor();
+        comp.threshold.setValueAtTime(-12, now);
+        comp.ratio.setValueAtTime(12, now);
+        comp.connect(audioCtx.destination);
+        [[1318.5, 0, 0.26], [1318.5, 0.24, 0.26], [1567.98, 0.48, 0.45]].forEach(trip => {
+          const freq = trip[0], delay = trip[1], len = trip[2];
+          [[freq, 'triangle', 0.95], [freq / 2, 'square', 0.35]].forEach(layer => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = layer[1];
+            osc.frequency.value = layer[0];
+            gain.gain.setValueAtTime(0.0001, now + delay);
+            gain.gain.exponentialRampToValueAtTime(layer[2], now + delay + 0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + len);
+            osc.connect(gain).connect(comp);
+            osc.start(now + delay);
+            osc.stop(now + delay + len + 0.05);
+          });
+        });
       }
-    });
+      // 2) Pagkatapos ng ding: sabihin ang words (browser TTS, full volume)
+      if ('speechSynthesis' in window) {
+        setTimeout(() => {
+          try {
+            speechSynthesis.cancel(); // huwag magpatong-patong sa sunod-sunod na tickets
+            const u = new SpeechSynthesisUtterance(NOTIF_SPEECH_TEXT);
+            const enVoice = speechSynthesis.getVoices().find(v => /^en/i.test(v.lang));
+            if (enVoice) u.voice = enVoice;
+            u.volume = 1;
+            u.rate = 1;
+            speechSynthesis.speak(u);
+          } catch (e) { console.warn('Speech failed:', e); }
+        }, 800);
+      }
+    } catch (e) { console.warn('Notif sound failed:', e); }
+  }
+  // ---- PENDING TICKET ALERT (2026-09-23) ----
+  // Kapag may ticket na 10+ minuto nang NEW (walang umaako), tutunog ang
+  // mas urgent na alarma + "Alert! Pending tickets!". Isang beses kada
+  // ticket sa pag-abot ng 10min, TAPOS paulit-ulit na paalala kada 5min
+  // habang may overdue pa rin — hindi ito titigil hangga't walang kumikilos.
+  const PENDING_ALERT_MINUTES = 10;   // kailan unang aalerto
+  const PENDING_REALERT_MINUTES = 5;  // gaano kadalas mag-remind habang may overdue
+  const PENDING_SPEECH_TEXT = 'Alert! Pending tickets!';
+  let pendingAlertedIds = new Set();
+  let lastPendingReminderAt = 0;
+  function playPendingAlertSound() {
+    if (!soundEnabled()) return;
+    try {
+      ensureAudioCtx();
+      if (audioCtx) {
+        const now = audioCtx.currentTime;
+        const comp = audioCtx.createDynamicsCompressor();
+        comp.threshold.setValueAtTime(-12, now);
+        comp.ratio.setValueAtTime(12, now);
+        comp.connect(audioCtx.destination);
+        // Tatlong pataas na alarm sweep — ibang klase ng tunog kaysa sa
+        // new-ticket ding para agad na alam na ESCALATION ito.
+        [0, 0.4, 0.8].forEach(delay => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(500, now + delay);
+          osc.frequency.exponentialRampToValueAtTime(1600, now + delay + 0.3);
+          gain.gain.setValueAtTime(0.0001, now + delay);
+          gain.gain.exponentialRampToValueAtTime(0.9, now + delay + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.32);
+          osc.connect(gain).connect(comp);
+          osc.start(now + delay);
+          osc.stop(now + delay + 0.36);
+        });
+      }
+      if ('speechSynthesis' in window) {
+        setTimeout(() => {
+          try {
+            speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(PENDING_SPEECH_TEXT);
+            const enVoice = speechSynthesis.getVoices().find(v => /^en/i.test(v.lang));
+            if (enVoice) u.voice = enVoice;
+            u.volume = 1;
+            u.rate = 1;
+            speechSynthesis.speak(u);
+          } catch (e) { console.warn('Pending alert speech failed:', e); }
+        }, 1250);
+      }
+    } catch (e) { console.warn('Pending alert sound failed:', e); }
+  }
+  function checkPendingTicketAlerts() {
+    if (!initialLoadComplete) return;
+    const cutoff = Date.now() - PENDING_ALERT_MINUTES * 60000;
+    const overdue = allTickets.filter(t => t.statusCls === 'pending' && t.submitted && t.submitted.getTime() <= cutoff);
+    if (!overdue.length) return;
+    const fresh = overdue.filter(t => !pendingAlertedIds.has(t.id));
+    const remindDue = Date.now() - lastPendingReminderAt >= PENDING_REALERT_MINUTES * 60000;
+    if (fresh.length || remindDue) {
+      fresh.forEach(t => pendingAlertedIds.add(t.id));
+      lastPendingReminderAt = Date.now();
+      playPendingAlertSound();
+      if (localStorage.getItem('csr_desktop_notif') === 'true' &&
+          typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('ALERT: Pending tickets!', { body: `${overdue.length} ticket${overdue.length === 1 ? '' : 's'} ${PENDING_ALERT_MINUTES}+ mins na walang umaako` });
+      }
+    }
   }
 
-  TicketData.fetchTickets()
-    .then(tickets => {
-      allTickets = tickets;
-      // Mark everything already pending at load time as "seen" so opening
-      // the page doesn't flood-notify for the existing backlog.
-      allTickets.filter(t => t.statusCls === 'pending').forEach(t => notifiedTicketIds.add(t.id));
-      renderBrandTabs();
-      renderIssueFilter();
-      if (pendingIssueParam) {
-        const select = document.getElementById('issueFilter');
-        const matchExists = Array.from(select.options).some(opt => opt.value === pendingIssueParam);
-        if (matchExists) {
-          select.value = pendingIssueParam;
-          currentIssue = pendingIssueParam;
-        }
+  function renderSoundToggle() {
+    const btn = document.getElementById('soundToggleBtn');
+    if (btn) btn.textContent = soundEnabled() ? '\uD83D\uDD14 Sound: On' : '\uD83D\uDD15 Sound: Off';
+  }
+  document.getElementById('soundToggleBtn').addEventListener('click', () => {
+    localStorage.setItem('csr_sound_notif', soundEnabled() ? 'false' : 'true');
+    renderSoundToggle();
+    if (soundEnabled()) playNotifSound(); // preview para marinig agad
+  });
+  renderSoundToggle();
+
+  function checkForNewTicketNotifications() {
+    const pending = allTickets.filter(t => t.statusCls === 'pending');
+    // Habang progressive pa ang initial load, ang mga "bagong dating" na
+    // pending ay pre-existing lang mula sa mga kasunod na sheets — i-seed
+    // nang tahimik, huwag i-notify.
+    if (!initialLoadComplete) { pending.forEach(t => notifiedTicketIds.add(t.id)); return; }
+    const fresh = pending.filter(t => !notifiedTicketIds.has(t.id));
+    if (!fresh.length) return;
+    fresh.forEach(t => notifiedTicketIds.add(t.id));
+    // Tunog: sariling toggle (\uD83D\uDD14 button), hindi nakadepende sa desktop notifs.
+    playNotifSound();
+    // Desktop notification: dating behavior, naka-gate pa rin sa Settings.
+    if (localStorage.getItem('csr_desktop_notif') === 'true' &&
+        typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      fresh.forEach(t => new Notification('New ticket', { body: `${t.id} — ${t.name}: ${t.issue}` }));
+    }
+  }
+
+  // PROGRESSIVE FIRST PAINT (2026-09-23): hindi na hinihintay ang lahat ng
+  // sheets — pagdating ng unang may lamang sheet, render agad; ang mga
+  // susunod ay idinadagdag habang dumarating (kita sa "Loading n/N sheets").
+  let firstPaintDone = false;
+  let initialLoadComplete = false;
+  function initialRender(tickets) {
+    allTickets = tickets;
+    // Mark everything already pending at load time as "seen" so opening
+    // the page doesn't flood-notify for the existing backlog.
+    allTickets.filter(t => t.statusCls === 'pending').forEach(t => notifiedTicketIds.add(t.id));
+    renderBrandTabs();
+    renderIssueFilter();
+    if (pendingIssueParam) {
+      const select = document.getElementById('issueFilter');
+      const matchExists = Array.from(select.options).some(opt => opt.value === pendingIssueParam);
+      if (matchExists) {
+        select.value = pendingIssueParam;
+        currentIssue = pendingIssueParam;
       }
-      applyFilters();
+    }
+    applyFilters();
+    renderNotifBadge();
+  }
+  TicketData.fetchTickets(false, (partial, done, total) => {
+    const ind = document.getElementById('liveIndicator');
+    if (ind && done < total) { ind.textContent = `\u25CF Loading ${done}/${total} sheets\u2026`; ind.style.color = 'var(--warning)'; }
+    if (!partial.length) return;
+    if (!firstPaintDone) { firstPaintDone = true; initialRender(partial); }
+    else { handleAutoRefresh(partial); }
+  })
+    .then(tickets => {
+      initialLoadComplete = true;
+      if (!firstPaintDone) { firstPaintDone = true; initialRender(tickets); }
+      else { handleAutoRefresh(tickets); }
       markLiveUpdated();
-      renderNotifBadge();
       TicketData.startAutoRefresh(handleAutoRefresh, Number(localStorage.getItem('csr_refresh_interval')) || 10000); // 10s refresh (2026-09-23)
     })
     .catch(err => {
@@ -572,7 +743,9 @@
   // resetting the page/filters the agent currently has open.
   function handleAutoRefresh(tickets) {
     allTickets = tickets;
+    syncFilterOptionLists();
     checkForNewTicketNotifications();
+    checkPendingTicketAlerts();
     renderFilterCounts();
     renderBrandTabCounts();
     renderIssueFilterCounts();
@@ -899,10 +1072,36 @@
         const label = TicketData.BRAND_MAP[code] || code;
         return `<option value="${escapeHtml(code)}">${escapeHtml(label)} (${counts[code].toLocaleString()})</option>`;
       }).join('');
-    select.addEventListener('change', () => {
+    select.onchange = () => {
       currentBrand = select.value;
       applyFilters();
-    });
+    };
+  }
+
+  // Kapag may BAGONG brand/issue na dumating (progressive load o bagong data
+  // sa auto-refresh), i-rebuild ang dropdown lists nang hindi nawawala ang
+  // kasalukuyang selection at hindi nagdodoble ang listeners.
+  function syncFilterOptionLists() {
+    const brandSelect = document.getElementById('brandFilter');
+    if (brandSelect && brandSelect.options.length) {
+      const codesNow = new Set(allTickets.map(t => t.brandCode));
+      const inSelect = new Set(Array.from(brandSelect.options).map(o => o.value).filter(v => v !== 'all'));
+      const changed = codesNow.size !== inSelect.size || [...codesNow].some(c => !inSelect.has(c));
+      if (changed) {
+        renderBrandTabs();
+        brandSelect.value = (currentBrand === 'all' || codesNow.has(currentBrand)) ? currentBrand : 'all';
+      }
+    }
+    const issueSelect = document.getElementById('issueFilter');
+    if (issueSelect && issueSelect.options.length) {
+      const issuesNow = new Set(allTickets.map(t => t.issue));
+      const inSel = new Set(Array.from(issueSelect.options).map(o => o.value).filter(v => v !== 'all'));
+      const changed = issuesNow.size !== inSel.size || [...issuesNow].some(x => !inSel.has(x));
+      if (changed) {
+        renderIssueFilter();
+        issueSelect.value = (currentIssue === 'all' || issuesNow.has(currentIssue)) ? currentIssue : 'all';
+      }
+    }
   }
 
   // Updates just the counts in the brand dropdown labels (based on the other
@@ -982,10 +1181,10 @@
     const select = document.getElementById('issueFilter');
     select.innerHTML = `<option value="all">All categories (${allTickets.length.toLocaleString()})</option>` +
       issues.map(issue => `<option value="${escapeHtml(issue)}">${escapeHtml(issue)} (${counts[issue].toLocaleString()})</option>`).join('');
-    select.addEventListener('change', () => {
+    select.onchange = () => {
       currentIssue = select.value;
       applyFilters();
-    });
+    };
   }
 
   // Updates just the counts shown in each <option> label (based on the other
