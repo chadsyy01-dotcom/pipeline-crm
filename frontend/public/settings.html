@@ -11,7 +11,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=3"></script>
+<script src="ticket-data.js?v=8"></script>
+<!-- Shared notif engine (2026-09-23): alerts tumutunog kahit nasa Settings -->
+<script src="notif-sound.js?v=1"></script>
 <style>
   :root{
     --primary:#2563EB; --primary-tint:#EFF4FF;
@@ -74,6 +76,8 @@
   .save-note{font-size:12px;color:var(--success);font-weight:600;display:none;margin-top:4px;}
   .save-note.show{display:block;}
 
+  .admin-badge{font-size:10px;font-weight:800;color:var(--primary);background:var(--primary-tint);padding:2px 8px;border-radius:20px;vertical-align:middle;margin-left:6px;}
+
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
 </style>
 </head>
@@ -81,12 +85,22 @@
 <script>
   const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
   const LOGIN_PATH = "/login";
+  // ADMIN GATE (2026-09-23): ang Notification Voice panel ay para LANG sa
+  // account na ito — sa iba, hindi man lang lalabas ang section.
+  const VOICE_ADMIN_EMAIL = "richard.bacong@fhbpo.com";
   (async function checkAuth() {
     const token = localStorage.getItem("pipeline_token");
     if (!token) { window.location.href = LOGIN_PATH; return; }
     try {
       const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Invalid session");
+      const data = await res.json();
+      const user = data.user || data;
+      if (user && String(user.email || '').trim().toLowerCase() === VOICE_ADMIN_EMAIL) {
+        // DOM handa na kapag umabot dito ang async fetch; pero guard pa rin.
+        if (window.initVoicePanel) window.initVoicePanel();
+        else window.__showVoicePanelWhenReady = true;
+      }
     } catch (err) {
       localStorage.removeItem("pipeline_token");
       window.location.href = LOGIN_PATH;
@@ -151,6 +165,26 @@
       </div>
     </div>
 
+    <!-- NOTIFICATION VOICE (2026-09-23) — ADMIN ONLY (richard.bacong@fhbpo.com).
+         Nakatago sa lahat ng ibang accounts; pinapakita lang ng checkAuth
+         kapag tumugma ang email. Ang pinili ay naka-save sa localStorage
+         'csr_notif_voice' at agad ginagamit ng lahat ng spoken alerts. -->
+    <div class="panel" id="voicePanel" style="display:none;">
+      <h3>Notification Voice <span class="admin-badge">ADMIN</span></h3>
+      <p class="panel-sub">Boses ng spoken alerts ("New ticket received!", "Alert! Pending tickets!", "Ticket pending!"). Ang listahan ng voices ay galing sa computer na ito — ang pipiliin dito ay masusunod sa browser/computer na ito.</p>
+      <div class="setting-row">
+        <div style="flex:1;">
+          <div class="setting-label">Voice</div>
+          <div class="setting-desc" id="voiceDesc">Loading voices…</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+          <select class="setting-select" id="voiceSelect" style="max-width:300px;"></select>
+          <button type="button" id="voiceTestBtn" class="setting-select" style="cursor:pointer;">▶ Test</button>
+        </div>
+      </div>
+      <div class="save-note" id="voiceSaveNote">✓ Saved — gagamitin agad ng lahat ng alerts sa browser na ito</div>
+    </div>
+
     <div class="panel">
       <h3>Display</h3>
       <p class="panel-sub">How data refreshes and how many rows show per page.</p>
@@ -199,7 +233,8 @@
 
 <script>
 // ---- Load saved preferences into the UI ----
-document.getElementById('refreshIntervalSelect').value = localStorage.getItem('csr_refresh_interval') || '20000';
+// (default 10000 mula 2026-09-23 — tugma sa bagong 10s default ng Tickets)
+document.getElementById('refreshIntervalSelect').value = localStorage.getItem('csr_refresh_interval') || '10000';
 document.getElementById('pageSizeSelect').value = localStorage.getItem('csr_page_size') || '10';
 document.getElementById('desktopNotifToggle').checked = localStorage.getItem('csr_desktop_notif') === 'true';
 
@@ -235,6 +270,57 @@ function onDesktopNotifChange() {
     localStorage.setItem('csr_desktop_notif', checked ? 'true' : 'false');
   }
 }
+
+// ---- NOTIFICATION VOICE panel (admin only — pinapakita ng checkAuth) ----
+function initVoicePanel() {
+  const panel = document.getElementById('voicePanel');
+  if (!panel || panel.dataset.ready) return;
+  panel.dataset.ready = '1';
+  panel.style.display = '';
+  const select = document.getElementById('voiceSelect');
+  const desc = document.getElementById('voiceDesc');
+
+  function populate() {
+    const voices = speechSynthesis.getVoices();
+    if (!voices.length) { desc.textContent = 'Naglo-load pa ang voices\u2026 (i-click ang Test kung matagal)'; return; }
+    const saved = localStorage.getItem('csr_notif_voice') || '';
+    // English muna (yun ang wika ng alerts), tapos alphabetical
+    const sorted = voices.slice().sort((a, b) => {
+      const sc = v => /^en/i.test(v.lang) ? 0 : 1;
+      return sc(a) - sc(b) || a.name.localeCompare(b.name);
+    });
+    select.innerHTML = '<option value="">Default \u2014 unang English voice ng computer</option>' +
+      sorted.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name} (${v.lang})</option>`).join('');
+    if (saved && sorted.some(v => v.name === saved)) select.value = saved;
+    desc.textContent = `${voices.length} voices ang available sa computer na ito` + (saved ? ` \u00b7 kasalukuyan: ${saved}` : '');
+  }
+  populate();
+  if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = populate;
+
+  select.addEventListener('change', () => {
+    if (select.value) localStorage.setItem('csr_notif_voice', select.value);
+    else localStorage.removeItem('csr_notif_voice');
+    document.getElementById('voiceSaveNote').classList.add('show');
+    const saved = localStorage.getItem('csr_notif_voice');
+    desc.textContent = `${speechSynthesis.getVoices().length} voices ang available sa computer na ito` + (saved ? ` \u00b7 kasalukuyan: ${saved}` : '');
+  });
+
+  document.getElementById('voiceTestBtn').addEventListener('click', () => {
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance('New ticket received!');
+      const voices = speechSynthesis.getVoices();
+      const chosen = voices.find(v => v.name === select.value) || voices.find(v => /^en/i.test(v.lang));
+      if (chosen) u.voice = chosen;
+      u.volume = 1;
+      u.rate = 1;
+      speechSynthesis.speak(u);
+    } catch (e) { alert('Speech test failed: ' + e.message); }
+  });
+}
+window.initVoicePanel = initVoicePanel;
+// Kung natapos ang auth check bago pa na-define ito, ipakita na ngayon.
+if (window.__showVoicePanelWhenReady) initVoicePanel();
 
 // ---- Connected Data Sources: derive from live ticket data (brand + count) ----
 TicketData.fetchTickets()
