@@ -35,19 +35,38 @@ const { requireAuth } = require('../middleware/auth');
 // KEEP IN SYNC with AI_BOT_SENDER_NAMES in backend/routes/chatwoot.js.
 // Bots are INCLUDED in the scan; the set only tags each row as BOT o AGENT.
 const AI_BOT_SENDER_NAMES = new Set([
-  'Admin Joy',
+  'Agent Joy', 'Admin Joy',
   'Admin Love',
-  'Agent Jem',
-  'Manila Play Admin',
-  'Mona',
-  'Hype Play PH Admin',
-  'Bogchi',
-  'Lucky Stacks Admin',
-  'Admin May',
-  'TMTPlay Admin',
   'Buenas88 Admin',
-  'Maya',
+  'Agent Jem', 'Admin Jem',
+  'Admin May', 'Agent May',
+  'Admin Lucy', 'Agent Lucy',
+  'Lucky Stacks Admin',
+  'Agent Hanna',
+  'Hype Play PH Admin',
+  'Admin Maya', 'Agent Maya', 'Maya',
+  'Manila Play Admin',
+  'Admin Cassie', 'Agent Cassie',
+  'Admin Mona', 'Agent Mona', 'Mona',
+  'Admin Bella', 'Agent Bella',
+  'Admin Tala', 'Agent Tala',
+  'TMTPlay Admin',
+  'Admin Mim', 'Agent Mim',
+  'Bogchi',
 ]);
+
+// Brand-scoped bot personas — KEEP IN SYNC with chatwoot.js. 'Admin Hanna'
+// ay BOT sa Hype PH pero TUNAY NA TAO sa TMTCash (2026-09-24).
+const BRAND_BOT_SENDER_NAMES = {
+  hypleplayph: new Set(['Admin Hanna']),
+  hypeplayph: new Set(['Admin Hanna']),
+};
+function isBotSender(brand, senderName) {
+  if (!senderName) return false;
+  if (AI_BOT_SENDER_NAMES.has(senderName)) return true;
+  const scoped = BRAND_BOT_SENDER_NAMES[String(brand || '').toLowerCase()];
+  return !!(scoped && scoped.has(senderName));
+}
 
 function stripHtml(html) {
   if (!html) return html;
@@ -143,6 +162,32 @@ function topicNumberSets(kbText) {
 }
 
 // Replies worth checking at all (may factual/financial content o link).
+// MIN/MAX-SCOPED matching (2026-09-22 pt.5, mula sa test-tool finding:
+// pumasa ang maling "minimum deposit ay 50" dahil may stray na "50" sa
+// loob ng malawak na deposit window). Kapag ang claim ay MIN o MAX ng
+// deposit/withdraw, ang tamang numero ay nasa mismong "Min deposit: PHP
+// 500" style na parirala ng KB — doon LANG kumukuha ng allowed numbers
+// (\u00b1100 chars kada tumbok na parirala). Mas makitid, mas tumpak.
+const MINMAX_WORD_RE = /\b(min(?:imum)?|max(?:imum)?|pinaka(?:baba|liit|taas|laki)|hanggang)\b/i;
+function minMaxNumberSets(kbText) {
+  const out = {};
+  const numRe = /\b\d[\d,]*(?:\.\d+)?\b/g;
+  const topicSrcs = { deposit: '(?:deposit|cash\\s*in)', withdraw: '(?:withdraw(?:al)?|cash\\s*out|payout)' };
+  for (const key of Object.keys(topicSrcs)) {
+    const set = new Set();
+    const re = new RegExp('(?:min(?:imum)?|max(?:imum)?)[^\\n]{0,60}?' + topicSrcs[key] + '|' + topicSrcs[key] + '[^\\n]{0,60}?(?:min(?:imum)?|max(?:imum)?)', 'gi');
+    let m;
+    while ((m = re.exec(kbText)) !== null) {
+      const win = kbText.slice(Math.max(0, m.index - 100), Math.min(kbText.length, m.index + m[0].length + 100));
+      numRe.lastIndex = 0;
+      let nm;
+      while ((nm = numRe.exec(win)) !== null) set.add(nm[0].replace(/,/g, ''));
+    }
+    out[key] = set;
+  }
+  return out;
+}
+
 const FACT_HINT_RE = /(\d|%|₱|php|http|www\.|\.com|\.ph|deposit|withdraw|turnover|rollover|bonus|promo|minimum|maximum|fee|limit|requirement|ডিপোজিট|উইথড্র|বোনাস)/i;
 
 // HARD RESTRICT (2026-09-22, per QA review): ticket-status replies are
@@ -182,7 +227,7 @@ async function loadKbCtx(brand) {
   URL_RE.lastIndex = 0;
   let hm;
   while ((hm = URL_RE.exec(kbText)) !== null) kbHosts.add(hostOf(hm[0]));
-  return { kbRows, kbText, kbLower, kbNums: kbNumberSet(kbText), kbTopicNums: topicNumberSets(kbText), kbHosts };
+  return { kbRows, kbText, kbLower, kbNums: kbNumberSet(kbText), kbTopicNums: topicNumberSets(kbText), kbMinMaxNums: minMaxNumberSets(kbText), kbHosts };
 }
 
 // Section attribution — best-effort jump-off para sa reviewer.
@@ -196,8 +241,17 @@ function guessSection(ctx, msgLower) {
 
 // Para sa test tool: SAAN sa KB tumama ang numero — ipinapakita ang mismong
 // KB snippet na nag-validate, para makita agad kung tama nga o KB ang mali.
+function locateCore(text, core) {
+  // Tokenizer-aligned: ang "50" ay HINDI tumatama sa loob ng "50,000" —
+  // buong numeric token ang kinukumpara, kagaya ng sets.
+  const re = /\b\d[\d,]*(?:\.\d+)?\b/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m[0].replace(/,/g, '') === core) return m.index;
+  }
+  return -1;
+}
 function findKbSnippet(ctx, core, topicKeys) {
-  const coreRe = new RegExp('\\b' + core.replace(/\./g, '\\.') + '\\b');
   const clean = x => x.replace(/\s+/g, ' ').trim();
   if (topicKeys && topicKeys.length) {
     for (const key of topicKeys) {
@@ -207,15 +261,15 @@ function findKbSnippet(ctx, core, topicKeys) {
       let m;
       while ((m = re.exec(ctx.kbText)) !== null) {
         const win = ctx.kbText.slice(Math.max(0, m.index - 250), Math.min(ctx.kbText.length, m.index + 250));
-        const hit = coreRe.exec(win);
-        if (hit) return { topic: key, snippet: clean(win.slice(Math.max(0, hit.index - 80), hit.index + 90)) };
+        const at = locateCore(win, core);
+        if (at >= 0) return { topic: key, snippet: clean(win.slice(Math.max(0, at - 80), at + 90)) };
       }
     }
     return null;
   }
-  const hit = coreRe.exec(ctx.kbText);
-  if (!hit) return null;
-  return { topic: null, snippet: clean(ctx.kbText.slice(Math.max(0, hit.index - 80), hit.index + 90)) };
+  const at = locateCore(ctx.kbText, core);
+  if (at < 0) return null;
+  return { topic: null, snippet: clean(ctx.kbText.slice(Math.max(0, at - 80), at + 90)) };
 }
 
 // Ang iisang hatulan para sa isang reply. trace=true → detalyadong "bakit".
@@ -254,6 +308,19 @@ function analyzeReply(content, ctx, trace) {
       allowed = new Set();
       for (const tp of replyTopics) for (const n of ctx.kbTopicNums[tp.key]) allowed.add(n);
       topicLabel = ` (${topicKeys.join('/')})`;
+    }
+    // MIN/MAX refinement: "minimum/maximum deposit/withdrawal ay X" →
+    // ang X ay dapat mula sa mismong Min/Max phrases ng KB.
+    if (MINMAX_WORD_RE.test(content)) {
+      const mmKeys = topicKeys.filter(k => k === 'deposit' || k === 'withdraw');
+      if (mmKeys.length) {
+        const mmSet = new Set();
+        for (const k of mmKeys) for (const n of (ctx.kbMinMaxNums && ctx.kbMinMaxNums[k]) || []) mmSet.add(n);
+        if (mmSet.size) {
+          allowed = mmSet;
+          topicLabel = ` (min/max ${mmKeys.join('/')})`;
+        }
+      }
     }
     const seenCores = new Set();
     for (const tok of extractAmountTokens(content)) {
@@ -335,7 +402,7 @@ router.post('/kb-accuracy', requireAuth, async (req, res) => {
       .map(r => ({
         conversationId: r.conversationId,
         sender: r.senderName,
-        isBot: AI_BOT_SENDER_NAMES.has(r.senderName),
+        isBot: isBotSender(brand, r.senderName),
         content: stripHtml(r.content),
         createdAt: r.createdAt,
       }))
@@ -403,7 +470,7 @@ router.post('/kb-accuracy', requireAuth, async (req, res) => {
     }
 
     console.log(`KB accuracy (match) [${brand}]: ${msgs.length} replies checked (of ${totalReplies} total, ${skippedTickets} ticket replies disregarded, ${relayDropped} player-relayed amounts dropped) — ${flagged.length} flagged.`);
-    res.json({ brand, scanned: msgs.length - skippedTickets, considered: totalReplies, totalReplies, skippedTickets, flagged, kbSections: ctx.kbRows.length, kbTruncated: false, matcher: 'exact-match-v7' });
+    res.json({ brand, scanned: msgs.length - skippedTickets, considered: totalReplies, totalReplies, skippedTickets, flagged, kbSections: ctx.kbRows.length, kbTruncated: false, matcher: 'exact-match-v8' });
   } catch (err) {
     console.error('KB accuracy scan error:', err);
     res.status(500).json({ error: err.message });
