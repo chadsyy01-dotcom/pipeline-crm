@@ -1051,7 +1051,8 @@
           }).join('')}
         </div>
         <div class="rej-photos-note">I-click ang photo para buksan nang buo sa Drive. Kung walang preview na lumalabas, i-set na "Anyone with the link \u2192 Viewer" ang sharing ng form uploads folder sa Drive.</div>
-      </div>` : ''}
+      </div>` : `
+      <div class="rej-photos-note" style="margin-top:10px;">\uD83D\uDCF7 v11: walang na-detect na photo/Drive links sa row ng ticket na ito sa sheet.</div>`}
       <div class="rej-meta">${metaBits.join('<br>')}</div>
       <div class="rej-foot">
         ${t.sheetLink ? `<a class="rej-btn" href="${escapeHtml(t.sheetLink)}" target="_blank" rel="noopener">Open sa Sheet</a>` : ''}
