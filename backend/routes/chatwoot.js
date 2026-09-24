@@ -64,6 +64,14 @@ function extractCustomerIp(payload, conversation) {
     payload.sender?.additional_attributes?.ip,
     payload.contact?.additional_attributes?.ip,
     conversation?.meta?.sender?.additional_attributes?.created_at_ip,
+    // custom_attributes landas (2026-09-24): para sa mga instance na hindi
+    // nagtatala ng IP (TMTCash sample: lahat ng additional_attributes ay
+    // blangko) — ang widget page mismo ang magpapadala via
+    // $chatwoot.setCustomAttributes({ ip }) at dito ito lalapag.
+    conversation?.custom_attributes?.ip,
+    conversation?.meta?.sender?.custom_attributes?.ip,
+    payload.sender?.custom_attributes?.ip,
+    payload.contact?.custom_attributes?.ip,
   ];
   for (const ip of candidates) {
     if (typeof ip === 'string' && /^[0-9a-fA-F:.]{7,45}$/.test(ip.trim())) return ip.trim();
