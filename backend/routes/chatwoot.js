@@ -128,34 +128,34 @@ const AI_BOT_SENDER_NAMES = new Set([
   // walang epekto. Ang mga generic na "<Brand> Admin" logins ay personas din.
   // ==========================================================================
   // Buenas PH
-  'Agent Joy', 'Admin Joy',
+  'Agent Joy', 'Admin Joy', 'Joy',
   'Admin Love',            // lumang Buenas persona
   'Buenas88 Admin',        // admin@buenas88.vip
   // TMTCash
-  'Agent Jem', 'Admin Jem',
+  'Agent Jem', 'Admin Jem', 'Jem',
   // MGK
-  'Admin May', 'Agent May',   // bot@88mgk.com
+  'Admin May', 'Agent May', 'May',   // bot@88mgk.com
   // LuckyStacks PH
-  'Admin Lucy', 'Agent Lucy',
+  'Admin Lucy', 'Agent Lucy', 'Lucy',
   'Lucky Stacks Admin',    // admin@luckystacks.ph
   // HypePlay PH — tingnan ang HANNA warning sa comment sa itaas:
   // sadyang WALANG 'Admin Hanna' dito (tao yun sa TMTCash)
-  'Agent Hanna',
+  'Agent Hanna', 'Hanna',
   'Hype Play PH Admin',    // admin@hypeplay.asia
   // Manila Play PH
   'Admin Maya', 'Agent Maya', 'Maya',   // maya@manilaplay.ph
   'Manila Play Admin',
   // Casinyeam (CASI)
-  'Admin Cassie', 'Agent Cassie',
+  'Admin Cassie', 'Agent Cassie', 'Cassie',
   // Mobile Casino Play (MOBA/MCP)
   'Admin Mona', 'Agent Mona', 'Mona',
   // Buenas Credit
-  'Admin Bella', 'Agent Bella',
+  'Admin Bella', 'Agent Bella', 'Bella',
   // TMTPLAY
-  'Admin Tala', 'Agent Tala',
+  'Admin Tala', 'Agent Tala', 'Tala',
   'TMTPlay Admin',         // admin@tmtplay88.online
   // HypePlay BDT
-  'Admin Mim', 'Agent Mim',
+  'Admin Mim', 'Agent Mim', 'Mim',
   'Bogchi',                // admin@hypeplaybdt.com (lumang persona)
 ]);
 
