@@ -390,6 +390,14 @@ router.post('/webhook/:brand', async (req, res) => {
 
     const payload = req.body || {};
 
+    // TEMP DEBUG (2026-09-24): alisin pagkatapos makita kung saan nakalagay
+    // ang visitor IP sa TMTCash payloads — zero ang customerIp capture ng
+    // brand na ito kahit website-widget ang inbox. Grep Railway logs for
+    // "TMTCASH RAW SAMPLE".
+    if (req.params.brand === 'tmtcash' && payload.event === 'conversation_created') {
+      console.log('TMTCASH RAW SAMPLE:', JSON.stringify(payload).slice(0, 4000));
+    }
+
     // Storage control: acknowledge but don't persist events the dashboard
     // never reads (see STORED_EVENTS / shouldStoreEvent above).
     if (!shouldStoreEvent(payload)) {
@@ -582,10 +590,21 @@ router.get('/conversations', requireAuth, async (req, res) => {
       ORDER BY "conversationId", "createdAt" DESC
     `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
+    // IP kada conversation (2026-09-24): pinakabagong non-null customerIp —
+    // para sa IP column ng Customers table.
+    const latestIpPerConversation = await sequelize.query(`
+      SELECT DISTINCT ON ("conversationId")
+        "conversationId", "customerIp"
+      FROM "ChatwootEvents"
+      WHERE "conversationId" IS NOT NULL AND "customerIp" IS NOT NULL ${brandClause} ${idsClause}
+      ORDER BY "conversationId", "createdAt" DESC
+    `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
+
     const contactMap = new Map(latestContactPerConversation.map(r => [r.conversationId, r]));
     const messageMap = new Map(latestMessagePerConversation.map(r => [r.conversationId, r]));
     const handoffMap = new Map(latestHandoffPerConversation.map(r => [r.conversationId, r]));
     const csatMap = new Map(latestCsatPerConversation.map(r => [r.conversationId, r]));
+    const ipMap = new Map(latestIpPerConversation.map(r => [r.conversationId, r.customerIp]));
     const conversations = latestPerConversation
       .map(row => {
         const contact = contactMap.get(row.conversationId);
@@ -608,6 +627,7 @@ router.get('/conversations', requireAuth, async (req, res) => {
           labels: handoff ? handoff.labels : null,
           csatRating: csat ? csat.csatRating : null,
           csatFeedback: csat ? csat.csatFeedback : null,
+          customerIp: ipMap.get(row.conversationId) || null,
           art: null,
           ftr: null,
         };
