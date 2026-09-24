@@ -35,23 +35,23 @@ const { requireAuth } = require('../middleware/auth');
 // KEEP IN SYNC with AI_BOT_SENDER_NAMES in backend/routes/chatwoot.js.
 // Bots are INCLUDED in the scan; the set only tags each row as BOT o AGENT.
 const AI_BOT_SENDER_NAMES = new Set([
-  'Agent Joy', 'Admin Joy',
+  'Agent Joy', 'Admin Joy', 'Joy',
   'Admin Love',
   'Buenas88 Admin',
-  'Agent Jem', 'Admin Jem',
-  'Admin May', 'Agent May',
-  'Admin Lucy', 'Agent Lucy',
+  'Agent Jem', 'Admin Jem', 'Jem',
+  'Admin May', 'Agent May', 'May',
+  'Admin Lucy', 'Agent Lucy', 'Lucy',
   'Lucky Stacks Admin',
-  'Agent Hanna',
+  'Agent Hanna', 'Hanna',
   'Hype Play PH Admin',
   'Admin Maya', 'Agent Maya', 'Maya',
   'Manila Play Admin',
-  'Admin Cassie', 'Agent Cassie',
+  'Admin Cassie', 'Agent Cassie', 'Cassie',
   'Admin Mona', 'Agent Mona', 'Mona',
-  'Admin Bella', 'Agent Bella',
-  'Admin Tala', 'Agent Tala',
+  'Admin Bella', 'Agent Bella', 'Bella',
+  'Admin Tala', 'Agent Tala', 'Tala',
   'TMTPlay Admin',
-  'Admin Mim', 'Agent Mim',
+  'Admin Mim', 'Agent Mim', 'Mim',
   'Bogchi',
 ]);
 
