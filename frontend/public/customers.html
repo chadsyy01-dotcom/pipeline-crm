@@ -1039,7 +1039,9 @@
             <div class="c-customer">
               <div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div>
               <div>
-                <div class="c-cname">${escapeHtml(name)}</div>
+                ${r.contactName
+                  ? `<div class="c-cname cust-link" data-cust-name="${escapeHtml(name)}" data-cust-brand="${escapeHtml(r.brand)}" title="View customer profile">${escapeHtml(name)}</div>`
+                  : `<div class="c-cname">${escapeHtml(name)}</div>`}
                 <div class="c-csub">chat match \u00b7 ${r.matches} message${r.matches === 1 ? '' : 's'}</div>
               </div>
             </div>
