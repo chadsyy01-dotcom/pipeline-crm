@@ -54,15 +54,28 @@ router.get('/search', requireAuth, async (req, res) => {
     // I-escape ang ILIKE wildcards para literal ang paghahanap.
     const pat = '%' + q.replace(/[\\%_]/g, m => '\\' + m) + '%';
 
+    // Optional date range (2026-09-24): galing sa Activity dropdown ng
+    // Customers page (This Month, Yesterday, custom, atbp.) — kung wala,
+    // buong retention ang saklaw. Mahalaga ito sa mga karaniwang search
+    // terms (hal. ticket URL na laman ng halos bawat chat): kung walang
+    // saklaw, ang pinakabagong 400 messages lang ang maabot at hindi
+    // makikita ang mas maagang bahagi ng panahon.
+    const replacements = { pat };
+    let dateCond = '';
+    const since = req.query.since ? new Date(req.query.since) : null;
+    const until = req.query.until ? new Date(req.query.until) : null;
+    if (since && !isNaN(since.getTime())) { dateCond += ' AND "createdAt" >= :since'; replacements.since = since.toISOString(); }
+    if (until && !isNaN(until.getTime())) { dateCond += ' AND "createdAt" <= :until'; replacements.until = until.toISOString(); }
+
     const rows = await sequelize.query(`
       SELECT "conversationId", "brand", "contactName", "content", "senderName", "senderType", "createdAt"
       FROM "ChatwootEvents"
       WHERE event = 'message_created'
         AND "content" ILIKE :pat ESCAPE '\\'
-        AND "conversationId" IS NOT NULL
+        AND "conversationId" IS NOT NULL${dateCond}
       ORDER BY "createdAt" DESC
       LIMIT 400
-    `, { replacements: { pat }, type: QueryTypes.SELECT });
+    `, { replacements, type: QueryTypes.SELECT });
 
     // Group per conversation — ang unang row (pinakabago) ang snippet.
     const byConv = new Map();
