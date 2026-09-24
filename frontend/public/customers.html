@@ -216,6 +216,7 @@
   .msg-row.from-customer{align-self:flex-start;align-items:flex-start;}
   .msg-row.from-agent{align-self:flex-end;align-items:flex-end;}
   .msg-meta{font-size:11px;color:var(--ink-faint);margin-bottom:3px;padding:0 3px;}
+  .msg-bubble a{color:inherit;text-decoration:underline;font-weight:600;word-break:break-all;}
   .msg-bubble{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
   .from-customer .msg-bubble{background:var(--bg);color:var(--ink);border-bottom-left-radius:4px;}
   .from-agent .msg-bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px;}
@@ -1526,7 +1527,7 @@
       return `
         <div class="msg-row ${cls}">
           <div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div>
-          <div class="msg-bubble">${escapeHtml(stripHtmlClient(m.content))}</div>
+          <div class="msg-bubble">${renderMessageContent(m.content)}</div>
         </div>
       `;
     }).join('');
@@ -1545,6 +1546,26 @@
   function stripHtmlClient(html) {
     if (!html) return '';
     return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  // THREAD LINK VISIBILITY (2026-09-24): ang mga mensahe ay madalas may
+  // naka-link na text (hal. "Check ticket status" na ang likod ay ticket
+  // URL) — dating tinatanggal ng plain stripping ang URL kaya hindi
+  // makita kung saan nakaturo. Ngayon: "text (URL)" ang ipinapakita at
+  // clickable pa ang URL (bagong tab).
+  function renderMessageContent(html) {
+    if (!html) return '';
+    let s = String(html).replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (m, url, text) => {
+      const t = text.replace(/<[^>]*>/g, '').trim();
+      if (!t || t === url || url.indexOf(t) === 0) return ' ' + url + ' ';
+      return t + ' (' + url + ')';
+    });
+    s = escapeHtml(stripHtmlClient(s));
+    return s.replace(/https?:\/\/[^\s<]+/g, u => {
+      const clean = u.replace(/[.,)!?]+$/, '');
+      const tail = u.slice(clean.length);
+      return `<a href="${clean}" target="_blank" rel="noopener">${clean}</a>${tail}`;
+    });
   }
 
   document.getElementById('backfillBtn').addEventListener('click', async () => {
