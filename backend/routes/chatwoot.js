@@ -390,12 +390,17 @@ router.post('/webhook/:brand', async (req, res) => {
 
     const payload = req.body || {};
 
-    // TEMP DEBUG (2026-09-24): alisin pagkatapos makita kung saan nakalagay
-    // ang visitor IP sa TMTCash payloads — zero ang customerIp capture ng
-    // brand na ito kahit website-widget ang inbox. Grep Railway logs for
-    // "TMTCASH RAW SAMPLE".
-    if (req.params.brand === 'tmtcash' && payload.event === 'conversation_created') {
-      console.log('TMTCASH RAW SAMPLE:', JSON.stringify(payload).slice(0, 4000));
+    // TEMP DEBUG (2026-09-24, pinalawak): mag-log ng RAW sample para sa
+    // BAWAT brand na hindi makunan ng IP sa conversation_created — para
+    // makita kung saan (kung mayroon man) ito nakatago sa payload shape ng
+    // TMTCash / Manila Play / MCP / TMTPLAY atbp. Ang mga brand na may IP
+    // na (Buenas, MGK) ay hindi maglo-log. Grep Railway logs for
+    // "NO-IP RAW SAMPLE". ALISIN pagkatapos ng imbestigasyon.
+    if (payload.event === 'conversation_created') {
+      const probeConversation = payload.conversation || (payload.status && payload.id ? payload : null);
+      if (!extractCustomerIp(payload, probeConversation)) {
+        console.log(`NO-IP RAW SAMPLE [${req.params.brand}]:`, JSON.stringify(payload).slice(0, 4000));
+      }
     }
 
     // Storage control: acknowledge but don't persist events the dashboard
