@@ -66,6 +66,12 @@ router.get('/search', requireAuth, async (req, res) => {
     const until = req.query.until ? new Date(req.query.until) : null;
     if (since && !isNaN(since.getTime())) { dateCond += ' AND "createdAt" >= :since'; replacements.since = since.toISOString(); }
     if (until && !isNaN(until.getTime())) { dateCond += ' AND "createdAt" <= :until'; replacements.until = until.toISOString(); }
+    // PAGINATION (2026-09-24): ang bawat request ay nagsa-scan ng
+    // pinakabagong 400 matching messages. Kapag puno, ipinapasa ng
+    // frontend ang createdAt ng pinakalumang nabasa bilang ?before= para
+    // ituloy ang scan sa mas luma pa ("Load more" button).
+    const before = req.query.before ? new Date(req.query.before) : null;
+    if (before && !isNaN(before.getTime())) { dateCond += ' AND "createdAt" < :before'; replacements.before = before.toISOString(); }
 
     const rows = await sequelize.query(`
       SELECT "conversationId", "brand", "contactName", "content", "senderName", "senderType", "createdAt"
@@ -97,7 +103,14 @@ router.get('/search', requireAuth, async (req, res) => {
       if (!item.contactName && r.senderType === 'contact' && r.contactName) item.contactName = r.contactName;
     }
 
-    res.json({ q, results: [...byConv.values()].slice(0, limit) });
+    const oldestScanned = rows.length ? rows[rows.length - 1].createdAt : null;
+    res.json({
+      q,
+      results: [...byConv.values()].slice(0, limit),
+      // Para sa "Load more": may natitira pa kapag umabot sa scan cap.
+      hasMore: rows.length === 400,
+      oldestScanned,
+    });
   } catch (err) {
     console.error('Chat search error:', err);
     res.status(500).json({ error: err.message });
