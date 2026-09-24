@@ -93,9 +93,25 @@ function normalizePhone(raw) {
 // brands' bot personas get added (each brand may name theirs differently).
 //
 // Convention: the bot persona is the account the AI posts through — the
-// brand's admin@ / bot@ login. Real human agents (Hanna, Mim, Lucy,
-// Admin Mika, OM - AOM, Tala, Bella, etc.) must NOT be listed here, or
-// their replies stop counting as handoffs.
+// brand's admin@ / bot@ login. Real human agents must NOT be listed here,
+// or their replies stop counting as handoffs.
+//
+// CONFIRMED REAL HUMAN AGENTS (roster mula kay Chad, 2026-09-24) — ang mga
+// pangalang ito ay TUNAY NA TAO at HINDI KAILANMAN dapat mapunta sa bot
+// list sa ibaba. Ang handoff logic ay exclusion-based, kaya bilang na sila
+// agad bilang human; ang listahang ito ay proteksyon/dokumentasyon:
+//   Buenas PH:       Admin Bea, Admin Faith
+//   TMTCash:         Admin Hanna, Admin Heart
+//   MGK:             Admin Mika
+//   LuckyStacks PH:  Admin Kaia
+//   HypePlay PH:     Admin Raya
+//   Manila Play PH:  Admin Nami
+//   Casinyeam:       Admin Ana
+//   Mobile Casino:   Admin Margo
+//   Buenas Credit:   Admin Holly
+//   TMTPLAY:         Admin Gwen
+//   HypePlay BDT:    Admin Lane
+// (Dating nabanggit din bilang human: Mim, Lucy, OM - AOM, Tala, Bella.)
 const AI_BOT_SENDER_NAMES = new Set([
   // existing
   'Admin Joy',
