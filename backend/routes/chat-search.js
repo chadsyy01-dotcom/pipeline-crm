@@ -103,10 +103,54 @@ router.get('/search', requireAuth, async (req, res) => {
       if (!item.contactName && r.senderType === 'contact' && r.contactName) item.contactName = r.contactName;
     }
 
+    // IP MATCH (2026-09-24): ang IP ay nasa customerIp column, hindi sa
+    // message content, kaya may sariling paghahanap. Tumatakbo lang kapag
+    // IP-like ang query (digits/hex/tuldok/colon) at sa UNANG page (walang
+    // before cursor — walang pagination ang IP matches, kumpleto agad sila).
+    // Sakop din ng since/until date range.
+    let ipResults = [];
+    if (!before && /^[0-9a-fA-F:.]{3,45}$/.test(q)) {
+      const ipRows = await sequelize.query(`
+        SELECT DISTINCT ON ("conversationId")
+          "conversationId", "brand", "customerIp", "createdAt"
+        FROM "ChatwootEvents"
+        WHERE "customerIp" ILIKE :pat ESCAPE '\\'
+          AND "conversationId" IS NOT NULL${dateCond}
+        ORDER BY "conversationId", "createdAt" DESC
+        LIMIT 200
+      `, { replacements, type: QueryTypes.SELECT });
+      if (ipRows.length) {
+        const ipIds = ipRows.map(r => r.conversationId);
+        const names = await sequelize.query(`
+          SELECT DISTINCT ON ("conversationId") "conversationId", "contactName"
+          FROM "ChatwootEvents"
+          WHERE "conversationId" IN (:ipIds) AND "contactName" IS NOT NULL
+          ORDER BY "conversationId", "createdAt" DESC
+        `, { replacements: { ipIds }, type: QueryTypes.SELECT });
+        const nmap = new Map(names.map(r => [r.conversationId, r.contactName]));
+        ipResults = ipRows.map(r => ({
+          conversationId: r.conversationId,
+          brand: r.brand,
+          contactName: nmap.get(r.conversationId) || null,
+          snippet: '\uD83D\uDCCD IP match: ' + r.customerIp,
+          matchedSender: null,
+          matchedAt: r.createdAt,
+          matches: 1,
+        }));
+      }
+    }
+
+    // Pagsamahin: IP matches + content matches (deduped), pinakabago muna.
+    const ipKeys = new Set(ipResults.map(r => r.brand + '::' + r.conversationId));
+    const merged = [
+      ...ipResults,
+      ...[...byConv.values()].filter(r => !ipKeys.has(r.brand + '::' + r.conversationId)),
+    ].sort((a, b) => new Date(b.matchedAt) - new Date(a.matchedAt));
+
     const oldestScanned = rows.length ? rows[rows.length - 1].createdAt : null;
     res.json({
       q,
-      results: [...byConv.values()].slice(0, limit),
+      results: merged.slice(0, limit),
       // Para sa "Load more": may natitira pa kapag umabot sa scan cap.
       hasMore: rows.length === 400,
       oldestScanned,
