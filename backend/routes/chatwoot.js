@@ -111,38 +111,74 @@ function normalizePhone(raw) {
 //   Buenas Credit:   Admin Holly
 //   TMTPLAY:         Admin Gwen
 //   HypePlay BDT:    Admin Lane
-// (Dating nabanggit din bilang human: Mim, Lucy, OM - AOM, Tala, Bella.)
+// (Si OM - AOM ay tao rin. Sina Lucy, Tala, Bella, Mim, Maya na dating
+// nabanggit sa mga lumang nota ay IDINEKLARANG AI/BOT PERSONAS sa final
+// roster ni Chad 2026-09-24 — ang roster na ito ang umiiral.)
+// ⚠️ HANNA (kinumpirma ni Chad 2026-09-24): dalawang magkaibang "Admin
+// Hanna" — TAO sa TMTCASH, BOT sa HYPE PH. Dahil global ang Set na ito,
+// HINDI siya nakalista dito; hawak siya ng BRAND_BOT_SENDER_NAMES sa
+// ibaba, na bot lang ang turing sa kanya sa Hype PH. Gamitin ang
+// isBotSender(brand, name) sa LAHAT ng bagong code, hindi ang Set nang
+// diretso, para laging pasok ang brand-scoped na mga kaso.
 const AI_BOT_SENDER_NAMES = new Set([
-  // existing
-  'Admin Joy',
-  'Admin Love',
-  'Agent Jem',
-  'Agent May',
-  'Agent Lucy',
+  // ==========================================================================
+  // FINAL AI/BOT PERSONA ROSTER (mula kay Chad, 2026-09-24) — isa kada brand.
+  // Nakalista ang PAREHONG 'Admin X' at 'Agent X' variants dahil nag-iiba ang
+  // display name kada Chatwoot instance; ang variant na hindi umiiral ay
+  // walang epekto. Ang mga generic na "<Brand> Admin" logins ay personas din.
+  // ==========================================================================
+  // Buenas PH
+  'Agent Joy', 'Admin Joy',
+  'Admin Love',            // lumang Buenas persona
+  'Buenas88 Admin',        // admin@buenas88.vip
+  // TMTCash
+  'Agent Jem', 'Admin Jem',
+  // MGK
+  'Admin May', 'Agent May',   // bot@88mgk.com
+  // LuckyStacks PH
+  'Admin Lucy', 'Agent Lucy',
+  'Lucky Stacks Admin',    // admin@luckystacks.ph
+  // HypePlay PH — tingnan ang HANNA warning sa comment sa itaas:
+  // sadyang WALANG 'Admin Hanna' dito (tao yun sa TMTCash)
   'Agent Hanna',
-  'Agent Maya',
-  'Agent Cassie',
-  'Agent Mona',
-  'Agent Mim',
-  'Agent Bella',
-  // added 2026-09-13 from Chatwoot agent rosters
-  'Hype Play PH Admin',   // admin@hypeplay.asia
-  'Bogchi',               // admin@hypeplaybdt.com
-  'Lucky Stacks Admin',   // admin@luckystacks.ph
-  'Admin May',            // bot@88mgk.com
-  'TMTPlay Admin',        // admin@tmtplay88.online
-  'Buenas88 Admin',       // admin@buenas88.vip
-  // added 2026-09-13 from CSAT reports (assigned agent on nearly every
-  // survey for the brand — same pattern as Admin Joy / Mona).
-  // 'Admin Heart' was REMOVED from this list 2026-09-14: confirmed a REAL
-  // agent on TMTCash — her replies now count as human handoffs/FTR and are
-  // included in the QA conduct scan. Maya remains listed as a suspected
-  // bot persona (manilaplayph) until confirmed either way.
-  'Maya',                 // maya@manilaplay.ph (manilaplayph)
+  'Hype Play PH Admin',    // admin@hypeplay.asia
+  // Manila Play PH
+  'Admin Maya', 'Agent Maya', 'Maya',   // maya@manilaplay.ph
+  'Manila Play Admin',
+  // Casinyeam (CASI)
+  'Admin Cassie', 'Agent Cassie',
+  // Mobile Casino Play (MOBA/MCP)
+  'Admin Mona', 'Agent Mona', 'Mona',
+  // Buenas Credit
+  'Admin Bella', 'Agent Bella',
+  // TMTPLAY
+  'Admin Tala', 'Agent Tala',
+  'TMTPlay Admin',         // admin@tmtplay88.online
+  // HypePlay BDT
+  'Admin Mim', 'Agent Mim',
+  'Bogchi',                // admin@hypeplaybdt.com (lumang persona)
 ]);
 
-function isRealHumanAgentReply(senderName, senderType) {
-  return senderType === 'user' && !!senderName && !AI_BOT_SENDER_NAMES.has(senderName);
+// Brand-scoped bot personas (2026-09-24): iisang display name, magkaibang
+// identity sa magkaibang brand. Keys = brand slug sa LOWERCASE (ang lookup
+// ay nagla-lowercase); parehong spelling variants ng Hype PH slug ang
+// nakalagay para siguradong tumama.
+const BRAND_BOT_SENDER_NAMES = {
+  hypleplayph: new Set(['Admin Hanna']),
+  hypeplayph: new Set(['Admin Hanna']),
+};
+
+// ANG opisyal na tanong na "bot ba ito?" — brand-aware. Gamitin ito sa lahat
+// ng bagong code sa halip na AI_BOT_SENDER_NAMES.has() nang diretso.
+function isBotSender(brand, senderName) {
+  if (!senderName) return false;
+  if (AI_BOT_SENDER_NAMES.has(senderName)) return true;
+  const scoped = BRAND_BOT_SENDER_NAMES[String(brand || '').toLowerCase()];
+  return !!(scoped && scoped.has(senderName));
+}
+
+function isRealHumanAgentReply(senderName, senderType, brand) {
+  return senderType === 'user' && !!senderName && !isBotSender(brand, senderName);
 }
 
 // ---------------------------------------------------------------------------
@@ -330,7 +366,7 @@ function resolveSenderType(payload, conversation) {
 // brand, once inboxes map 1:1 to brands) an event came from — NOT the
 // "Webhook Name" set in the Chatwoot UI, which is just a label for your own
 // webhook list and is never included in the payload itself.
-function extractFields(payload) {
+function extractFields(payload, brand) {
   const conversation = payload.conversation || (payload.status && payload.id ? payload : null);
   // Contact/customer identity shows up in different places depending on
   // event type — conversation-level events (conversation_created,
@@ -373,7 +409,7 @@ function extractFields(payload) {
   // 'pending' and the chat gets stuck in Waiting-for-Agent.
   const convStatus = conversation?.status ?? payload.status ?? null;
   let handoffStage;
-  if (isRealHumanAgentReply(payload.sender?.name, payload.sender?.type)) {
+  if (isRealHumanAgentReply(payload.sender?.name, payload.sender?.type, brand)) {
     handoffStage = convStatus === 'resolved' ? 'closed' : 'opened';
   } else {
     const labelStage = normalizeHandoffStage(labels);
@@ -441,7 +477,7 @@ router.post('/webhook/:brand', async (req, res) => {
 
     // Extract from the FULL payload (so nothing is lost to slimming), then
     // persist only the slimmed copy.
-    const fields = extractFields(payload);
+    const fields = extractFields(payload, req.params.brand);
 
     await ChatwootEvent.create({
       brand: req.params.brand,
@@ -484,7 +520,7 @@ router.post('/webhook/:brand', async (req, res) => {
 // that handoff point to the conversation's last message — not an average
 // of individual reply gaps — so it reflects how long the customer was
 // actually being chatted with by an agent.
-function computeArtFtr(messages) {
+function computeArtFtr(messages, brand) {
   let lastCustomerMsgTime = null;
   let firstAgentGap = null;
   let firstAgentMsgTime = null;
@@ -492,7 +528,7 @@ function computeArtFtr(messages) {
   for (const m of messages) {
     if (m.senderType === 'contact') {
       lastCustomerMsgTime = new Date(m.createdAt).getTime();
-    } else if (m.senderType === 'user' && AI_BOT_SENDER_NAMES.has(m.senderName)) {
+    } else if (m.senderType === 'user' && isBotSender(brand, m.senderName)) {
       continue; // bot reply — not a human response, ignore entirely
     } else if (m.senderType === 'user' && lastCustomerMsgTime !== null) {
       const msgTime = new Date(m.createdAt).getTime();
@@ -691,7 +727,7 @@ router.get('/conversations', requireAuth, async (req, res) => {
         if (!c.handoffStage) return;
         const msgs = byConversation[c.conversationId];
         if (!msgs) return;
-        const { art, ftr } = computeArtFtr(msgs);
+        const { art, ftr } = computeArtFtr(msgs, c.brand);
         c.art = art;
         c.ftr = ftr;
       });
@@ -974,7 +1010,7 @@ router.get('/bot-health', requireAuth, async (req, res) => {
         if (!s.runStart || s.recovered) s.runStart = r.createdAt;   // a new run begins
         s.lastFallbackAt = r.createdAt;
         s.recovered = false;
-      } else if (AI_BOT_SENDER_NAMES.has(r.senderName)) {
+      } else if (isBotSender(r.brand, r.senderName)) {
         s.normalBotReplies++;
         if (s.lastFallbackAt) s.recovered = true;   // bot answered properly after a fallback
       }
@@ -1145,7 +1181,9 @@ router.get('/agent-messages', requireAuth, async (req, res) => {
       LIMIT :limit
     `, { replacements: { brands, botNames, from, to, limit }, type: QueryTypes.SELECT });
 
-    res.json({ messages: rows.map(r => ({
+    // Brand-scoped personas (hal. 'Admin Hanna' sa Hype PH) — hindi sila
+    // kayang i-exclude ng global NOT IN sa SQL, kaya dito sinasala.
+    res.json({ messages: rows.filter(r => !isBotSender(r.brand, r.senderName)).map(r => ({
       conversationId: r.conversationId,
       brand: r.brand,
       agent: r.senderName,
@@ -1476,7 +1514,7 @@ router.post('/backfill', requireAuth, async (req, res) => {
     //      findAll()-ing the entire table into memory — the old version
     //      could time out / OOM, which is what "Failed — try again" was.
     const candidates = await sequelize.query(`
-      SELECT "id", "payload"
+      SELECT "id", "brand", "payload"
       FROM "ChatwootEvents"
       WHERE "payload" IS NOT NULL
         AND "payload" <> '{}'::jsonb
@@ -1491,7 +1529,7 @@ router.post('/backfill', requireAuth, async (req, res) => {
         skipped++;
         continue;
       }
-      const f = extractFields(payload);
+      const f = extractFields(payload, row.brand);
       await sequelize.query(`
         UPDATE "ChatwootEvents" SET
           "conversationId" = :conversationId, "messageId" = :messageId, "status" = :status,
@@ -1567,12 +1605,14 @@ router.get('/inactive-depositors', requireAuth, async (req, res) => {
       ORDER BY "conversationId", "createdAt" ASC
     `, { replacements: { brand, botNames, patterns, from, to }, type: QueryTypes.SELECT });
 
-    if (!hits.length) {
+    // Brand-scoped personas — salain bago ituloy (global lang ang SQL NOT IN).
+    const humanHits = hits.filter(h => !isBotSender(brand, h.senderName));
+    if (!humanHits.length) {
       return req.query.format === 'csv'
         ? sendInactiveDepositorsCsv(res, brand, [])
         : res.json({ brand, total: 0, conversations: [] });
     }
-    const ids = hits.map(h => h.conversationId);
+    const ids = humanHits.map(h => h.conversationId);
 
     // 2) Customer name + lahat ng mensahe ng customer. Laging naka-scope sa
     //    brand — umuulit ang conversation ids sa iba't ibang Chatwoot instance.
@@ -1608,7 +1648,7 @@ router.get('/inactive-depositors', requireAuth, async (req, res) => {
         msgMap.get(m.conversationId).push({ at: m.createdAt, text: stripHtml(m.content) });
       });
 
-    const conversations = hits
+    const conversations = humanHits
       .map(h => ({
         conversationId: h.conversationId,
         customer: nameMap.get(h.conversationId) || null,
