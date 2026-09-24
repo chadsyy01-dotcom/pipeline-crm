@@ -461,9 +461,23 @@
               : kind === 'division' ? mapDivisionRow(row, sheetMeta)
               : mapTicketRow(row, brandOverride, sheetMeta);
             if (!ticket) return;
-            // De-dupe by brand+id (scoped per brand so two brands sharing an
-            // ID prefix/format can never collide or overwrite each other).
-            seen.set(`${ticket.brandCode}::${ticket.id}`, ticket);
+            // De-dupe by ticket ID, GLOBAL na (2026-09-24, dating brand+id):
+            // ang shared-prefix pairs (HPP/HPP_BD, TMT/TMT_PLAY) ay may
+            // PAREHONG pisikal na ticket sa dalawang sheets — kapag
+            // in-update ang isa (hal. Rejected na) pero luma pa ang copy sa
+            // kabila (In Progress pa), dating dalawang magkahiwalay na entry
+            // sila at ang stale copy ay hindi nawawala sa open view. Ngayon:
+            // iisa na sila, at ang MAS ADVANCED na status ang mananalo
+            // (Done/Rejected > In Progress > New). Ligtas ito globally dahil
+            // unique per brand ang ID prefixes.
+            const STATUS_RANK = { pending: 0, checking: 1, done: 2, rejected: 2 };
+            const prev = seen.get(ticket.id);
+            if (prev) {
+              const prevRank = STATUS_RANK[prev.statusCls] !== undefined ? STATUS_RANK[prev.statusCls] : -1;
+              const newRank = STATUS_RANK[ticket.statusCls] !== undefined ? STATUS_RANK[ticket.statusCls] : -1;
+              if (newRank < prevRank) return; // panatilihin ang mas advanced na copy
+            }
+            seen.set(ticket.id, ticket);
           });
         })
         .catch(err => {
