@@ -1121,7 +1121,7 @@
       // Bot = lahat ng hindi pasok doon (AI persona pa rin ang humahawak).
       filtered = filtered.filter(c => {
         const humanHandled = LIVECHAT_BRANDS.has(c.brand) || !!c.handoffStage ||
-          (c.lastMessageSenderType === 'user' && c.lastMessageSender && !AI_BOT_NAMES_CLIENT.has(c.lastMessageSender));
+          (c.lastMessageSenderType === 'user' && c.lastMessageSender && !isBotClient(c.brand, c.lastMessageSender));
         return currentCater === 'human' ? humanHandled : !humanHandled;
       });
     }
@@ -1565,7 +1565,7 @@
         cls = 'from-customer';
         who = m.contactName || 'Customer';
       } else if (m.senderType === 'user') {
-        const isBot = AI_BOT_NAMES_CLIENT.has(m.senderName);
+        const isBot = isBotClient(m.brand, m.senderName);
         cls = 'from-agent' + (isBot ? ' is-bot' : '');
         who = m.senderName || 'Agent';
       } else {
@@ -1597,10 +1597,38 @@
   // since this is just for the bubble color, not the actual handoff logic.
   // (LiveChat.com brands have no bot persona — all agents there are human.)
   const AI_BOT_NAMES_CLIENT = new Set([
-    'Admin Joy', 'Admin Love', 'Agent Jem', 'Manila Play Admin', 'Mona',
-    'Hype Play PH Admin', 'Bogchi', 'Lucky Stacks Admin', 'Admin May',
-    'TMTPlay Admin', 'Buenas88 Admin', 'Maya',
+    'Agent Joy', 'Admin Joy',
+    'Admin Love',
+    'Buenas88 Admin',
+    'Agent Jem', 'Admin Jem',
+    'Admin May', 'Agent May',
+    'Admin Lucy', 'Agent Lucy',
+    'Lucky Stacks Admin',
+    'Agent Hanna',
+    'Hype Play PH Admin',
+    'Admin Maya', 'Agent Maya', 'Maya',
+    'Manila Play Admin',
+    'Admin Cassie', 'Agent Cassie',
+    'Admin Mona', 'Agent Mona', 'Mona',
+    'Admin Bella', 'Agent Bella',
+    'Admin Tala', 'Agent Tala',
+    'TMTPlay Admin',
+    'Admin Mim', 'Agent Mim',
+    'Bogchi',
   ]);
+
+  // Brand-scoped bot personas — sync sa chatwoot.js. 'Admin Hanna' ay BOT
+  // sa Hype PH pero TUNAY NA TAO sa TMTCash (2026-09-24).
+  const BRAND_BOT_CLIENT = {
+    hypleplayph: new Set(['Admin Hanna']),
+    hypeplayph: new Set(['Admin Hanna']),
+  };
+  function isBotClient(brand, senderName) {
+    if (!senderName) return false;
+    if (AI_BOT_NAMES_CLIENT.has(senderName)) return true;
+    const scoped = BRAND_BOT_CLIENT[String(brand || '').toLowerCase()];
+    return !!(scoped && scoped.has(senderName));
+  }
 
   function stripHtmlClient(html) {
     if (!html) return '';
