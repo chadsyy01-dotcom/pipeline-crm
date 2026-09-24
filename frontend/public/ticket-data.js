@@ -254,6 +254,28 @@
     });
   }
 
+  // Kinokolekta ang LAHAT ng photo/Drive links mula sa KAHIT ANONG column
+  // ng row (ID photo, selfie holding ID, resibo...) — generic, para kahit
+  // magkaiba-iba ang column names kada sheet/category ay mahuhuli pa rin.
+  // Ginagamit ng ticket popup sa tickets.html. (2026-09-24)
+  const URL_IN_CELL_RE = /https?:\/\/[^\s,;|]+/g;
+  function collectPhotoLinks(row) {
+    const photos = [];
+    for (const col in row) {
+      const val = row[col];
+      if (col === '__rowNumber' || typeof val !== 'string' || val.indexOf('http') === -1) continue;
+      const urls = val.match(URL_IN_CELL_RE) || [];
+      for (const url of urls) {
+        const isDrive = /drive\.google\.com|googleusercontent\.com/i.test(url);
+        const isImage = /\.(jpe?g|png|gif|webp|heic)([?#].*)?$/i.test(url);
+        if (!isDrive && !isImage) continue;
+        photos.push({ label: col, url });
+        if (photos.length >= 8) return photos;
+      }
+    }
+    return photos;
+  }
+
   // Maps a normal ticket-sheet row (Ticket ID / Username / Category / ...) to our common shape.
   function mapTicketRow(row, brandOverride, sheetMeta) {
     if (!row['Ticket ID']) return null;
@@ -291,6 +313,7 @@
       ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
       resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
       rejectReason: rejectReasonFrom(row),
+      photos: collectPhotoLinks(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -332,6 +355,7 @@
       ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
       resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
       rejectReason: rejectReasonFrom(row),
+      photos: collectPhotoLinks(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -373,6 +397,7 @@
       ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
       resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
       rejectReason: rejectReasonFrom(row),
+      photos: collectPhotoLinks(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -418,6 +443,7 @@
       ackDurationSec: parseHmsToSeconds(row['Acknowledge Duration']),
       resolveDurationSec: parseHmsToSeconds(row['Task Duration']),
       rejectReason: rejectReasonFrom(row),
+      photos: collectPhotoLinks(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -475,7 +501,16 @@
             if (prev) {
               const prevRank = STATUS_RANK[prev.statusCls] !== undefined ? STATUS_RANK[prev.statusCls] : -1;
               const newRank = STATUS_RANK[ticket.statusCls] !== undefined ? STATUS_RANK[ticket.statusCls] : -1;
-              if (newRank < prevRank) return; // panatilihin ang mas advanced na copy
+              // PHOTO CARRY-OVER (2026-09-24, v12): sa shared pairs
+              // (HPP/HPP_BD, TMT/TMT_PLAY), madalas IISANG sheet lang ang may
+              // ID Front/Selfie Link columns. Kahit sino ang manalo sa rank,
+              // huwag itapon ang photos ng natalo — kunin ng panalo kapag
+              // wala siyang sarili.
+              if (newRank < prevRank) {
+                if ((!prev.photos || !prev.photos.length) && ticket.photos && ticket.photos.length) prev.photos = ticket.photos;
+                return; // panatilihin ang mas advanced na copy
+              }
+              if ((!ticket.photos || !ticket.photos.length) && prev.photos && prev.photos.length) ticket.photos = prev.photos;
             }
             seen.set(ticket.id, ticket);
           });
