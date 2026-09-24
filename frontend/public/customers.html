@@ -159,6 +159,7 @@
   /* Clickable customer name (added 2026-09-18) — opens the customer profile
      rather than the conversation thread, so the two actions stay separable
      on the same row. */
+  .c-ip{font-size:11.5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink-soft);word-break:break-all;max-width:130px;}
   .c-cname.cust-link{cursor:pointer;}
   .c-cname.cust-link:hover{color:var(--primary);text-decoration:underline;}
   .c-csub{font-size:11.5px;color:var(--ink-faint);}
@@ -527,6 +528,7 @@
             <tr>
               <th>Customer</th>
               <th>Brand</th>
+              <th>IP</th>
               <th>Last Message</th>
               <th>Status</th>
               <th>Handoff</th>
@@ -536,7 +538,7 @@
             </tr>
           </thead>
           <tbody id="convBody">
-            <tr><td colspan="8"><div class="empty-note">Loading…</div></td></tr>
+            <tr><td colspan="9"><div class="empty-note">Loading…</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -987,7 +989,7 @@
     searchCursor = null;
     searchHasMore = false;
     const tbody = document.getElementById('convBody');
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Hinahanap sa laman ng lahat ng chats: \u201C${escapeHtml(q)}\u201D\u2026</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-note">Hinahanap sa laman ng lahat ng chats: \u201C${escapeHtml(q)}\u201D\u2026</div></td></tr>`;
     fetchSearchPage(q, null);
   }
 
@@ -1018,7 +1020,7 @@
       searchHasMore = !!data.hasMore && !!searchCursor;
       renderSearchResults(lastSearchResults, q);
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Search failed \u2014 ${escapeHtml(err.message)}<br><span style="font-size:11.5px;">Kailangan naka-deploy ang backend/routes/chat-search.js at naka-wire sa server.js (app.use('/api/chat', ...)).</span></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-note">Search failed \u2014 ${escapeHtml(err.message)}<br><span style="font-size:11.5px;">Kailangan naka-deploy ang backend/routes/chat-search.js at naka-wire sa server.js (app.use('/api/chat', ...)).</span></div></td></tr>`;
     }
   }
 
@@ -1026,7 +1028,7 @@
     const tbody = document.getElementById('convBody');
     if (!results.length) {
       const scopeLabel = document.getElementById('dateFilter').selectedOptions[0]?.textContent || 'saklaw na napili';
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Walang chat na naglalaman ng \u201C${escapeHtml(q)}\u201D sa saklaw na \u201C${escapeHtml(scopeLabel)}\u201D \u2014 lahat ng brands at statuses ang hinanapan. Palitan ang ACTIVITY dropdown para lumawak/kumitid ang saklaw.</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-note">Walang chat na naglalaman ng \u201C${escapeHtml(q)}\u201D sa saklaw na \u201C${escapeHtml(scopeLabel)}\u201D \u2014 lahat ng brands at statuses ang hinanapan. Palitan ang ACTIVITY dropdown para lumawak/kumitid ang saklaw.</div></td></tr>`;
       return;
     }
     tbody.innerHTML = results.map(r => {
@@ -1043,6 +1045,7 @@
             </div>
           </td>
           <td><span class="c-brand">${escapeHtml(brandLabel(r.brand))}</span></td>
+          <td><div class="c-ip">\u2014</div></td>
           <td><div class="c-preview">${r.matchedSender ? `<span class="sender">${escapeHtml(r.matchedSender)}:</span> ` : ''}${highlightMatches(escapeHtml(r.snippet), q)}</div></td>
           <td><span class="status unknown">\u2014</span></td>
           <td><span class="handoff-pill none">\u2014</span></td>
@@ -1053,7 +1056,7 @@
     }).join('');
     if (searchHasMore) {
       tbody.insertAdjacentHTML('beforeend', `
-        <tr id="searchLoadMoreRow"><td colspan="8" style="text-align:center;padding:14px;">
+        <tr id="searchLoadMoreRow"><td colspan="9" style="text-align:center;padding:14px;">
           <button id="searchLoadMoreBtn" style="font-size:13px;font-weight:700;padding:9px 18px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--primary);cursor:pointer;font-family:inherit;">\u2B07 May mas luma pa \u2014 i-load ang susunod</button>
         </td></tr>`);
       document.getElementById('searchLoadMoreBtn').addEventListener('click', (e) => {
@@ -1142,7 +1145,7 @@
   function renderConversations(conversations) {
     const tbody = document.getElementById('convBody');
     if (conversations.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">No conversations found.</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-note">No conversations found.</div></td></tr>`;
       return;
     }
     tbody.innerHTML = conversations.map(c => {
@@ -1176,6 +1179,7 @@
             </div>
           </td>
           <td><span class="c-brand">${escapeHtml(brandLabel(c.brand))}</span></td>
+          <td><div class="c-ip">${c.customerIp ? escapeHtml(c.customerIp) : '\u2014'}</div></td>
           <td><div class="c-preview ${c.lastMessage || hasFeedback ? '' : 'empty'}" style="display:flex;align-items:center;">${csatBadge}${sevPill}${c.lastMessage || hasFeedback ? preview : 'No messages yet'}</div></td>
           <td><span class="status ${si.cls}">${escapeHtml(si.label)}</span></td>
           <td>${handoffPillHtml(c.handoffStage)}</td>
