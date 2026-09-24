@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=5"></script>
+<script src="ticket-data.js?v=12"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -145,14 +145,6 @@
   .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);}
   #chatDateCancel,#ticketDateCancel{background:var(--card);color:var(--ink-soft);}
   #chatDateApply,#ticketDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
-
-  /* EXPORT BUTTON (added 2026-09-24) — inactive depositors CSV download.
-     Sized to sit beside the date filter select in the section header. */
-  .export-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--primary);cursor:pointer;border:1px solid var(--line);background:var(--card);font-family:inherit;}
-  .export-btn:hover{background:var(--primary-tint);}
-  .export-btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
-  .export-btn:disabled{opacity:.6;cursor:progress;}
-  .export-btn svg{width:14px;height:14px;flex-shrink:0;}
 
   /* SECTION HEADERS */
   .section-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px;gap:12px;flex-wrap:wrap;}
@@ -480,13 +472,6 @@
     <div class="section-title">
       <h2>Live Chat — <span id="chatRangeLabel">Today</span> <span class="sub" id="chatLiveIndicator">● Live</span></h2>
       <div class="right">
-        <!-- Inactive depositors export (added 2026-09-24). Uses the Live Chat
-             date filter beside it, so pick the range first, then download. -->
-        <button type="button" class="export-btn" id="inactiveDepositorsBtn"
-          title="Download TMTCash chats where an agent told the customer they are an inactive depositor, for the selected date range">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-          <span>Download inactive depositors (TMTCash)</span>
-        </button>
         <div class="date-filter-wrap" id="chatDateWrap">
           <select id="chatDateFilter">
             <option value="today" selected>Today</option>
@@ -758,10 +743,38 @@ function chatBrandLabel(slug) {
 // Clicking a Waiting-for-Agent row now opens that exact conversation here,
 // instead of sending the user to /customers to hunt for it by hand.
 // ---------------------------------------------------------------------------
+// KEEP IN SYNC sa customers.html / chatwoot.js (final roster 2026-09-24).
 const AI_BOT_NAMES_CLIENT = new Set([
-  'Admin Joy','Admin Love','Agent Jem','Manila Play Admin','Mona','Hype Play PH Admin','Bogchi',
-  'Lucky Stacks Admin','Admin May','TMTPlay Admin','Buenas88 Admin','Maya',
+  'Agent Joy', 'Admin Joy', 'Joy',
+  'Admin Love',
+  'Buenas88 Admin',
+  'Agent Jem', 'Admin Jem', 'Jem',
+  'Admin May', 'Agent May', 'May',
+  'Admin Lucy', 'Agent Lucy', 'Lucy',
+  'Lucky Stacks Admin',
+  'Agent Hanna', 'Hanna',
+  'Hype Play PH Admin',
+  'Admin Maya', 'Agent Maya', 'Maya',
+  'Manila Play Admin',
+  'Admin Cassie', 'Agent Cassie', 'Cassie',
+  'Admin Mona', 'Agent Mona', 'Mona',
+  'Admin Bella', 'Agent Bella', 'Bella',
+  'Admin Tala', 'Agent Tala', 'Tala',
+  'TMTPlay Admin',
+  'Admin Mim', 'Agent Mim', 'Mim',
+  'Bogchi',
 ]);
+// 'Admin Hanna' ay BOT sa Hype PH pero TUNAY NA TAO sa TMTCash — brand-scoped.
+const BRAND_BOT_CLIENT = {
+  hypleplayph: new Set(['Admin Hanna']),
+  hypeplayph: new Set(['Admin Hanna']),
+};
+function isBotClient(brand, senderName) {
+  if (!senderName) return false;
+  if (AI_BOT_NAMES_CLIENT.has(senderName)) return true;
+  const scoped = BRAND_BOT_CLIENT[String(brand || '').toLowerCase()];
+  return !!(scoped && scoped.has(senderName));
+}
 function stripHtmlClient(html) {
   if (!html) return '';
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
@@ -801,7 +814,7 @@ async function openConversationModal(conversationId, customerName, customerSub) 
       let cls, who;
       if (m.senderType === 'contact') { cls = 'from-customer'; who = m.contactName || 'Customer'; }
       else if (m.senderType === 'user') {
-        const isBot = AI_BOT_NAMES_CLIENT.has(m.senderName);
+        const isBot = isBotClient(m.brand, m.senderName);
         cls = 'from-agent' + (isBot ? ' is-bot' : '');
         who = m.senderName || 'Agent';
       } else { cls = 'from-system'; who = 'Automated Message'; }
@@ -955,57 +968,9 @@ async function apiGet(path) {
   return res.json();
 }
 
-// ---------------------------------------------------------------------------
-// INACTIVE DEPOSITORS EXPORT (added 2026-09-24)
-// One-click CSV download of TMTCash chats where a REAL agent told the
-// customer they are an inactive depositor, with every customer message in
-// the conversation. Backed by GET /api/chatwoot/inactive-depositors (see
-// backend/routes/chatwoot.js). Follows the Live Chat date filter, so the
-// file always covers what the section header says. Chat data only goes back
-// 70 days (backend retention), same as the date picker's limit.
-// ---------------------------------------------------------------------------
-async function downloadInactiveDepositors() {
-  const btn = document.getElementById('inactiveDepositorsBtn');
-  const label = btn.querySelector('span');
-  const original = label.textContent;
-  btn.disabled = true;
-  label.textContent = 'Preparing file…';
-  try {
-    const r = chatRange();
-    const token = localStorage.getItem('pipeline_token');
-    const qs = `brand=tmtcash&format=csv&from=${encodeURIComponent(r.from.toISOString())}&to=${encodeURIComponent(r.to.toISOString())}`;
-    const res = await fetch(`${API_BASE}/chatwoot/inactive-depositors?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (res.status === 404) throw new Error('The export is not on the server yet. Deploy the updated chatwoot.js to Railway, then try again.');
-    if (res.status === 401 || res.status === 403) throw new Error('Your session has expired. Log in again, then try again.');
-    if (!res.ok) throw new Error(`The server returned an error (HTTP ${res.status}).`);
-
-    const text = await res.text();
-    // Rows are separated by \r\n; line breaks inside a cell are plain \n.
-    // No \r\n at all means the file has only the header row.
-    if (!text.includes('\r\n')) {
-      alert(`No inactive-depositor chats found for TMTCash in "${r.label}".\n\nTry a wider range in the Live Chat date filter (for example Last 30 Days).`);
-      return;
-    }
-
-    // res.text() drops the UTF-8 BOM, so add it back for Excel.
-    const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tmtcash_inactive_depositors_${dayKey(r.from)}_to_${dayKey(r.to)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch (err) {
-    console.error('Inactive depositors export failed:', err);
-    alert('Could not download the file.\n\n' + err.message);
-  } finally {
-    btn.disabled = false;
-    label.textContent = original;
-  }
-}
-document.getElementById('inactiveDepositorsBtn').addEventListener('click', downloadInactiveDepositors);
+// (Ang inactive-depositors export button ay INALIS 2026-09-24 sa kahilingan
+// ni Chad. Ang backend endpoint GET /api/chatwoot/inactive-depositors ay
+// buhay pa rin at magagamit diretso via URL kung kailanganin ulit.)
 
 async function loadChatOverview() {
   const ind = document.getElementById('chatLiveIndicator');
@@ -1087,13 +1052,18 @@ async function loadChatOverview() {
     document.getElementById('chatArtDelta').textContent = artVals.length ? `${artVals.length} handoff${artVals.length === 1 ? '' : 's'}` : 'No handoffs in range';
 
     // --- KPI + list: HH Pending (waiting for a human) ---
-    // Brands watched by the Waiting-for-Agent widget (decision 2026-09-14):
-    // all LiveChat brands + ONLY Buenas PH and TMTCash on the Chatwoot side
-    // (bot -> human handoffs). Other Chatwoot brands still record 'pending'
-    // in the DB; they're just not surfaced here. Add a slug to include more.
+    // Brands watched by the Waiting-for-Agent widget. PINALAWAK 2026-09-24
+    // sa LAHAT ng brands: kumpleto na ang real-agent roster kada brand
+    // (Bea/Faith/Hope, Hanna/Heart, Mika, Kaia, Raya, Nami, Ana, Margo,
+    // Holly, Gwen, Lane), kaya bawat pending handoff ay may tao nang dapat
+    // sumagot — lahat dapat bantayan. (Dating Buenas + TMTCash + LiveChat
+    // lang, noong wala pang agents ang ibang brands.)
     const WAITING_BRANDS = new Set([
-      'buenasph', 'tmtcash',                                             // Chatwoot
-      'casinyeam', 'manilacasino', 'superscatterph', 'livechat-general', // LiveChat (all)
+      // Chatwoot — lahat (case-sensitive slugs, mula sa webhook URLs)
+      'buenasph', 'tmtcash', 'mcp', 'manilaplayph', 'HypleplayPH',
+      'HypeplayBD', 'Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH',
+      // LiveChat (lahat)
+      'casinyeam', 'manilacasino', 'superscatterph', 'livechat-general',
     ]);
 
     // STALE-PENDING GUARD (added 2026-09-18)
