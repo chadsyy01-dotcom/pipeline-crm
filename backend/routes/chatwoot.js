@@ -100,7 +100,7 @@ function normalizePhone(raw) {
 // pangalang ito ay TUNAY NA TAO at HINDI KAILANMAN dapat mapunta sa bot
 // list sa ibaba. Ang handoff logic ay exclusion-based, kaya bilang na sila
 // agad bilang human; ang listahang ito ay proteksyon/dokumentasyon:
-//   Buenas PH:       Admin Bea, Admin Faith
+//   Buenas PH:       Admin Bea, Admin Faith, Admin Hope
 //   TMTCash:         Admin Hanna, Admin Heart
 //   MGK:             Admin Mika
 //   LuckyStacks PH:  Admin Kaia
@@ -117,8 +117,14 @@ const AI_BOT_SENDER_NAMES = new Set([
   'Admin Joy',
   'Admin Love',
   'Agent Jem',
-  'Manila Play Admin',
-  'Mona',
+  'Agent May',
+  'Agent Lucy',
+  'Agent Hanna',
+  'Agent Maya',
+  'Agent Cassie',
+  'Agent Mona',
+  'Agent Mim',
+  'Agent Bella',
   // added 2026-09-13 from Chatwoot agent rosters
   'Hype Play PH Admin',   // admin@hypeplay.asia
   'Bogchi',               // admin@hypeplaybdt.com
