@@ -731,6 +731,8 @@
   let lastSearchResults = null;
   let lastSearchQuery = '';
   let searchDebounce = null;
+  let searchCursor = null;    // createdAt ng pinakalumang na-scan — cursor ng "Load more"
+  let searchHasMore = false;  // may mas luma pa bang hindi pa nababasa?
 
   function matchesDateFilter(c) {
     if (currentDateFilter === 'all') return true;
@@ -979,25 +981,41 @@
   });
 
   async function runChatSearch(q) {
-    const token = localStorage.getItem('pipeline_token');
-    if (!token) return;
     searchMode = true;
     lastSearchQuery = q;
+    lastSearchResults = [];
+    searchCursor = null;
+    searchHasMore = false;
     const tbody = document.getElementById('convBody');
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Hinahanap sa laman ng lahat ng chats: \u201C${escapeHtml(q)}\u201D\u2026</div></td></tr>`;
+    fetchSearchPage(q, null);
+  }
+
+  // Isang "pahina" ng search (pinakabagong 400 matching messages sa saklaw;
+  // ang before-cursor ang nagtutuloy sa mas luma — "Load more"). Ang mga
+  // resulta ay ina-APPEND sa lastSearchResults (deduped per conversation).
+  async function fetchSearchPage(q, before) {
+    const token = localStorage.getItem('pipeline_token');
+    if (!token) return;
+    const tbody = document.getElementById('convBody');
     try {
-      // Igalang ang Activity dropdown: This Month = hanapin sa loob ng
-      // buwang ito, atbp. "Any time" = buong retention. (2026-09-24)
       const range = getDateRangeParams();
       let url = `${API_BASE}/chat/search?q=${encodeURIComponent(q)}&limit=100`;
       if (range) url += `&since=${encodeURIComponent(range.from)}&until=${encodeURIComponent(range.to)}`; // ISO strings na ang from/to
+      if (before) url += `&before=${encodeURIComponent(before)}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       if (q !== lastSearchQuery) return; // may mas bago nang search
-      lastSearchResults = data.results || [];
+      const seenKeys = new Set(lastSearchResults.map(r => `${r.brand}::${r.conversationId}`));
+      (data.results || []).forEach(r => {
+        const key = `${r.brand}::${r.conversationId}`;
+        if (!seenKeys.has(key)) { seenKeys.add(key); lastSearchResults.push(r); }
+      });
+      searchCursor = data.oldestScanned || null;
+      searchHasMore = !!data.hasMore && !!searchCursor;
       renderSearchResults(lastSearchResults, q);
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Search failed \u2014 ${escapeHtml(err.message)}<br><span style="font-size:11.5px;">Kailangan naka-deploy ang backend/routes/chat-search.js at naka-wire sa server.js (app.use('/api/chat', ...)).</span></div></td></tr>`;
@@ -1033,6 +1051,17 @@
           <td><div class="c-time">${timeAgo(r.matchedAt)}</div></td>
         </tr>`;
     }).join('');
+    if (searchHasMore) {
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr id="searchLoadMoreRow"><td colspan="8" style="text-align:center;padding:14px;">
+          <button id="searchLoadMoreBtn" style="font-size:13px;font-weight:700;padding:9px 18px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--primary);cursor:pointer;font-family:inherit;">\u2B07 May mas luma pa \u2014 i-load ang susunod</button>
+        </td></tr>`);
+      document.getElementById('searchLoadMoreBtn').addEventListener('click', (e) => {
+        e.target.disabled = true;
+        e.target.textContent = 'Naglo-load\u2026';
+        fetchSearchPage(lastSearchQuery, searchCursor);
+      });
+    }
   }
 
   function renderAdminFilter() {
