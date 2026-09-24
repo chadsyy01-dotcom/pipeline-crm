@@ -986,7 +986,12 @@
     const tbody = document.getElementById('convBody');
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Hinahanap sa laman ng lahat ng chats: \u201C${escapeHtml(q)}\u201D\u2026</div></td></tr>`;
     try {
-      const res = await fetch(`${API_BASE}/chat/search?q=${encodeURIComponent(q)}&limit=100`, {
+      // Igalang ang Activity dropdown: This Month = hanapin sa loob ng
+      // buwang ito, atbp. "Any time" = buong retention. (2026-09-24)
+      const range = getDateRangeParams();
+      let url = `${API_BASE}/chat/search?q=${encodeURIComponent(q)}&limit=100`;
+      if (range) url += `&since=${encodeURIComponent(range.from.toISOString())}&until=${encodeURIComponent(range.to.toISOString())}`;
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json().catch(() => ({}));
@@ -1002,7 +1007,8 @@
   function renderSearchResults(results, q) {
     const tbody = document.getElementById('convBody');
     if (!results.length) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Walang chat na naglalaman ng \u201C${escapeHtml(q)}\u201D sa nakaraang 70 araw \u2014 lahat ng brands, lahat ng statuses ang hinanapan.</div></td></tr>`;
+      const scopeLabel = document.getElementById('dateFilter').selectedOptions[0]?.textContent || 'saklaw na napili';
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Walang chat na naglalaman ng \u201C${escapeHtml(q)}\u201D sa saklaw na \u201C${escapeHtml(scopeLabel)}\u201D \u2014 lahat ng brands at statuses ang hinanapan. Palitan ang ACTIVITY dropdown para lumawak/kumitid ang saklaw.</div></td></tr>`;
       return;
     }
     tbody.innerHTML = results.map(r => {
@@ -1211,6 +1217,7 @@
     currentDateFilter = e.target.value;
     loadConversations();
     loadCsatStats();
+    if (searchMode && lastSearchQuery) runChatSearch(lastSearchQuery); // bagong saklaw, ulitin ang search
   });
 
   document.getElementById('customDateApply').addEventListener('click', () => {
@@ -1232,6 +1239,7 @@
     customDatePop.classList.remove('open');
     loadConversations();
     loadCsatStats();
+    if (searchMode && lastSearchQuery) runChatSearch(lastSearchQuery); // bagong saklaw, ulitin ang search
   });
 
   document.getElementById('customDateCancel').addEventListener('click', () => {
