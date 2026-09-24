@@ -23,6 +23,29 @@ function stripHtml(html) {
   return String(html).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Snippet na nakasentro sa MISMONG tinamaan. Kung ang tumama ay nasa
+// nakatagong bahagi ng HTML (hal. href URL ng "Submit ticket here" link
+// na hindi lumalabas sa nakikitang text), ipapakita ang URL mismo para
+// malinaw kung bakit tumama ang mensahe. (2026-09-24)
+function buildSnippet(rawContent, q) {
+  const text = stripHtml(rawContent);
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx !== -1) {
+    // Tumama sa nakikitang text — snippet sa paligid ng tama.
+    const start = Math.max(0, idx - 80);
+    const end = Math.min(text.length, idx + q.length + 140);
+    return (start > 0 ? '\u2026' : '') + text.slice(start, end) + (end < text.length ? '\u2026' : '');
+  }
+  // Hindi nasa visible text — hanapin sa mga link/URL sa loob ng HTML.
+  const urls = String(rawContent).match(/https?:\/\/[^\s"'<>]+/g) || [];
+  const hitUrl = urls.find(u => u.toLowerCase().includes(q.toLowerCase()));
+  if (hitUrl) {
+    return '\uD83D\uDD17 Match sa link sa loob ng message: ' + hitUrl + (text ? ' \u2014 \u201C' + text.slice(0, 120) + '\u2026\u201D' : '');
+  }
+  // Fallback: tumama sa ibang HTML attribute — ipakita na lang ang simula.
+  return text.slice(0, 220);
+}
+
 router.get('/search', requireAuth, async (req, res) => {
   try {
     const q = String(req.query.q || '').trim();
@@ -50,7 +73,7 @@ router.get('/search', requireAuth, async (req, res) => {
           conversationId: r.conversationId,
           brand: r.brand,
           contactName: r.contactName || null,
-          snippet: stripHtml(r.content).slice(0, 220),
+          snippet: buildSnippet(r.content, q).slice(0, 300),
           matchedSender: r.senderName || (r.senderType === 'contact' ? 'Customer' : null),
           matchedAt: r.createdAt,
           matches: 0,
