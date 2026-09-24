@@ -217,6 +217,8 @@
   .msg-row.from-agent{align-self:flex-end;align-items:flex-end;}
   .msg-meta{font-size:11px;color:var(--ink-faint);margin-bottom:3px;padding:0 3px;}
   .msg-bubble a{color:inherit;text-decoration:underline;font-weight:600;word-break:break-all;}
+  mark.srch{background:#FDE68A;color:inherit;border-radius:3px;padding:0 2px;}
+  .msg-row.msg-hit .msg-bubble{outline:2px solid #F59E0B;outline-offset:2px;}
   .msg-bubble{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
   .from-customer .msg-bubble{background:var(--bg);color:var(--ink);border-bottom-left-radius:4px;}
   .from-agent .msg-bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px;}
@@ -1017,7 +1019,7 @@
             </div>
           </td>
           <td><span class="c-brand">${escapeHtml(brandLabel(r.brand))}</span></td>
-          <td><div class="c-preview">${r.matchedSender ? `<span class="sender">${escapeHtml(r.matchedSender)}:</span> ` : ''}${escapeHtml(r.snippet)}</div></td>
+          <td><div class="c-preview">${r.matchedSender ? `<span class="sender">${escapeHtml(r.matchedSender)}:</span> ` : ''}${highlightMatches(escapeHtml(r.snippet), q)}</div></td>
           <td><span class="status unknown">\u2014</span></td>
           <td><span class="handoff-pill none">\u2014</span></td>
           <td><div class="c-time">\u2014</div></td>
@@ -1478,15 +1480,19 @@
       const data = await res.json();
       // API returns newest-first — reverse for natural top-to-bottom reading order.
       const messages = (data.events || []).slice().reverse();
-      renderMessageThread(messages);
+      // Kapag galing sa chat-content search, ipasa ang query para
+      // ma-highlight at ma-scroll diretso sa tumamang mensahe.
+      renderMessageThread(messages, searchMode ? lastSearchQuery : '');
     } catch (err) {
       console.error('Failed to load conversation thread:', err);
       body.innerHTML = '<div class="empty-note">Could not load this conversation. Please try again.</div>';
     }
   }
 
-  function renderMessageThread(messages) {
+  function renderMessageThread(messages, searchQ) {
     const body = document.getElementById('modalBody');
+    const qLower = (searchQ || '').toLowerCase();
+    const msgMatches = m => qLower && String(m.content || '').toLowerCase().includes(qLower);
 
     // Dedupe by messageId — a CSAT survey message, for example, arrives as
     // message_created (original prompt) and later message_updated (once the
@@ -1524,14 +1530,24 @@
         who = 'Automated Message';
       }
       const when = m.createdAt ? new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+      const hit = msgMatches(m);
+      let bubbleHtml = renderMessageContent(m.content);
+      if (hit) bubbleHtml = highlightMatches(bubbleHtml, searchQ);
       return `
-        <div class="msg-row ${cls}">
+        <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}">
           <div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div>
-          <div class="msg-bubble">${renderMessageContent(m.content)}</div>
+          <div class="msg-bubble">${bubbleHtml}</div>
         </div>
       `;
     }).join('');
-    body.scrollTop = body.scrollHeight;
+    // Kapag may search hit: diretso sa PINAKABAGONG tumamang mensahe
+    // (yun ang ipinakita sa snippet); kung wala, sa dulo gaya ng dati.
+    const hits = body.querySelectorAll('.msg-row.msg-hit');
+    if (hits.length) {
+      hits[hits.length - 1].scrollIntoView({ block: 'center' });
+    } else {
+      body.scrollTop = body.scrollHeight;
+    }
   }
 
   // Mirrors AI_BOT_SENDER_NAMES in routes/chatwoot.js — kept in sync manually
@@ -1553,6 +1569,17 @@
   // URL) — dating tinatanggal ng plain stripping ang URL kaya hindi
   // makita kung saan nakaturo. Ngayon: "text (URL)" ang ipinapakita at
   // clickable pa ang URL (bagong tab).
+  // I-highlight ang hinahanap na salita sa loob ng NAKA-ESCAPE nang HTML
+  // (hindi ginagalaw ang loob ng <a> tags para hindi masira ang links).
+  function highlightMatches(escapedHtml, q) {
+    if (!q) return escapedHtml;
+    const rx = new RegExp('(' + escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    // Hatiin sa tags para text nodes lang ang mamarkahan
+    return escapedHtml.split(/(<[^>]+>)/g).map(part =>
+      part.startsWith('<') ? part : part.replace(rx, '<mark class="srch">$1</mark>')
+    ).join('');
+  }
+
   function renderMessageContent(html) {
     if (!html) return '';
     let s = String(html).replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (m, url, text) => {
