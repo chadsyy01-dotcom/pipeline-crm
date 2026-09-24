@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=10"></script>
+<script src="ticket-data.js?v=11"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -188,6 +188,15 @@
   .rej-modal .rej-reason.none{background:#F1F5F9;color:var(--ink-soft);font-weight:500;}
   .rej-meta{font-size:12px;color:var(--ink-soft);margin-top:10px;line-height:1.8;}
   .rej-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;}
+  .rej-photos{margin-top:12px;}
+  .rej-photos-title{font-size:12px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;}
+  .rej-photos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;}
+  .rej-photo{display:block;border:1px solid var(--line);border-radius:10px;overflow:hidden;text-decoration:none;background:var(--bg);}
+  .rej-photo img{width:100%;height:90px;object-fit:cover;display:block;}
+  .rej-photo span{display:block;font-size:10.5px;font-weight:700;color:var(--ink-soft);padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rej-photo.noimg img{display:none;}
+  .rej-photo.noimg{padding-top:10px;text-align:center;}
+  .rej-photos-note{font-size:10.5px;color:var(--ink-faint);margin-top:7px;line-height:1.5;}
   .rej-btn{font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
   .rej-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
 
@@ -1027,6 +1036,22 @@
       <h4><span class="status rejected">Rejected</span> ${escapeHtml(t.id)}</h4>
       <div class="rej-sub">${escapeHtml(t.brandLabel)}</div>
       ${reasonHtml}
+      ${(t.photos && t.photos.length) ? `
+      <div class="rej-photos">
+        <div class="rej-photos-title">Uploaded Photos / ID</div>
+        <div class="rej-photos-grid">
+          ${t.photos.map(p => {
+            const m = p.url.match(/\/d\/([\w-]{10,})/) || p.url.match(/[?&]id=([\w-]{10,})/);
+            const thumb = m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400`
+              : (/\.(jpe?g|png|gif|webp)([?#].*)?$/i.test(p.url) ? p.url : null);
+            return `<a class="rej-photo" href="${escapeHtml(p.url)}" target="_blank" rel="noopener" title="${escapeHtml(p.label)} \u2014 buksan nang buo">
+              ${thumb ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(p.label)}" loading="lazy" onerror="this.parentNode.classList.add('noimg')">` : ''}
+              <span>${escapeHtml(p.label)}</span>
+            </a>`;
+          }).join('')}
+        </div>
+        <div class="rej-photos-note">I-click ang photo para buksan nang buo sa Drive. Kung walang preview na lumalabas, i-set na "Anyone with the link \u2192 Viewer" ang sharing ng form uploads folder sa Drive.</div>
+      </div>` : ''}
       <div class="rej-meta">${metaBits.join('<br>')}</div>
       <div class="rej-foot">
         ${t.sheetLink ? `<a class="rej-btn" href="${escapeHtml(t.sheetLink)}" target="_blank" rel="noopener">Open sa Sheet</a>` : ''}
