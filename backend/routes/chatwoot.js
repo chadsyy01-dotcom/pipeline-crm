@@ -1467,4 +1467,133 @@ router.post('/backfill', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/chatwoot/inactive-depositors?brand=tmtcash&from=...&to=...&format=csv&q=...
+//
+// Inactive-depositor report (added 2026-09-24). Hinahanap ang mga conversation
+// kung saan ang isang REAL human agent (hindi AI bot persona — tingnan ang
+// AI_BOT_SENDER_NAMES) ay nagsabi sa customer na "inactive depositor" siya,
+// at ibinabalik kasama ang LAHAT ng mensahe ng customer sa conversation na iyon.
+//
+//   brand   Chatwoot brand slug (default: tmtcash)
+//   from/to optional ISO timestamps — sinasala ang ORAS NG AGENT MESSAGE
+//   q       optional na dagdag na phrase kung iba ang wording ng agents
+//           (hal. ?q=walang valid deposit) — OR'd sa default patterns
+//   format  'csv' para sa Excel-ready download; kung wala, JSON
+//
+// LIMITASYON: buhay pa ang "content" column kahit na-blank na ang payload,
+// pero ang buong rows ay binubura pagkalipas ng EVENT_RETENTION_DAYS (70 araw),
+// kaya hanggang ~70 araw pabalik lang ang kayang ilabas nito.
+router.get('/inactive-depositors', requireAuth, async (req, res) => {
+  try {
+    const brand = String(req.query.brand || 'tmtcash').trim();
+    const from = req.query.from || null;
+    const to = req.query.to || null;
+    const dateClause = (from && to) ? 'AND "createdAt" BETWEEN :from AND :to' : '';
+    const botNames = [...AI_BOT_SENDER_NAMES];
+
+    const patterns = ['%inactive depositor%', '%inactive na depositor%'];
+    const extra = String(req.query.q || '').trim();
+    if (extra.length >= 3) patterns.push(`%${extra}%`);
+
+    // 1) Unang agent message kada conversation na tumutugma sa pattern.
+    const hits = await sequelize.query(`
+      SELECT DISTINCT ON ("conversationId")
+        "conversationId", "senderName", "content", "createdAt"
+      FROM "ChatwootEvents"
+      WHERE event = 'message_created'
+        AND "senderType" = 'user'
+        AND "isPrivate" = false
+        AND "content" IS NOT NULL
+        AND "senderName" IS NOT NULL
+        AND "senderName" NOT IN (:botNames)
+        AND "brand" = :brand
+        AND "content" ILIKE ANY (ARRAY[:patterns])
+        ${dateClause}
+      ORDER BY "conversationId", "createdAt" ASC
+    `, { replacements: { brand, botNames, patterns, from, to }, type: QueryTypes.SELECT });
+
+    if (!hits.length) {
+      return req.query.format === 'csv'
+        ? sendInactiveDepositorsCsv(res, brand, [])
+        : res.json({ brand, total: 0, conversations: [] });
+    }
+    const ids = hits.map(h => h.conversationId);
+
+    // 2) Customer name + lahat ng mensahe ng customer. Laging naka-scope sa
+    //    brand — umuulit ang conversation ids sa iba't ibang Chatwoot instance.
+    //    DISTINCT ON messageId para hindi madoble kapag dalawang beses
+    //    na-deliver ang webhook.
+    const [names, customerMsgs] = await Promise.all([
+      sequelize.query(`
+        SELECT DISTINCT ON ("conversationId") "conversationId", "contactName"
+        FROM "ChatwootEvents"
+        WHERE "brand" = :brand AND "conversationId" IN (:ids) AND "contactName" IS NOT NULL
+        ORDER BY "conversationId", "createdAt" DESC
+      `, { replacements: { brand, ids }, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT DISTINCT ON ("conversationId", COALESCE("messageId"::text, 'row:' || "id"::text))
+          "conversationId", "content", "createdAt"
+        FROM "ChatwootEvents"
+        WHERE event = 'message_created'
+          AND "senderType" = 'contact'
+          AND "isPrivate" = false
+          AND "content" IS NOT NULL
+          AND "brand" = :brand
+          AND "conversationId" IN (:ids)
+        ORDER BY "conversationId", COALESCE("messageId"::text, 'row:' || "id"::text), "createdAt" ASC
+      `, { replacements: { brand, ids }, type: QueryTypes.SELECT }),
+    ]);
+
+    const nameMap = new Map(names.map(r => [r.conversationId, r.contactName]));
+    const msgMap = new Map();
+    customerMsgs
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .forEach(m => {
+        if (!msgMap.has(m.conversationId)) msgMap.set(m.conversationId, []);
+        msgMap.get(m.conversationId).push({ at: m.createdAt, text: stripHtml(m.content) });
+      });
+
+    const conversations = hits
+      .map(h => ({
+        conversationId: h.conversationId,
+        customer: nameMap.get(h.conversationId) || null,
+        agent: h.senderName,
+        flaggedAt: h.createdAt,
+        agentMessage: stripHtml(h.content),
+        customerMessages: msgMap.get(h.conversationId) || [],
+      }))
+      .sort((a, b) => new Date(b.flaggedAt) - new Date(a.flaggedAt));
+
+    if (req.query.format === 'csv') return sendInactiveDepositorsCsv(res, brand, conversations);
+    res.json({ brand, total: conversations.length, conversations });
+  } catch (err) {
+    console.error('Chatwoot inactive-depositors error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function manilaTime(d) {
+  return new Date(d).toLocaleString('en-PH', { timeZone: 'Asia/Manila' });
+}
+
+function sendInactiveDepositorsCsv(res, brand, conversations) {
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const header = ['Conversation ID', 'Customer', 'Agent', 'Flagged At (PH)', 'Agent Message',
+                  'Customer Msg Count', 'Customer Messages'];
+  const lines = conversations.map(c => [
+    c.conversationId,
+    c.customer,
+    c.agent,
+    manilaTime(c.flaggedAt),
+    c.agentMessage,
+    c.customerMessages.length,
+    c.customerMessages.map(m => `[${manilaTime(m.at)}] ${m.text}`).join('\n'),
+  ].map(esc).join(','));
+  // BOM para tama ang Tagalog/emoji kapag binuksan sa Excel.
+  const csv = '\uFEFF' + [header.map(esc).join(','), ...lines].join('\r\n');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${brand}_inactive_depositors.csv"`);
+  res.send(csv);
+}
+
 module.exports = router;
