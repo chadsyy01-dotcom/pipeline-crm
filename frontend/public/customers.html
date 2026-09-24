@@ -720,6 +720,14 @@
   let customDateFrom = null;
   let customDateTo = null;
   let currentSearch = '';
+  // CHAT-CONTENT SEARCH (2026-09-24): kapag 3+ chars ang search, backend
+  // ang naghahanap sa LAMAN ng lahat ng messages (lahat ng brands, buong
+  // retention) at nilalampasan ang lahat ng filters — para mahanap ang
+  // usapan kahit saang mensahe nabanggit (hal. Ticket ID).
+  let searchMode = false;
+  let lastSearchResults = null;
+  let lastSearchQuery = '';
+  let searchDebounce = null;
 
   function matchesDateFilter(c) {
     if (currentDateFilter === 'all') return true;
@@ -955,9 +963,68 @@
   });
 
   document.getElementById('searchInput').addEventListener('input', (e) => {
-    currentSearch = e.target.value.trim().toLowerCase();
-    applyFiltersAndRender();
+    const val = e.target.value.trim();
+    currentSearch = val.toLowerCase();
+    clearTimeout(searchDebounce);
+    if (val.length < 3) {
+      searchMode = false;
+      lastSearchResults = null;
+      applyFiltersAndRender();
+      return;
+    }
+    searchDebounce = setTimeout(() => runChatSearch(val), 400);
   });
+
+  async function runChatSearch(q) {
+    const token = localStorage.getItem('pipeline_token');
+    if (!token) return;
+    searchMode = true;
+    lastSearchQuery = q;
+    const tbody = document.getElementById('convBody');
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Hinahanap sa laman ng lahat ng chats: \u201C${escapeHtml(q)}\u201D\u2026</div></td></tr>`;
+    try {
+      const res = await fetch(`${API_BASE}/chat/search?q=${encodeURIComponent(q)}&limit=100`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (q !== lastSearchQuery) return; // may mas bago nang search
+      lastSearchResults = data.results || [];
+      renderSearchResults(lastSearchResults, q);
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Search failed \u2014 ${escapeHtml(err.message)}<br><span style="font-size:11.5px;">Kailangan naka-deploy ang backend/routes/chat-search.js at naka-wire sa server.js (app.use('/api/chat', ...)).</span></div></td></tr>`;
+    }
+  }
+
+  function renderSearchResults(results, q) {
+    const tbody = document.getElementById('convBody');
+    if (!results.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-note">Walang chat na naglalaman ng \u201C${escapeHtml(q)}\u201D sa nakaraang 70 araw \u2014 lahat ng brands, lahat ng statuses ang hinanapan.</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = results.map(r => {
+      const name = r.contactName || 'Unknown';
+      return `
+        <tr data-conversation-id="${r.conversationId}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(brandLabel(r.brand))}">
+          <td>
+            <div class="c-customer">
+              <div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div>
+              <div>
+                <div class="c-cname">${escapeHtml(name)}</div>
+                <div class="c-csub">chat match \u00b7 ${r.matches} message${r.matches === 1 ? '' : 's'}</div>
+              </div>
+            </div>
+          </td>
+          <td><span class="c-brand">${escapeHtml(brandLabel(r.brand))}</span></td>
+          <td><div class="c-preview">${r.matchedSender ? `<span class="sender">${escapeHtml(r.matchedSender)}:</span> ` : ''}${escapeHtml(r.snippet)}</div></td>
+          <td><span class="status unknown">\u2014</span></td>
+          <td><span class="handoff-pill none">\u2014</span></td>
+          <td><div class="c-time">\u2014</div></td>
+          <td><div class="c-time">\u2014</div></td>
+          <td><div class="c-time">${timeAgo(r.matchedAt)}</div></td>
+        </tr>`;
+    }).join('');
+  }
 
   function renderAdminFilter() {
     // Only real agent replies count as "handled by" someone — not customer
@@ -985,6 +1052,10 @@
   });
 
   function applyFiltersAndRender() {
+    if (searchMode) {
+      if (lastSearchResults) renderSearchResults(lastSearchResults, lastSearchQuery);
+      return; // nasa chat-content search mode — hindi tinatablan ng filters/auto-refresh
+    }
     let filtered = allConversations;
     if (currentBrand !== 'all') filtered = filtered.filter(c => c.brand === currentBrand);
     if (currentStatus === 'active') {
