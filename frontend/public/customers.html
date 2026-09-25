@@ -73,6 +73,14 @@
   .nav-item.soon{opacity:.45;cursor:default;pointer-events:none;position:relative;}
   .nav-item.soon:hover{background:transparent;color:#AEBBD1;}
   .nav-item.soon .soon-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.02em;background:#1C273B;color:#748199;padding:2px 6px;border-radius:6px;}
+  /* Expandable nav subgroup (2026-09-25) — parehong pattern ng OpenAI >
+     Billing / SMS Monitoring sa live sidebar. */
+  .nav-chev{margin-left:auto;width:14px !important;height:14px !important;transition:transform .18s ease;flex-shrink:0;}
+  .nav-chev.open{transform:rotate(180deg);}
+  .nav-sub{display:none;padding-left:16px;}
+  .nav-sub.open{display:block;}
+  .nav-sub .nav-item{font-size:12.5px;padding:8px 12px;}
+  .nav-sub .nav-item svg{width:15px;height:15px;}
 
   .quick-links{background:#151E30;border-radius:12px;padding:14px;margin-top:12px;}
   .quick-links h4{margin:0 0 8px;font-size:11px;letter-spacing:.02em;color:#748199;font-weight:600;}
@@ -357,10 +365,17 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M4 17c0-1.5 1.5-3 4.5-3s4.5 1.5 4.5 3"/><path d="M15 10h5M15 14h3"/></svg>
         KYC
       </a>
-      <a href="customers.html" class="nav-item active">
+      <a href="customers.html" class="nav-item active" id="navCustomers">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
         Customers
+        <svg class="nav-chev open" id="customersChev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" title="Expand/collapse"><path d="M6 9l6 6 6-6"/></svg>
       </a>
+      <div class="nav-sub open" id="customersSub">
+        <a href="social-media-monitoring.html" class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a3 3 0 100-6 3 3 0 000 6z"/><path d="M6 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M18 22a3 3 0 100-6 3 3 0 000 6z"/><path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/></svg>
+          Social Media Monitoring
+        </a>
+      </div>
       <a href="qa.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
         Quality Assurance
@@ -598,6 +613,20 @@
 </div>
 
 <script>
+  // Customers subgroup toggle (2026-09-25): ang chevron lang ang nagto-toggle;
+  // ang pag-click sa "Customers" mismo ay normal na navigation pa rin.
+  (function () {
+    const chev = document.getElementById('customersChev');
+    const sub = document.getElementById('customersSub');
+    if (chev && sub) {
+      chev.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        sub.classList.toggle('open');
+        chev.classList.toggle('open', sub.classList.contains('open'));
+      });
+    }
+  })();
+
   // Display labels for known brand slugs — extend as more brands get their
   // webhook set up (see routes/chatwoot.js and routes/livechat.js). Falls
   // back to a title-cased version of the slug for anything not listed here,
