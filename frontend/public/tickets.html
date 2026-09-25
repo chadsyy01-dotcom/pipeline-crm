@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=12"></script>
+<script src="ticket-data.js?v=13"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -177,9 +177,6 @@
   .status.rejected::before{background:var(--danger);}
   .status.unknown{background:#F1F5F9;color:var(--ink-faint);}
   .status.unknown::before{background:var(--ink-faint);}
-  /* Rejected badges are clickable (added 2026-09-21): click to see WHY */
-  tbody .status.rejected{cursor:pointer;box-shadow:0 0 0 1px rgba(239,68,68,.22);}
-  tbody .status.rejected:hover{background:#FAD4D4;}
   .rej-modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;}
   .rej-modal{background:#fff;border-radius:14px;box-shadow:var(--shadow);width:min(440px,92vw);max-height:82vh;overflow-y:auto;padding:18px;}
   .rej-modal h4{margin:0 0 3px;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -199,6 +196,36 @@
   .rej-photos-note{font-size:10.5px;color:var(--ink-faint);margin-top:7px;line-height:1.5;}
   .rej-btn{font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
   .rej-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+  /* TICKET DETAIL POPUP (2026-09-25): i-click kahit saan sa row → lahat ng
+     info mula sa sheet, naka-grid (label sa taas, value sa baba). */
+  .td-modal{background:#fff;border-radius:16px;box-shadow:var(--shadow);width:min(900px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;}
+  .td-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px 14px;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .td-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .td-title h4{margin:0;font-size:17px;font-weight:800;letter-spacing:-.01em;}
+  .td-copy{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-family:inherit;}
+  .td-copy:hover{background:var(--bg);}
+  .td-sub{font-size:12.5px;color:var(--ink-faint);margin-top:4px;font-weight:600;}
+  .td-x{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:15px;color:var(--ink-soft);flex-shrink:0;}
+  .td-body{padding:6px 22px 18px;overflow-y:auto;}
+  .td-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:22px;}
+  .td-field{padding:12px 0 10px;border-bottom:1px dashed var(--line);min-width:0;}
+  .td-field.wide{grid-column:1 / -1;}
+  .td-label{font-size:11.5px;font-weight:600;color:var(--ink-faint);margin-bottom:4px;}
+  .td-value{font-size:14px;font-weight:600;color:var(--ink);overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.45;}
+  .td-value a{color:var(--primary);text-decoration:underline;}
+  .td-field.reject .td-value{color:#B91C1C;}
+  .td-section{margin-top:18px;}
+  .td-section-title{font-size:12px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+  .td-receipts{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;}
+  .td-receipt{display:block;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0F172A;text-decoration:none;}
+  .td-receipt img{width:100%;height:210px;object-fit:contain;display:block;background:#0F172A;cursor:zoom-in;}
+  .td-receipt span{display:block;font-size:11px;font-weight:700;color:var(--ink-soft);background:var(--bg);padding:6px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .td-receipt.noimg img{display:none;}
+  .td-receipt.noimg{background:var(--bg);padding-top:14px;text-align:center;}
+  .td-note{font-size:12px;color:var(--ink-faint);line-height:1.55;background:var(--bg);border-radius:10px;padding:10px 12px;}
+  .td-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 22px;border-top:1px solid var(--line);flex-shrink:0;flex-wrap:wrap;}
+  @media (max-width:760px){ .td-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
 
   .t-channel{color:var(--ink-soft);font-size:12.5px;}
   .t-ack{color:var(--ink-soft);font-size:12.5px;font-weight:600;}
@@ -1015,53 +1042,107 @@
     renderIssueFilterCounts();
   }
 
-  // Rejection-reason popup (added 2026-09-21): i-click ang Rejected badge
-  // para makita KUNG BAKIT. Ang reason ay galing sa sheet — "Reject Reason"
-  // column (may fallback sa Remarks/Notes, see ticket-data.js). Kapag
-  // blanko, ang popup mismo ang magtuturo kung saan ito ilalagay, at may
-  // "Open sa Sheet" na diretso sa mismong row.
-  function showRejectReason(t) {
-    const fmt = d => d ? d.toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
+  // -------------------------------------------------------------------------
+  // TICKET DETAIL POPUP (2026-09-25) — i-click kahit saan sa row. Ipinapakita
+  // ang LAHAT ng column ng row mula sa sheet (t.raw, galing ticket-data.js
+  // v13), sa parehong pagkakasunod ng sheet — kaya kapag may bagong column,
+  // kusang lalabas dito nang walang code change.
+  //   * Hindi ipinapakita (per Chad): Source, Channel, Priority, Status,
+  //     Acknowledged By. Idagdag/bawasan sa TD_HIDDEN_FIELDS.
+  //   * Photos/receipts (Drive o image links sa kahit anong column) ay
+  //     ipinapakita bilang larawan sa ibaba, hindi bilang raw link.
+  //   * Cash In / Cash Out: may "Receipt" section; kapag walang naka-attach,
+  //     sinasabi ito nang malinaw.
+  // Pumalit ito sa dating Rejected-reason popup — ang Reject Reason ay
+  // kasama na sa grid (naka-pula).
+  // -------------------------------------------------------------------------
+  const TD_HIDDEN_FIELDS = new Set(['source', 'channel', 'priority', 'status', 'acknowledged by']);
+  const TD_ID_FIELDS = new Set(['ticket id', 'reference id']);
+  const TD_URL_RE = /https?:\/\/[^\s,;|]+/g;
+
+  function tdIsCashInOut(t) {
+    const hay = [t.category, t.issue, t.raw && (t.raw['Category'] || t.raw['Concern Type'])].join(' ');
+    return /deposit|cash\s*-?\s*in|cashin|withdraw|cash\s*-?\s*out|cashout/i.test(hay);
+  }
+  function tdPhotoThumb(url) {
+    const m = url.match(/\/d\/([\w-]{10,})/) || url.match(/[?&]id=([\w-]{10,})/);
+    if (m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w800`;
+    return /\.(jpe?g|png|gif|webp)([?#].*)?$/i.test(url) ? url : null;
+  }
+  function tdValueHtml(val) {
+    return escapeHtml(val).replace(/https?:\/\/[^\s<]+/g, u =>
+      `<a href="${u}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${u.length > 60 ? u.slice(0, 57) + '\u2026' : u}</a>`);
+  }
+
+  function showTicketDetail(t) {
+    const raw = t.raw || {};
+    const photos = t.photos || [];
+    const photoUrls = new Set(photos.map(p => p.url));
+    const fields = [];
+    for (const col in raw) {
+      const key = col.trim().toLowerCase();
+      const val = String(raw[col] ?? '').trim();
+      if (!val || TD_HIDDEN_FIELDS.has(key) || TD_ID_FIELDS.has(key)) continue;
+      // Column na puro photo link lang → sa Receipt/Photos section na ipapakita.
+      const urls = val.match(TD_URL_RE) || [];
+      if (urls.length && urls.every(u => photoUrls.has(u)) && !val.replace(TD_URL_RE, '').replace(/[\s,;|]/g, '')) continue;
+      const wide = val.length > 48 || val.includes('\n');
+      const reject = /reject/.test(key);
+      fields.push(`<div class="td-field${wide ? ' wide' : ''}${reject ? ' reject' : ''}"><div class="td-label">${escapeHtml(col.trim())}</div><div class="td-value">${tdValueHtml(val)}</div></div>`);
+    }
+    // Fallback kapag lumang ticket-data.js pa ang naka-cache (walang raw).
+    if (!Object.keys(raw).length) {
+      fields.push(`<div class="td-field wide"><div class="td-value" style="color:var(--ink-faint);font-weight:500;">Hindi mabasa ang buong row \u2014 i-hard refresh ang page (Ctrl+Shift+R) para ma-load ang bagong ticket-data.js.</div></div>`);
+    }
+
+    const cash = tdIsCashInOut(t);
+    let mediaHtml = '';
+    if (photos.length) {
+      mediaHtml = `<div class="td-section">
+        <div class="td-section-title">${cash ? 'Receipt' : 'Uploaded Photos'}</div>
+        <div class="td-receipts">${photos.map(p => {
+          const thumb = tdPhotoThumb(p.url);
+          return `<a class="td-receipt" href="${escapeHtml(p.url)}" target="_blank" rel="noopener" title="${escapeHtml(p.label)} \u2014 buksan nang buo">
+            ${thumb ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(p.label)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('noimg')">` : ''}
+            <span>${escapeHtml(p.label)}</span></a>`;
+        }).join('')}</div>
+        <div class="td-note" style="margin-top:8px;">I-click ang larawan para buksan nang buo. Kung walang preview, i-set ang sharing ng Drive folder sa "Anyone with the link \u2192 Viewer".</div>
+      </div>`;
+    } else if (cash) {
+      mediaHtml = `<div class="td-section"><div class="td-section-title">Receipt</div>
+        <div class="td-note">Walang receipt na naka-attach sa ticket na ito (walang Drive o image link sa row nito sa sheet).</div></div>`;
+    }
+
     const bg = document.createElement('div');
     bg.className = 'rej-modal-bg';
-    const reasonHtml = t.rejectReason
-      ? `<div class="rej-reason">${escapeHtml(t.rejectReason)}</div>`
-      : `<div class="rej-reason none">Walang nakalagay na dahilan para sa ticket na ito.<br>Ilagay ito sa <b>"Reject Reason"</b> column ng row sa sheet para lumabas dito.</div>`;
-    const metaBits = [];
-    if (t.resolvedBy) metaBits.push(`<b>Rejected by:</b> ${escapeHtml(t.resolvedBy)}`);
-    if (t.resolvedAt) metaBits.push(`<b>Rejected at:</b> ${escapeHtml(fmt(t.resolvedAt))}`);
-    metaBits.push(`<b>Customer:</b> ${escapeHtml(t.name)}`);
-    metaBits.push(`<b>Issue:</b> ${escapeHtml(t.issue)}`);
-    bg.innerHTML = `<div class="rej-modal">
-      <h4><span class="status rejected">Rejected</span> ${escapeHtml(t.id)}</h4>
-      <div class="rej-sub">${escapeHtml(t.brandLabel)}</div>
-      ${reasonHtml}
-      ${(t.photos && t.photos.length) ? `
-      <div class="rej-photos">
-        <div class="rej-photos-title">Uploaded Photos / ID</div>
-        <div class="rej-photos-grid">
-          ${t.photos.map(p => {
-            const m = p.url.match(/\/d\/([\w-]{10,})/) || p.url.match(/[?&]id=([\w-]{10,})/);
-            const thumb = m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400`
-              : (/\.(jpe?g|png|gif|webp)([?#].*)?$/i.test(p.url) ? p.url : null);
-            return `<a class="rej-photo" href="${escapeHtml(p.url)}" target="_blank" rel="noopener" title="${escapeHtml(p.label)} \u2014 buksan nang buo">
-              ${thumb ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(p.label)}" loading="lazy" onerror="this.parentNode.classList.add('noimg')">` : ''}
-              <span>${escapeHtml(p.label)}</span>
-            </a>`;
-          }).join('')}
+    bg.innerHTML = `<div class="td-modal" role="dialog" aria-label="Ticket ${escapeHtml(t.id)}">
+      <div class="td-head">
+        <div>
+          <div class="td-title"><h4>${escapeHtml(t.id)}</h4><button type="button" class="td-copy" data-copy>copy ID</button></div>
+          <div class="td-sub">${escapeHtml(t.brandLabel)} \u00B7 ${escapeHtml(t.name)} \u00B7 ${escapeHtml(t.issue)}</div>
         </div>
-        <div class="rej-photos-note">I-click ang photo para buksan nang buo sa Drive. Kung walang preview na lumalabas, i-set na "Anyone with the link \u2192 Viewer" ang sharing ng form uploads folder sa Drive.</div>
-      </div>` : `
-      <div class="rej-photos-note" style="margin-top:10px;">\uD83D\uDCF7 v11: walang na-detect na photo/Drive links sa row ng ticket na ito sa sheet.</div>`}
-      <div class="rej-meta">${metaBits.join('<br>')}</div>
-      <div class="rej-foot">
+        <button type="button" class="td-x" data-close aria-label="Close">\u2715</button>
+      </div>
+      <div class="td-body">
+        <div class="td-grid">${fields.join('')}</div>
+        ${mediaHtml}
+      </div>
+      <div class="td-foot">
         ${t.sheetLink ? `<a class="rej-btn" href="${escapeHtml(t.sheetLink)}" target="_blank" rel="noopener">Open sa Sheet</a>` : ''}
-        <button class="rej-btn primary" data-close>Close</button>
+        <button type="button" class="rej-btn primary" data-close>Close</button>
       </div></div>`;
-    document.body.appendChild(bg);
+    const close = () => { if (bg.parentNode) bg.parentNode.removeChild(bg); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
     bg.addEventListener('click', (e) => {
-      if (e.target === bg || e.target.hasAttribute('data-close')) document.body.removeChild(bg);
+      if (e.target === bg || e.target.closest('[data-close]')) return close();
+      const copyBtn = e.target.closest('[data-copy]');
+      if (copyBtn) {
+        const done = () => { copyBtn.textContent = 'Copied!'; setTimeout(() => { copyBtn.textContent = 'copy ID'; }, 1500); };
+        if (navigator.clipboard) navigator.clipboard.writeText(t.id).then(done).catch(() => {});
+      }
     });
+    document.body.appendChild(bg);
   }
 
   function renderPage() {
@@ -1076,7 +1157,7 @@
     pageItems.forEach(t => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="t-id">${t.sheetLink ? `<a href="${escapeHtml(t.sheetLink)}" target="_blank" rel="noopener" title="Open in Google Sheet">${escapeHtml(t.id)}</a>` : escapeHtml(t.id)}</td>
+        <td class="t-id">${escapeHtml(t.id)}</td>
         <td>
           <div class="t-customer">
             <div class="t-av" style="background:${t.color};">${escapeHtml(t.init)}</div>
@@ -1086,7 +1167,7 @@
         <td>${escapeHtml(t.issue)}</td>
         <td class="t-channel">${escapeHtml(t.channel)}</td>
         <td><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span></td>
-        <td><span class="status ${t.statusCls}"${t.statusCls === 'rejected' ? ' title="I-click para makita ang dahilan ng pag-reject"' : ''}>${escapeHtml(t.statusLabel)}</span></td>
+        <td><span class="status ${t.statusCls}">${escapeHtml(t.statusLabel)}</span></td>
         <td class="t-ack">${t.acknowledgedBy ? escapeHtml(t.acknowledgedBy) : '<span style="color:var(--ink-faint);">—</span>'}</td>
         <td class="t-time">${relativeTime(t.submitted)}</td>
         <td>
@@ -1095,10 +1176,9 @@
           </div>
         </td>
       `;
-      if (t.statusCls === 'rejected') {
-        const badge = tr.querySelector('.status.rejected');
-        if (badge) badge.addEventListener('click', (e) => { e.stopPropagation(); showRejectReason(t); });
-      }
+      // Kahit saan sa row → ticket detail popup (2026-09-25). Ang "Open sa
+      // Sheet" ay nasa loob na ng popup.
+      tr.addEventListener('click', () => showTicketDetail(t));
       body.appendChild(tr);
     });
     renderFooter();
