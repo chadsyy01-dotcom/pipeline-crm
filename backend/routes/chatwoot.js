@@ -1560,6 +1560,95 @@ router.post('/backfill', requireAuth, async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/chatwoot/reply  body: { brand, conversationId, content }
+// Reply sa isang Chatwoot conversation DIRETSO mula sa dashboard (2026-09-24).
+//
+// Ito ang unang OUTBOUND na tawag natin sa Chatwoot API (lahat ng iba ay
+// inbound webhooks). Config kada brand sa ISANG Railway variable:
+//
+//   CHATWOOT_REPLY_CONFIG = {"tmtcash":{"baseUrl":"https://<chatwoot-host>",
+//     "accountId":2,"token":"<agent API access token>"}, "buenasph":{...}}
+//
+//   baseUrl    ang Chatwoot instance ng brand (walang trailing slash)
+//   accountId  makikita sa URL kapag naka-login: /app/accounts/<N>/...
+//   token      Profile Settings -> Access Token ng agent account na
+//              gagamitin. GAMITIN ANG ACCOUNT NG TUNAY NA AGENT (o isang
+//              dedicated "CSR Dashboard" agent) — HINDI ang bot/admin@
+//              login, dahil ang pangalan ng token owner ang lalabas bilang
+//              sender, at kapag bot persona yun ay hindi mabibilang na
+//              human handoff ang reply.
+//
+// MGA PAALALA:
+//   * Ang Chatwoot API ay umaasa sa header na `api_access_token` — may mga
+//     nginx setup na tahimik na nagbabagsak ng underscored headers. Kapag
+//     laging 401 kahit tama ang token, idagdag sa nginx ng instance ang
+//     `underscores_in_headers on;` at i-reload (parehong isyu na naka-
+//     dokumento sa itaas ng file na ito).
+//   * Hindi tayo nag-i-insert ng sariling row pagkatapos mag-send — ang
+//     Chatwoot ay magpapadala ng message_created webhook para sa mismong
+//     mensaheng ito (sarili nyang echo), at yun ang magpapalabas nito sa
+//     thread. Pag-insert dito = dobleng row.
+//   * LiveChat brands (casinyeam, manilacasino, superscatterph,
+//     livechat-general) ay HINDI sakop — ibang API ang LiveChat.
+// ---------------------------------------------------------------------------
+let REPLY_CONFIG = {};
+try {
+  REPLY_CONFIG = JSON.parse(process.env.CHATWOOT_REPLY_CONFIG || '{}');
+} catch (e) {
+  console.error('CHATWOOT_REPLY_CONFIG is not valid JSON — replies disabled until fixed:', e.message);
+}
+
+router.post('/reply', requireAuth, async (req, res) => {
+  try {
+    const brand = String(req.body?.brand || '').trim();
+    const conversationId = Number(req.body?.conversationId);
+    const content = String(req.body?.content || '').trim();
+    if (!brand || !conversationId || !content) {
+      return res.status(400).json({ error: 'brand, conversationId, and content are required' });
+    }
+    if (content.length > 5000) {
+      return res.status(400).json({ error: 'Masyadong mahaba ang mensahe (max 5000 characters).' });
+    }
+
+    const cfg = REPLY_CONFIG[brand];
+    if (!cfg || !cfg.baseUrl || !cfg.accountId || !cfg.token) {
+      return res.status(400).json({
+        error: `Hindi pa naka-configure ang replies para sa "${brand}". Idagdag ito sa CHATWOOT_REPLY_CONFIG sa Railway (baseUrl, accountId, token) at i-redeploy.`,
+      });
+    }
+
+    const url = `${String(cfg.baseUrl).replace(/\/+$/, '')}/api/v1/accounts/${cfg.accountId}/conversations/${conversationId}/messages`;
+    const cwRes = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Chatwoot's own header name (underscored — see nginx note above).
+        'api_access_token': cfg.token,
+      },
+      body: JSON.stringify({ content, message_type: 'outgoing', private: false }),
+    });
+
+    if (!cwRes.ok) {
+      const bodyText = await cwRes.text().catch(() => '');
+      console.error(`Chatwoot reply failed [${brand} #${conversationId}]: HTTP ${cwRes.status} ${bodyText.slice(0, 300)}`);
+      const hint = cwRes.status === 401
+        ? ' (401: maling token, o binabagsak ng nginx ang api_access_token header — kailangan ng underscores_in_headers on;)'
+        : cwRes.status === 404 ? ' (404: maling accountId/baseUrl, o wala ang conversation sa instance na ito)' : '';
+      return res.status(502).json({ error: `Tumanggi ang Chatwoot (HTTP ${cwRes.status})${hint}` });
+    }
+
+    const sent = await cwRes.json().catch(() => ({}));
+    const by = req.user?.name || req.user?.email || 'unknown';
+    console.log(`Dashboard reply sent by ${by} -> ${brand} #${conversationId} (chatwoot message ${sent.id ?? '?'})`);
+    // Ang webhook echo ng mensaheng ito ang mag-i-insert sa DB — dito, i-ack lang.
+    res.json({ ok: true, messageId: sent.id ?? null });
+  } catch (err) {
+    console.error('Chatwoot reply error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/chatwoot/inactive-depositors?brand=tmtcash&from=...&to=...&format=csv&q=...
 //
 // Inactive-depositor report (added 2026-09-24). Hinahanap ang mga conversation
