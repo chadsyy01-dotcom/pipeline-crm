@@ -59,19 +59,6 @@
   .profile-name{font-size:13px;font-weight:700;line-height:1.3;}
   .profile-name span{display:block;font-size:11px;color:var(--ink-faint);font-weight:500;}
 
-  .empty-hero{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:48px 32px;text-align:center;}
-  .empty-hero .ico{width:64px;height:64px;border-radius:18px;background:var(--purple-tint);color:var(--purple);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;}
-  .empty-hero .ico svg{width:30px;height:30px;}
-  .empty-hero h2{margin:0 0 8px;font-size:18px;font-weight:800;}
-  .empty-hero p{margin:0 auto;max-width:480px;color:var(--ink-soft);font-size:13.5px;line-height:1.6;}
-  .fb-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px;}
-  .fb-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;}
-  .fb-btn.primary{background:#1877F2;color:#fff;}
-  .fb-btn.primary:hover{background:#0f6ae0;}
-  .fb-btn.ghost{background:var(--card);color:var(--ink-soft);border:1px solid var(--line);}
-  .fb-btn.ghost:hover{background:var(--bg);}
-  .fb-btn svg{width:16px;height:16px;flex-shrink:0;}
-  .fb-note{font-size:11.5px;color:var(--ink-faint);margin-top:14px;line-height:1.6;}
   .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-top:14px;}
   .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
   .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
@@ -79,8 +66,11 @@
   .panel-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 
   /* ----- FB ACCOUNTS (2026-09-25): porma ng FB profile header (dark),
-     may dropdown ng mga Page na hawak nila bilang admin. ----- */
-  .fba-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-items:start;}
+     kasunod agad ang listahan ng mga Page na hawak nila bilang admin. ----- */
+  .fba-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;align-items:flex-start;}
+  .fba-grid .fba-card{flex:0 1 340px;min-width:0;}
+  .fba-panel{margin-top:0;}
+  .fba-panel .panel-head{justify-content:center;text-align:center;}
   .fba-card{background:var(--fb-card);border-radius:12px;color:var(--fb-ink);overflow:hidden;}
   .fba-head{display:flex;align-items:center;gap:18px;padding:18px 20px;}
   .fba-av{width:96px;height:96px;border-radius:50%;flex-shrink:0;background:var(--fb-card-2);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#fff;overflow:hidden;box-shadow:0 0 0 3px var(--fb-card),0 0 0 4px #3E4042;}
@@ -89,14 +79,7 @@
   .fba-name{font-size:24px;font-weight:800;line-height:1.2;margin:0 0 4px;color:var(--fb-ink);overflow-wrap:anywhere;}
   .fba-name a:hover{text-decoration:underline;}
   .fba-friends{font-size:13px;font-weight:600;color:var(--fb-soft);}
-  .fba-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:11px 20px;background:transparent;border:none;border-top:1px solid #3E4042;color:var(--fb-ink);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:left;}
-  .fba-toggle:hover{background:var(--fb-hover);}
-  .fba-toggle:focus-visible{outline:2px solid var(--fb-blue);outline-offset:-2px;}
-  .fba-toggle .count{background:var(--fb-card-2);color:var(--fb-soft);font-size:11px;padding:2px 8px;border-radius:20px;}
-  .fba-toggle svg{width:16px;height:16px;margin-left:auto;transition:transform .18s ease;color:var(--fb-soft);}
-  .fba-toggle[aria-expanded="true"] svg{transform:rotate(180deg);}
-  .fba-pages{display:none;padding:4px 10px 10px;}
-  .fba-pages.open{display:block;}
+  .fba-pages{border-top:1px solid #3E4042;padding:8px 10px 10px;}
   .fba-page{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;}
   .fba-page:hover{background:var(--fb-hover);}
   .fba-page-av{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;overflow:hidden;}
@@ -137,7 +120,7 @@
   .smm-time .rel{display:block;font-weight:800;color:var(--ink-soft);}
   .empty-note{color:var(--ink-faint);font-size:12.5px;padding:16px 4px;text-align:center;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
-  @media (max-width:420px){ .fba-grid{grid-template-columns:1fr;} .fba-av{width:72px;height:72px;font-size:24px;} .fba-name{font-size:20px;} }
+  @media (max-width:420px){ .fba-grid .fba-card{flex-basis:100%;} .fba-av{width:72px;height:72px;font-size:24px;} .fba-name{font-size:20px;} }
 </style>
 </head>
 <body>
@@ -175,16 +158,16 @@
 
   // -------------------------------------------------------------------------
   // FB ACCOUNTS (2026-09-25): ang mga FB profile na ginagamit sa monitoring,
-  // naka-porma na parang FB profile header (dark). Bawat isa ay may dropdown
-  // ng mga Page kung saan sila admin.
+  // naka-porma na parang FB profile header (dark). Kasunod agad ang listahan
+  // ng mga Page kung saan sila admin (walang dropdown).
   //
   // PAANO I-EDIT:
   //  - avatar: naka-embed na (base64) ang profile pics, kaya walang
   //    kailangang i-upload na image file. Hindi pwedeng i-hotlink ang FB CDN
   //    image — nag-e-expire ang link. Kapag sira, initials ang lalabas.
   //  - pages: { name, url, role, avatar? } — role default ay "Admin".
-  //    Walang url (wala pang Page) = naka-disable ang "Buksan" button;
-  //    lagyan ng role: 'Wala pang Page' para malinaw.
+  //    Walang url (wala pang Page) = naka-disable ang "Open" button;
+  //    lagyan ng role: 'No page yet' para malinaw.
   // -------------------------------------------------------------------------
   const FB_ACCOUNTS = [
     {
@@ -208,7 +191,7 @@
         { name: 'TMTCASH', url: 'https://www.facebook.com/tmtcashasia/' },
         { name: 'MANILA PLAY', url: 'https://www.facebook.com/manilaplayphs/' },
         { name: 'HYPE PLAY PH', url: 'https://www.facebook.com/HypeplayPH/' },
-        { name: 'HYPE PLAY BDT', url: '', role: 'Wala pang Page' },
+        { name: 'HYPE PLAY BDT', url: '', role: 'No page yet' },
       ],
     },
     {
@@ -218,9 +201,9 @@
       avatar: 'data:image/jpeg;base64,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',
       pages: [
         { name: 'CASINYEAM', url: 'https://www.facebook.com/Casinyeam/' },
-        { name: 'MOBA', url: '', role: 'Wala pang Page' },
-        { name: 'MANILA CASINO', url: '', role: 'Wala pang Page' },
-        { name: 'SUPER SCATTER', url: '', role: 'Wala pang Page' },
+        { name: 'MOBA', url: '', role: 'No page yet' },
+        { name: 'MANILA CASINO', url: '', role: 'No page yet' },
+        { name: 'SUPER SCATTER', url: '', role: 'No page yet' },
       ],
     },
   ];
@@ -251,9 +234,9 @@
               <div class="fba-page-name">${escapeHtmlSmm(p.name)}</div>
               <div class="fba-page-role">${escapeHtmlSmm(p.role || 'Admin')}</div>
             </div>
-            <button type="button" class="fba-page-btn" ${p.url ? `onclick="openFbWindow('${escapeHtmlSmm(p.url)}')"` : 'disabled title="Wala pang FB Page"'}>Buksan</button>
+            <button type="button" class="fba-page-btn" ${p.url ? `onclick="openFbWindow('${escapeHtmlSmm(p.url)}')"` : 'disabled title="No Facebook page yet"'}>Open</button>
           </div>`;
-      }).join('') : '<div class="fba-empty">Wala pang naka-set na Page para sa account na ito.</div>';
+      }).join('') : '<div class="fba-empty">No pages assigned to this account yet.</div>';
       return `
         <div class="fba-card">
           <div class="fba-head">
@@ -263,19 +246,9 @@
               <div class="fba-friends">${acc.friends != null ? escapeHtmlSmm(acc.friends) + ' friends' : ''}</div>
             </div>
           </div>
-          <button type="button" class="fba-toggle" aria-expanded="false" aria-controls="fbaPages${i}" onclick="toggleFbaPages(this)">
-            Admin sa mga Page <span class="count">${pages.length}</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div class="fba-pages" id="fbaPages${i}">${pageRows}</div>
+          <div class="fba-pages">${pageRows}</div>
         </div>`;
     }).join('');
-  }
-
-  function toggleFbaPages(btn) {
-    const open = btn.getAttribute('aria-expanded') !== 'true';
-    btn.setAttribute('aria-expanded', String(open));
-    document.getElementById(btn.getAttribute('aria-controls')).classList.toggle('open', open);
   }
 
   // -------------------------------------------------------------------------
@@ -507,7 +480,7 @@
     <div class="topbar">
       <div class="greeting">
         <h1>Social Media Monitoring</h1>
-        <p>Bantayan ang mga social media mentions at messages kada brand.</p>
+        <p>Monitor social media mentions and messages per brand.</p>
       </div>
       <div class="profile">
         <div class="avatar">—</div>
@@ -515,32 +488,9 @@
       </div>
     </div>
 
-    <div class="empty-hero">
-      <div class="ico">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a3 3 0 100-6 3 3 0 000 6z"/><path d="M6 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M18 22a3 3 0 100-6 3 3 0 000 6z"/><path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/></svg>
-      </div>
-      <h2>Facebook Monitoring</h2>
-      <p>Ang Facebook ay hindi pwedeng i-embed sa loob ng kahit anong website (harang ito ng Meta mismo), kaya ang mga button sa ibaba ay nagbubukas ng sariling FB window — doon ka maglo-log in nang isang beses, at mananatili ang login sa mga susunod na pagbukas.</p>
-      <div class="fb-actions">
-        <button type="button" class="fb-btn primary" onclick="openFbWindow('https://business.facebook.com/latest/inbox/all')">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-          Meta Business Suite Inbox
-        </button>
-        <button type="button" class="fb-btn ghost" onclick="openFbWindow('https://www.facebook.com')">
-          Facebook.com
-        </button>
-        <button type="button" class="fb-btn ghost" onclick="openFbWindow('https://business.facebook.com/latest/notifications')">
-          Page Notifications
-        </button>
-      </div>
-      <div class="fb-note">
-        Susunod na yugto (kapag napagdesisyunan): (B) ikonekta ang FB Pages bilang Chatwoot inboxes para ang Messenger ay kusang dumaloy sa Customers page kasama ng handoff/CSAT/reply — o (C) diretsong Meta API integration para makita dito mismo ang comments at mentions kada brand.
-      </div>
-    </div>
-
-    <div class="panel">
+    <div class="panel fba-panel">
       <div class="panel-head">
-        <h3>FB Accounts <span class="sub">Pindutin ang pangalan para buksan ang profile</span></h3>
+        <h3>FB Accounts <span class="sub">Click a name to open the profile</span></h3>
       </div>
       <div class="fba-grid" id="fbaGrid"></div>
     </div>
