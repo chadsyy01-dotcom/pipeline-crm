@@ -214,6 +214,16 @@
     return escapeHtmlSmm(smmInitials(name));
   }
 
+  // Page logo (2026-09-25): kinukuha ang public profile pic ng Page mula sa
+  // Graph API picture endpoint gamit ang username sa URL
+  // (facebook.com/<username>/). Nire-redirect ito ng FB sa kasalukuyang logo,
+  // kaya kusang sumusunod kapag pinalitan ang logo. Kung pumalya, initials.
+  // Para i-override: lagyan ng avatar: '...' ang page sa FB_ACCOUNTS.
+  function fbPageLogoUrl(url) {
+    const m = String(url || '').match(/facebook\.com\/(?!profile\.php|groups\/)([A-Za-z0-9.\-]+)\/?/);
+    return m ? `https://graph.facebook.com/${m[1]}/picture?type=large` : null;
+  }
+
   function renderFbAccounts() {
     const grid = document.getElementById('fbaGrid');
     grid.innerHTML = FB_ACCOUNTS.map((acc, i) => {
@@ -224,8 +234,9 @@
       const pages = acc.pages || [];
       const pageRows = pages.length ? pages.map((p, j) => {
         const pInit = fbaInitialsHtml(p.name);
-        const pAv = p.avatar
-          ? `<img src="${escapeHtmlSmm(p.avatar)}" alt="" onerror="this.parentNode.textContent='${pInit}'">`
+        const pSrc = p.avatar || fbPageLogoUrl(p.url);
+        const pAv = pSrc
+          ? `<img src="${escapeHtmlSmm(pSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.textContent='${pInit}'">`
           : pInit;
         return `
           <div class="fba-page">
