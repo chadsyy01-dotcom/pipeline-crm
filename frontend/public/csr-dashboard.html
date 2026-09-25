@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=12"></script>
+<script src="ticket-data.js?v=13"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -1561,7 +1561,10 @@ async function refreshTickets() {
   if (ticketsLoading) return;
   ticketsLoading = true;
   try {
-    allTickets = await TicketData.fetchTickets();
+    // fetchTickets(TRUE) — kailangan ang true para lampasan ang cache ng
+    // ticket-data.js; kung wala, laging ang unang-load na data ang
+    // bumabalik at hindi nag-a-update ang tickets (ayos 2026-09-25).
+    allTickets = await TicketData.fetchTickets(true);
     renderAll();
     markLiveUpdated();
     checkForNewTicketNotifications();
