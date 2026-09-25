@@ -78,13 +78,28 @@
   .smm-search input{border:none;outline:none;background:transparent;font:inherit;color:var(--ink);width:100%;}
   .smm-btn{padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;}
   .smm-btn:hover{background:var(--bg);}
-  .table-wrap{overflow-x:auto;}
-  .smm-table{width:100%;border-collapse:collapse;}
-  .smm-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);font-weight:700;padding:0 10px 9px;border-bottom:1px solid var(--line);white-space:nowrap;}
-  .smm-table td{padding:10px;font-size:12.8px;border-bottom:1px solid var(--line);vertical-align:top;max-width:340px;overflow-wrap:break-word;}
-  .smm-table tr:last-child td{border-bottom:none;}
-  .smm-table tr:hover td{background:var(--bg);}
-  .smm-table a{color:var(--primary);font-weight:600;word-break:break-all;}
+  .smm-list{display:flex;flex-direction:column;}
+  .smm-card{display:flex;gap:12px;padding:14px 6px;border-bottom:1px solid var(--line);}
+  .smm-card:last-child{border-bottom:none;}
+  .smm-card:hover{background:var(--bg);border-radius:10px;}
+  .smm-av{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;}
+  .smm-main{flex:1;min-width:0;}
+  .smm-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
+  .smm-name{font-size:13.5px;font-weight:800;}
+  .smm-pill{font-size:10.5px;font-weight:700;padding:2.5px 9px;border-radius:20px;background:var(--bg);color:var(--ink-soft);border:1px solid var(--line);}
+  .smm-badge{font-size:10.5px;font-weight:800;padding:2.5px 9px;border-radius:20px;}
+  .smm-badge.ok{background:#EAFBF1;color:#15803D;}
+  .smm-badge.warn{background:#FEF6E7;color:#B45309;}
+  .smm-badge.bad{background:#FDECEC;color:#B91C1C;}
+  .smm-badge.info{background:#F3EEFE;color:#6D28D9;}
+  .smm-badge.gray{background:var(--bg);color:var(--ink-faint);}
+  .smm-msg{font-size:13px;color:var(--ink);line-height:1.55;overflow-wrap:break-word;white-space:pre-wrap;margin:2px 0 6px;}
+  .smm-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .smm-chip{font-size:11px;color:var(--ink-soft);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:2.5px 8px;}
+  .smm-chip b{color:var(--ink-faint);font-weight:700;text-transform:uppercase;font-size:9.5px;letter-spacing:.02em;margin-right:4px;}
+  .smm-linkbtn{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-tint);border-radius:7px;padding:3px 9px;}
+  .smm-time{font-size:11.5px;color:var(--ink-faint);font-weight:600;white-space:nowrap;flex-shrink:0;text-align:right;line-height:1.5;}
+  .smm-time .rel{display:block;font-weight:800;color:var(--ink-soft);}
   .empty-note{color:var(--ink-faint);font-size:12.5px;padding:16px 4px;text-align:center;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
 </style>
@@ -128,74 +143,158 @@
   // change. URLs sa loob ng cells ay ginagawang clickable (bagong tab).
   // -------------------------------------------------------------------------
   const SMM_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQNjeUAUEiJovQxplX73nbOqQXiPMPcY12oSmeo-81ECd9LjnJXEUd-Iaadr_nerT_ohHFY1PvEP8NA/pub?gid=877633217&single=true&output=csv';
-  const SMM_MAX_ROWS = 500;
+  const SMM_MAX_ROWS = 300;
   let smmHeaders = [];
   let smmRows = [];
 
   function escapeHtmlSmm(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-  function linkifyCell(val) {
-    const esc = escapeHtmlSmm(val);
-    return esc.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+
+  // ----- Column classification (heuristics sa header names) -----
+  // Kinikilala ang papel ng bawat column mula sa pangalan nito, para ang
+  // kahit anong sheet schema ay lumabas nang presentable: pangalan+avatar,
+  // brand pill, status badge, petsa (kanan, may relative time), mensahe
+  // bilang body text, links bilang "Open" buttons, at ang natitira bilang
+  // maliliit na label:value chips.
+  function classifyColumns(headers) {
+    const find = (res) => headers.find(h => res.some(re => re.test(h))) || null;
+    const dateCol = find([/date|time|timestamp|submitted|created|when/i]);
+    const nameCol = find([/^name$|customer|username|user|account|sender|player|fb name|profile/i]);
+    const brandCol = find([/brand|page|platform|site|channel/i]);
+    const statusCol = find([/status|state|action taken|resolution/i]);
+    const msgCol = find([/message|comment|content|concern|details|inquiry|complaint|post|text|remarks|description/i]);
+    const used = new Set([dateCol, nameCol, brandCol, statusCol, msgCol].filter(Boolean));
+    const linkCols = headers.filter(h => !used.has(h) && /link|url|screenshot|proof|attachment/i.test(h));
+    linkCols.forEach(h => used.add(h));
+    const metaCols = headers.filter(h => !used.has(h));
+    return { dateCol, nameCol, brandCol, statusCol, msgCol, linkCols, metaCols };
   }
 
-  function renderSmmTable() {
-    const head = document.getElementById('smmHead');
-    const body = document.getElementById('smmBody');
-    const foot = document.getElementById('smmFootNote');
+  function statusClass(val) {
+    const v = String(val).toLowerCase();
+    if (/done|resolved|replied|responded|completed|closed|ok|fixed|answered/.test(v)) return 'ok';
+    if (/pending|new|open|waiting|unread|no reply|unanswered/.test(v)) return 'warn';
+    if (/rejected|spam|banned|scam|negative|fail|escalat/.test(v)) return 'bad';
+    if (/ongoing|in progress|checking|monitoring|follow/.test(v)) return 'info';
+    return 'gray';
+  }
+
+  const SMM_AV_COLORS = ['#3B82F6','#22C55E','#8B5CF6','#F59E0B','#14B8A6','#EC4899','#0EA5E9','#F97316','#A855F7','#64748B'];
+  function smmAvColor(name) {
+    let h = 0; const s2 = String(name || '?');
+    for (let i = 0; i < s2.length; i++) h = (h * 31 + s2.charCodeAt(i)) >>> 0;
+    return SMM_AV_COLORS[h % SMM_AV_COLORS.length];
+  }
+  function smmInitials(name) {
+    const parts = String(name || '?').trim().split(/\s+/).slice(0, 2);
+    return parts.map(w => (w[0] || '').toUpperCase()).join('') || '?';
+  }
+
+  function parseSmmDate(val) {
+    if (!val) return null;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function smmRelTime(d) {
+    const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    return days + 'd ago';
+  }
+  function firstUrl(val) {
+    const m = String(val || '').match(/https?:\/\/[^\s]+/);
+    return m ? m[0] : null;
+  }
+
+  function renderSmmCards() {
+    const list = document.getElementById('smmList');
     if (!smmHeaders.length) {
-      head.innerHTML = '';
-      body.innerHTML = '<tr><td><div class="empty-note">Walang datos sa sheet (o hindi pa ito nabubuksan bilang published CSV).</div></td></tr>';
+      list.innerHTML = '<div class="empty-note">Walang datos sa sheet (o hindi pa ito published bilang CSV).</div>';
       return;
     }
-    head.innerHTML = smmHeaders.map(h => `<th>${escapeHtmlSmm(h)}</th>`).join('');
+    const cols = classifyColumns(smmHeaders);
     const q = (document.getElementById('smmSearch').value || '').trim().toLowerCase();
     let rows = smmRows;
     if (q) rows = rows.filter(r => smmHeaders.some(h => String(r[h] ?? '').toLowerCase().includes(q)));
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="${smmHeaders.length}"><div class="empty-note">${q ? 'Walang tumugma sa "' + escapeHtmlSmm(q) + '".' : 'Walang rows sa sheet.'}</div></td></tr>`;
-      foot.style.display = 'none';
+      list.innerHTML = `<div class="empty-note">${q ? 'Walang tumugma sa "' + escapeHtmlSmm(q) + '".' : 'Walang rows sa sheet.'}</div>`;
+      document.getElementById('smmFootNote').style.display = 'none';
       return;
     }
-    const shown = rows.slice(0, SMM_MAX_ROWS);
-    body.innerHTML = shown.map(r =>
-      `<tr>${smmHeaders.map(h => `<td>${linkifyCell(r[h])}</td>`).join('')}</tr>`
-    ).join('');
+    // Pinakabago muna kapag may date column; kung wala, sunod sa sheet order
+    // pero baliktad (ang mga bagong entry ay kadalasang nasa ibaba ng sheet).
+    let sorted = [...rows];
+    if (cols.dateCol) {
+      sorted.sort((a, b) => (parseSmmDate(b[cols.dateCol])?.getTime() || 0) - (parseSmmDate(a[cols.dateCol])?.getTime() || 0));
+    } else {
+      sorted.reverse();
+    }
+    const shown = sorted.slice(0, SMM_MAX_ROWS);
+    list.innerHTML = shown.map(r => {
+      const name = cols.nameCol ? r[cols.nameCol] : null;
+      const brand = cols.brandCol ? r[cols.brandCol] : null;
+      const status = cols.statusCol ? r[cols.statusCol] : null;
+      const msg = cols.msgCol ? r[cols.msgCol] : null;
+      const dRaw = cols.dateCol ? r[cols.dateCol] : null;
+      const d = parseSmmDate(dRaw);
+      const linkBtns = cols.linkCols.map(h => {
+        const url = firstUrl(r[h]);
+        return url ? `<a class="smm-linkbtn" href="${escapeHtmlSmm(url)}" target="_blank" rel="noopener">${escapeHtmlSmm(h)} ↗</a>` : '';
+      }).filter(Boolean).join('');
+      const chips = cols.metaCols
+        .filter(h => String(r[h] ?? '').trim() !== '')
+        .map(h => `<span class="smm-chip"><b>${escapeHtmlSmm(h)}</b>${escapeHtmlSmm(r[h])}</span>`).join('');
+      return `
+      <div class="smm-card">
+        <div class="smm-av" style="background:${smmAvColor(name)};">${escapeHtmlSmm(smmInitials(name))}</div>
+        <div class="smm-main">
+          <div class="smm-top">
+            <span class="smm-name">${escapeHtmlSmm(name || 'Unknown')}</span>
+            ${brand ? `<span class="smm-pill">${escapeHtmlSmm(brand)}</span>` : ''}
+            ${status ? `<span class="smm-badge ${statusClass(status)}">${escapeHtmlSmm(status)}</span>` : ''}
+          </div>
+          ${msg ? `<div class="smm-msg">${escapeHtmlSmm(msg)}</div>` : ''}
+          <div class="smm-meta">${linkBtns}${chips}</div>
+        </div>
+        ${d ? `<div class="smm-time"><span class="rel">${smmRelTime(d)}</span>${d.toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>`
+            : (dRaw ? `<div class="smm-time">${escapeHtmlSmm(dRaw)}</div>` : '')}
+      </div>`;
+    }).join('');
+    const foot = document.getElementById('smmFootNote');
     if (rows.length > SMM_MAX_ROWS) {
       foot.style.display = '';
-      foot.textContent = `Ipinapakita ang unang ${SMM_MAX_ROWS} ng ${rows.length} rows — gamitin ang search para paliitin.`;
-    } else {
-      foot.style.display = 'none';
-    }
+      foot.textContent = `Ipinapakita ang pinakabagong ${SMM_MAX_ROWS} ng ${rows.length} entries — gamitin ang search para paliitin.`;
+    } else foot.style.display = 'none';
   }
 
   async function loadSmmSheet() {
     const upd = document.getElementById('smmUpdated');
     try {
-      // cache-buster para laging sariwa ang published CSV (may sariling
-      // ~5 min cache ang Google publish; ito ang pinakamalapit sa live).
       const res = await fetch(SMM_CSV_URL + '&_cb=' + Date.now());
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const text = await res.text();
       const parsed = Papa.parse(text, { header: true, skipEmptyLines: 'greedy' });
       smmHeaders = (parsed.meta.fields || []).filter(f => f && f.trim() !== '');
       smmRows = (parsed.data || []).filter(r => smmHeaders.some(h => String(r[h] ?? '').trim() !== ''));
-      renderSmmTable();
-      upd.textContent = `● ${smmRows.length} rows · Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      renderSmmCards();
+      upd.textContent = `\u25CF ${smmRows.length} entries \u00B7 Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
       upd.style.color = 'var(--success)';
     } catch (err) {
       console.error('SMM sheet load failed:', err);
-      upd.textContent = '● Hindi ma-load ang sheet';
+      upd.textContent = '\u25CF Hindi ma-load ang sheet';
       upd.style.color = 'var(--danger)';
-      document.getElementById('smmBody').innerHTML = '<tr><td><div class="empty-note">Hindi ma-load ang Google Sheet — i-check kung "Published to the web" pa rin ito, tapos i-Refresh.</div></td></tr>';
+      document.getElementById('smmList').innerHTML = '<div class="empty-note">Hindi ma-load ang Google Sheet \u2014 i-check kung "Published to the web" pa rin ito, tapos i-Refresh.</div>';
     }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     loadSmmSheet();
     document.getElementById('smmRefresh').addEventListener('click', loadSmmSheet);
-    document.getElementById('smmSearch').addEventListener('input', renderSmmTable);
+    document.getElementById('smmSearch').addEventListener('input', renderSmmCards);
     setInterval(loadSmmSheet, 60000);
   });
 
@@ -311,12 +410,7 @@
           <button type="button" class="smm-btn" id="smmRefresh">↻ Refresh</button>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="smm-table">
-          <thead><tr id="smmHead"></tr></thead>
-          <tbody id="smmBody"><tr><td><div class="empty-note">Loading…</div></td></tr></tbody>
-        </table>
-      </div>
+      <div class="smm-list" id="smmList"><div class="empty-note">Loading…</div></div>
       <div class="empty-note" id="smmFootNote" style="display:none;"></div>
     </div>
   </main>
