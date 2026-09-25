@@ -130,6 +130,8 @@
   .sec-head svg{width:22px;height:22px;flex-shrink:0;}
   .sec-head h2{margin:0;font-size:16px;font-weight:800;letter-spacing:.01em;}
   .tg-ico{background:#2AABEE !important;}
+  .fbg-ico{background:#1877F2 !important;}
+  .fbg-ico svg{width:17px;height:17px;}
   .tg-ico svg{width:17px;height:17px;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
   @media (max-width:420px){ .fba-grid .fba-card{flex-basis:100%;} .fba-av{width:72px;height:72px;font-size:24px;} .fba-name{font-size:20px;} }
@@ -245,6 +247,15 @@
     { brand: 'BUENAS CREDS', type: 'Community', url: 'https://t.me/+VivPzlpUBXowYThl' },
   ];
 
+  // FACEBOOK GROUPS (2026-09-25): kaparehong format ng Telegram — { brand, type, url }.
+  // Logo ay kinukuha rin sa Page ng parehong brand sa FB_ACCOUNTS.
+  const FB_GROUPS = [
+    { brand: 'TMTCASH', type: 'Official Group', url: 'https://www.facebook.com/groups/tmtcashofficial' },
+    { brand: 'MANILA PLAY', type: 'Official Group', url: 'https://www.facebook.com/groups/mplayofficial' },
+  ];
+
+  const FBG_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>';
+
   const TG_ICON = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M21.9 4.3l-3.2 15.1c-.2 1.1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.4-5 9.1-8.2c.4-.4-.1-.6-.6-.2L6.2 13l-4.8-1.5c-1-.3-1.1-1 .2-1.5L20.5 2.8c.9-.3 1.7.2 1.4 1.5z"/></svg>';
 
   function brandLogo(brand) {
@@ -255,24 +266,30 @@
     return null;
   }
 
-  function renderTelegram() {
-    const grid = document.getElementById('tgGrid');
+  // Brand-grouped link cards (FB Groups + Telegram), kaparehong porma ng FB cards.
+  function renderBrandLinks(gridId, list, icon, icoClass, useFbWindow, emptyText) {
+    const grid = document.getElementById(gridId);
     const byBrand = new Map();
-    TG_GROUPS.forEach(g => { if (!byBrand.has(g.brand)) byBrand.set(g.brand, []); byBrand.get(g.brand).push(g); });
-    if (!byBrand.size) { grid.innerHTML = '<div class="empty-note">No Telegram communities added yet.</div>'; return; }
+    list.forEach(g => { if (!byBrand.has(g.brand)) byBrand.set(g.brand, []); byBrand.get(g.brand).push(g); });
+    if (!byBrand.size) { grid.innerHTML = `<div class="empty-note">${emptyText}</div>`; return; }
     grid.innerHTML = [...byBrand.entries()].map(([brand, groups]) => {
       const init = fbaInitialsHtml(brand);
       const logo = brandLogo(brand);
       const av = logo ? `<img src="${escapeHtmlSmm(logo)}" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.textContent='${init}'">` : init;
-      const rows = groups.map(g => `
+      const rows = groups.map(g => {
+        const open = useFbWindow
+          ? `openFbWindow('${escapeHtmlSmm(g.url)}')`
+          : `window.open('${escapeHtmlSmm(g.url)}', '_blank', 'noopener')`;
+        return `
           <div class="fba-page">
-            <div class="fba-page-av tg-ico">${TG_ICON}</div>
+            <div class="fba-page-av ${icoClass}">${icon}</div>
             <div class="fba-page-main">
               <div class="fba-page-name">${escapeHtmlSmm(g.type || 'Group')}</div>
-              <div class="fba-page-role">${escapeHtmlSmm(g.url.replace(/^https?:\/\//, ''))}</div>
+              <div class="fba-page-role">${escapeHtmlSmm(g.url.replace(/^https?:\/\/(www\.)?/, ''))}</div>
             </div>
-            <button type="button" class="fba-page-btn" onclick="window.open('${escapeHtmlSmm(g.url)}', '_blank', 'noopener')">Open</button>
-          </div>`).join('');
+            <button type="button" class="fba-page-btn" onclick="${open}">Open</button>
+          </div>`;
+      }).join('');
       return `
         <div class="fba-card">
           <div class="fba-head">
@@ -282,6 +299,12 @@
           <div class="fba-pages">${rows}</div>
         </div>`;
     }).join('');
+  }
+  function renderTelegram() {
+    renderBrandLinks('tgGrid', TG_GROUPS, TG_ICON, 'tg-ico', false, 'No Telegram communities added yet.');
+  }
+  function renderFbGroups() {
+    renderBrandLinks('fbgGrid', FB_GROUPS, FBG_ICON, 'fbg-ico', true, 'No Facebook groups added yet.');
   }
 
   function renderFbAccounts() {
@@ -471,6 +494,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     renderFbAccounts();
+    renderFbGroups();
     renderTelegram();
     // Monitoring Sheet panel — TINANGGAL MUNA (2026-09-25) para malinis.
     // Naka-iwan ang code sa itaas; para ibalik: idagdag ulit ang panel HTML
@@ -566,7 +590,7 @@
         </div>
         <div>
           <h2>Team social media monitoring</h2>
-          <p>These are the team's Facebook accounts with the brand pages each one manages, plus each brand's Telegram community. Check and scrub every page and group regularly &mdash; comments, messages, posts and mentions &mdash; so nothing goes unmonitored.</p>
+          <p>These are the team's Facebook accounts with the brand pages each one manages, plus each brand's Facebook group and Telegram community. Check and scrub every page and group regularly &mdash; comments, messages, posts and mentions &mdash; so nothing goes unmonitored.</p>
           <p class="fba-note-hint">Click an account name to open its profile, or Open to go straight to a page or group.</p>
         </div>
       </div>
@@ -575,6 +599,12 @@
         <h2>Facebook Pages</h2>
       </div>
       <div class="fba-grid" id="fbaGrid"></div>
+
+      <div class="sec-head next">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path fill="#fff" d="M13.3 19.5v-6h2l.3-2.4h-2.3V9.6c0-.7.2-1.2 1.2-1.2h1.2V6.3c-.2 0-1-.1-1.8-.1-1.8 0-3 1.1-3 3.1v1.8h-2v2.4h2v6h2.4z"/></svg>
+        <h2>Facebook Groups</h2>
+      </div>
+      <div class="fba-grid" id="fbgGrid"></div>
 
       <div class="sec-head next">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#2AABEE"/><path fill="#fff" d="M17.6 7.4l-1.9 9c-.1.6-.5.8-1.1.5l-2.9-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3 5.4-4.9c.2-.2 0-.3-.4-.1l-6.7 4.2-2.9-.9c-.6-.2-.6-.6.1-.9l11.3-4.4c.5-.2 1 .1.8 1z"/></svg>
