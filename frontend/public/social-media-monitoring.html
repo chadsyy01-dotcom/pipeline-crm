@@ -12,9 +12,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  /* Social Media Monitoring (2026-09-25) — PLACEHOLDER PAGE, walang laman pa.
-     Sub-tab sa ilalim ng Customers (pattern: OpenAI > Billing). Ang design
-     tokens at sidebar ay kinopya mula sa ibang pages para pare-pareho. */
+  /* Social Media Monitoring (2026-09-25) — Sub-tab sa ilalim ng Customers
+     (pattern: OpenAI > Billing). Ang design tokens at sidebar ay kinopya
+     mula sa ibang pages para pare-pareho. */
   :root{
     --primary:#2563EB; --primary-tint:#EFF4FF;
     --success:#22C55E; --warning:#F59E0B; --danger:#EF4444;
@@ -23,6 +23,9 @@
     --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
     --line:#EEF1F6; --radius-md:14px; --radius-lg:18px;
     --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+    /* FB dark-mode colors (para sa FB account cards) */
+    --fb-card:#242526; --fb-card-2:#3A3B3C; --fb-hover:#303132;
+    --fb-ink:#E4E6EB; --fb-soft:#B0B3B8; --fb-blue:#2D88FF;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
@@ -74,6 +77,38 @@
   .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
   .panel-head .sub{font-size:12px;color:var(--ink-faint);font-weight:600;}
   .panel-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+
+  /* ----- FB ACCOUNTS (2026-09-25): porma ng FB profile header (dark),
+     may dropdown ng mga Page na hawak nila bilang admin. ----- */
+  .fba-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-items:start;}
+  .fba-card{background:var(--fb-card);border-radius:12px;color:var(--fb-ink);overflow:hidden;}
+  .fba-head{display:flex;align-items:center;gap:18px;padding:18px 20px;}
+  .fba-av{width:96px;height:96px;border-radius:50%;flex-shrink:0;background:var(--fb-card-2);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#fff;overflow:hidden;box-shadow:0 0 0 3px var(--fb-card),0 0 0 4px #3E4042;}
+  .fba-av img{width:100%;height:100%;object-fit:cover;display:block;}
+  .fba-info{min-width:0;flex:1;}
+  .fba-name{font-size:24px;font-weight:800;line-height:1.2;margin:0 0 4px;color:var(--fb-ink);overflow-wrap:anywhere;}
+  .fba-name a:hover{text-decoration:underline;}
+  .fba-friends{font-size:13px;font-weight:600;color:var(--fb-soft);}
+  .fba-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:11px 20px;background:transparent;border:none;border-top:1px solid #3E4042;color:var(--fb-ink);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:left;}
+  .fba-toggle:hover{background:var(--fb-hover);}
+  .fba-toggle:focus-visible{outline:2px solid var(--fb-blue);outline-offset:-2px;}
+  .fba-toggle .count{background:var(--fb-card-2);color:var(--fb-soft);font-size:11px;padding:2px 8px;border-radius:20px;}
+  .fba-toggle svg{width:16px;height:16px;margin-left:auto;transition:transform .18s ease;color:var(--fb-soft);}
+  .fba-toggle[aria-expanded="true"] svg{transform:rotate(180deg);}
+  .fba-pages{display:none;padding:4px 10px 10px;}
+  .fba-pages.open{display:block;}
+  .fba-page{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;}
+  .fba-page:hover{background:var(--fb-hover);}
+  .fba-page-av{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;overflow:hidden;}
+  .fba-page-av img{width:100%;height:100%;object-fit:cover;}
+  .fba-page-main{flex:1;min-width:0;}
+  .fba-page-name{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .fba-page-role{font-size:11.5px;color:var(--fb-soft);font-weight:600;}
+  .fba-page-btn{flex-shrink:0;padding:6px 12px;border-radius:6px;border:none;background:var(--fb-card-2);color:var(--fb-ink);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;}
+  .fba-page-btn:hover{background:#4E4F50;}
+  .fba-page-btn:disabled{opacity:.45;cursor:not-allowed;}
+  .fba-empty{font-size:12.5px;color:var(--fb-soft);padding:10px;}
+
   .smm-search{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--line);padding:8px 12px;border-radius:9px;font-size:12.5px;color:var(--ink-faint);min-width:220px;}
   .smm-search input{border:none;outline:none;background:transparent;font:inherit;color:var(--ink);width:100%;}
   .smm-btn{padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;}
@@ -102,6 +137,7 @@
   .smm-time .rel{display:block;font-weight:800;color:var(--ink-soft);}
   .empty-note{color:var(--ink-faint);font-size:12.5px;padding:16px 4px;text-align:center;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+  @media (max-width:420px){ .fba-grid{grid-template-columns:1fr;} .fba-av{width:72px;height:72px;font-size:24px;} .fba-name{font-size:20px;} }
 </style>
 </head>
 <body>
@@ -136,6 +172,98 @@
       window.location.href = LOGIN_PATH;
     }
   })();
+
+  // -------------------------------------------------------------------------
+  // FB ACCOUNTS (2026-09-25): ang mga FB profile na ginagamit sa monitoring,
+  // naka-porma na parang FB profile header (dark). Bawat isa ay may dropdown
+  // ng mga Page kung saan sila admin.
+  //
+  // PAANO I-EDIT:
+  //  - avatar: i-save ang profile pic sa repo (hal. img/fb/penelope.jpg).
+  //    Hindi pwedeng i-hotlink ang FB CDN image — nag-e-expire ang link.
+  //    Kapag wala/sira ang file, initials ang lalabas.
+  //  - pages: { name, url, role, avatar? } — role default ay "Admin".
+  //    Walang url = naka-disable ang "Buksan" button.
+  // -------------------------------------------------------------------------
+  const FB_ACCOUNTS = [
+    {
+      name: 'Penelope Marie',
+      url: 'https://www.facebook.com/penelope.marie.390879/',
+      friends: 11,
+      avatar: 'img/fb/penelope-marie.jpg',
+      pages: [
+        // { name: 'CasinYeam', url: 'https://www.facebook.com/...', role: 'Admin' },
+      ],
+    },
+    {
+      name: 'Maria Mercedez',
+      url: 'https://www.facebook.com/profile.php?id=61567349349384',
+      friends: 11,
+      avatar: 'img/fb/maria-mercedez.jpg',
+      pages: [],
+    },
+    {
+      name: 'Kashin Yeam',
+      url: 'https://www.facebook.com/profile.php?id=61567733676190',
+      friends: 11,
+      avatar: 'img/fb/kashin-yeam.jpg',
+      pages: [],
+    },
+  ];
+
+  const FBA_PAGE_COLORS = ['#1877F2','#E4405F','#F59E0B','#22C55E','#8B5CF6','#14B8A6'];
+
+  function fbaInitialsHtml(name) {
+    return escapeHtmlSmm(smmInitials(name));
+  }
+
+  function renderFbAccounts() {
+    const grid = document.getElementById('fbaGrid');
+    grid.innerHTML = FB_ACCOUNTS.map((acc, i) => {
+      const initials = fbaInitialsHtml(acc.name);
+      const avatar = acc.avatar
+        ? `<img src="${escapeHtmlSmm(acc.avatar)}" alt="" onerror="this.parentNode.textContent='${initials}'">`
+        : initials;
+      const pages = acc.pages || [];
+      const pageRows = pages.length ? pages.map((p, j) => {
+        const pInit = fbaInitialsHtml(p.name);
+        const pAv = p.avatar
+          ? `<img src="${escapeHtmlSmm(p.avatar)}" alt="" onerror="this.parentNode.textContent='${pInit}'">`
+          : pInit;
+        return `
+          <div class="fba-page">
+            <div class="fba-page-av" style="background:${FBA_PAGE_COLORS[j % FBA_PAGE_COLORS.length]};">${pAv}</div>
+            <div class="fba-page-main">
+              <div class="fba-page-name">${escapeHtmlSmm(p.name)}</div>
+              <div class="fba-page-role">${escapeHtmlSmm(p.role || 'Admin')}</div>
+            </div>
+            <button type="button" class="fba-page-btn" ${p.url ? `onclick="openFbWindow('${escapeHtmlSmm(p.url)}')"` : 'disabled title="Wala pang link"'}>Buksan</button>
+          </div>`;
+      }).join('') : '<div class="fba-empty">Wala pang naka-set na Page para sa account na ito.</div>';
+      return `
+        <div class="fba-card">
+          <div class="fba-head">
+            <div class="fba-av">${avatar}</div>
+            <div class="fba-info">
+              <h3 class="fba-name"><a href="#" onclick="openFbWindow('${escapeHtmlSmm(acc.url)}');return false;">${escapeHtmlSmm(acc.name)}</a></h3>
+              <div class="fba-friends">${acc.friends != null ? escapeHtmlSmm(acc.friends) + ' friends' : ''}</div>
+            </div>
+          </div>
+          <button type="button" class="fba-toggle" aria-expanded="false" aria-controls="fbaPages${i}" onclick="toggleFbaPages(this)">
+            Admin sa mga Page <span class="count">${pages.length}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="fba-pages" id="fbaPages${i}">${pageRows}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function toggleFbaPages(btn) {
+    const open = btn.getAttribute('aria-expanded') !== 'true';
+    btn.setAttribute('aria-expanded', String(open));
+    document.getElementById(btn.getAttribute('aria-controls')).classList.toggle('open', open);
+  }
+
   // -------------------------------------------------------------------------
   // MONITORING SHEET (2026-09-25): published Google Sheet CSV, ipinapakita
   // nang GENERIC — kung ano ang columns sa sheet, yun ang table. Kaya kapag
@@ -152,11 +280,6 @@
   }
 
   // ----- Column classification (heuristics sa header names) -----
-  // Kinikilala ang papel ng bawat column mula sa pangalan nito, para ang
-  // kahit anong sheet schema ay lumabas nang presentable: pangalan+avatar,
-  // brand pill, status badge, petsa (kanan, may relative time), mensahe
-  // bilang body text, links bilang "Open" buttons, at ang natitira bilang
-  // maliliit na label:value chips.
   function classifyColumns(headers) {
     const find = (res) => headers.find(h => res.some(re => re.test(h))) || null;
     const dateCol = find([/date|time|timestamp|submitted|created|when/i]);
@@ -225,8 +348,6 @@
       document.getElementById('smmFootNote').style.display = 'none';
       return;
     }
-    // Pinakabago muna kapag may date column; kung wala, sunod sa sheet order
-    // pero baliktad (ang mga bagong entry ay kadalasang nasa ibaba ng sheet).
     let sorted = [...rows];
     if (cols.dateCol) {
       sorted.sort((a, b) => (parseSmmDate(b[cols.dateCol])?.getTime() || 0) - (parseSmmDate(a[cols.dateCol])?.getTime() || 0));
@@ -292,6 +413,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    renderFbAccounts();
     loadSmmSheet();
     document.getElementById('smmRefresh').addEventListener('click', loadSmmSheet);
     document.getElementById('smmSearch').addEventListener('input', renderSmmCards);
@@ -397,6 +519,13 @@
       <div class="fb-note">
         Susunod na yugto (kapag napagdesisyunan): (B) ikonekta ang FB Pages bilang Chatwoot inboxes para ang Messenger ay kusang dumaloy sa Customers page kasama ng handoff/CSAT/reply — o (C) diretsong Meta API integration para makita dito mismo ang comments at mentions kada brand.
       </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>FB Accounts <span class="sub">Pindutin ang pangalan para buksan ang profile</span></h3>
+      </div>
+      <div class="fba-grid" id="fbaGrid"></div>
     </div>
 
     <div class="panel">
