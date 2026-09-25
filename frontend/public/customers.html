@@ -241,6 +241,16 @@
   .msg-row.from-system{align-self:center;align-items:center;max-width:90%;}
   .from-system .msg-bubble{background:#F1F5F9;color:var(--ink-faint);font-size:12px;font-style:italic;text-align:center;border-radius:10px;}
 
+  /* ATTACHMENTS SA THREAD (2026-09-25): photo/screenshot/file na ipinadala
+     sa chat. Ang click sa larawan ay nagbubukas ng buong laki sa bagong tab. */
+  .msg-atts{display:flex;flex-direction:column;gap:6px;white-space:normal;}
+  .msg-atts.after-text{margin-top:8px;}
+  .msg-att-img{display:block;text-decoration:none !important;line-height:0;}
+  .msg-att-img img{display:block;max-width:240px;max-height:280px;width:auto;height:auto;border-radius:10px;background:rgba(15,23,42,.06);cursor:zoom-in;}
+  .msg-att-media{display:block;max-width:260px;border-radius:10px;}
+  .msg-att-file{display:inline-flex;align-items:center;gap:6px;font-weight:700;text-decoration:underline;color:inherit;}
+  .msg-att-missing{font-size:12px;font-style:italic;opacity:.85;line-height:1.4;}
+
   /* CUSTOMER PROFILE MODAL (added 2026-09-18) */
   .cust-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
   @media (max-width:600px){ .cust-stats{grid-template-columns:repeat(2,1fr);} }
@@ -1658,10 +1668,13 @@
     // LATEST version of each (most complete data) while preserving each
     // message's original chronological position, since re-setting an
     // existing key doesn't change a Map's iteration order.
+    // Kasama na ang photo-only na mensahe (walang text pero may attachment)
+    // — dating tinatanggal ito ng filter (2026-09-25).
     const byMessageId = new Map();
     let syntheticKey = 0;
-    messages.filter(m => m.content).forEach(m => {
-      byMessageId.set(m.messageId ?? `__no_id_${syntheticKey++}`, m);
+    messages.filter(m => m.content || attachmentsOf(m).length).forEach(m => {
+      const key = m.messageId ?? `__no_id_${syntheticKey++}`;
+      byMessageId.set(key, carryAttachments(byMessageId.get(key), m));
     });
     const withContent = [...byMessageId.values()];
 
@@ -1691,6 +1704,7 @@
       const hit = msgMatches(m);
       let bubbleHtml = renderMessageContent(m.content);
       if (hit) bubbleHtml = highlightMatches(bubbleHtml, searchQ);
+      bubbleHtml += renderAttachments(attachmentsOf(m), !!bubbleHtml);
       return `
         <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}">
           <div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div>
@@ -1743,6 +1757,74 @@
     if (AI_BOT_NAMES_CLIENT.has(senderName)) return true;
     const scoped = BRAND_BOT_CLIENT[String(brand || '').toLowerCase()];
     return !!(scoped && scoped.has(senderName));
+  }
+
+  // ---------------------------------------------------------------------------
+  // ATTACHMENTS (2026-09-25): photo/screenshot/file na ipinadala sa chat.
+  // Galing sa payload.attachments ng bawat event (itinatabi ng backend mula
+  // 2026-09-25 — ang mga mas lumang mensahe ay walang attachment data).
+  // Ang image ay thumbnail muna; kapag hindi ma-load, susubukan ang buong
+  // larawan; kapag pumalya pa rin, link na lang ang ipapakita.
+  // ---------------------------------------------------------------------------
+  function attachmentsOf(m) {
+    const list = m && m.payload && Array.isArray(m.payload.attachments) ? m.payload.attachments : [];
+    return list.filter(a => a && (a.url || (a.lat != null && a.lng != null)));
+  }
+  function safeAttUrl(u) {
+    return /^https?:\/\//i.test(String(u || '')) ? String(u) : null;
+  }
+  function attSizeLabel(bytes) {
+    const n = Number(bytes);
+    if (!n) return '';
+    return n >= 1048576 ? ` · ${(n / 1048576).toFixed(1)} MB` : ` · ${Math.max(1, Math.round(n / 1024))} KB`;
+  }
+  window.attImgError = function (img) {
+    const full = img.getAttribute('data-full');
+    if (full && img.getAttribute('src') !== full && !img.dataset.triedFull) {
+      img.dataset.triedFull = '1';
+      img.src = full;
+      return;
+    }
+    const span = document.createElement('span');
+    span.className = 'msg-att-missing';
+    span.textContent = '\uD83D\uDCF7 Photo (hindi ma-preview \u2014 i-click para buksan)';
+    img.replaceWith(span);
+  };
+  function renderAttachments(list, afterText) {
+    if (!list.length) return '';
+    const items = list.map(a => {
+      const url = safeAttUrl(a.url);
+      const type = String(a.type || 'file').toLowerCase();
+      if (type === 'image' && url) {
+        const thumb = safeAttUrl(a.thumb) || url;
+        return `<a class="msg-att-img" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Buksan ang buong larawan"><img src="${escapeHtml(thumb)}" data-full="${escapeHtml(url)}" alt="Photo" loading="lazy" referrerpolicy="no-referrer" onerror="attImgError(this)"></a>`;
+      }
+      if (type === 'video' && url) {
+        return `<video class="msg-att-media" controls preload="metadata" src="${escapeHtml(url)}"></video>`;
+      }
+      if (type === 'audio' && url) {
+        return `<audio class="msg-att-media" controls preload="none" src="${escapeHtml(url)}"></audio>`;
+      }
+      if (type === 'location' && a.lat != null && a.lng != null) {
+        const maps = `https://maps.google.com/?q=${encodeURIComponent(a.lat + ',' + a.lng)}`;
+        return `<a class="msg-att-file" href="${escapeHtml(maps)}" target="_blank" rel="noopener">\uD83D\uDCCD ${escapeHtml(a.title || 'Location')}</a>`;
+      }
+      if (url) {
+        const label = (a.ext ? String(a.ext).toUpperCase() + ' file' : 'File') + attSizeLabel(a.size);
+        return `<a class="msg-att-file" href="${escapeHtml(url)}" target="_blank" rel="noopener">\uD83D\uDCCE ${escapeHtml(label)}</a>`;
+      }
+      return '';
+    }).join('');
+    return `<div class="msg-atts${afterText ? ' after-text' : ''}">${items}</div>`;
+  }
+  // Dedupe helper: kapag ang mas bagong bersyon ng mensahe (hal. CSAT
+  // message_updated) ay walang attachments pero ang nauna ay mayroon,
+  // dalhin ang attachments para hindi mawala ang photo.
+  function carryAttachments(prev, next) {
+    if (prev && !attachmentsOf(next).length && attachmentsOf(prev).length) {
+      return { ...next, payload: { ...(next.payload || {}), attachments: prev.payload.attachments } };
+    }
+    return next;
   }
 
   function stripHtmlClient(html) {
