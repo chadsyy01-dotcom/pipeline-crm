@@ -243,6 +243,33 @@ function shouldStoreEvent(payload) {
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// ATTACHMENTS (2026-09-25): photo/screenshot/file na ipinadala sa chat.
+// Dating binubura nang BUO sa slimPayload(), kaya hindi ito makita sa
+// dashboard. Ngayon ay itinatabi ang MALIIT na listahan lang (type + link +
+// thumbnail, ~200 bytes bawat isa) sa loob ng payload.attachments, at
+// pinapanatili pa rin ito ng prunePayloads() kahit ma-blank ang ibang bahagi
+// ng payload — kaya nakikita ang photo hanggang EVENT_RETENTION_DAYS.
+// Ang data_url ng Chatwoot ay permanenteng ActiveStorage redirect link,
+// kaya bukas pa rin ito kahit ilang araw na ang lumipas.
+// Walang bagong DB column — ang frontend ay nagbabasa ng payload.attachments
+// mula sa GET /events (kasama na doon ang payload).
+// ---------------------------------------------------------------------------
+const MAX_ATTACHMENTS_PER_MESSAGE = 10;
+function slimAttachments(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, MAX_ATTACHMENTS_PER_MESSAGE).map(a => ({
+    type: a?.file_type || 'file',      // image | video | audio | file | location | fallback ...
+    url: a?.data_url || null,
+    thumb: a?.thumb_url || null,
+    ext: a?.extension || null,
+    size: a?.file_size ?? null,
+    lat: a?.coordinates_lat ?? null,
+    lng: a?.coordinates_long ?? null,
+    title: a?.fallback_title || null,
+  })).filter(a => a.url || (a.lat != null && a.lng != null));
+}
+
 // Drops the parts of a Chatwoot payload that extractFields() never reads and
 // that account for most of its size. Returns a new object; input untouched.
 function slimPayload(payload) {
@@ -267,7 +294,11 @@ function slimPayload(payload) {
     out.sender = s;
   }
   delete out.additional_attributes;
-  delete out.attachments;
+  // Attachments: pinapanatili bilang maliit na listahan (2026-09-25) —
+  // tingnan ang slimAttachments() sa itaas.
+  const atts = slimAttachments(out.attachments);
+  if (atts.length) out.attachments = atts;
+  else delete out.attachments;
   return out;
 }
 
@@ -285,12 +316,23 @@ async function prunePayloads() {
     console.log(`Chatwoot prune: deleted ${nDel} row(s) older than ${EVENT_RETENTION_DAYS} day(s).`);
 
     // Step 2: blank payloads on remaining rows past payload retention.
+    // EXCEPTION (2026-09-25): ang payload.attachments (photo/screenshot
+    // links) ay PINAPANATILI — ang natitirang payload ay {"attachments":[...]}
+    // lang. Walang 'event' key ang pruned na anyo, kaya hindi ito
+    // gagalawin ng /backfill (na nangangailangan ng payload ? 'event').
+    // Ang kondisyon na ("payload" - 'attachments') <> '{}' ay lumalaktaw sa
+    // mga row na na-prune na, kaya idempotent pa rin ito.
     const [, meta] = await sequelize.query(`
       UPDATE "ChatwootEvents"
-      SET "payload" = '{}'::jsonb
+      SET "payload" = CASE
+        WHEN jsonb_typeof("payload"->'attachments') = 'array'
+             AND jsonb_array_length("payload"->'attachments') > 0
+          THEN jsonb_build_object('attachments', "payload"->'attachments')
+        ELSE '{}'::jsonb
+      END
       WHERE "createdAt" < NOW() - (:days || ' days')::interval
         AND "payload" IS NOT NULL
-        AND "payload" <> '{}'::jsonb
+        AND ("payload" - 'attachments') <> '{}'::jsonb
     `, { replacements: { days: String(PAYLOAD_RETENTION_DAYS) } });
     const n = meta?.rowCount ?? meta ?? 0;
     console.log(`Chatwoot prune: blanked payload on ${n} row(s) older than ${PAYLOAD_RETENTION_DAYS} day(s).`);
