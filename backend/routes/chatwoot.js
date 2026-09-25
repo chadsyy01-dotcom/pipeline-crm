@@ -1623,8 +1623,14 @@ router.post('/reply', requireAuth, async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Chatwoot's own header name (underscored — see nginx note above).
+        // Ipinapadala sa DALAWANG anyo (2026-09-25): ang underscored ang
+        // opisyal na header ng Chatwoot, pero may nginx setups na
+        // nagbabagsak ng underscored headers. Ang dashed na bersyon ay
+        // pinapadaan ng nginx AT nino-normalize ng Rails pabalik sa
+        // HTTP_API_ACCESS_TOKEN, kaya nababasa pa rin ito ng Chatwoot —
+        // walang server-side change na kailangan.
         'api_access_token': cfg.token,
+        'api-access-token': cfg.token,
       },
       body: JSON.stringify({ content, message_type: 'outgoing', private: false }),
     });
@@ -1633,7 +1639,7 @@ router.post('/reply', requireAuth, async (req, res) => {
       const bodyText = await cwRes.text().catch(() => '');
       console.error(`Chatwoot reply failed [${brand} #${conversationId}]: HTTP ${cwRes.status} ${bodyText.slice(0, 300)}`);
       const hint = cwRes.status === 401
-        ? ' (401: maling token, o binabagsak ng nginx ang api_access_token header — kailangan ng underscores_in_headers on;)'
+        ? ' (401: mali o hindi tanggap ang token — i-recopy o i-regenerate ito sa Profile Settings ng tamang account sa tamang instance, tapos i-update ang CHATWOOT_REPLY_CONFIG)'
         : cwRes.status === 404 ? ' (404: maling accountId/baseUrl, o wala ang conversation sa instance na ito)' : '';
       return res.status(502).json({ error: `Tumanggi ang Chatwoot (HTTP ${cwRes.status})${hint}` });
     }
