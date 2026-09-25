@@ -1060,6 +1060,22 @@
   const TD_ID_FIELDS = new Set(['ticket id', 'reference id']);
   const TD_URL_RE = /https?:\/\/[^\s,;|]+/g;
 
+  // INTERNAL COLUMNS (2026-09-25): mga variable ng ticket automation na
+  // nakasulat sa sheet (rowData, shouldUpdate, refId, command...). Sinasala
+  // DITO mismo sa popup — hindi lang sa ticket-data.js — para kahit luma pa
+  // ang naka-cache na ticket-data.js sa browser, hindi pa rin sila lalabas.
+  const TD_INTERNAL_NAMES = new Set(['rowdata', 'row_number', 'shouldupdate', 'valid', 'type', 'refid',
+    'command', 'rejreason', 'doneremarks', 'otpdigits', 'fromuser', 'chatid', 'messageid', 'threadid',
+    'replytomsgid', 'now', 'newstatus', 'updatedata', '_waitseconds']);
+  function tdIsInternal(col, val) {
+    const name = String(col || '').trim();
+    if (!name || name === '__rowNumber') return true;
+    if (TD_INTERNAL_NAMES.has(name.toLowerCase())) return true;
+    if (/^[a-z_]/.test(name)) return true; // camelCase/snake_case = automation, hindi sheet column
+    const v = String(val ?? '').trim();
+    return /^[\[{]/.test(v) && /[\]}]$/.test(v) && v.indexOf('":') !== -1; // JSON blob
+  }
+
   function tdIsCashInOut(t) {
     const hay = [t.category, t.issue, t.raw && (t.raw['Category'] || t.raw['Concern Type'])].join(' ');
     return /deposit|cash\s*-?\s*in|cashin|withdraw|cash\s*-?\s*out|cashout/i.test(hay);
@@ -1076,13 +1092,19 @@
 
   function showTicketDetail(t) {
     const raw = t.raw || {};
-    const photos = t.photos || [];
+    // Photos: alisin ang galing sa internal columns (hal. "rowData") at ang doble.
+    const seenPhotoUrls = new Set();
+    const photos = (t.photos || []).filter(p => {
+      if (tdIsInternal(p.label, '') || seenPhotoUrls.has(p.url)) return false;
+      seenPhotoUrls.add(p.url);
+      return true;
+    });
     const photoUrls = new Set(photos.map(p => p.url));
     const fields = [];
     for (const col in raw) {
       const key = col.trim().toLowerCase();
       const val = String(raw[col] ?? '').trim();
-      if (!val || TD_HIDDEN_FIELDS.has(key) || TD_ID_FIELDS.has(key)) continue;
+      if (!val || TD_HIDDEN_FIELDS.has(key) || TD_ID_FIELDS.has(key) || tdIsInternal(col, val)) continue;
       // Column na puro photo link lang → sa Receipt/Photos section na ipapakita.
       const urls = val.match(TD_URL_RE) || [];
       if (urls.length && urls.every(u => photoUrls.has(u)) && !val.replace(TD_URL_RE, '').replace(/[\s,;|]/g, '')) continue;
