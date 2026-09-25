@@ -276,6 +276,18 @@
     return photos;
   }
 
+  // RAW ROW (2026-09-25): kopya ng BUONG row mula sa sheet (lahat ng columns,
+  // sa orihinal na pagkakasunod), para sa ticket detail popup sa tickets.html
+  // — kung ano ang nasa sheet, yun ang makikita, kahit bagong column pa.
+  function rawRow(row) {
+    const out = {};
+    for (const col in row) {
+      if (col === '__rowNumber' || !col || !String(col).trim()) continue;
+      out[col] = row[col];
+    }
+    return out;
+  }
+
   // Maps a normal ticket-sheet row (Ticket ID / Username / Category / ...) to our common shape.
   function mapTicketRow(row, brandOverride, sheetMeta) {
     if (!row['Ticket ID']) return null;
@@ -314,6 +326,7 @@
       resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
       rejectReason: rejectReasonFrom(row),
       photos: collectPhotoLinks(row),
+      raw: rawRow(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -356,6 +369,7 @@
       resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
       rejectReason: rejectReasonFrom(row),
       photos: collectPhotoLinks(row),
+      raw: rawRow(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -398,6 +412,7 @@
       resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
       rejectReason: rejectReasonFrom(row),
       photos: collectPhotoLinks(row),
+      raw: rawRow(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -444,6 +459,7 @@
       resolveDurationSec: parseHmsToSeconds(row['Task Duration']),
       rejectReason: rejectReasonFrom(row),
       photos: collectPhotoLinks(row),
+      raw: rawRow(row),
       sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
     };
   }
@@ -535,11 +551,20 @@
   // the given callback. Returns an interval id so the caller can stop it via
   // clearInterval if needed. Both tickets.html and csr-dashboard.html use this
   // so the page keeps itself current without requiring a manual browser refresh.
+  //
+  // OVERLAP GUARD (2026-09-25, memory fix): kapag hindi pa tapos ang naunang
+  // refresh (hal. mabagal ang isang sheet, hanggang 15s timeout), LALAKTAW
+  // ang susunod na tick imbes na magsimula ng panibagong 20+ na sabay-sabay
+  // na downloads — iyon ang nagpapatong-patong sa memory kapag naka-idle.
   function startAutoRefresh(callback, intervalMs) {
+    let running = false;
     return setInterval(() => {
+      if (running) return;
+      running = true;
       fetchTickets(true)
         .then(callback)
-        .catch(err => console.error('Auto-refresh failed:', err));
+        .catch(err => console.error('Auto-refresh failed:', err))
+        .finally(() => { running = false; });
     }, intervalMs || 60000);
   }
 
