@@ -963,16 +963,44 @@ function barList(container, rows, opts = {}) {
 
 async function apiGet(path) {
   const token = localStorage.getItem('pipeline_token');
-  const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} on ${path}`);
-  return res.json();
+  // TIMEOUT (2026-09-25, memory fix): ang nakabitin na request ay kina-cancel
+  // pagkalipas ng 50s para hindi maipon sa memory habang naka-idle ang
+  // dashboard. Mas maikli ito sa 60s chat refresh, kaya hindi nagpapatong.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 50000);
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` }, signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status} on ${path}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // (Ang inactive-depositors export button ay INALIS 2026-09-24 sa kahilingan
 // ni Chad. Ang backend endpoint GET /api/chatwoot/inactive-depositors ay
 // buhay pa rin at magagamit diretso via URL kung kailanganin ulit.)
 
+// OVERLAP GUARD (2026-09-25, memory fix): hindi na magsasabay ang dalawang
+// chat refresh. Dati, kapag mabagal ang API, nagsisimula na ang susunod na
+// 60s refresh bago matapos ang nauna — nagpapatong-patong ang malalaking JSON
+// sa memory hanggang "Aw, Snap! Out of Memory". Ngayon: ang auto-refresh ay
+// lalaktaw kapag may tumatakbo pa; ang manual na tawag (date filter, dismiss)
+// ay pipila at tatakbo agad pagkatapos ng kasalukuyan.
+let chatLoading = false, chatReloadQueued = false, chatLastLoaded = 0;
 async function loadChatOverview() {
+  if (chatLoading) { chatReloadQueued = true; return; }
+  chatLoading = true;
+  try {
+    await loadChatOverviewInner();
+  } finally {
+    chatLoading = false;
+    chatLastLoaded = Date.now();
+    if (chatReloadQueued) { chatReloadQueued = false; loadChatOverview(); }
+  }
+}
+
+async function loadChatOverviewInner() {
   const ind = document.getElementById('chatLiveIndicator');
   try {
     const r = chatRange();
@@ -1372,7 +1400,13 @@ function renderTopTickets() {
 })();
 
 loadChatOverview();
-setInterval(loadChatOverview, Number(localStorage.getItem('csr_refresh_interval')) || 60000); // 60s default (egress diet, 2026-09-14)
+// 60s default (egress diet, 2026-09-14). Mula 2026-09-25 (memory fix):
+// lalaktaw kapag nakatago ang tab o may refresh pang tumatakbo.
+const CHAT_REFRESH_MS = Number(localStorage.getItem('csr_refresh_interval')) || 60000;
+setInterval(() => {
+  if (document.hidden || chatLoading) return;
+  loadChatOverview();
+}, CHAT_REFRESH_MS);
 
 // ---------------------------------------------------------------------------
 // TEAMMATE AVATARS (added 2026-09-18)
@@ -1387,10 +1421,28 @@ setInterval(loadChatOverview, Number(localStorage.getItem('csr_refresh_interval'
 let avatarByName = new Map();
 const nameKey = n => String(n || '').trim().toLowerCase();
 
+// BLOB URL (2026-09-25, memory fix): ang base64 avatar (~40 kB) ay ginagawang
+// maikling blob: URL nang ISANG beses, para ang Agents table na nire-render
+// kada 20s ay hindi na paulit-ulit na nagdadala at nagde-decode ng malaking
+// image string. Kapag hindi base64 (hal. totoong URL), iniiwan as-is.
+function toObjectUrl(src) {
+  if (!/^data:[^;]+;base64,/.test(src)) return src;
+  try {
+    const [head, b64] = src.split(',');
+    const mime = head.slice(5, head.indexOf(';'));
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes], { type: mime }));
+  } catch {
+    return src;
+  }
+}
+
 async function loadUserDirectory() {
   try {
     const data = await apiGet('/auth/directory');
-    avatarByName = new Map((data.users || []).filter(u => u.avatar).map(u => [nameKey(u.name), u.avatar]));
+    avatarByName = new Map((data.users || []).filter(u => u.avatar).map(u => [nameKey(u.name), toObjectUrl(u.avatar)]));
     if (allTickets.length) renderAll();   // redraw the table now that faces are known
   } catch (err) {
     console.warn('Avatar directory unavailable — showing initials instead:', err.message);
@@ -1415,6 +1467,29 @@ function checkForNewTicketNotifications() {
   });
 }
 
+// TICKET REFRESH (2026-09-25, memory fix): pumalit sa
+// TicketData.startAutoRefresh para may overlap guard (hindi magsasabay ang
+// dalawang Google Sheet fetch) at humihinto habang nakatago ang tab —
+// MALIBAN kung naka-on ang desktop notifications, para dumating pa rin ang
+// "New ticket" alert kahit nasa ibang tab ka.
+const TICKET_REFRESH_MS = Number(localStorage.getItem('csr_refresh_interval')) || 20000;
+let ticketsLoading = false, ticketsLastLoaded = 0;
+async function refreshTickets() {
+  if (ticketsLoading) return;
+  ticketsLoading = true;
+  try {
+    allTickets = await TicketData.fetchTickets();
+    renderAll();
+    markLiveUpdated();
+    checkForNewTicketNotifications();
+  } catch (err) {
+    console.warn('Ticket refresh failed:', err.message);
+  } finally {
+    ticketsLoading = false;
+    ticketsLastLoaded = Date.now();
+  }
+}
+
 TicketData.fetchTickets()
   .then(tickets => {
     allTickets = tickets;
@@ -1424,12 +1499,12 @@ TicketData.fetchTickets()
     allTickets.filter(t => t.statusCls === 'pending').forEach(t => notifiedTicketIds.add(t.id));
     renderAll();
     markLiveUpdated();
-    TicketData.startAutoRefresh(tickets2 => {
-      allTickets = tickets2;
-      renderAll();
-      markLiveUpdated();
-      checkForNewTicketNotifications();
-    }, Number(localStorage.getItem('csr_refresh_interval')) || 20000);
+    ticketsLastLoaded = Date.now();
+    setInterval(() => {
+      const notifOn = localStorage.getItem('csr_desktop_notif') === 'true';
+      if (document.hidden && !notifOn) return;
+      refreshTickets();
+    }, TICKET_REFRESH_MS);
   })
   .catch(err => {
     console.error(err);
@@ -1447,6 +1522,37 @@ function markLiveUpdated() {
   el.style.color = 'var(--success)';
   setTimeout(() => { el.style.color = 'var(--ink-faint)'; }, 3000);
 }
+
+// PAGBALIK SA TAB (2026-09-25, memory fix): dahil humihinto ang refresh
+// habang nakatago ang tab, nire-refresh agad pagbalik kung lipas na ang data.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (!chatLoading && Date.now() - chatLastLoaded >= CHAT_REFRESH_MS) loadChatOverview();
+  if (allTickets.length && Date.now() - ticketsLastLoaded >= TICKET_REFRESH_MS) refreshTickets();
+});
+
+// IDLE RELOAD SAFETY NET (2026-09-25, memory fix): kapag 6h+ nang bukas ang
+// page AT 15 min nang walang galaw (mouse/keyboard/scroll), ire-reload ito
+// nang kusa para malinis ang memory — pananggalang sa anumang leak na hindi
+// pa natin nakikita (hal. sa loob ng ticket-data.js). Hindi magre-reload
+// habang may bukas na conversation modal o custom date picker. Babalik sa
+// "Today" ang mga date filter pagkatapos ng reload.
+// Palitan ang oras via localStorage key csr_idle_reload_hours.
+(function idleReloadSafetyNet() {
+  const RELOAD_AFTER_H = Number(localStorage.getItem('csr_idle_reload_hours')) || 6;
+  const openedAt = Date.now();
+  let lastInput = Date.now();
+  ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(ev =>
+    window.addEventListener(ev, () => { lastInput = Date.now(); }, { passive: true }));
+  setInterval(() => {
+    const busy = document.getElementById('convModalOverlay').classList.contains('open')
+      || document.querySelector('.custom-date-pop.open');
+    if (busy) return;
+    if (Date.now() - openedAt >= RELOAD_AFTER_H * 3600000 && Date.now() - lastInput >= 15 * 60000) {
+      location.reload();
+    }
+  }, 5 * 60000);
+})();
 
 let notifActiveTab = 'new';
 
