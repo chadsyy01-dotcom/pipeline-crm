@@ -199,6 +199,12 @@
      and looked like nothing happened. Now the profile stays open underneath
      — close the thread and you're back where you were, no reopening. */
   #convModalOverlay{z-index:110;}
+  .reply-bar{display:flex;gap:8px;padding:12px 20px;border-top:1px solid var(--line);flex-shrink:0;background:var(--card);}
+  .reply-bar textarea{flex:1;resize:none;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--bg);min-height:38px;max-height:110px;line-height:1.45;}
+  .reply-bar textarea:focus{outline:2px solid var(--primary);outline-offset:-1px;background:var(--card);}
+  .reply-bar button{padding:9px 16px;border-radius:10px;border:none;background:var(--primary);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;align-self:flex-end;}
+  .reply-bar button:disabled{opacity:.6;cursor:progress;}
+  .reply-note{font-size:11px;color:var(--ink-faint);padding:8px 20px 12px;border-top:1px solid var(--line);text-align:center;}
   .modal-panel{
     background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);
     width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;
@@ -582,6 +588,11 @@
       <div class="modal-body" id="modalBody">
         <div class="empty-note">Loading…</div>
       </div>
+      <div class="reply-bar" id="replyBar" style="display:none;">
+        <textarea id="replyInput" rows="1" placeholder="I-type ang reply… (Enter para i-send, Shift+Enter para bagong linya)"></textarea>
+        <button type="button" id="replySendBtn">Send</button>
+      </div>
+      <div class="reply-note" id="replyNote" style="display:none;"></div>
     </div>
   </div>
 </div>
@@ -1034,7 +1045,7 @@
     tbody.innerHTML = results.map(r => {
       const name = r.contactName || 'Unknown';
       return `
-        <tr data-conversation-id="${r.conversationId}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(brandLabel(r.brand))}">
+        <tr data-conversation-id="${r.conversationId}" data-brand="${escapeHtml(r.brand)}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(brandLabel(r.brand))}">
           <td>
             <div class="c-customer">
               <div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div>
@@ -1170,7 +1181,7 @@
         ? `<div class="c-cname cust-link" data-cust-name="${escapeHtml(name)}" data-cust-brand="${escapeHtml(c.brand)}" title="View customer profile">${escapeHtml(name)}</div>`
         : `<div class="c-cname">${escapeHtml(name)}</div>`;
       return `
-        <tr data-conversation-id="${c.conversationId}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
+        <tr data-conversation-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
           <td>
             <div class="c-customer">
               <div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div>
@@ -1313,7 +1324,7 @@
     }
     const row = e.target.closest('tr[data-conversation-id]');
     if (!row) return;
-    openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub);
+    openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub, row.dataset.brand);
   });
 
   document.getElementById('modalCloseBtn').addEventListener('click', closeConversationModal);
@@ -1477,7 +1488,7 @@
         ? `<span style="font-weight:800;font-size:11.5px;color:${c.csatRating >= 4 ? 'var(--success)' : c.csatRating <= 2 ? 'var(--danger)' : 'var(--warning)'};">★ ${c.csatRating}</span>`
         : '';
       return `
-        <div class="cust-conv" data-conversation-id="${c.conversationId}" data-customer-name="${escapeHtml(d.name)}" data-customer-sub="${escapeHtml(brandLabel(c.brand))}">
+        <div class="cust-conv" data-conversation-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-customer-name="${escapeHtml(d.name)}" data-customer-sub="${escapeHtml(brandLabel(c.brand))}">
           <div class="cc-main">
             <div class="cc-msg">${escapeHtml(c.lastMessage || 'No messages')}</div>
             <div class="cc-meta">${escapeHtml(brandLabel(c.brand))} · ${escapeHtml(shortDate(c.lastActivityAt))}</div>
@@ -1501,17 +1512,18 @@
     `;
 
     body.querySelectorAll('.cust-conv').forEach(el => el.addEventListener('click', () => {
-      openConversationModal(el.dataset.conversationId, el.dataset.customerName, el.dataset.customerSub);
+      openConversationModal(el.dataset.conversationId, el.dataset.customerName, el.dataset.customerSub, el.dataset.brand);
     }));
   }
 
-  async function openConversationModal(conversationId, customerName, customerSub) {
+  async function openConversationModal(conversationId, customerName, customerSub, brand) {
     const overlay = document.getElementById('convModalOverlay');
     const body = document.getElementById('modalBody');
     document.getElementById('modalCustomerName').textContent = customerName || 'Unknown';
     document.getElementById('modalCustomerSub').textContent = customerSub || '';
     body.innerHTML = '<div class="empty-note">Loading…</div>';
     overlay.classList.add('open');
+    setupReplyBar(brand, conversationId);
 
     const token = localStorage.getItem('pipeline_token');
     if (!token) return;
@@ -1531,6 +1543,80 @@
       body.innerHTML = '<div class="empty-note">Could not load this conversation. Please try again.</div>';
     }
   }
+
+  // -------------------------------------------------------------------------
+  // REPLY MULA SA DASHBOARD (2026-09-24) — Chatwoot brands lang; ang LiveChat
+  // ay ibang API kaya nakatago ang box doon. Ang send ay dumadaan sa
+  // POST /api/chatwoot/reply; ang backend ang may hawak ng per-brand tokens
+  // (CHATWOOT_REPLY_CONFIG sa Railway). Pagkatapos mag-send, hinihintay ang
+  // webhook echo (~1-2s) saka nire-reload ang thread para lumabas ang
+  // mensahe — walang optimistic insert para walang dobleng bubble.
+  // -------------------------------------------------------------------------
+  const LIVECHAT_BRANDS_CLIENT = new Set(['casinyeam', 'manilacasino', 'superscatterph', 'livechat-general']);
+  let replyCtx = { brand: null, conversationId: null };
+
+  function setupReplyBar(brand, conversationId) {
+    replyCtx = { brand: brand || null, conversationId };
+    const bar = document.getElementById('replyBar');
+    const note = document.getElementById('replyNote');
+    const input = document.getElementById('replyInput');
+    input.value = '';
+    if (!brand || LIVECHAT_BRANDS_CLIENT.has(brand)) {
+      bar.style.display = 'none';
+      note.style.display = '';
+      note.textContent = brand
+        ? 'LiveChat conversation — mag-reply sa LiveChat app.'
+        : 'Hindi matukoy ang brand ng conversation na ito — buksan ito mula sa Conversations table para makapag-reply.';
+    } else {
+      bar.style.display = '';
+      note.style.display = 'none';
+    }
+  }
+
+  async function sendReply() {
+    const input = document.getElementById('replyInput');
+    const btn = document.getElementById('replySendBtn');
+    const content = input.value.trim();
+    if (!content || !replyCtx.conversationId || !replyCtx.brand) return;
+    btn.disabled = true; input.disabled = true;
+    const prevLabel = btn.textContent;
+    btn.textContent = 'Sending…';
+    try {
+      const token = localStorage.getItem('pipeline_token');
+      const res = await fetch(`${API_BASE}/chatwoot/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ brand: replyCtx.brand, conversationId: Number(replyCtx.conversationId), content }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      input.value = '';
+      // Hintayin ang webhook echo bago i-reload ang thread.
+      const body = document.getElementById('modalBody');
+      const sentNote = document.createElement('div');
+      sentNote.className = 'empty-note';
+      sentNote.textContent = 'Naipadala — nire-refresh ang thread…';
+      body.appendChild(sentNote);
+      body.scrollTop = body.scrollHeight;
+      setTimeout(() => {
+        openConversationModal(replyCtx.conversationId,
+          document.getElementById('modalCustomerName').textContent,
+          document.getElementById('modalCustomerSub').textContent,
+          replyCtx.brand);
+      }, 1800);
+    } catch (err) {
+      console.error('Reply failed:', err);
+      alert('Hindi naipadala ang reply.\n\n' + err.message);
+    } finally {
+      btn.disabled = false; input.disabled = false;
+      btn.textContent = prevLabel;
+      input.focus();
+    }
+  }
+  document.getElementById('replySendBtn').addEventListener('click', sendReply);
+  document.getElementById('replyInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); }
+  });
 
   function renderMessageThread(messages, searchQ) {
     const body = document.getElementById('modalBody');
