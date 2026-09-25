@@ -258,17 +258,37 @@
   // ng row (ID photo, selfie holding ID, resibo...) — generic, para kahit
   // magkaiba-iba ang column names kada sheet/category ay mahuhuli pa rin.
   // Ginagamit ng ticket popup sa tickets.html. (2026-09-24)
-  const URL_IN_CELL_RE = /https?:\/\/[^\s,;|]+/g;
+  const URL_IN_CELL_RE = /https?:\/\/[^\s,;|"'\\]+/g;
+
+  // INTERNAL COLUMNS (2026-09-25): ang ticket automation (bot/n8n) ay
+  // nagsusulat din ng sarili nitong mga variable sa sheet bilang columns —
+  // shouldUpdate, rowData (buong row bilang JSON), valid, type, refId,
+  // command, updateData, chatId, _waitSeconds, atbp. Hindi ito para sa tao.
+  // Panuntunan: ang totoong sheet columns ay Title Case na may espasyo
+  // ("Ticket ID", "OTP Status"); ang internal ay nagsisimula sa maliit na
+  // titik o underscore. Kasama rin ang kahit anong cell na JSON blob.
+  function isInternalColumn(col, val) {
+    const name = String(col || '').trim();
+    if (!name || name === '__rowNumber') return true;
+    if (/^[a-z_]/.test(name)) return true;
+    const v = String(val ?? '').trim();
+    if (/^[\[{]/.test(v) && /[\]}]$/.test(v) && v.indexOf('":') !== -1) return true; // totoong JSON lang
+    return false;
+  }
+
   function collectPhotoLinks(row) {
     const photos = [];
+    const seenUrls = new Set();
     for (const col in row) {
       const val = row[col];
-      if (col === '__rowNumber' || typeof val !== 'string' || val.indexOf('http') === -1) continue;
+      if (typeof val !== 'string' || val.indexOf('http') === -1 || isInternalColumn(col, val)) continue;
       const urls = val.match(URL_IN_CELL_RE) || [];
       for (const url of urls) {
         const isDrive = /drive\.google\.com|googleusercontent\.com/i.test(url);
         const isImage = /\.(jpe?g|png|gif|webp|heic)([?#].*)?$/i.test(url);
         if (!isDrive && !isImage) continue;
+        if (seenUrls.has(url)) continue;
+        seenUrls.add(url);
         photos.push({ label: col, url });
         if (photos.length >= 8) return photos;
       }
@@ -282,7 +302,7 @@
   function rawRow(row) {
     const out = {};
     for (const col in row) {
-      if (col === '__rowNumber' || !col || !String(col).trim()) continue;
+      if (isInternalColumn(col, row[col])) continue; // automation fields — tingnan sa itaas
       out[col] = row[col];
     }
     return out;
@@ -580,6 +600,7 @@
     relativeTime,
     compactElapsed,
     formatDuration,
+    isInternalColumn,
     isSameLocalDay,
     dayKey,
     pctChange,
