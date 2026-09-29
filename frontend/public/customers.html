@@ -371,10 +371,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
         Tickets
       </a>
-      <a href="kyc.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M4 17c0-1.5 1.5-3 4.5-3s4.5 1.5 4.5 3"/><path d="M15 10h5M15 14h3"/></svg>
-        KYC
-      </a>
       <a href="customers.html" class="nav-item active" id="navCustomers">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
         Customers
@@ -503,6 +499,12 @@
             <option value="open">Open</option>
             <option value="pending">Pending</option>
             <option value="resolved">Resolved</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Category</span>
+          <select id="concernFilter" class="admin-select" style="max-width:250px;">
+            <option value="all">All categories</option>
           </select>
         </div>
         <div class="f-group">
@@ -771,6 +773,10 @@
   let currentCater = 'human'; // DEFAULT: live-agent view (handoff + LiveChat) — 2026-09-23; all | human | bot
   let currentAdmin = 'all';
   let currentCsatFilter = 'all';
+  // CATEGORY filter (2026-09-28): concern galing sa backend classifier —
+  // base sa laman ng unang mga mensahe ng player (see chatwoot.js
+  // CONCERN_RULES). null = walang na-detect = "Others".
+  let currentConcern = 'all';
   let currentDateFilter = 'today'; // default Today, was 'all' (egress diet, 2026-09-14 — All Time pulled every conversation in retention on every poll)
   let customDateFrom = null;
   let customDateTo = null;
@@ -886,6 +892,7 @@
       document.getElementById('liveIndicator').style.color = 'var(--success)';
       renderBrandTabs();
       renderAdminFilter();
+      renderConcernFilter();
       applyFiltersAndRender();
       renderArtFtrStats();
     } catch (err) {
@@ -1144,6 +1151,33 @@
     applyFiltersAndRender();
   });
 
+  // CATEGORY dropdown (2026-09-28): mga concern na na-detect sa mga chat,
+  // pinakamarami muna, may bilang kada isa — kagaya ng Tickets page.
+  // "Others" = mga chat na walang na-detect na concern (hal. "hi po" lang).
+  function renderConcernFilter() {
+    const counts = {};
+    let others = 0;
+    allConversations.forEach(c => {
+      if (c.concern) counts[c.concern] = (counts[c.concern] || 0) + 1;
+      else others++;
+    });
+    const select = document.getElementById('concernFilter');
+    const previousValue = select.value || 'all';
+    const labels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    select.innerHTML = `<option value="all">All categories (${allConversations.length.toLocaleString()})</option>` +
+      labels.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)} (${counts[l].toLocaleString()})</option>`).join('') +
+      `<option value="__others">Others / General (${others.toLocaleString()})</option>`;
+    if (previousValue === 'all' || previousValue === '__others' || labels.includes(previousValue)) {
+      select.value = previousValue;
+    }
+    currentConcern = select.value;
+  }
+
+  document.getElementById('concernFilter').addEventListener('change', (e) => {
+    currentConcern = e.target.value;
+    applyFiltersAndRender();
+  });
+
   function applyFiltersAndRender() {
     if (searchMode) {
       if (lastSearchResults) renderSearchResults(lastSearchResults, lastSearchQuery);
@@ -1176,6 +1210,8 @@
       });
     }
     if (currentAdmin !== 'all') filtered = filtered.filter(c => c.lastMessageSender === currentAdmin);
+    if (currentConcern === '__others') filtered = filtered.filter(c => !c.concern);
+    else if (currentConcern !== 'all') filtered = filtered.filter(c => c.concern === currentConcern);
     if (currentCsatFilter === 'csat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating >= 4);
     if (currentCsatFilter === 'dsat') filtered = filtered.filter(c => c.csatRating != null && c.csatRating <= 2);
     if (currentSearch) {
