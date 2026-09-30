@@ -20,7 +20,8 @@ const { requireAuth } = require('../middleware/auth');
 
 function stripHtml(html) {
   if (!html) return '';
-  return String(html).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  // I-decode ang HTML entities (2026-09-30): ang Chatwoot ay nagpapadala ng &gt;/&amp; bilang teksto — kaya literal na "&gt;" ang nakikita sa bubbles kapag hindi dine-decode. Ligtas ito: ang render ay dumadaan pa rin sa escapeHtml.
+  return String(html).replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#0?39;/g, "'").replace(/&apos;/gi, "'").replace(/&#(\d+);/g, (m, n) => String.fromCharCode(Number(n))).replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim();
 }
 
 // Snippet na nakasentro sa MISMONG tinamaan. Kung ang tumama ay nasa
