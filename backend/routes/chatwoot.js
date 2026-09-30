@@ -42,7 +42,8 @@ const { requireAuth } = require('../middleware/auth');
 // as-is in the raw `payload` JSONB if a richer view ever needs it.
 function stripHtml(html) {
   if (!html) return html;
-  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  // I-decode ang HTML entities (2026-09-30): ang Chatwoot ay nagpapadala ng &gt;/&amp; bilang teksto — kaya literal na "&gt;" ang nakikita sa bubbles kapag hindi dine-decode. Ligtas ito: ang render ay dumadaan pa rin sa escapeHtml.
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#0?39;/g, "'").replace(/&apos;/gi, "'").replace(/&#(\d+);/g, (m, n) => String.fromCharCode(Number(n))).replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -243,33 +244,6 @@ function shouldStoreEvent(payload) {
   return false;
 }
 
-// ---------------------------------------------------------------------------
-// ATTACHMENTS (2026-09-25): photo/screenshot/file na ipinadala sa chat.
-// Dating binubura nang BUO sa slimPayload(), kaya hindi ito makita sa
-// dashboard. Ngayon ay itinatabi ang MALIIT na listahan lang (type + link +
-// thumbnail, ~200 bytes bawat isa) sa loob ng payload.attachments, at
-// pinapanatili pa rin ito ng prunePayloads() kahit ma-blank ang ibang bahagi
-// ng payload — kaya nakikita ang photo hanggang EVENT_RETENTION_DAYS.
-// Ang data_url ng Chatwoot ay permanenteng ActiveStorage redirect link,
-// kaya bukas pa rin ito kahit ilang araw na ang lumipas.
-// Walang bagong DB column — ang frontend ay nagbabasa ng payload.attachments
-// mula sa GET /events (kasama na doon ang payload).
-// ---------------------------------------------------------------------------
-const MAX_ATTACHMENTS_PER_MESSAGE = 10;
-function slimAttachments(list) {
-  if (!Array.isArray(list)) return [];
-  return list.slice(0, MAX_ATTACHMENTS_PER_MESSAGE).map(a => ({
-    type: a?.file_type || 'file',      // image | video | audio | file | location | fallback ...
-    url: a?.data_url || null,
-    thumb: a?.thumb_url || null,
-    ext: a?.extension || null,
-    size: a?.file_size ?? null,
-    lat: a?.coordinates_lat ?? null,
-    lng: a?.coordinates_long ?? null,
-    title: a?.fallback_title || null,
-  })).filter(a => a.url || (a.lat != null && a.lng != null));
-}
-
 // Drops the parts of a Chatwoot payload that extractFields() never reads and
 // that account for most of its size. Returns a new object; input untouched.
 function slimPayload(payload) {
@@ -294,11 +268,7 @@ function slimPayload(payload) {
     out.sender = s;
   }
   delete out.additional_attributes;
-  // Attachments: pinapanatili bilang maliit na listahan (2026-09-25) —
-  // tingnan ang slimAttachments() sa itaas.
-  const atts = slimAttachments(out.attachments);
-  if (atts.length) out.attachments = atts;
-  else delete out.attachments;
+  delete out.attachments;
   return out;
 }
 
@@ -316,23 +286,12 @@ async function prunePayloads() {
     console.log(`Chatwoot prune: deleted ${nDel} row(s) older than ${EVENT_RETENTION_DAYS} day(s).`);
 
     // Step 2: blank payloads on remaining rows past payload retention.
-    // EXCEPTION (2026-09-25): ang payload.attachments (photo/screenshot
-    // links) ay PINAPANATILI — ang natitirang payload ay {"attachments":[...]}
-    // lang. Walang 'event' key ang pruned na anyo, kaya hindi ito
-    // gagalawin ng /backfill (na nangangailangan ng payload ? 'event').
-    // Ang kondisyon na ("payload" - 'attachments') <> '{}' ay lumalaktaw sa
-    // mga row na na-prune na, kaya idempotent pa rin ito.
     const [, meta] = await sequelize.query(`
       UPDATE "ChatwootEvents"
-      SET "payload" = CASE
-        WHEN jsonb_typeof("payload"->'attachments') = 'array'
-             AND jsonb_array_length("payload"->'attachments') > 0
-          THEN jsonb_build_object('attachments', "payload"->'attachments')
-        ELSE '{}'::jsonb
-      END
+      SET "payload" = '{}'::jsonb
       WHERE "createdAt" < NOW() - (:days || ' days')::interval
         AND "payload" IS NOT NULL
-        AND ("payload" - 'attachments') <> '{}'::jsonb
+        AND "payload" <> '{}'::jsonb
     `, { replacements: { days: String(PAYLOAD_RETENTION_DAYS) } });
     const n = meta?.rowCount ?? meta ?? 0;
     console.log(`Chatwoot prune: blanked payload on ${n} row(s) older than ${PAYLOAD_RETENTION_DAYS} day(s).`);
@@ -594,6 +553,58 @@ function computeArtFtr(messages, brand) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// CONCERN CLASSIFIER (2026-09-28): kine-classify ang bawat conversation sa
+// mga kaparehong subcategory ng Tickets page, base sa UNANG mga mensahe ng
+// PLAYER (hindi ng bot/agent). Keyword/regex rules, Taglish + English +
+// ilang Bengali (HypePlay BD). FIRST MATCH WINS — nakaayos mula pinaka-
+// espesipiko pababa sa pangkalahatan. Walang tumama = null ("Others" sa UI).
+// Ginagamit ng /conversations para sa CATEGORY dropdown ng Customers page.
+// ---------------------------------------------------------------------------
+const CONCERN_RULES = [
+  { label: 'Cancel Withdrawal Request',
+    re: /(cancel|kansel|i-?cancel|pa-?cancel|pa\s*kansel)[\s\S]{0,40}(withdraw|cash\s*out|payout|w\/d)|(withdraw\w*|cash\s*out)[\s\S]{0,30}(cancel|kansel)/i },
+  { label: 'Cash Out Delay',
+    re: /(withdraw\w*|cash\s*out|payout)[\s\S]{0,70}(delay|pending|wala\s*pa|hindi\s*pa|d[i]\s*pa|matagal|kanina\s*pa|kahapon\s*pa|processing|transferring|hanggang\s*ngayon|not\s*(yet\s*)?receiv|failed|stuck)|(wala|hindi)\s*(ko\s*)?pa[\s\S]{0,35}(withdraw\w*|cash\s*out|payout)|টাকা\s*তুল|উইথড্র/i },
+  { label: 'Cash In Delay',
+    re: /(deposit|cash\s*in|top\s*up|na-?g?cash\s*in|hulog)[\s\S]{0,70}(delay|pending|wala\s*pa|hindi\s*pa|d[i]\s*pa|not\s*(yet\s*)?(credited|received|reflected)|hindi\s*(pumasok|pumapasok|nag-?reflect)|matagal|failed)|(wala|hindi)\s*pa[\s\S]{0,30}(deposit|cash\s*in|load\s*ko)|ডিপোজিট/i },
+  { label: 'Force Complete Turnover',
+    re: /turn\s*over|turnover|roll\s*over|rollover|wager|required\s*bet|betting\s*requirement/i },
+  { label: "Didn't Receive Birthday Bonus", re: /birthday/i },
+  { label: "Didn't Receive Expected Cashback", re: /cash\s*back|cashback|rebate/i },
+  { label: 'Recall Balance / Chips Transfer',
+    re: /recall|chips?\s*transfer|(wrong|mali)ng?[\s\S]{0,30}(transfer|send|account|number)|na-?send\s*sa\s*mali|napunta\s*sa\s*mali/i },
+  { label: 'Reset Player Payment PIN',
+    re: /payment\s*pin|(reset|forgot|nakalimutan)[\s\S]{0,20}\bpin\b|\bpin\b[\s\S]{0,20}(reset|forgot|nakalimutan)/i },
+  { label: 'Reset Fund Password', re: /fund\s*password|withdrawal\s*password/i },
+  { label: 'Delete / Close Account',
+    re: /(delete|close|isara|ipasara|burahin|tanggalin)[\s\S]{0,25}account|self[\s-]*exclusion/i },
+  { label: 'Open / Reactivate Account',
+    re: /reactivat|buksan\s*(ulit|muli)|i-?open\s*ulit|unban|unblock|ibalik[\s\S]{0,25}account|ma-?activate\s*ulit/i },
+  { label: 'Cannot Access / Open Gaming Account',
+    re: /(hindi|d[i]|cannot|can'?t|unable|ayaw)[\s\S]{0,30}(log\s*in|login|maka-?pasok|pumasok\s*sa\s*account|ma-?access)|forgot\s*password|nakalimutan[\s\S]{0,25}password|reset\s*(ng\s*)?password|account[\s\S]{0,20}(locked|blocked|banned|suspended|frozen)|na-?lock|na-?ban|\botp\b/i },
+  { label: 'Game Cannot Be Accessed',
+    re: /(game|laro|slot)s?[\s\S]{0,55}(hindi|d[i]|cannot|can'?t|ayaw|stuck|loading|error|lag|freeze|black\s*screen|not?\s*(open|load)|maintenance)|(hindi|ayaw|d[i])[\s\S]{0,25}(mabuksan|gumana|ma-?open)[\s\S]{0,25}(game|laro)/i },
+  { label: 'Follow-up (Ticket ID)',
+    re: /\b(BPH|TMT|MCP|MNP|HPP|CSY|MGK|LSP|SSP|MNC)-\d{8}-\d{3,6}\b|follow[\s-]*up|ticket[\s\S]{0,25}(status|update|ano\s*na)|ano\s*na[\s\S]{0,20}ticket/i },
+  { label: "Didn't Receive Bonus",
+    re: /bonus|free\s*(credit|chip|spin|bet)|promo(tion)?s?\b|voucher|reward|redeem|বোনাস/i },
+  { label: 'Balance Issue',
+    re: /balance|nawala[\s\S]{0,25}(pera|puntos|credits?|laman)|missing\s*(funds?|balance)|nabawasan[\s\S]{0,20}(pera|balance)/i },
+  // Pangkalahatang buckets — huli, para lang may kategorya ang simpleng
+  // "pa withdraw po" / "deposit po" na walang detalye ng problema.
+  { label: 'Withdrawal Concern', re: /withdraw|cash\s*out|payout/i },
+  { label: 'Deposit Concern', re: /deposit|cash\s*in|top\s*up/i },
+];
+
+function classifyConcern(text) {
+  if (!text) return null;
+  for (const rule of CONCERN_RULES) {
+    if (rule.re.test(text)) return rule.label;
+  }
+  return null;
+}
+
 router.get('/conversations', requireAuth, async (req, res) => {
   try {
     const brand = req.query.brand || null;
@@ -713,6 +724,30 @@ router.get('/conversations', requireAuth, async (req, res) => {
       ORDER BY "conversationId", "createdAt" DESC
     `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
+    // CONCERN (2026-09-28): unang 6 na mensahe ng PLAYER kada conversation
+    // (unahan, dahil doon nakasaad ang tunay na concern bago pa ang bot
+    // replies), pinagdudugtong at kine-classify sa ticket-style categories.
+    // LEFT(content,300) para maliit ang egress; senderType='contact' lang.
+    const firstContactMsgs = await sequelize.query(`
+      SELECT "conversationId", "content"
+      FROM (
+        SELECT "conversationId", LEFT("content", 300) AS "content",
+               ROW_NUMBER() OVER (PARTITION BY "conversationId" ORDER BY "createdAt" ASC) AS rn
+        FROM "ChatwootEvents"
+        WHERE "conversationId" IN (:selectedIds)
+          AND event = 'message_created'
+          AND "senderType" = 'contact'
+          AND "content" IS NOT NULL
+      ) t WHERE rn <= 6
+    `, { replacements: { selectedIds }, type: QueryTypes.SELECT });
+    const concernTextByConv = new Map();
+    firstContactMsgs.forEach(r => {
+      const prev = concernTextByConv.get(r.conversationId) || '';
+      concernTextByConv.set(r.conversationId, prev + '\n' + stripHtml(r.content));
+    });
+    const concernMap = new Map();
+    concernTextByConv.forEach((text, id) => { concernMap.set(id, classifyConcern(text)); });
+
     const contactMap = new Map(latestContactPerConversation.map(r => [r.conversationId, r]));
     const messageMap = new Map(latestMessagePerConversation.map(r => [r.conversationId, r]));
     const handoffMap = new Map(latestHandoffPerConversation.map(r => [r.conversationId, r]));
@@ -741,6 +776,7 @@ router.get('/conversations', requireAuth, async (req, res) => {
           csatRating: csat ? csat.csatRating : null,
           csatFeedback: csat ? csat.csatFeedback : null,
           customerIp: ipMap.get(row.conversationId) || null,
+          concern: concernMap.get(row.conversationId) || null,
           art: null,
           ftr: null,
         };
