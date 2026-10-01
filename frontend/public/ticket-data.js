@@ -43,7 +43,15 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2finxr4w7O8FK0KhhGQFB7s7Xs8arcLIZOk4vFS_DxpbJNUElnIN802VNzOYcy0HT-zJUIcGvDjso/pub?output=csv", brandOverride: { code: 'TMT_PLAY', label: 'TMTPLAY' }, sheetId: "12lRRNvsG_o-AOD6_FggRA87yvqxVwJPXDTgV79TcTpI" }, // TMTPLAY — shares the "TMT" ticket-ID prefix with TMTCash, disambiguated by source sheet
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpnmq17Q7n0uLYDgH2WvE2SZFNkvqPgQKnTLY0LT8gqJPlxQQZUmyL1JSlHF9xPGYfvBDLpCpK2Cjp/pub?gid=648660778&single=true&output=csv", kind: 'division', sheetId: "1YB5OBsZ3aqY5Hs5CZeNEU0yO36GcQI74pJYJvjADOww" } // SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITORING tab (brand comes from the Division column per row, see DIVISION_BRAND_MAP; any other Division value is filtered out)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpnmq17Q7n0uLYDgH2WvE2SZFNkvqPgQKnTLY0LT8gqJPlxQQZUmyL1JSlHF9xPGYfvBDLpCpK2Cjp/pub?gid=648660778&single=true&output=csv", kind: 'division', sheetId: "1YB5OBsZ3aqY5Hs5CZeNEU0yO36GcQI74pJYJvjADOww" }, // SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITORING tab (brand comes from the Division column per row, see DIVISION_BRAND_MAP; any other Division value is filtered out)
+    // BAGONG TICKET SHEETS (2026-10-01): sariling WebForm ticket sheets na ng
+    // Manila Casino at SuperScatter PH (standard Ticket ID schema). Ang MC
+    // prefix ay BAGO — may brandOverride ito papuntang MNC para IISA ang
+    // "Manila Casino" tab kasama ng dating rows mula sa division sheet sa
+    // itaas; ang SSP prefix ay nasa BRAND_MAP na. Walang sheetId pa (walang
+    // "Open sa Sheet" links) — idagdag kapag naibigay ang /d/{ID}/edit links.
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?output=csv", brandOverride: { code: 'MNC', label: 'Manila Casino' } }, // Manila Casino — tickets (MC prefix)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?output=csv" } // SuperScatter PH — tickets (SSP prefix)
   ];
 
   const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
