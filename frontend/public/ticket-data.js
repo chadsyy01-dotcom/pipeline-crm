@@ -50,8 +50,15 @@
     // "Manila Casino" tab kasama ng dating rows mula sa division sheet sa
     // itaas; ang SSP prefix ay nasa BRAND_MAP na. Walang sheetId pa (walang
     // "Open sa Sheet" links) — idagdag kapag naibigay ang /d/{ID}/edit links.
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?output=csv", brandOverride: { code: 'MNC', label: 'Manila Casino' } }, // Manila Casino — tickets (MC prefix)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?output=csv" } // SuperScatter PH — tickets (SSP prefix)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?gid=0&single=true&output=csv", brandOverride: { code: 'MNC', label: 'Manila Casino' }, sheetId: "18uJu1QqyYTHBqYBRD3nfIBcKaY_FrOlglIvy57pKd3Q" }, // Manila Casino — tickets/RAW (MC prefix)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?gid=1295462270&single=true&output=csv", kind: 'callback', brandOverride: { code: 'MNC', label: 'Manila Casino' }, sheetId: "18uJu1QqyYTHBqYBRD3nfIBcKaY_FrOlglIvy57pKd3Q" }, // Manila Casino — Callback
+    // NOTE: ang Manila Casino sheet ay may OTP LOG tab (gid=2035193014) na may
+    // LIVE OTP CODES — sadyang HINDI isinama (parehong patakaran sa
+    // ManilaPlay/TMTCash/Casinyeam: huwag ilantad ang OTP sa public CSV).
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?gid=0&single=true&output=csv", sheetId: "1dYln_wSNtfDTeBltEFzsnSZNSLQaI0qHpEwkdh4nZeY" }, // SuperScatter PH — tickets/RAW (SSP prefix)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?gid=1515176498&single=true&output=csv", kind: 'callback', sheetId: "1dYln_wSNtfDTeBltEFzsnSZNSLQaI0qHpEwkdh4nZeY" } // SuperScatter PH — Callback
+    // NOTE: ang SuperScatter sheet ay may OTP LOG tab (gid=1507278709) na may
+    // LIVE OTP CODES — sadyang HINDI isinama (see note sa itaas).
   ];
 
   const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
@@ -404,7 +411,7 @@
 
   // Maps a "Callback" sheet row (Reference ID / Username / Mobile / Concern / ...) to the
   // same common shape.
-  function mapCallbackRow(row, sheetMeta) {
+  function mapCallbackRow(row, sheetMeta, brandOverride) {
     if (!row['Reference ID']) return null;
     const submitted = parseSheetDate(row['Submitted At']);
     if (isNaN(submitted.getTime())) return null;
@@ -415,7 +422,10 @@
     const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
     const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
     const si = statusInfo(row['Status']);
-    const brand = brandFromTicketId(row['Reference ID']);
+    // brandOverride (2026-10-01): ang MC callback tab ay walang kilalang
+    // prefix sa BRAND_MAP — ang override ang nagdadala sa kanila sa iisang
+    // Manila Casino (MNC) tab kasama ng tickets.
+    const brand = brandOverride || brandFromTicketId(row['Reference ID']);
     return {
       id: row['Reference ID'],
       name,
@@ -527,7 +537,7 @@
           const sheetMeta = { sheetId, gid };
           rows.forEach(row => {
             const ticket = kind === 'followup' ? mapFollowupRow(row, sheetMeta)
-              : kind === 'callback' ? mapCallbackRow(row, sheetMeta)
+              : kind === 'callback' ? mapCallbackRow(row, sheetMeta, brandOverride)
               : kind === 'division' ? mapDivisionRow(row, sheetMeta)
               : mapTicketRow(row, brandOverride, sheetMeta);
             if (!ticket) return;
