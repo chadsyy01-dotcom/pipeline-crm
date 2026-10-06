@@ -336,11 +336,8 @@
         </div>
         <div class="titlebar-actions no-print">
           <div class="period-field">
-            <span>Compare</span>
-            <select class="period-select" id="modeSel">
-              <option value="same">Same days (day 1 to today, both months)</option>
-              <option value="full">Full last month vs this month to date</option>
-            </select>
+            <span>Report month (vs month before)</span>
+            <select class="period-select" id="modeSel"></select>
           </div>
           <button class="btn" id="refreshBtn">Refresh</button>
           <button class="btn primary" onclick="window.print()">Print / PDF</button>
@@ -350,16 +347,16 @@
 
     <!-- 1. CHATS -->
     <section class="block">
-      <div class="section-head"><h2>1. Chats comparison</h2><span class="lede">Chatwoot + LiveChat · all brands</span></div>
+      <div class="section-head"><h2>1. Chats comparison</h2><span class="lede">Chat volume sheet (messages received) · CSAT from live data</span></div>
       <div id="chatErr"></div>
       <div class="kpi-row" id="chatKpis"><div class="loading">Loading chats…</div></div>
       <div class="cols-2">
         <div class="panel">
-          <div class="panel-head"><h3>Conversations by brand</h3><span class="hint">Distinct chats with activity in the period</span></div>
+          <div class="panel-head"><h3>Total chats by brand</h3><span class="hint">Messages received, from the chat volume sheet</span></div>
           <div style="height:340px;"><canvas id="chatChart"></canvas></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><h3>Brand table</h3><span class="hint">Chats · messages received · CSAT</span></div>
+          <div class="panel-head"><h3>Side by side</h3><span class="hint">Sorted by report month volume</span></div>
           <div class="scroll tall" id="chatTable"></div>
         </div>
       </div>
@@ -376,7 +373,7 @@
           <div id="topConcerns"></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><h3>Resolution by brand</h3><span class="hint">Filed · resolved · rate (this month)</span></div>
+          <div class="panel-head"><h3>Resolution by brand</h3><span class="hint">Filed · resolved · rate (report month)</span></div>
           <div class="scroll tall" id="resoTable"></div>
         </div>
       </div>
@@ -390,7 +387,7 @@
 
     <!-- 4. TOP 5 REASONS PER BRAND -->
     <section class="block">
-      <div class="section-head"><h2>4. Top 5 reasons per brand</h2><span class="lede" id="perBrandLede">This month · last month count in grey</span></div>
+      <div class="section-head"><h2>4. Top 5 reasons per brand</h2><span class="lede" id="perBrandLede">Report month · comparison month in grey</span></div>
       <div class="grid-brands" id="perBrand"><div class="loading">Loading…</div></div>
     </section>
 
@@ -442,27 +439,48 @@ function mnlMidnight(y, m, d) { return new Date(Date.UTC(y, m, d) - MNL); }
 function mnlParts(date) { const t = new Date(date.getTime() + MNL); return { y: t.getUTCFullYear(), m: t.getUTCMonth(), d: t.getUTCDate() }; }
 function ymd(y, m, d) { const t = new Date(Date.UTC(y, m, d)); return t.toISOString().slice(0, 10); }
 
-function buildPeriods(mode) {
+// offset = how many months back the REPORT month is (0 = this month, 1 = last
+// month). The comparison is always the month before it, in full. When the
+// report month is the running month, the comparison is trimmed to the same
+// days (1 → today) so a partial month isn't compared with a full one.
+function buildPeriods(offset) {
   const now = new Date();
   const p = mnlParts(now);
-  const bStart = mnlMidnight(p.y, p.m, 1);
-  const aStart = mnlMidnight(p.y, p.m - 1, 1);
-  const aMonth = mnlParts(aStart);
-  const daysInA = new Date(Date.UTC(aMonth.y, aMonth.m + 1, 0)).getUTCDate();
-  const sameDay = Math.min(p.d, daysInA);
-  const aEnd = mode === 'same' ? mnlMidnight(aMonth.y, aMonth.m, sameDay + 1) : bStart;
-  const aLastDay = mode === 'same' ? sameDay : daysInA;
+  const bStart = mnlMidnight(p.y, p.m - offset, 1);
+  const bNext = mnlMidnight(p.y, p.m - offset + 1, 1);
+  const bm = mnlParts(bStart);
+  const aStart = mnlMidnight(bm.y, bm.m - 1, 1);
+  const am = mnlParts(aStart);
+  const daysInA = new Date(Date.UTC(am.y, am.m + 1, 0)).getUTCDate();
+  const daysInB = new Date(Date.UTC(bm.y, bm.m + 1, 0)).getUTCDate();
+  const running = offset === 0;
+  const bDays = running ? p.d : daysInB;
+  const aDays = running ? Math.min(p.d, daysInA) : daysInA;
+  const bEnd = running ? now : new Date(bNext.getTime() - 1);
+  const aEnd = new Date(mnlMidnight(am.y, am.m, aDays + 1).getTime() - 1);
+  const lab = (m, last, full) => full ? `${SHORT[m]} 1–${last}` : `${SHORT[m]} 1–${last}`;
   return {
-    A: { from: aStart, to: new Date(aEnd.getTime() - 1), days: aLastDay,
-         label: `${SHORT[aMonth.m]} 1–${aLastDay}`, month: MONTHS[aMonth.m],
-         startYmd: ymd(aMonth.y, aMonth.m, 1), endYmd: ymd(aMonth.y, aMonth.m, aLastDay) },
-    B: { from: bStart, to: now, days: p.d,
-         label: `${SHORT[p.m]} 1–${p.d}`, month: MONTHS[p.m],
-         startYmd: ymd(p.y, p.m, 1), endYmd: ymd(p.y, p.m, p.d) },
+    running,
+    A: { from: aStart, to: aEnd, days: aDays, label: lab(am.m, aDays), month: MONTHS[am.m],
+         startYmd: ymd(am.y, am.m, 1), endYmd: ymd(am.y, am.m, aDays) },
+    B: { from: bStart, to: bEnd, days: bDays, label: lab(bm.m, bDays), month: MONTHS[bm.m],
+         startYmd: ymd(bm.y, bm.m, 1), endYmd: ymd(bm.y, bm.m, bDays) },
   };
 }
 
-let P = buildPeriods('same');
+// Month picker: last 6 months, default = last COMPLETED month (e.g. Sep → vs Aug).
+(function fillMonths() {
+  const sel = document.getElementById('modeSel');
+  const p = mnlParts(new Date());
+  for (let off = 1; off <= 6; off++) {
+    const b = mnlParts(mnlMidnight(p.y, p.m - off, 1)), a = mnlParts(mnlMidnight(p.y, p.m - off - 1, 1));
+    sel.add(new Option(`${MONTHS[a.m]} vs ${MONTHS[b.m]} ${b.y}`, String(off)));
+  }
+  const pa = mnlParts(mnlMidnight(p.y, p.m - 1, 1));
+  sel.add(new Option(`${MONTHS[pa.m]} vs ${MONTHS[p.m]} (to date)`, '0'));
+  sel.value = '1';
+})();
+let P = buildPeriods(1);
 const qs = per => `from=${encodeURIComponent(per.from.toISOString())}&to=${encodeURIComponent(per.to.toISOString())}`;
 
 function delta(cur, prev, invert) {
@@ -492,63 +510,135 @@ function fmtDur(sec) {
 const avg = arr => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null);
 
 // ================= 1. CHATS =================
+// Total chats come from the department's CHAT VOLUME SHEET (same source and
+// same reading rules as reports.html → Chats Comparison): one block per
+// month, a header row naming the month, then one row per division with a
+// "Messages received" figure per day. Empty cells = not entered yet (NOT
+// zero), so only filled days are counted. CSAT/DSAT stays on the live
+// /chatwoot/stats endpoint because the sheet has no ratings.
+const CHAT_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS5SwAp040OOY7uZhK_VVOBDYXDGstlJ6KR00zfLsmpyhig7DhIVDVp4qBnP2wPo2b6ISD1zrcuIxAv/pub?gid=1620878570&single=true&output=csv';
+
+function loadChatSheetRows() {
+  return new Promise((resolve, reject) => {
+    Papa.parse(CHAT_SHEET_CSV + '&_cb=' + Date.now(), {
+      download: true, header: false, skipEmptyLines: true,
+      complete: r => resolve(r.data || []),
+      error: err => reject(err),
+    });
+  });
+}
+
+function parseSheetDaily(rows) {
+  const UP = MONTHS.map(m => m.toUpperCase());
+  const blocks = {};
+  let current = null, dayForCol = null;
+  for (const row of rows) {
+    const first = String(row[0] || '').trim().toUpperCase();
+    if (UP.includes(first)) {
+      current = { divisions: {}, filled: new Set() };
+      blocks[first] = current;
+      dayForCol = {};
+      row.forEach((cell, i) => {
+        if (i < 2) return;
+        const n = parseInt(String(cell || '').trim(), 10);
+        if (n >= 1 && n <= 31) dayForCol[i] = n;
+      });
+      if (!Object.keys(dayForCol).length) dayForCol = null;
+      continue;
+    }
+    if (!current) continue;
+    const division = String(row[1] || '').trim();
+    if (!division) continue;
+    const daily = [];
+    row.forEach((cell, i) => {
+      if (i < 2) return;
+      const day = dayForCol ? dayForCol[i] : i - 1;
+      if (!day) return;
+      const raw = String(cell == null ? '' : cell).replace(/[,\s]/g, '');
+      if (raw === '') return;
+      const n = parseFloat(raw);
+      if (isNaN(n)) return;
+      daily[day] = (daily[day] || 0) + n;
+      current.filled.add(day);
+    });
+    current.divisions[division] = daily;
+  }
+  return blocks;
+}
+
+// Totals per division for one period (days 1..per.days of per.month).
+function periodFromSheet(blocks, per) {
+  const block = blocks[per.month.toUpperCase()];
+  if (!block) return { ok: false, reason: `Walang "${per.month}" block sa chat volume sheet.` };
+  const days = [];
+  for (let d = 1; d <= per.days; d++) if (block.filled.has(d)) days.push(d);
+  if (!days.length) return { ok: false, reason: `Wala pang naka-enter na figures para sa ${per.label}.` };
+  const byDiv = {};
+  Object.entries(block.divisions).forEach(([div, daily]) => {
+    byDiv[div] = (byDiv[div] || 0) + days.reduce((s, d) => s + (daily[d] || 0), 0);
+  });
+  const total = Object.values(byDiv).reduce((s, v) => s + v, 0);
+  return { ok: true, byDiv, total, filledDays: days.length, expectedDays: per.days, lastDay: days[days.length - 1] };
+}
+
 let chatChart = null;
 async function loadChats() {
   const kp = document.getElementById('chatKpis');
-  document.getElementById('chatErr').innerHTML = '';
-  kp.innerHTML = '<div class="loading">Loading chats…</div>';
+  const errEl = document.getElementById('chatErr');
+  errEl.innerHTML = '';
+  kp.innerHTML = '<div class="loading">Loading chat volume sheet…</div>';
   try {
-    const [sA, sB, mA, mB] = await Promise.all([
-      apiGet(`/chatwoot/stats?${qs(P.A)}`),
-      apiGet(`/chatwoot/stats?${qs(P.B)}`),
-      apiGet(`/chatwoot/messages-received?${qs(P.A)}`).catch(() => null),
-      apiGet(`/chatwoot/messages-received?${qs(P.B)}`).catch(() => null),
+    const [rows, sA, sB] = await Promise.all([
+      loadChatSheetRows(),
+      apiGet(`/chatwoot/stats?${qs(P.A)}`).catch(() => null),
+      apiGet(`/chatwoot/stats?${qs(P.B)}`).catch(() => null),
     ]);
-    const cA = sA.conversationsByBrand || {}, cB = sB.conversationsByBrand || {};
-    const sum = o => Object.values(o).reduce((s, v) => s + v, 0);
-    const csatTot = s => Object.values(s.csatByBrand || {}).reduce((t, b) => ({ csat: t.csat + b.csat, dsat: t.dsat + b.dsat, total: t.total + b.total }), { csat: 0, dsat: 0, total: 0 });
+    const blocks = parseSheetDaily(rows);
+    const a = periodFromSheet(blocks, P.A), b = periodFromSheet(blocks, P.B);
+    const notes = [];
+    if (!a.ok) notes.push(a.reason);
+    if (!b.ok) notes.push(b.reason);
+    [[a, P.A], [b, P.B]].forEach(([r, per]) => {
+      if (r.ok && r.filledDays < r.expectedDays) notes.push(`${per.month}: ${r.filledDays} sa ${r.expectedDays} araw pa lang ang may figures sa sheet (hanggang ${SHORT[MONTHS.indexOf(per.month)]} ${r.lastDay}).`);
+    });
+    errEl.innerHTML = notes.length ? `<div class="flag">${notes.map(escapeHtml).join(' ')}</div>` : '';
+
+    const csatTot = s => Object.values((s && s.csatByBrand) || {}).reduce((t, x) => ({ csat: t.csat + x.csat, dsat: t.dsat + x.dsat, total: t.total + x.total }), { csat: 0, dsat: 0, total: 0 });
     const tA = csatTot(sA), tB = csatTot(sB);
     const pct = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : null);
     const fmtPct = v => (v == null ? '—' : v + '%');
-    const totA = sum(cA), totB = sum(cB);
+    const totA = a.ok ? a.total : null, totB = b.ok ? b.total : null;
+    const perDay = (r) => (r.ok ? r.total / r.filledDays : null);
     kp.innerHTML =
-      kpi('Total chats', totA, totB, null, `Per day: ${fmtInt(totB / P.B.days)} vs ${fmtInt(totA / P.A.days)}`) +
-      kpi('Messages received', mA ? mA.total : null, mB ? mB.total : null) +
-      kpi('CSAT %', pct(tA.csat, tA.total), pct(tB.csat, tB.total), fmtPct, `${fmtInt(tB.total)} ratings this month`) +
-      kpi('DSAT %', pct(tA.dsat, tA.total), pct(tB.dsat, tB.total), fmtPct, `${fmtInt(tB.dsat)} bad ratings`, true);
+      kpi('Total chats (messages received)', totA, totB, null, a.ok && b.ok ? `Per day: ${fmtInt(perDay(b))} vs ${fmtInt(perDay(a))}` : '') +
+      kpi('Chats per day', perDay(a), perDay(b), null, 'Fairer when a month is not fully entered') +
+      kpi('CSAT %', pct(tA.csat, tA.total), pct(tB.csat, tB.total), fmtPct, `${fmtInt(tB.total)} ratings · live data`) +
+      kpi('DSAT %', pct(tA.dsat, tA.total), pct(tB.dsat, tB.total), fmtPct, `${fmtInt(tB.dsat)} bad ratings · live data`, true);
 
-    const brands = Array.from(new Set([...Object.keys(cA), ...Object.keys(cB)]))
-      .sort((x, y) => (cB[y] || 0) - (cB[x] || 0) || (cA[y] || 0) - (cA[x] || 0));
-    const labels = brands.map(chatBrandLabel);
+    const dA = a.ok ? a.byDiv : {}, dB = b.ok ? b.byDiv : {};
+    const divs = Array.from(new Set([...Object.keys(dA), ...Object.keys(dB)]))
+      .sort((x, y) => (dB[y] || 0) - (dB[x] || 0) || (dA[y] || 0) - (dA[x] || 0));
     if (chatChart) chatChart.destroy();
     chatChart = new Chart(document.getElementById('chatChart'), {
       type: 'bar',
-      data: { labels, datasets: [
-        { label: P.A.label, data: brands.map(b => cA[b] || 0), backgroundColor: '#94A3B8', borderRadius: 4 },
-        { label: P.B.label, data: brands.map(b => cB[b] || 0), backgroundColor: '#2563EB', borderRadius: 4 },
+      data: { labels: divs, datasets: [
+        { label: P.A.label, data: divs.map(d => dA[d] || 0), backgroundColor: '#94A3B8', borderRadius: 4 },
+        { label: P.B.label, data: divs.map(d => dB[d] || 0), backgroundColor: '#2563EB', borderRadius: 4 },
       ] },
       options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } },
         scales: { x: { grid: { color: '#EEF1F6' } }, y: { grid: { display: false } } } },
     });
-
-    const mAb = (mA && mA.messagesReceivedByBrand) || {}, mBb = (mB && mB.messagesReceivedByBrand) || {};
-    const csA = sA.csatByBrand || {}, csB = sB.csatByBrand || {};
-    const rows = brands.map(b => {
-      const r = csB[b];
-      const c = r && r.total ? Math.round((r.csat / r.total) * 100) + '%' : '—';
-      return `<tr><td>${escapeHtml(chatBrandLabel(b))}</td>
-        <td class="num" style="color:var(--ink-faint)">${fmtInt(cA[b] || 0)}</td>
-        <td class="num">${fmtInt(cB[b] || 0)}</td><td class="num">${delta(cB[b] || 0, cA[b] || 0)}</td>
-        <td class="num">${fmtInt(mBb[b] || 0)}</td><td class="num">${c}</td></tr>`;
-    }).join('');
-    document.getElementById('chatTable').innerHTML = `<table class="rt"><thead><tr><th>Brand</th>
-      <th class="num">${P.A.label}</th><th class="num">${P.B.label}</th><th class="num">Change</th>
-      <th class="num">Msgs rec'd</th><th class="num">CSAT</th></tr></thead><tbody>${rows}</tbody>
-      <tfoot><tr><td>Total</td><td class="num">${fmtInt(totA)}</td><td class="num">${fmtInt(totB)}</td>
-      <td class="num">${delta(totB, totA)}</td><td class="num">${fmtInt(mB ? mB.total : null)}</td><td class="num">${tB.total ? Math.round((tB.csat / tB.total) * 100) + '%' : '—'}</td></tr></tfoot></table>`;
+    const share = (n, t) => (t ? Math.round((n / t) * 1000) / 10 + '%' : '—');
+    document.getElementById('chatTable').innerHTML = `<table class="rt"><thead><tr><th>Brand / division</th>
+      <th class="num">${P.A.label}</th><th class="num">${P.B.label}</th><th class="num">Change</th><th class="num">Share</th></tr></thead><tbody>
+      ${divs.map(d => `<tr><td>${escapeHtml(d)}</td><td class="num" style="color:var(--ink-faint)">${fmtInt(dA[d] || 0)}</td>
+        <td class="num">${fmtInt(dB[d] || 0)}</td><td class="num">${delta(dB[d] || 0, dA[d] || 0)}</td>
+        <td class="num" style="color:var(--ink-faint)">${share(dB[d] || 0, totB)}</td></tr>`).join('')}
+      </tbody><tfoot><tr><td>Total</td><td class="num">${fmtInt(totA)}</td><td class="num">${fmtInt(totB)}</td>
+      <td class="num">${delta(totB, totA)}</td><td class="num">100%</td></tr></tfoot></table>`;
   } catch (e) {
     kp.innerHTML = '';
-    document.getElementById('chatErr').innerHTML = `<div class="err">Chats could not load: ${escapeHtml(e.message)}</div>`;
+    errEl.innerHTML = `<div class="err">Chat volume sheet could not load: ${escapeHtml(e.message || String(e))}</div>`;
   }
 }
 
@@ -592,7 +682,7 @@ function renderTickets() {
       <div class="rank-count">${fmtInt(n)}</div>
       <div class="rank-share" title="${P.A.label}">${fmtInt(cA[issue] || 0)}</div>
       <div class="rank-share">${delta(n, cA[issue] || 0, true)}</div>
-    </div>`).join('') : '<div class="note">No tickets filed this month yet.</div>';
+    </div>`).join('') : '<div class="note">No tickets filed in the report month.</div>';
 
   // Resolution by brand
   const brands = Array.from(new Set([...A, ...B].map(t => t.brandLabel)));
@@ -631,7 +721,7 @@ function renderTickets() {
     const src = lb.length ? cb : ca; // brand with no tickets yet this month: show last month's top 5
     const t5 = Object.entries(src).sort((x, y) => y[1] - x[1]).slice(0, 5);
     return `<div class="brand-card"><h4>${escapeHtml(r.br)}</h4>
-      <div class="sub">${fmtInt(lb.length)} tickets ${P.B.label} · ${fmtInt(la.length)} ${P.A.label}${lb.length ? '' : ' · showing last month'}</div>
+      <div class="sub">${fmtInt(lb.length)} tickets ${P.B.label} · ${fmtInt(la.length)} ${P.A.label}${lb.length ? '' : ' · showing comparison month'}</div>
       ${t5.map(([k], i) => `<div class="mini-row"><span class="rank-badge" style="width:20px;height:20px;font-size:11px;border-radius:6px;background:${RANK_COLORS[i]}22;color:${RANK_COLORS[i]}">${i + 1}</span>
         <span class="lbl" title="${escapeHtml(k)}">${escapeHtml(k)}</span><span class="n">${fmtInt(cb[k] || 0)}</span><span class="p">${fmtInt(ca[k] || 0)}</span></div>`).join('')}
     </div>`;
@@ -689,8 +779,8 @@ async function loadOpenAI() {
 // ================= Boot =================
 function setHeader() {
   document.getElementById('periodTitle').textContent = `${P.A.month} vs ${P.B.month}`;
-  document.getElementById('legendA').textContent = `${P.A.label} (last month)`;
-  document.getElementById('legendB').textContent = `${P.B.label} (this month to date)`;
+  document.getElementById('legendA').textContent = `${P.A.label} (comparison)`;
+  document.getElementById('legendB').textContent = `${P.B.label}${P.running ? ' (to date)' : ''}`;
   document.getElementById('generatedAt').textContent = new Date().toLocaleString();
 }
 function loadAll(force) {
@@ -700,14 +790,14 @@ function loadAll(force) {
   loadOpenAI();
 }
 document.getElementById('modeSel').addEventListener('change', e => {
-  P = buildPeriods(e.target.value);
+  P = buildPeriods(Number(e.target.value));
   setHeader();
   loadChats();
   if (allTickets) renderTickets(); else loadTickets(false);
   loadOpenAI();
 });
 document.getElementById('refreshBtn').addEventListener('click', () => {
-  P = buildPeriods(document.getElementById('modeSel').value);
+  P = buildPeriods(Number(document.getElementById('modeSel').value));
   loadAll(true);
 });
 loadAll(false);
