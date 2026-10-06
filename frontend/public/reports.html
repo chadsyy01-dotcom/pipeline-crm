@@ -301,10 +301,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
         Reports
       </a>
-      <a href="analytics.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
-        Analytics
-      </a>
       <a href="openai.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
         OpenAI
@@ -520,7 +516,7 @@
 
       <div class="cols-2">
         <div class="panel">
-          <div class="panel-head"><h3>Top 5 ticket concerns</h3><span class="hint">Count · share · comparison period · change</span></div>
+          <div class="panel-head"><h3>Top 5 ticket concerns</h3><span class="hint">Filed in this period</span></div>
           <div id="tkTopConcerns"><div class="note">Loading…</div></div>
         </div>
 
@@ -544,10 +540,10 @@
         <div class="scroll tall">
           <table class="rt">
             <thead><tr>
-              <th>Brand</th><th class="num" id="tkThA">Filed (prev)</th><th class="num" id="tkThB">Filed</th><th class="num">Change</th><th class="num">Resolved</th>
+              <th>Brand</th><th class="num">Filed</th><th class="num">Resolved</th>
               <th class="num">Rejected</th><th class="num">Open</th><th class="num">Resolution rate</th>
             </tr></thead>
-            <tbody id="tkBrandBody"><tr><td colspan="8"><div class="note">Loading…</div></td></tr></tbody>
+            <tbody id="tkBrandBody"><tr><td colspan="6"><div class="note">Loading…</div></td></tr></tbody>
             <tfoot id="tkBrandFoot"></tfoot>
           </table>
         </div>
@@ -1334,61 +1330,35 @@ function renderTicketResolution() {
 
   ticketsData = { filed, closed, resolved, rejected, stillOpen, rate, window: w };
 
-  // ---- Comparison period (added 2026-10-06): same rules, MONTH_A's window ----
-  // Lets the Ticket Resolution tab read month vs month (e.g. Sep vs Aug), like
-  // the Chats Comparison tab. Uses whatever comparison the Date range picker set.
-  const inWinA = (d) => d && d >= MONTH_A.start && d <= MONTH_A.end;
-  const filedA = allTickets.filter(t => inWinA(t.submitted));
-  const closedA = allTickets.filter(t => inWinA(t.resolvedAt) && (t.statusCls === 'done' || t.statusCls === 'rejected'));
-  const resolvedA = closedA.filter(t => t.statusCls === 'done');
-  const rejectedA = closedA.filter(t => t.statusCls === 'rejected');
-  const stillOpenA = filedA.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking');
-  const rateA = closedA.length ? (resolvedA.length / closedA.length) * 100 : null;
-  const aShort = MONTH_A.short;
-  // ↑/↓ vs the comparison period. invert = a rise is bad (rejected, still open).
-  const tkDelta = (cur, prev, invert, fmt) => {
-    fmt = fmt || fmtInt;
-    if (cur == null || prev == null) return '';
-    const vs = `<span style="color:var(--ink-faint);font-weight:600;"> vs ${fmt(prev)} (${escapeHtml(aShort)})</span>`;
-    if (!prev) return `<div style="margin-top:4px;"><span style="color:var(--ink-faint);">—</span>${vs}</div>`;
-    const pct = Math.round(((cur - prev) / prev) * 100);
-    if (pct === 0) return `<div style="margin-top:4px;"><span style="color:var(--ink-faint);">level</span>${vs}</div>`;
-    const good = invert ? pct < 0 : pct > 0;
-    return `<div style="margin-top:4px;"><span style="color:${good ? 'var(--success)' : 'var(--danger)'};">${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>${vs}</div>`;
-  };
-  const pctFmt = v => (v == null ? '—' : Math.round(v) + '%');
-
   flag('ticketsFlag', w.running
     ? `This period is still running — it covers ${w.days} of ${w.daysInMonth} days so far and refreshes on its own every two minutes.`
     : '');
 
   // ---- KPIs ----
   document.getElementById('tkFiled').textContent = fmtInt(filed.length);
-  document.getElementById('tkFiledSub').innerHTML = `${(filed.length / w.days).toFixed(1)} a day so far` + tkDelta(filed.length, filedA.length);
+  document.getElementById('tkFiledSub').textContent = `${(filed.length / w.days).toFixed(1)} a day so far`;
   document.getElementById('tkResolved').textContent = fmtInt(resolved.length);
-  document.getElementById('tkResolvedSub').innerHTML = `${fmtInt(closed.length)} closed in total` + tkDelta(resolved.length, resolvedA.length);
+  document.getElementById('tkResolvedSub').textContent = `${fmtInt(closed.length)} closed in total`;
   document.getElementById('tkRejected').textContent = fmtInt(rejected.length);
-  document.getElementById('tkRejectedSub').innerHTML = (closed.length
+  document.getElementById('tkRejectedSub').textContent = closed.length
     ? `${Math.round((rejected.length / closed.length) * 100)}% of everything closed`
-    : 'Nothing closed yet') + tkDelta(rejected.length, rejectedA.length, true);
+    : 'Nothing closed yet';
 
   const rateEl = document.getElementById('tkRate');
   rateEl.textContent = rate == null ? '—' : `${Math.round(rate)}%`;
   rateEl.style.color = rate == null ? '' : rate >= 80 ? 'var(--success)' : rate >= 50 ? 'var(--warning)' : 'var(--danger)';
-  document.getElementById('tkRateSub').innerHTML = (rate == null
+  document.getElementById('tkRateSub').textContent = rate == null
     ? 'Nothing closed yet'
-    : `${fmtInt(resolved.length)} of ${fmtInt(closed.length)} closed`) + tkDelta(rate, rateA, false, pctFmt);
+    : `${fmtInt(resolved.length)} of ${fmtInt(closed.length)} closed`;
 
   document.getElementById('tkOpen').textContent = fmtInt(stillOpen.length);
-  document.getElementById('tkOpenSub').innerHTML = (filed.length
+  document.getElementById('tkOpenSub').textContent = filed.length
     ? `${Math.round((stillOpen.length / filed.length) * 100)}% of this period's tickets`
-    : 'Nothing filed yet') + tkDelta(stillOpen.length, stillOpenA.length, true);
+    : 'Nothing filed yet';
 
   // ---- Top 5 concerns ----
   const concerns = {};
   filed.forEach(t => { concerns[t.issue] = (concerns[t.issue] || 0) + 1; });
-  const concernsA = {};
-  filedA.forEach(t => { concernsA[t.issue] = (concernsA[t.issue] || 0) + 1; });
   const top5 = Object.entries(concerns).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const concernsEl = document.getElementById('tkTopConcerns');
   if (!top5.length) {
@@ -1404,8 +1374,6 @@ function renderTicketResolution() {
         </div>
         <div class="rank-count">${n.toLocaleString()}</div>
         <div class="rank-share">${Math.round((n / filed.length) * 100)}%</div>
-        <div class="rank-share" title="${escapeHtml(aShort)}">${fmtInt(concernsA[issue] || 0)}</div>
-        <div class="rank-share" style="min-width:52px;">${changeCell(n, concernsA[issue] || 0)}</div>
       </div>`).join('');
   }
 
@@ -1461,7 +1429,6 @@ function renderTicketResolution() {
     if (!brands.has(name)) brands.set(name, { filed: 0, resolved: 0, rejected: 0, open: 0 });
     return brands.get(name);
   };
-  filedA.forEach(t => { brand(t.brandLabel).filedA = (brand(t.brandLabel).filedA || 0) + 1; });
   filed.forEach(t => {
     const b = brand(t.brandLabel);
     b.filed++;
@@ -1473,7 +1440,7 @@ function renderTicketResolution() {
   });
   const brandRows = [...brands.entries()]
     .map(([name, v]) => ({ name, ...v, rate: (v.resolved + v.rejected) ? (v.resolved / (v.resolved + v.rejected)) * 100 : null }))
-    .sort((a, b) => b.filed - a.filed || (b.filedA || 0) - (a.filedA || 0) || b.resolved - a.resolved);
+    .sort((a, b) => b.filed - a.filed || b.resolved - a.resolved);
 
   if (tkCharts.brand) { tkCharts.brand.destroy(); tkCharts.brand = null; }
   if (brandRows.length) {
@@ -1498,18 +1465,14 @@ function renderTicketResolution() {
     });
   }
 
-  document.getElementById('tkThA').textContent = `Filed ${MONTH_A.short}`;
-  document.getElementById('tkThB').textContent = `Filed ${MONTH_B.short}`;
   const bBody = document.getElementById('tkBrandBody');
   if (!brandRows.length) {
-    bBody.innerHTML = '<tr><td colspan="8"><div class="note">No tickets in this period.</div></td></tr>';
+    bBody.innerHTML = '<tr><td colspan="6"><div class="note">No tickets in this period.</div></td></tr>';
     document.getElementById('tkBrandFoot').innerHTML = '';
   } else {
     bBody.innerHTML = brandRows.map(r => `<tr>
       <td>${escapeHtml(r.name)}</td>
-      <td class="num" style="color:var(--ink-faint);">${fmtInt(r.filedA || 0)}</td>
       <td class="num">${r.filed.toLocaleString()}</td>
-      <td class="num">${changeCell(r.filed, r.filedA || 0)}</td>
       <td class="num" style="color:var(--success);">${r.resolved.toLocaleString()}</td>
       <td class="num" style="color:var(--danger);">${r.rejected.toLocaleString()}</td>
       <td class="num" style="font-weight:600;color:var(--ink-soft);">${r.open.toLocaleString()}</td>
@@ -1517,9 +1480,7 @@ function renderTicketResolution() {
     </tr>`).join('');
     document.getElementById('tkBrandFoot').innerHTML = `<tr>
       <td>${brandRows.length} brands</td>
-      <td class="num">${fmtInt(filedA.length)}</td>
       <td class="num">${fmtInt(filed.length)}</td>
-      <td class="num">${changeCell(filed.length, filedA.length)}</td>
       <td class="num">${fmtInt(resolved.length)}</td>
       <td class="num">${fmtInt(rejected.length)}</td>
       <td class="num">${fmtInt(stillOpen.length)}</td>
@@ -2231,6 +2192,8 @@ async function loadAvatars() {
 // reloads everything that depends on the dates.
 const rpSelect = document.getElementById('rpPreset');
 // Month-vs-month choices: last 6 complete months, each against the month before.
+// Chats Comparison compares the two months; Ticket Resolution shows the
+// REPORT month only (no comparison — user decision 2026-10-06).
 (function fillMonthPairs() {
   const grp = document.getElementById('rpMonthPairs');
   const t = new Date();
