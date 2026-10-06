@@ -1,628 +1,807 @@
-// ---- Shared ticket data loader for CSR Dashboard + Tickets pages ----
-// Pulls live rows from the published Google Sheet (CSV export) and
-// normalizes them into a consistent shape both pages can use.
-// Requires PapaParse to be loaded before this file.
-(function (global) {
-  // Multiple sheets feed the ticket pipeline (split by category and/or brand).
-  // Add more sources here as new category sheets or brands come online.
-  // Normally the brand is derived from the Ticket ID prefix (see brandFromTicketId).
-  // If two brands ever share the same prefix (e.g. "HPP" reused across countries),
-  // give the affected source an explicit `brandOverride` so it isn't misattributed
-  // to whichever brand that prefix normally maps to.
-  //
-  // Optional `sheetId`: the REAL Google Sheet ID (from the normal .../d/{ID}/edit
-  // share link — NOT the long "Publish to web" ID already in `url`). When present,
-  // each ticket gets a `sheetLink` that deep-links straight to its row in the live,
-  // editable sheet. Add it per-brand as those real IDs become available; sources
-  // without it simply get no link (Ticket ID renders as plain text, same as before).
-  const SHEET_SOURCES = [
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv", sheetId: "17ECCBVQYC9Ke8Hg5u-YCuUJ1VDjl43OCwfkLi2WV_3I" }, // Buenas PH — Deposit
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyi3716uR8070u3tMdSgcDB9QmtJb6SkJ_3DHAyHfQkl0tgwNr9f5pBZxXrv0gxQOy3zb4QxXoyYgp/pub?gid=0&single=true&output=csv", sheetId: "1hovlnQrr4mIpZ1Q5HkGBSPKhJjg3Up_z-4S77D2lkpk" }, // Buenas PH — Withdrawal
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=0&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84" }, // Buenas PH — Account
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=906571162&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84" }, // Buenas PH — Error/Bug
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=2007332310&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84" }, // Buenas PH — Bonus/Reward
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=1356077885&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84" }, // Buenas PH — Callback Request (uses standard Ticket ID schema)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=0&single=true&output=csv", sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJjSjsokoykFPem4oIurq1-ex1Yho3IsHplupTHPiSs6wueznpFyx2OL2hdYHkXUPePZH1KnJKeiO0/pub?gid=0&single=true&output=csv", sheetId: "1FxrmHVwYcfNdjVMvBmldmDjbIIqDaP7NvBi-IEvVVu8" }, // Mobile Casino Play (MCP)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=0&single=true&output=csv", sheetId: "1pJK2JqPY5o4IICyl6bpIvOtuklveSsRFUfTqIRMcyVc" }, // ManilaPlay (MNP)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=1958931723&single=true&output=csv", kind: 'followup', sheetId: "1pJK2JqPY5o4IICyl6bpIvOtuklveSsRFUfTqIRMcyVc" }, // ManilaPlay — Follow Up
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=1198722654&single=true&output=csv", kind: 'callback', sheetId: "1pJK2JqPY5o4IICyl6bpIvOtuklveSsRFUfTqIRMcyVc" }, // ManilaPlay — Callback
-    // NOTE: ManilaPlay also has an OTP Log tab (gid=793559768) containing live customer
-    // OTP codes. Deliberately excluded — publishing it would expose real one-time
-    // passwords via an unauthenticated public CSV link. Same call made for TMTCash.
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkYplUz2eq5TzFEYmvHlXDltCZe6RnoYTak5xEtrXZxEb2EvfDTz5LUOZ0AaouuOGcNWJRDQGYGZB4/pub?gid=0&single=true&output=csv", sheetId: "1hQ067jbyADkFlRYecv7mxfn-SG5F4F-wSmyHl_LT-z0" }, // HypePlay PH (HPP)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbB_0D7eB9mxUQUoeBlP8fPRgLcrPhwzmuUpIUl1wyT5NUS4B45YC_yuVvfMFfEVA9tqPqedGSMQSb/pub?gid=0&single=true&output=csv", sheetId: "1WCinfp7w5FEUvE_FpaI9ap9JwekBE019kQ-oErbmaCQ" }, // MasterGoldKey (MGK)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0Sbf9dckRTWoYtJJnXD6uaxrqSn8-wnCHGJk-R8ZU34VvlttKyThhLknBcmm_vQgfERoIAXSRFHth/pub?gid=0&single=true&output=csv", sheetId: "1CnJ4xHHyJu6j8n2ZcUu3zOUSdYBIPOge5IseAvpRotQ" }, // LuckyStacks PH (LSP)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=0&single=true&output=csv", sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE" }, // Casinyeam (CSY)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=1668001762&single=true&output=csv", kind: 'followup', sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE" }, // Casinyeam — Follow Up
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=2070863895&single=true&output=csv", kind: 'callback', sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE" }, // Casinyeam — Callback
-    // NOTE: Casinyeam also has an OTP Log tab (gid=633742038) containing live customer
-    // OTP codes. Deliberately excluded — publishing it would expose real one-time
-    // passwords via an unauthenticated public CSV link. Same call made for ManilaPlay/TMTCash.
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBUDcdD5qJtw1GjRwHkWKKaIgcvMQUcYlMIq61H8JV-6piChgqQIn-8K0RyyU6KnrCcvkfhxkp1VWd/pub?gid=0&single=true&output=csv", brandOverride: { code: 'HPP_BD', label: 'HypePlay BD' }, sheetId: "1Tm444iBlAx2S79MbXIo3tlCkZeiHut21-Se8P1CXCIA" }, // HypePlay BD — shares the "HPP" ticket-ID prefix with HypePlay PH, disambiguated by source sheet
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2finxr4w7O8FK0KhhGQFB7s7Xs8arcLIZOk4vFS_DxpbJNUElnIN802VNzOYcy0HT-zJUIcGvDjso/pub?output=csv", brandOverride: { code: 'TMT_PLAY', label: 'TMTPLAY' }, sheetId: "12lRRNvsG_o-AOD6_FggRA87yvqxVwJPXDTgV79TcTpI" }, // TMTPLAY — shares the "TMT" ticket-ID prefix with TMTCash, disambiguated by source sheet
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpnmq17Q7n0uLYDgH2WvE2SZFNkvqPgQKnTLY0LT8gqJPlxQQZUmyL1JSlHF9xPGYfvBDLpCpK2Cjp/pub?gid=648660778&single=true&output=csv", kind: 'division', sheetId: "1YB5OBsZ3aqY5Hs5CZeNEU0yO36GcQI74pJYJvjADOww" }, // SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITORING tab (brand comes from the Division column per row, see DIVISION_BRAND_MAP; any other Division value is filtered out)
-    // BAGONG TICKET SHEETS (2026-10-01): sariling WebForm ticket sheets na ng
-    // Manila Casino at SuperScatter PH (standard Ticket ID schema). Ang MC
-    // prefix ay BAGO — may brandOverride ito papuntang MNC para IISA ang
-    // "Manila Casino" tab kasama ng dating rows mula sa division sheet sa
-    // itaas; ang SSP prefix ay nasa BRAND_MAP na. Walang sheetId pa (walang
-    // "Open sa Sheet" links) — idagdag kapag naibigay ang /d/{ID}/edit links.
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?gid=0&single=true&output=csv", brandOverride: { code: 'MNC', label: 'Manila Casino' }, sheetId: "18uJu1QqyYTHBqYBRD3nfIBcKaY_FrOlglIvy57pKd3Q" }, // Manila Casino — tickets/RAW (MC prefix)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?gid=1295462270&single=true&output=csv", kind: 'callback', brandOverride: { code: 'MNC', label: 'Manila Casino' }, sheetId: "18uJu1QqyYTHBqYBRD3nfIBcKaY_FrOlglIvy57pKd3Q" }, // Manila Casino — Callback
-    // NOTE: ang Manila Casino sheet ay may OTP LOG tab (gid=2035193014) na may
-    // LIVE OTP CODES — sadyang HINDI isinama (parehong patakaran sa
-    // ManilaPlay/TMTCash/Casinyeam: huwag ilantad ang OTP sa public CSV).
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?gid=0&single=true&output=csv", sheetId: "1dYln_wSNtfDTeBltEFzsnSZNSLQaI0qHpEwkdh4nZeY" }, // SuperScatter PH — tickets/RAW (SSP prefix)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?gid=1515176498&single=true&output=csv", kind: 'callback', sheetId: "1dYln_wSNtfDTeBltEFzsnSZNSLQaI0qHpEwkdh4nZeY" } // SuperScatter PH — Callback
-    // NOTE: ang SuperScatter sheet ay may OTP LOG tab (gid=1507278709) na may
-    // LIVE OTP CODES — sadyang HINDI isinama (see note sa itaas).
-  ];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics — CSR Dashboard</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js?v=15"></script>
+<style>
+  :root{
+    --primary:#2563EB; --primary-dark:#1D4ED8; --primary-tint:#EFF4FF;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --danger:#EF4444;  --danger-tint:#FDECEC;
+    --purple:#8B5CF6;  --purple-tint:#F3EEFE;
+    --teal:#14B8A6;    --teal-tint:#E9FAF8;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6; --rule:#D8DFE9;
+    --radius-sm:10px; --radius-md:14px; --radius-lg:18px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+    /* The two months keep the same colour in every chart, table and legend,
+       so the eye never has to re-learn which is which. */
+    --month-a:#94A3B8;   /* comparison month */
+    --month-b:#2563EB;   /* report month */
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;}
+  .app{display:flex;min-height:100vh;}
 
-  const AVATAR_COLORS = ['#3B82F6','#F59E0B','#22C55E','#8B5CF6','#14B8A6','#EC4899','#64748B','#0EA5E9','#F97316','#A855F7'];
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-group{margin-bottom:6px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;margin-bottom:2px;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
 
-  // Maps the sheet's real Status values to display label + CSS class.
-  const STATUS_MAP = {
-    pending:  { label: 'New',         cls: 'pending'  },
-    new:      { label: 'New',         cls: 'pending'  }, // may sheets (hal. MCP) na literal "NEW" ang sinusulat (2026-09-23)
-    checking: { label: 'In Progress', cls: 'checking' },
-    'otp pending verification': { label: 'OTP Pending', cls: 'checking' },
-    'line up': { label: 'Line Up',    cls: 'checking' },
-    done:     { label: 'Done',        cls: 'done'     },
-    rejected: { label: 'Rejected',    cls: 'rejected' }
-  };
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
 
-  // Brand is encoded as the prefix of the Ticket ID (e.g. "BPH-20260830-66448" -> "BPH").
-  const BRAND_MAP = {
-    BPH: 'Buenas PH',
-    TMT: 'TMTCash',
-    MCP: 'Mobile Casino Play',
-    MNP: 'ManilaPlay',
-    HPP: 'HypePlay PH',
-    CSY: 'Casinyeam',
-    MGK: 'MasterGoldKey',
-    LSP: 'LuckyStacks PH',
-    SSP: 'SuperScatter PH',
-    TMT_PLAY: 'TMTPLAY',
-    MNC: 'Manila Casino'
-  };
+  /* TITLE BAR */
+  .titlebar{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);border-top:5px solid var(--primary);padding:26px 28px 0;margin-bottom:18px;}
+  .titlebar-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+  .titlebar h1{margin:0;font-size:25px;font-weight:800;letter-spacing:-.02em;line-height:1.15;}
+  .titlebar .period{display:block;font-size:25px;font-weight:400;color:var(--ink-faint);letter-spacing:-.02em;}
+  .titlebar .meta{margin:10px 0 0;font-size:12.5px;color:var(--ink-soft);}
+  .titlebar-actions{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;}
+  .period-field{display:flex;flex-direction:column;gap:4px;}
+  .period-field span{font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-faint);}
+  .period-select{font:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;border:1px solid var(--rule);background:var(--card);color:var(--ink);cursor:pointer;min-width:170px;}
+  .date-filter-wrap{position:relative;}
+  .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px -12px rgba(15,23,42,.25);padding:16px;z-index:60;width:300px;}
+  .custom-date-pop.open{display:block;}
+  .custom-date-pop .pop-title{font-size:12px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+  .custom-date-pop .pop-title span{font-weight:600;color:var(--ink-faint);font-size:11px;margin-left:4px;}
+  .custom-date-pop .pop-row{display:flex;gap:8px;}
+  .custom-date-pop .pop-row label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.02em;}
+  .custom-date-pop input[type="date"]{width:100%;padding:7px 8px;border-radius:8px;border:1px solid var(--line);font:inherit;font-size:12px;color:var(--ink);background:var(--bg);text-transform:none;}
+  .custom-date-pop .pop-hint{font-size:11px;color:var(--ink-faint);margin-top:8px;line-height:1.45;}
+  .custom-date-pop .pop-error{font-size:11.5px;color:var(--danger);min-height:14px;margin-top:6px;}
+  .custom-date-actions{display:flex;gap:8px;margin-top:10px;}
+  .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);}
+  .custom-date-actions #rpApply{background:var(--primary);color:#fff;border-color:var(--primary);}
+  #compareLine:empty{display:none;}
+  #compareLine{color:var(--ink);font-weight:600;}
 
-  function brandFromTicketId(ticketId) {
-    const code = (ticketId || '').split('-')[0].toUpperCase();
-    return { code, label: BRAND_MAP[code] || code || 'Unknown' };
+  .subtabs{display:flex;gap:2px;margin-top:22px;border-bottom:1px solid var(--line);overflow-x:auto;}
+  .subtab{font-size:13px;font-weight:700;padding:12px 16px;color:var(--ink-faint);cursor:pointer;border:none;background:none;font-family:inherit;white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-1px;}
+  .subtab:hover{color:var(--ink-soft);}
+  .subtab.active{color:var(--primary);border-bottom-color:var(--primary);}
+  .report-page{display:none;}
+  .report-page.active{display:block;}
+
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--rule);background:var(--card);color:var(--ink);cursor:pointer;}
+  .btn svg{width:15px;height:15px;}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .tabs{display:flex;gap:4px;background:#F1F5F9;border-radius:8px;padding:3px;}
+  .tab{font-size:12px;font-weight:700;padding:6px 12px;border-radius:6px;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;font-family:inherit;}
+  .tab.active{background:var(--card);color:var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:14px;margin-bottom:14px;}
+  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:16px;box-shadow:var(--shadow);}
+  .kpi-card.accent-a{border-left:4px solid var(--month-a);}
+  .kpi-card.accent-b{border-left:4px solid var(--month-b);}
+  .kpi-card.accent-ok{border-left:4px solid var(--success);}
+  .kpi-card.accent-bad{border-left:4px solid var(--danger);}
+  .kpi-label{font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:8px;}
+  .kpi-value{font-size:27px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1;}
+  .kpi-delta{font-size:11.5px;font-weight:700;margin-top:6px;}
+  .up{color:var(--success);} .down{color:var(--danger);} .flat{color:var(--ink-faint);}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+  .panel-head .hint{font-size:11.5px;color:var(--ink-faint);font-weight:600;}
+  .cols-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+
+  .section-head{display:flex;align-items:baseline;gap:14px;padding-bottom:10px;border-bottom:2px solid var(--ink);margin-bottom:16px;flex-wrap:wrap;}
+  .section-head h2{margin:0;font-weight:800;letter-spacing:-.015em;}
+  .section-head .lede{margin-left:auto;font-size:12.5px;color:var(--ink-faint);font-weight:600;}
+
+  /* Reasons stacked inside one table cell — the Top 5 players table shows
+     every reason a player gave, each one opening its own conversation. */
+  .reason-list{display:flex;flex-direction:column;gap:6px;}
+  .reason-item{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;background:#F8FAFC;}
+  .reason-item:hover{background:var(--primary-tint);}
+  .reason-item .sev-pill{flex-shrink:0;margin-top:1px;}
+  .reason-item .txt{font-size:12.5px;color:var(--ink);line-height:1.45;word-break:break-word;}
+  .reason-item .when{margin-left:auto;font-size:11px;color:var(--ink-faint);white-space:nowrap;padding-left:8px;}
+  .reason-none{font-size:12.5px;color:var(--ink-faint);font-style:italic;}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;}
+  .legend-row{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .legend-row .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+
+  table.rt{width:100%;border-collapse:collapse;}
+  table.rt th{text-align:left;font-size:11px;letter-spacing:.02em;color:var(--ink-faint);font-weight:700;padding:0 8px 9px;border-bottom:1px solid var(--rule);white-space:nowrap;}
+  table.rt td{padding:10px 8px;font-size:13px;border-bottom:1px solid var(--line);}
+  table.rt tr:last-child td{border-bottom:none;}
+  table.rt td.num, table.rt th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  table.rt td.num{font-weight:700;}
+  table.rt tfoot td{border-top:2px solid var(--rule);border-bottom:none;font-weight:800;background:#F8FAFC;}
+  .scroll{overflow-x:auto;}
+  .tall{max-height:440px;overflow-y:auto;}
+
+  .bar-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+  .bar-row:last-child{border-bottom:none;}
+  .bar-row.pick{cursor:pointer;padding-left:6px;padding-right:6px;margin:0 -6px;border-radius:8px;}
+  .bar-row.pick:hover{background:#F8FAFC;}
+  .bar-row.pick:hover .bar-label{color:var(--primary);}
+  .bar-row.pick.on{background:var(--primary-tint);}
+  .bar-label{font-size:12.5px;font-weight:600;width:140px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar-track{flex:1;height:8px;background:#F1F5F9;border-radius:4px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;}
+  .bar-val{font-size:12.5px;font-weight:800;width:58px;text-align:right;font-variant-numeric:tabular-nums;}
+  .bar-sub{font-size:11px;color:var(--ink-faint);width:108px;text-align:right;white-space:nowrap;}
+
+  /* Ranked list — used for the top concerns, where the order is the point. */
+  .rank-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);}
+  .rank-row:last-child{border-bottom:none;}
+  .rank-badge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
+  .rank-main{flex:1;min-width:0;}
+  .rank-name{font-size:13px;font-weight:700;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rank-track{height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden;}
+  .rank-fill{height:100%;border-radius:3px;}
+  .rank-count{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;min-width:56px;text-align:right;}
+  .rank-share{font-size:11px;color:var(--ink-faint);font-weight:600;min-width:44px;text-align:right;}
+
+  .agent-cell{display:flex;align-items:center;gap:9px;}
+  .av-xs{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;overflow:hidden;}
+  .av-xs img{width:100%;height:100%;object-fit:cover;display:block;}
+
+  .donut-wrap{position:relative;display:flex;justify-content:center;}
+  .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+  .donut-center .num{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .donut-center .lab{font-size:10.5px;color:var(--ink-soft);font-weight:600;}
+
+  .tag{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
+  .tag.good{background:var(--success-tint);color:var(--success);}
+  .tag.mid{background:var(--warning-tint);color:#B45309;}
+  .tag.bad{background:var(--danger-tint);color:var(--danger);}
+  .tag.neutral{background:#F1F5F9;color:var(--ink-soft);}
+  .note{color:var(--ink-faint);font-size:12.5px;padding:20px 4px;text-align:center;}
+  .speed-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .speed-card{border:1px solid var(--line);border-radius:12px;padding:16px;}
+  .speed-card .kpi-value{font-size:30px;}
+  .speed-note{font-size:12px;color:var(--ink-faint);line-height:1.6;margin-top:14px;}
+  .t-fast{color:var(--success);}
+  .sla-pass{color:var(--success);font-weight:800;letter-spacing:.02em;}
+  .sla-fail{color:var(--danger);font-weight:800;letter-spacing:.02em;}
+  .sla-table th:nth-child(4), .sla-table td:nth-child(4),
+  .sla-table th:nth-child(7), .sla-table td:nth-child(7){border-left:1px solid var(--line);}
+  .t-slow{color:#B45309;}
+  .flag{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:11px 14px;font-size:12.5px;font-weight:600;line-height:1.5;margin-bottom:14px;}
+
+  /* Clickable KPI cards — used on Customer Satisfaction, where a figure is
+     also the way into the remarks behind it. Same interaction as the
+     Customers and QA pages: click to filter, click again to clear. */
+  .kpi-card.clickable{cursor:pointer;border:2px solid transparent;transition:transform .12s,border-color .12s;}
+  .kpi-card.clickable:hover{transform:translateY(-1px);}
+  .kpi-card.clickable.on{border-color:var(--primary);}
+  .kpi-card.clickable.on.bad{border-color:var(--danger);}
+
+  .sev-pill{font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
+  .sev-pill.high{background:var(--danger-tint);color:var(--danger);}
+  .sev-pill.medium{background:var(--warning-tint);color:#B45309;}
+  .sev-pill.low{background:#F1F5F9;color:var(--ink-faint);}
+  .remarks{font-size:12.5px;color:var(--ink-soft);line-height:1.5;max-width:420px;word-break:break-word;}
+  .remarks.empty{color:var(--ink-faint);font-style:italic;}
+  .c-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
+  .rowlink tbody tr{cursor:pointer;}
+  .rowlink tbody tr:hover{background:#F8FAFC;}
+
+  /* THREAD MODAL — same markup and behaviour as customers.html and qa.html,
+     so a remark opens the actual conversation from inside the report. */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:100;align-items:center;justify-content:center;padding:24px;}
+  .modal-overlay.open{display:flex;}
+  .modal-panel{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .modal-title{font-size:15px;font-weight:800;}
+  .modal-sub{font-size:12px;color:var(--ink-faint);margin-top:2px;}
+  .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .modal-close svg{width:15px;height:15px;color:var(--ink-soft);}
+  .modal-body{padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px;}
+  .msg-row{display:flex;flex-direction:column;max-width:82%;}
+  .msg-row.from-customer{align-self:flex-start;align-items:flex-start;}
+  .msg-row.from-agent{align-self:flex-end;align-items:flex-end;}
+  .msg-meta{font-size:11px;color:var(--ink-faint);margin-bottom:3px;padding:0 3px;}
+  .msg-bubble{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+  .from-customer .msg-bubble{background:var(--bg);color:var(--ink);border-bottom-left-radius:4px;}
+  .from-agent .msg-bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px;}
+  .from-agent.is-bot .msg-bubble{background:var(--purple);}
+  .msg-row.from-system{align-self:center;align-items:center;max-width:90%;}
+  .from-system .msg-bubble{background:#F1F5F9;color:var(--ink-faint);font-size:12px;font-style:italic;text-align:center;border-radius:10px;}
+
+  @media (max-width:860px){
+    .sidebar{display:none;}
+    .main{padding:20px 16px 32px;}
+    .titlebar{padding:20px 18px 0;}
+    .titlebar h1,.titlebar .period{font-size:20px;}
+    .cols-2{grid-template-columns:1fr;}
   }
 
-  function escapeHtml(str) {
-    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  @media print{
+    @page{size:A4 landscape;margin:12mm;}
+    body{background:#fff;}
+    .sidebar,.titlebar-actions,.subtabs,.no-print{display:none !important;}
+    .app{display:block;}
+    .main{padding:0;}
+    .titlebar{box-shadow:none;border-radius:0;border-top:none;border-bottom:3px solid var(--ink);padding:0 0 14px;}
+    .panel{box-shadow:none;border:1px solid var(--rule);break-inside:avoid;}
+    .tall{max-height:none;overflow:visible;}
   }
-
-  function colorForName(name) {
-    let hash = 0;
-    const s = name || '';
-    for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-  }
-
-  function initialsForName(name) {
-    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return '??';
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-
-  function priorityBucket(raw) {
-    const p = (raw || '').toUpperCase();
-    if (p.includes('HIGH') || p.includes('URGENT') || p.includes('CRITICAL')) return 'high';
-    if (p.includes('LOW')) return 'low';
-    return 'medium';
-  }
-
-  function statusInfo(raw) {
-    const key = (raw || '').trim().toLowerCase();
-    return STATUS_MAP[key] || { label: raw || 'Unknown', cls: 'unknown' };
-  }
-
-  // Sheet date parser (added 2026-09-21): iba-iba ang date format ng mga
-  // sheets — ang ilan (hal. HypePlay BD) ay DD/MM/YYYY, na binabasa ng
-  // JavaScript bilang MM/DD/YYYY. Ang "12/09/2026" (Sep 12) ay nagiging
-  // Dec 9 — HINAHARAP — kaya "just now" ang Updated at umaakyat pa sa
-  // taas ng list ang mga lumang ticket. Ayos: kapag slash-format at ang
-  // MM/DD na basa ay lampas sa kasalukuyan (imposible para sa submitted/
-  // resolved timestamps), i-swap sa DD/MM. Ang mga malinaw na format
-  // (ISO, "Sep 12, 2026") ay hindi ginagalaw.
-  function parseSheetDate(raw) {
-    if (raw == null) return new Date(NaN);
-    const s = String(raw).trim();
-    if (!s) return new Date(NaN);
-    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(.*)$/);
-    if (m) {
-      const a = Number(m[1]), b = Number(m[2]), y = Number(m[3]), rest = m[4] || '';
-      const build = (mm, dd) => new Date(`${mm}/${dd}/${y}${rest}`);
-      const now = Date.now() + 24 * 60 * 60 * 1000; // 1 araw na palugit (timezone drift)
-      if (a > 12 && b <= 12) return build(b, a); // tiyak na DD/MM (hal. 25/09/2026)
-      if (b > 12 && a <= 12) return build(a, b); // tiyak na MM/DD (hal. 09/25/2026)
-      const asMdy = build(a, b);
-      if (!isNaN(asMdy.getTime()) && asMdy.getTime() <= now) return asMdy; // MM/DD, makatwiran
-      const asDmy = build(b, a);
-      if (!isNaN(asDmy.getTime()) && asDmy.getTime() <= now) return asDmy; // future ang MM/DD → DD/MM pala
-      return asMdy;
+</style>
+<style>
+  .grid-brands{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+  .brand-card{border:1px solid var(--line);border-radius:12px;padding:14px;}
+  .brand-card h4{margin:0 0 2px;font-size:14px;font-weight:800;}
+  .brand-card .sub{font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:8px;}
+  .mini-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px;}
+  .mini-row:last-child{border-bottom:none;}
+  .mini-row .n{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums;}
+  .mini-row .p{color:var(--ink-faint);font-size:11px;min-width:46px;text-align:right;}
+  .mini-row .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pill-a,.pill-b{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;}
+  .pill-a{background:var(--month-a);} .pill-b{background:var(--month-b);}
+  .loading{color:var(--ink-faint);font-size:12.5px;padding:16px 4px;}
+  .err{background:var(--danger-tint);color:var(--danger);border-radius:10px;padding:10px 12px;font-size:12.5px;font-weight:600;}
+  section.block{margin-top:26px;}
+</style>
+</head>
+<body>
+<script>
+  // ---- Auth check: same pipeline_token + Railway API as the rest of the console ----
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Invalid session");
+      const data = await res.json();
+      const user = data.user || data;
+      if (user && user.name) document.getElementById('preparedBy').textContent = user.name;
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
     }
-    return new Date(s);
-  }
+  })();
+</script>
+<div class="app">
 
-  // Rejection reason (added 2026-09-21): kinukuha mula sa kung anong column
-  // ang ginagamit ng sheet. Ang standard ay "Reject Reason" — idagdag ito
-  // sa mga ticket sheets at punan tuwing nirereject; ang mga lumang sheets
-  // na Remarks/Notes ang gamit ay sakop pa rin ng fallbacks.
-  function rejectReasonFrom(row) {
-    const v = row['Reject Reason'] || row['Rejection Reason'] || row['Reject Remarks'] || row['Remarks'] || row['Notes'] || '';
-    return String(v).trim() || null;
-  }
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <div class="nav-group">
+      <a href="csr-dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="tickets.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+        Tickets
+      </a>
+      <a href="customers.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Customers
+      </a>
+      <a href="reports.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Reports
+      </a>
+      <a href="analytics.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+        Analytics
+      </a>
+      <a href="openai.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        OpenAI
+      </a>
+      <a href="agents.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Agents
+      </a>
+      <a href="settings.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12h2M3 12h2M12 3v2M12 19v2M17 7l1.5-1.5M5.5 18.5L7 17M17 17l1.5 1.5M5.5 5.5L7 7"/></svg>
+        Settings
+      </a>
+    </div>
+    <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
 
-  // Used only by mapDivisionRow — this sheet has no Ticket ID prefix scheme
-  // (Reference IDs are just timestamp+username), so brand comes from its
-  // "Division" column instead. Any Division not listed here is deliberately
-  // excluded from the dataset (per-brand opt-in, not opt-out).
-  const DIVISION_BRAND_MAP = {
-    'superscatter ph': { code: 'SSP', label: 'SuperScatter PH' },
-    'manila casino': { code: 'MNC', label: 'Manila Casino' },
-    'casinyeam': { code: 'CSY', label: 'Casinyeam' }
+  <main class="main">
+    <header class="titlebar" style="padding-bottom:22px;">
+      <div class="titlebar-top">
+        <div>
+          <h1>Analytics — Month vs Month<span class="period" id="periodTitle">—</span></h1>
+          <p class="meta"><span class="pill-a"></span><span id="legendA">—</span> &nbsp; <span class="pill-b"></span><span id="legendB">—</span><br>Prepared by <span id="preparedBy">—</span> · generated <span id="generatedAt">—</span></p>
+        </div>
+        <div class="titlebar-actions no-print">
+          <div class="period-field">
+            <span>Report month (vs month before)</span>
+            <select class="period-select" id="modeSel"></select>
+          </div>
+          <button class="btn" id="refreshBtn">Refresh</button>
+          <button class="btn primary" onclick="window.print()">Print / PDF</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 1. CHATS -->
+    <section class="block">
+      <div class="section-head"><h2>1. Chats comparison</h2><span class="lede">Chat volume sheet (messages received) · CSAT from live data</span></div>
+      <div id="chatErr"></div>
+      <div class="kpi-row" id="chatKpis"><div class="loading">Loading chats…</div></div>
+      <div class="cols-2">
+        <div class="panel">
+          <div class="panel-head"><h3>Total chats by brand</h3><span class="hint">Messages received, from the chat volume sheet</span></div>
+          <div style="height:340px;"><canvas id="chatChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Side by side</h3><span class="hint">Sorted by report month volume</span></div>
+          <div class="scroll tall" id="chatTable"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. TICKETS -->
+    <section class="block">
+      <div class="section-head"><h2>2. Tickets &amp; resolution</h2><span class="lede">Report month only · from the ticket sheets</span></div>
+      <div id="tkErr"></div>
+      <div class="kpi-row" id="tkKpis"><div class="loading">Loading ticket sheets…</div></div>
+      <div class="cols-2">
+        <div class="panel">
+          <div class="panel-head"><h3>Top 5 ticket concerns</h3><span class="hint" id="topHint">—</span></div>
+          <div id="topConcerns"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Resolution by brand</h3><span class="hint">Report month only</span></div>
+          <div class="scroll tall" id="resoTable"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. CUSTOMERS PER BRAND -->
+    <section class="block">
+      <div class="section-head"><h2>3. Customers per brand</h2><span class="lede">Unique customers who filed a ticket · report month only</span></div>
+      <div class="panel"><div class="scroll" id="custTable"><div class="loading">Loading…</div></div></div>
+    </section>
+
+    <!-- 4. TOP 5 REASONS PER BRAND -->
+    <section class="block">
+      <div class="section-head"><h2>4. Top 5 reasons per brand</h2><span class="lede" id="perBrandLede">Report month · comparison month in grey</span></div>
+      <div class="grid-brands" id="perBrand"><div class="loading">Loading…</div></div>
+    </section>
+
+    <!-- 5. OPENAI -->
+    <section class="block">
+      <div class="section-head"><h2>5. OpenAI totals</h2><span class="lede">All accounts · OpenAI Costs API</span></div>
+      <div id="aiErr"></div>
+      <div class="kpi-row" id="aiKpis"><div class="loading">Loading OpenAI costs… (may take up to a minute)</div></div>
+      <div class="panel"><div class="panel-head"><h3>Per account</h3><span class="hint" id="aiAsOf">—</span></div><div class="scroll" id="aiTable"></div></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const { escapeHtml } = TicketData;
+const fmtInt = n => (n == null ? '—' : Math.round(n).toLocaleString());
+const fmtUsd = n => (n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const fmtPhp = n => (n == null ? '' : '₱' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const RANK_COLORS = ['#EF4444','#F59E0B','#EAB308','#3B82F6','#8B5CF6'];
+
+// Same chat brand labels as reports.html
+const CHAT_BRAND_LABELS = {
+  buenasph: 'Buenas Cash', tmtcash: 'TMT Cash', mcp: 'Mobile Play Casino', manilaplayph: 'Manila Play',
+  HypleplayPH: 'Hype Play', HypeplayBD: 'Hype BDT', Tmtplay: 'TMT Play', MGK: 'MGK',
+  BuenasCredit: 'Buenas Credits', LuckystacksPH: 'LuckyStacks',
+  casinyeam: 'Casinyeam', manilacasino: 'Mc88', superscatterph: 'Super Scatter PH',
+  'livechat-general': 'LC General',
+};
+const chatBrandLabel = s => (!s ? 'Unknown' : CHAT_BRAND_LABELS[s] || s.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+
+async function apiGet(path) {
+  const token = localStorage.getItem('pipeline_token');
+  const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const j = await res.json(); if (j.error) msg += ` — ${j.error}`; } catch (e) {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+// ---- Periods (Manila time, UTC+8) ----
+// A = last month, B = this month to date. "same" mode trims A to the same
+// number of days elapsed in B, so a partial month is compared fairly.
+const MNL = 8 * 3600 * 1000;
+function mnlMidnight(y, m, d) { return new Date(Date.UTC(y, m, d) - MNL); }
+function mnlParts(date) { const t = new Date(date.getTime() + MNL); return { y: t.getUTCFullYear(), m: t.getUTCMonth(), d: t.getUTCDate() }; }
+function ymd(y, m, d) { const t = new Date(Date.UTC(y, m, d)); return t.toISOString().slice(0, 10); }
+
+// offset = how many months back the REPORT month is (0 = this month, 1 = last
+// month). The comparison is always the month before it, in full. When the
+// report month is the running month, the comparison is trimmed to the same
+// days (1 → today) so a partial month isn't compared with a full one.
+function buildPeriods(offset) {
+  const now = new Date();
+  const p = mnlParts(now);
+  const bStart = mnlMidnight(p.y, p.m - offset, 1);
+  const bNext = mnlMidnight(p.y, p.m - offset + 1, 1);
+  const bm = mnlParts(bStart);
+  const aStart = mnlMidnight(bm.y, bm.m - 1, 1);
+  const am = mnlParts(aStart);
+  const daysInA = new Date(Date.UTC(am.y, am.m + 1, 0)).getUTCDate();
+  const daysInB = new Date(Date.UTC(bm.y, bm.m + 1, 0)).getUTCDate();
+  const running = offset === 0;
+  const bDays = running ? p.d : daysInB;
+  const aDays = running ? Math.min(p.d, daysInA) : daysInA;
+  const bEnd = running ? now : new Date(bNext.getTime() - 1);
+  const aEnd = new Date(mnlMidnight(am.y, am.m, aDays + 1).getTime() - 1);
+  const lab = (m, last, full) => full ? `${SHORT[m]} 1–${last}` : `${SHORT[m]} 1–${last}`;
+  return {
+    running,
+    A: { from: aStart, to: aEnd, days: aDays, label: lab(am.m, aDays), month: MONTHS[am.m],
+         startYmd: ymd(am.y, am.m, 1), endYmd: ymd(am.y, am.m, aDays) },
+    B: { from: bStart, to: bEnd, days: bDays, label: lab(bm.m, bDays), month: MONTHS[bm.m],
+         startYmd: ymd(bm.y, bm.m, 1), endYmd: ymd(bm.y, bm.m, bDays) },
   };
+}
 
-  // Parses "H:MM:SS" / "M:SS" duration text (e.g. "0:18:25") into seconds.
-  // Returns null for empty/unparseable values.
-  function parseHmsToSeconds(str) {
-    if (!str || typeof str !== 'string') return null;
-    const parts = str.trim().split(':').map(Number);
-    if (parts.some(isNaN) || parts.length === 0) return null;
-    return parts.reduce((total, part) => total * 60 + part, 0);
+// Month picker: last 6 months, default = last COMPLETED month (e.g. Sep → vs Aug).
+(function fillMonths() {
+  const sel = document.getElementById('modeSel');
+  const p = mnlParts(new Date());
+  for (let off = 1; off <= 6; off++) {
+    const b = mnlParts(mnlMidnight(p.y, p.m - off, 1)), a = mnlParts(mnlMidnight(p.y, p.m - off - 1, 1));
+    sel.add(new Option(`${MONTHS[a.m]} vs ${MONTHS[b.m]} ${b.y}`, String(off)));
   }
+  const pa = mnlParts(mnlMidnight(p.y, p.m - 1, 1));
+  sel.add(new Option(`${MONTHS[pa.m]} vs ${MONTHS[p.m]} (to date)`, '0'));
+  sel.value = '1';
+})();
+let P = buildPeriods(1);
+const qs = per => `from=${encodeURIComponent(per.from.toISOString())}&to=${encodeURIComponent(per.to.toISOString())}`;
 
-  // Deep-links straight to a ticket's row in the live, editable sheet (not the
-  // published CSV snapshot). null when we don't have a real sheetId for that
-  // brand yet — callers should just render plain text in that case.
-  function buildSheetLink(sheetMeta, rowNumber) {
-    if (!sheetMeta || !sheetMeta.sheetId || rowNumber == null) return null;
-    return `https://docs.google.com/spreadsheets/d/${sheetMeta.sheetId}/edit#gid=${sheetMeta.gid}&range=A${rowNumber}`;
-  }
+function delta(cur, prev, invert) {
+  if (cur == null || prev == null || prev === 0) return '<span class="flat">—</span>';
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  if (pct === 0) return '<span class="flat">level</span>';
+  const good = invert ? pct < 0 : pct > 0;
+  return `<span class="${good ? 'up' : 'down'}">${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
+}
+function kpi(label, a, b, fmt, extra, invert) {
+  fmt = fmt || fmtInt;
+  return `<div class="kpi-card accent-b">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value">${fmt(b)}</div>
+    <div class="kpi-delta">${delta(b, a, invert)} <span class="flat">vs ${fmt(a)} (${P.A.label})</span></div>
+    ${extra ? `<div class="kpi-delta flat" style="font-weight:600;">${extra}</div>` : ''}
+  </div>`;
+}
+function fmtDur(sec) {
+  if (sec == null || isNaN(sec)) return '—';
+  const m = Math.round(sec / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60), r = m % 60;
+  if (h < 24) return r ? `${h}h ${r}m` : `${h}h`;
+  return `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+const avg = arr => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null);
 
-  function relativeTime(dateStrOrDate) {
-    const then = dateStrOrDate instanceof Date ? dateStrOrDate : new Date(dateStrOrDate);
-    if (isNaN(then.getTime())) return '—';
-    const diffMs = Date.now() - then.getTime();
-    const mins = Math.round(diffMs / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
-    const hrs = Math.round(mins / 60);
-    if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
-    const days = Math.round(hrs / 24);
-    if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
-    const months = Math.round(days / 30);
-    return `${months} month${months === 1 ? '' : 's'} ago`;
-  }
+// ================= 1. CHATS =================
+// Total chats come from the department's CHAT VOLUME SHEET (same source and
+// same reading rules as reports.html → Chats Comparison): one block per
+// month, a header row naming the month, then one row per division with a
+// "Messages received" figure per day. Empty cells = not entered yet (NOT
+// zero), so only filled days are counted. CSAT/DSAT stays on the live
+// /chatwoot/stats endpoint because the sheet has no ratings.
+const CHAT_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS5SwAp040OOY7uZhK_VVOBDYXDGstlJ6KR00zfLsmpyhig7DhIVDVp4qBnP2wPo2b6ISD1zrcuIxAv/pub?gid=1620878570&single=true&output=csv';
 
-  // Compact elapsed-time label for badges, e.g. "42m", "3h 12m", "2d".
-  function compactElapsed(fromDate, toDate) {
-    const from = fromDate instanceof Date ? fromDate : new Date(fromDate);
-    const to = toDate || new Date();
-    if (isNaN(from.getTime())) return '—';
-    const mins = Math.max(0, Math.round((to - from) / 60000));
-    if (mins < 60) return `${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    const remMins = mins % 60;
-    if (hrs < 24) return remMins ? `${hrs}h ${remMins}m` : `${hrs}h`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d`;
-  }
+function loadChatSheetRows() {
+  return new Promise((resolve, reject) => {
+    Papa.parse(CHAT_SHEET_CSV + '&_cb=' + Date.now(), {
+      download: true, header: false, skipEmptyLines: true,
+      complete: r => resolve(r.data || []),
+      error: err => reject(err),
+    });
+  });
+}
 
-  function formatDuration(totalSeconds) {
-    if (totalSeconds == null || isNaN(totalSeconds) || totalSeconds < 0) return '—';
-    const s = Math.round(totalSeconds);
-    const mins = Math.floor(s / 60);
-    const secs = s % 60;
-    if (mins === 0) return `${secs}s`;
-    return `${mins}m ${secs}s`;
-  }
-
-  function isSameLocalDay(a, b) {
-    return a.getFullYear() === b.getFullYear() &&
-           a.getMonth() === b.getMonth() &&
-           a.getDate() === b.getDate();
-  }
-
-  function dayKey(d) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function pctChange(current, previous) {
-    if (!previous) return null;
-    return Math.round(((current - previous) / previous) * 100);
-  }
-
-  function parseSheetCsv(source, bust) {
-    return new Promise((resolve, reject) => {
-      if (typeof Papa === 'undefined') {
-        reject(new Error('PapaParse is required but was not found on the page.'));
-        return;
-      }
-      // Cache-bust LANG kapag force refresh (auto-refresh / Refresh button):
-      // ang unang page load ay dumadaan sa Google/browser cache para mabilis
-      // ang first paint — ang 10s auto-refresh naman agad ang magpapasariwa.
-      const bustUrl = bust ? source.url + (source.url.includes('?') ? '&' : '?') + '_cb=' + Date.now() : source.url;
-      const gidMatch = source.url.match(/[?&]gid=(\d+)/);
-      const gid = gidMatch ? gidMatch[1] : '0';
-      Papa.parse(bustUrl, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          // Row 1 is the header, so the first data row is sheet row 2. This only
-          // stays accurate if there are no blank rows *within* the data range —
-          // skipEmptyLines would otherwise shift later rows out of sync.
-          const rows = (results.data || []).map((row, i) => ({ ...row, __rowNumber: i + 2 }));
-          resolve({ rows, brandOverride: source.brandOverride || null, kind: source.kind || 'ticket', sheetId: source.sheetId || null, gid });
-        },
-        error: (err) => reject(err)
+function parseSheetDaily(rows) {
+  const UP = MONTHS.map(m => m.toUpperCase());
+  const blocks = {};
+  let current = null, dayForCol = null;
+  for (const row of rows) {
+    const first = String(row[0] || '').trim().toUpperCase();
+    if (UP.includes(first)) {
+      current = { divisions: {}, filled: new Set() };
+      blocks[first] = current;
+      dayForCol = {};
+      row.forEach((cell, i) => {
+        if (i < 2) return;
+        const n = parseInt(String(cell || '').trim(), 10);
+        if (n >= 1 && n <= 31) dayForCol[i] = n;
       });
-    });
-  }
-
-  // Kinokolekta ang LAHAT ng photo/Drive links mula sa KAHIT ANONG column
-  // ng row (ID photo, selfie holding ID, resibo...) — generic, para kahit
-  // magkaiba-iba ang column names kada sheet/category ay mahuhuli pa rin.
-  // Ginagamit ng ticket popup sa tickets.html. (2026-09-24)
-  const URL_IN_CELL_RE = /https?:\/\/[^\s,;|"'\\]+/g;
-
-  // INTERNAL COLUMNS (2026-09-25): ang ticket automation (bot/n8n) ay
-  // nagsusulat din ng sarili nitong mga variable sa sheet bilang columns —
-  // shouldUpdate, rowData (buong row bilang JSON), valid, type, refId,
-  // command, updateData, chatId, _waitSeconds, atbp. Hindi ito para sa tao.
-  // Panuntunan: ang totoong sheet columns ay Title Case na may espasyo
-  // ("Ticket ID", "OTP Status"); ang internal ay nagsisimula sa maliit na
-  // titik o underscore. Kasama rin ang kahit anong cell na JSON blob.
-  function isInternalColumn(col, val) {
-    const name = String(col || '').trim();
-    if (!name || name === '__rowNumber') return true;
-    if (/^[a-z_]/.test(name)) return true;
-    const v = String(val ?? '').trim();
-    if (/^[\[{]/.test(v) && /[\]}]$/.test(v) && v.indexOf('":') !== -1) return true; // totoong JSON lang
-    return false;
-  }
-
-  function collectPhotoLinks(row) {
-    const photos = [];
-    const seenUrls = new Set();
-    for (const col in row) {
-      const val = row[col];
-      if (typeof val !== 'string' || val.indexOf('http') === -1 || isInternalColumn(col, val)) continue;
-      const urls = val.match(URL_IN_CELL_RE) || [];
-      for (const url of urls) {
-        const isDrive = /drive\.google\.com|googleusercontent\.com/i.test(url);
-        const isImage = /\.(jpe?g|png|gif|webp|heic)([?#].*)?$/i.test(url);
-        if (!isDrive && !isImage) continue;
-        if (seenUrls.has(url)) continue;
-        seenUrls.add(url);
-        photos.push({ label: col, url });
-        if (photos.length >= 8) return photos;
-      }
+      if (!Object.keys(dayForCol).length) dayForCol = null;
+      continue;
     }
-    return photos;
-  }
-
-  // RAW ROW (2026-09-25): kopya ng BUONG row mula sa sheet (lahat ng columns,
-  // sa orihinal na pagkakasunod), para sa ticket detail popup sa tickets.html
-  // — kung ano ang nasa sheet, yun ang makikita, kahit bagong column pa.
-  function rawRow(row) {
-    const out = {};
-    for (const col in row) {
-      if (isInternalColumn(col, row[col])) continue; // automation fields — tingnan sa itaas
-      out[col] = row[col];
-    }
-    return out;
-  }
-
-  // Maps a normal ticket-sheet row (Ticket ID / Username / Category / ...) to our common shape.
-  function mapTicketRow(row, brandOverride, sheetMeta) {
-    if (!row['Ticket ID']) return null;
-    const submitted = parseSheetDate(row['Submitted At']);
-    if (isNaN(submitted.getTime())) return null;
-    const name = row['Username'] || row['Full Name'] || 'Unknown';
-    const category = (row['Category'] || '').trim();
-    const subcategory = (row['Subcategory'] || '').trim();
-    const acknowledgedAt = row['Acknowledged At'] ? parseSheetDate(row['Acknowledged At']) : null;
-    const resolvedAt = row['Resolved At'] ? parseSheetDate(row['Resolved At']) : null;
-    const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
-    const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
-    const si = statusInfo(row['Status']);
-    const brand = brandOverride || brandFromTicketId(row['Ticket ID']);
-    return {
-      id: row['Ticket ID'],
-      name,
-      init: initialsForName(name),
-      color: colorForName(name),
-      category,
-      issue: subcategory || category || '—',
-      channel: row['Source'] || '—',
-      brandCode: brand.code,
-      brandLabel: brand.label,
-      priority: priorityBucket(row['Priority']),
-      priorityLabel: row['Priority'] || 'NORMAL',
-      statusRaw: row['Status'],
-      statusCls: si.cls,
-      statusLabel: si.label,
-      submitted,
-      acknowledgedBy: row['Acknowledged By'] || null,
-      acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
-      resolvedBy: row['Resolved By'] || null,
-      resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
-      ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
-      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
-      rejectReason: rejectReasonFrom(row),
-      photos: collectPhotoLinks(row),
-      raw: rawRow(row),
-      sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
-    };
-  }
-
-  // Maps a "Follow Up" sheet row (Reference ID / Query / Query Type / ...) to the
-  // same common shape, so it flows through every KPI/chart/list alongside real tickets.
-  function mapFollowupRow(row, sheetMeta) {
-    if (!row['Reference ID']) return null;
-    const submitted = parseSheetDate(row['Submitted At']);
-    if (isNaN(submitted.getTime())) return null;
-    const query = row['Query'] || 'Unknown';
-    const queryType = row['Query Type'] || 'General';
-    const acknowledgedAt = row['Acknowledged At'] ? parseSheetDate(row['Acknowledged At']) : null;
-    const resolvedAt = row['Resolved At'] ? parseSheetDate(row['Resolved At']) : null;
-    const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
-    const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
-    const si = statusInfo(row['Status']);
-    const brand = brandFromTicketId(row['Reference ID']);
-    return {
-      id: row['Reference ID'],
-      name: query,
-      init: initialsForName(query),
-      color: colorForName(query),
-      category: 'Follow Up',
-      issue: `Follow-up (${queryType})`,
-      channel: 'Follow Up',
-      brandCode: brand.code,
-      brandLabel: brand.label,
-      priority: 'medium',
-      priorityLabel: 'NORMAL',
-      statusRaw: row['Status'],
-      statusCls: si.cls,
-      statusLabel: si.label,
-      submitted,
-      acknowledgedBy: row['Acknowledged By'] || null,
-      acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
-      resolvedBy: row['Resolved By'] || null,
-      resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
-      ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
-      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
-      rejectReason: rejectReasonFrom(row),
-      photos: collectPhotoLinks(row),
-      raw: rawRow(row),
-      sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
-    };
-  }
-
-  // Maps a "Callback" sheet row (Reference ID / Username / Mobile / Concern / ...) to the
-  // same common shape.
-  function mapCallbackRow(row, sheetMeta, brandOverride) {
-    if (!row['Reference ID']) return null;
-    const submitted = parseSheetDate(row['Submitted At']);
-    if (isNaN(submitted.getTime())) return null;
-    const name = row['Username'] || row['Full Name'] || row['Mobile'] || 'Unknown';
-    const concernCategory = (row['Concern Category'] || '').trim();
-    const acknowledgedAt = row['Acknowledged At'] ? parseSheetDate(row['Acknowledged At']) : null;
-    const resolvedAt = row['Resolved At'] ? parseSheetDate(row['Resolved At']) : null;
-    const ackDurationSec = row['Acknowledgement Duration'] !== '' ? Number(row['Acknowledgement Duration']) : null;
-    const resolveDurationSec = row['Resolving Duration'] !== '' ? Number(row['Resolving Duration']) : null;
-    const si = statusInfo(row['Status']);
-    // brandOverride (2026-10-01): ang MC callback tab ay walang kilalang
-    // prefix sa BRAND_MAP — ang override ang nagdadala sa kanila sa iisang
-    // Manila Casino (MNC) tab kasama ng tickets.
-    const brand = brandOverride || brandFromTicketId(row['Reference ID']);
-    return {
-      id: row['Reference ID'],
-      name,
-      init: initialsForName(name),
-      color: colorForName(name),
-      category: 'Callback',
-      issue: concernCategory ? `Callback: ${concernCategory}` : 'Callback Request',
-      channel: 'Callback',
-      brandCode: brand.code,
-      brandLabel: brand.label,
-      priority: 'medium',
-      priorityLabel: 'NORMAL',
-      statusRaw: row['Status'],
-      statusCls: si.cls,
-      statusLabel: si.label,
-      submitted,
-      acknowledgedBy: row['Acknowledged By'] || null,
-      acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
-      resolvedBy: row['Resolved By'] || null,
-      resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
-      ackDurationSec: isNaN(ackDurationSec) ? null : ackDurationSec,
-      resolveDurationSec: isNaN(resolveDurationSec) ? null : resolveDurationSec,
-      rejectReason: rejectReasonFrom(row),
-      photos: collectPhotoLinks(row),
-      raw: rawRow(row),
-      sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
-    };
-  }
-
-  // Maps a "REQUEST MONITORING"-style row (Reference ID / Division / Bot Notif Time /
-  // Checking Time / Done Time / Handled By / ...) — used for sheets that track
-  // multiple brands in one tab via a Division column instead of a Ticket ID prefix.
-  // Returns null (filtered out) for any Division not in DIVISION_BRAND_MAP, so only
-  // explicitly opted-in brands ever make it into the dataset.
-  function mapDivisionRow(row, sheetMeta) {
-    if (!row['Reference ID']) return null;
-    const brand = DIVISION_BRAND_MAP[(row['Division'] || '').trim().toLowerCase()];
-    if (!brand) return null;
-    const submitted = parseSheetDate(row['Bot Notif Time']);
-    if (isNaN(submitted.getTime())) return null;
-    const name = row['Username'] || 'Unknown';
-    const category = (row['Concern Type'] || '').trim();
-    const subcategory = (row['Subcategory'] || '').trim();
-    const acknowledgedAt = row['Checking Time'] ? parseSheetDate(row['Checking Time']) : null;
-    const resolvedAt = row['Done Time'] ? parseSheetDate(row['Done Time']) : null;
-    const si = statusInfo(row['Status']);
-    const handledBy = row['Handled By'] || null;
-    return {
-      id: row['Reference ID'],
-      name,
-      init: initialsForName(name),
-      color: colorForName(name),
-      category,
-      issue: subcategory || category || '—',
-      channel: 'Bot Request',
-      brandCode: brand.code,
-      brandLabel: brand.label,
-      priority: 'medium',
-      priorityLabel: 'NORMAL',
-      statusRaw: row['Status'],
-      statusCls: si.cls,
-      statusLabel: si.label,
-      submitted,
-      acknowledgedBy: handledBy,
-      acknowledgedAt: acknowledgedAt && !isNaN(acknowledgedAt.getTime()) ? acknowledgedAt : null,
-      resolvedBy: handledBy,
-      resolvedAt: resolvedAt && !isNaN(resolvedAt.getTime()) ? resolvedAt : null,
-      ackDurationSec: parseHmsToSeconds(row['Acknowledge Duration']),
-      resolveDurationSec: parseHmsToSeconds(row['Task Duration']),
-      rejectReason: rejectReasonFrom(row),
-      photos: collectPhotoLinks(row),
-      raw: rawRow(row),
-      sheetLink: buildSheetLink(sheetMeta, row.__rowNumber)
-    };
-  }
-  // Guards against a single hung request (e.g. a fetch that never calls back)
-  // blocking Promise.allSettled forever, which would otherwise freeze the
-  // whole dashboard on "Loading…" indefinitely. After `ms`, the source is
-  // treated as failed (skipped, same as a network error) so everything else
-  // can still render.
-  function withTimeout(promise, ms, label) {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms: ${label}`)), ms);
-      promise.then(
-        val => { clearTimeout(timer); resolve(val); },
-        err => { clearTimeout(timer); reject(err); }
-      );
+    if (!current) continue;
+    const division = String(row[1] || '').trim();
+    if (!division) continue;
+    const daily = [];
+    row.forEach((cell, i) => {
+      if (i < 2) return;
+      const day = dayForCol ? dayForCol[i] : i - 1;
+      if (!day) return;
+      const raw = String(cell == null ? '' : cell).replace(/[,\s]/g, '');
+      if (raw === '') return;
+      const n = parseFloat(raw);
+      if (isNaN(n)) return;
+      daily[day] = (daily[day] || 0) + n;
+      current.filled.add(day);
     });
+    current.divisions[division] = daily;
   }
+  return blocks;
+}
 
-  const SOURCE_TIMEOUT_MS = 15000;
+// Totals per division for one period (days 1..per.days of per.month).
+function periodFromSheet(blocks, per) {
+  const block = blocks[per.month.toUpperCase()];
+  if (!block) return { ok: false, reason: `Walang "${per.month}" block sa chat volume sheet.` };
+  const days = [];
+  for (let d = 1; d <= per.days; d++) if (block.filled.has(d)) days.push(d);
+  if (!days.length) return { ok: false, reason: `Wala pang naka-enter na figures para sa ${per.label}.` };
+  const byDiv = {};
+  Object.entries(block.divisions).forEach(([div, daily]) => {
+    byDiv[div] = (byDiv[div] || 0) + days.reduce((s, d) => s + (daily[d] || 0), 0);
+  });
+  const total = Object.values(byDiv).reduce((s, v) => s + v, 0);
+  return { ok: true, byDiv, total, filledDays: days.length, expectedDays: per.days, lastDay: days[days.length - 1] };
+}
 
-  let cachedPromise = null;
-  // PROGRESSIVE LOADING (2026-09-23): dati, hinihintay ang LAHAT ng 20+ na
-  // sheets (ang pinakamabagal ang gate ng buong page, hanggang 15s). Ngayon,
-  // habang dumarating ang bawat sheet, tinatawag agad ang optional
-  // onProgress(partialTickets, doneCount, totalCount) para makapag-render na
-  // ang page nang maaga; ang final promise ay nagre-resolve pa rin sa
-  // kumpletong dataset (parehong shape ng dati — backward compatible).
-  function fetchTickets(forceRefresh, onProgress) {
-    if (cachedPromise && !forceRefresh) return cachedPromise;
-    const seen = new Map();
-    let completed = 0;
-    const total = SHEET_SOURCES.length;
-    const build = () => Array.from(seen.values()).sort((a, b) => b.submitted - a.submitted);
-    const tasks = SHEET_SOURCES.map((source, i) =>
-      withTimeout(parseSheetCsv(source, !!forceRefresh), SOURCE_TIMEOUT_MS, source.url)
-        .then(({ rows, brandOverride, kind, sheetId, gid }) => {
-          const sheetMeta = { sheetId, gid };
-          rows.forEach(row => {
-            const ticket = kind === 'followup' ? mapFollowupRow(row, sheetMeta)
-              : kind === 'callback' ? mapCallbackRow(row, sheetMeta, brandOverride)
-              : kind === 'division' ? mapDivisionRow(row, sheetMeta)
-              : mapTicketRow(row, brandOverride, sheetMeta);
-            if (!ticket) return;
-            // De-dupe by ticket ID, GLOBAL na (2026-09-24, dating brand+id):
-            // ang shared-prefix pairs (HPP/HPP_BD, TMT/TMT_PLAY) ay may
-            // PAREHONG pisikal na ticket sa dalawang sheets — kapag
-            // in-update ang isa (hal. Rejected na) pero luma pa ang copy sa
-            // kabila (In Progress pa), dating dalawang magkahiwalay na entry
-            // sila at ang stale copy ay hindi nawawala sa open view. Ngayon:
-            // iisa na sila, at ang MAS ADVANCED na status ang mananalo
-            // (Done/Rejected > In Progress > New). Ligtas ito globally dahil
-            // unique per brand ang ID prefixes.
-            const STATUS_RANK = { pending: 0, checking: 1, done: 2, rejected: 2 };
-            const prev = seen.get(ticket.id);
-            if (prev) {
-              const prevRank = STATUS_RANK[prev.statusCls] !== undefined ? STATUS_RANK[prev.statusCls] : -1;
-              const newRank = STATUS_RANK[ticket.statusCls] !== undefined ? STATUS_RANK[ticket.statusCls] : -1;
-              // PHOTO CARRY-OVER (2026-09-24, v12): sa shared pairs
-              // (HPP/HPP_BD, TMT/TMT_PLAY), madalas IISANG sheet lang ang may
-              // ID Front/Selfie Link columns. Kahit sino ang manalo sa rank,
-              // huwag itapon ang photos ng natalo — kunin ng panalo kapag
-              // wala siyang sarili.
-              if (newRank < prevRank) {
-                if ((!prev.photos || !prev.photos.length) && ticket.photos && ticket.photos.length) prev.photos = ticket.photos;
-                return; // panatilihin ang mas advanced na copy
-              }
-              if ((!ticket.photos || !ticket.photos.length) && prev.photos && prev.photos.length) ticket.photos = prev.photos;
-            }
-            seen.set(ticket.id, ticket);
-          });
-        })
-        .catch(err => {
-          // One flaky/unreachable sheet shouldn't break every other brand's
-          // data — log it and continue with whatever did load successfully.
-          console.warn(`Skipping sheet source #${i} (${source.url}) — failed to load:`, err);
-        })
-        .then(() => {
-          completed++;
-          if (onProgress) {
-            try { onProgress(build(), completed, total); } catch (e) { console.error('onProgress error:', e); }
-          }
-        })
-    );
-    cachedPromise = Promise.all(tasks).then(build);
-    return cachedPromise;
+let chatChart = null;
+async function loadChats() {
+  const kp = document.getElementById('chatKpis');
+  const errEl = document.getElementById('chatErr');
+  errEl.innerHTML = '';
+  kp.innerHTML = '<div class="loading">Loading chat volume sheet…</div>';
+  try {
+    const [rows, sA, sB] = await Promise.all([
+      loadChatSheetRows(),
+      apiGet(`/chatwoot/stats?${qs(P.A)}`).catch(() => null),
+      apiGet(`/chatwoot/stats?${qs(P.B)}`).catch(() => null),
+    ]);
+    const blocks = parseSheetDaily(rows);
+    const a = periodFromSheet(blocks, P.A), b = periodFromSheet(blocks, P.B);
+    const notes = [];
+    if (!a.ok) notes.push(a.reason);
+    if (!b.ok) notes.push(b.reason);
+    [[a, P.A], [b, P.B]].forEach(([r, per]) => {
+      if (r.ok && r.filledDays < r.expectedDays) notes.push(`${per.month}: ${r.filledDays} sa ${r.expectedDays} araw pa lang ang may figures sa sheet (hanggang ${SHORT[MONTHS.indexOf(per.month)]} ${r.lastDay}).`);
+    });
+    errEl.innerHTML = notes.length ? `<div class="flag">${notes.map(escapeHtml).join(' ')}</div>` : '';
+
+    const csatTot = s => Object.values((s && s.csatByBrand) || {}).reduce((t, x) => ({ csat: t.csat + x.csat, dsat: t.dsat + x.dsat, total: t.total + x.total }), { csat: 0, dsat: 0, total: 0 });
+    const tA = csatTot(sA), tB = csatTot(sB);
+    const pct = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : null);
+    const fmtPct = v => (v == null ? '—' : v + '%');
+    const totA = a.ok ? a.total : null, totB = b.ok ? b.total : null;
+    const perDay = (r) => (r.ok ? r.total / r.filledDays : null);
+    kp.innerHTML =
+      kpi('Total chats (messages received)', totA, totB, null, a.ok && b.ok ? `Per day: ${fmtInt(perDay(b))} vs ${fmtInt(perDay(a))}` : '') +
+      kpi('Chats per day', perDay(a), perDay(b), null, 'Fairer when a month is not fully entered') +
+      kpi('CSAT %', pct(tA.csat, tA.total), pct(tB.csat, tB.total), fmtPct, `${fmtInt(tB.total)} ratings · live data`) +
+      kpi('DSAT %', pct(tA.dsat, tA.total), pct(tB.dsat, tB.total), fmtPct, `${fmtInt(tB.dsat)} bad ratings · live data`, true);
+
+    const dA = a.ok ? a.byDiv : {}, dB = b.ok ? b.byDiv : {};
+    const divs = Array.from(new Set([...Object.keys(dA), ...Object.keys(dB)]))
+      .sort((x, y) => (dB[y] || 0) - (dB[x] || 0) || (dA[y] || 0) - (dA[x] || 0));
+    if (chatChart) chatChart.destroy();
+    chatChart = new Chart(document.getElementById('chatChart'), {
+      type: 'bar',
+      data: { labels: divs, datasets: [
+        { label: P.A.label, data: divs.map(d => dA[d] || 0), backgroundColor: '#94A3B8', borderRadius: 4 },
+        { label: P.B.label, data: divs.map(d => dB[d] || 0), backgroundColor: '#2563EB', borderRadius: 4 },
+      ] },
+      options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } },
+        scales: { x: { grid: { color: '#EEF1F6' } }, y: { grid: { display: false } } } },
+    });
+    const share = (n, t) => (t ? Math.round((n / t) * 1000) / 10 + '%' : '—');
+    document.getElementById('chatTable').innerHTML = `<table class="rt"><thead><tr><th>Brand / division</th>
+      <th class="num">${P.A.label}</th><th class="num">${P.B.label}</th><th class="num">Change</th><th class="num">Share</th></tr></thead><tbody>
+      ${divs.map(d => `<tr><td>${escapeHtml(d)}</td><td class="num" style="color:var(--ink-faint)">${fmtInt(dA[d] || 0)}</td>
+        <td class="num">${fmtInt(dB[d] || 0)}</td><td class="num">${delta(dB[d] || 0, dA[d] || 0)}</td>
+        <td class="num" style="color:var(--ink-faint)">${share(dB[d] || 0, totB)}</td></tr>`).join('')}
+      </tbody><tfoot><tr><td>Total</td><td class="num">${fmtInt(totA)}</td><td class="num">${fmtInt(totB)}</td>
+      <td class="num">${delta(totB, totA)}</td><td class="num">100%</td></tr></tfoot></table>`;
+  } catch (e) {
+    kp.innerHTML = '';
+    errEl.innerHTML = `<div class="err">Chat volume sheet could not load: ${escapeHtml(e.message || String(e))}</div>`;
   }
+}
 
-  // Periodically re-fetches fresh data (bypassing the cache) and hands it to
-  // the given callback. Returns an interval id so the caller can stop it via
-  // clearInterval if needed. Both tickets.html and csr-dashboard.html use this
-  // so the page keeps itself current without requiring a manual browser refresh.
-  //
-  // OVERLAP GUARD (2026-09-25, memory fix): kapag hindi pa tapos ang naunang
-  // refresh (hal. mabagal ang isang sheet, hanggang 15s timeout), LALAKTAW
-  // ang susunod na tick imbes na magsimula ng panibagong 20+ na sabay-sabay
-  // na downloads — iyon ang nagpapatong-patong sa memory kapag naka-idle.
-  function startAutoRefresh(callback, intervalMs) {
-    let running = false;
-    return setInterval(() => {
-      if (running) return;
-      running = true;
-      fetchTickets(true)
-        .then(callback)
-        .catch(err => console.error('Auto-refresh failed:', err))
-        .finally(() => { running = false; });
-    }, intervalMs || 60000);
-  }
+// ================= 2–4. TICKETS =================
+let allTickets = null;
+function inPeriod(t, per) { return t.submitted >= per.from && t.submitted <= per.to; }
+function isOpen(t) { return t.statusCls !== 'done' && t.statusCls !== 'rejected'; }
 
-  global.TicketData = {
-    fetchTickets,
-    startAutoRefresh,
-    escapeHtml,
-    colorForName,
-    initialsForName,
-    priorityBucket,
-    statusInfo,
-    brandFromTicketId,
-    relativeTime,
-    compactElapsed,
-    formatDuration,
-    isInternalColumn,
-    isSameLocalDay,
-    dayKey,
-    pctChange,
-    STATUS_MAP,
-    BRAND_MAP
+function renderTickets() {
+  // Ticket sections show the REPORT MONTH only (no month-vs-month comparison,
+  // per user Oct 6, 2026): older months in the ticket sheets are incomplete,
+  // so a comparison would mislead.
+  const B = allTickets.filter(t => inPeriod(t, P.B));
+  const stats = list => {
+    const done = list.filter(t => t.statusCls === 'done');
+    const rej = list.filter(t => t.statusCls === 'rejected');
+    const closed = done.length + rej.length;
+    return {
+      filed: list.length, done: done.length, rej: rej.length, open: list.filter(isOpen).length,
+      rate: closed ? Math.round((done.length / closed) * 1000) / 10 : null,
+      avgRes: avg(done.map(t => t.resolveDurationSec).filter(v => v != null && !isNaN(v) && v >= 0)),
+    };
   };
-})(window);
+  const one = (label, value, sub) => `<div class="kpi-card accent-b"><div class="kpi-label">${label}</div>
+    <div class="kpi-value">${value}</div>${sub ? `<div class="kpi-delta flat" style="font-weight:600;">${sub}</div>` : ''}</div>`;
+  const b = stats(B);
+  document.getElementById('tkKpis').innerHTML =
+    one('Tickets filed', fmtInt(b.filed), `${P.B.label} · ${fmtInt(b.filed / P.B.days)} per day`) +
+    one('Resolved (Done)', fmtInt(b.done)) +
+    one('Resolution rate', b.rate == null ? '—' : b.rate + '%', 'Done ÷ (Done + Rejected)') +
+    one('Avg resolving time', fmtDur(b.avgRes)) +
+    one('Rejected', fmtInt(b.rej)) +
+    one('Still open', fmtInt(b.open), 'New / In Progress / OTP / Line Up');
+
+  const countBy = (list, key) => list.reduce((m, t) => { const k = key(t); m[k] = (m[k] || 0) + 1; return m; }, {});
+  const pctOf = (n, t) => (t ? Math.round((n / t) * 1000) / 10 + '%' : '—');
+
+  // Top 5 concerns
+  const cB = countBy(B, t => t.issue);
+  const top = Object.entries(cB).sort((x, y) => y[1] - x[1]).slice(0, 5);
+  document.getElementById('topHint').textContent = `${P.B.label} · share of all tickets`;
+  document.getElementById('topConcerns').innerHTML = top.length ? top.map(([issue, n], i) => `
+    <div class="rank-row">
+      <div class="rank-badge" style="background:${RANK_COLORS[i]}22;color:${RANK_COLORS[i]};">${i + 1}</div>
+      <div class="rank-main"><div class="rank-name" title="${escapeHtml(issue)}">${escapeHtml(issue)}</div>
+        <div class="rank-track"><div class="rank-fill" style="width:${(n / top[0][1]) * 100}%;background:${RANK_COLORS[i]}"></div></div></div>
+      <div class="rank-count">${fmtInt(n)}</div>
+      <div class="rank-share">${pctOf(n, B.length)}</div>
+    </div>`).join('') : '<div class="note">No tickets filed in the report month.</div>';
+
+  // Resolution by brand
+  const brands = Array.from(new Set(B.map(t => t.brandLabel)));
+  const byBrand = brands.map(br => ({ br, list: B.filter(t => t.brandLabel === br) }))
+    .map(r => ({ ...r, s: stats(r.list) })).sort((x, y) => y.s.filed - x.s.filed);
+  document.getElementById('resoTable').innerHTML = `<table class="rt"><thead><tr><th>Brand</th>
+    <th class="num">Filed</th><th class="num">Done</th><th class="num">Rejected</th>
+    <th class="num">Open</th><th class="num">Rate</th><th class="num">Avg time</th></tr></thead><tbody>
+    ${byBrand.map(r => `<tr><td>${escapeHtml(r.br)}</td><td class="num">${fmtInt(r.s.filed)}</td><td class="num">${fmtInt(r.s.done)}</td>
+      <td class="num">${fmtInt(r.s.rej)}</td><td class="num">${fmtInt(r.s.open)}</td>
+      <td class="num">${r.s.rate == null ? '—' : `<span class="tag ${r.s.rate >= 80 ? 'good' : r.s.rate >= 50 ? 'mid' : 'bad'}">${r.s.rate}%</span>`}</td>
+      <td class="num">${fmtDur(r.s.avgRes)}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>All brands</td><td class="num">${fmtInt(b.filed)}</td><td class="num">${fmtInt(b.done)}</td>
+      <td class="num">${fmtInt(b.rej)}</td><td class="num">${fmtInt(b.open)}</td><td class="num">${b.rate == null ? '—' : b.rate + '%'}</td>
+      <td class="num">${fmtDur(b.avgRes)}</td></tr></tfoot></table>`;
+
+  // 3. Customers per brand (unique usernames who filed a ticket)
+  const uniq = list => new Set(list.map(t => String(t.name || '').trim().toLowerCase()).filter(n => n && n !== 'unknown')).size;
+  const custRows = byBrand.map(r => ({ br: r.br, u: uniq(r.list), t: r.list.length })).sort((x, y) => y.u - x.u);
+  const ub = custRows.reduce((s, x) => s + x.u, 0); // same username on two brands = two customers
+  document.getElementById('custTable').innerHTML = `<table class="rt"><thead><tr><th>Brand</th>
+    <th class="num">Customers</th><th class="num">Share</th><th class="num">Tickets</th><th class="num">Tickets per customer</th></tr></thead><tbody>
+    ${custRows.map(r => `<tr><td>${escapeHtml(r.br)}</td><td class="num">${fmtInt(r.u)}</td>
+      <td class="num" style="color:var(--ink-faint)">${pctOf(r.u, custRows.reduce((s, x) => s + x.u, 0))}</td>
+      <td class="num">${fmtInt(r.t)}</td><td class="num">${r.u ? (r.t / r.u).toFixed(2) : '—'}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>All brands</td><td class="num">${fmtInt(ub)}</td><td class="num"></td>
+    <td class="num">${fmtInt(B.length)}</td><td class="num">${ub ? (B.length / ub).toFixed(2) : '—'}</td></tr></tfoot></table>`;
+
+  // 4. Top 5 reasons per brand
+  document.getElementById('perBrandLede').textContent = `${P.B.label} · share of the brand's tickets`;
+  document.getElementById('perBrand').innerHTML = byBrand.map(r => {
+    const cb = countBy(r.list, t => t.issue);
+    const t5 = Object.entries(cb).sort((x, y) => y[1] - x[1]).slice(0, 5);
+    return `<div class="brand-card"><h4>${escapeHtml(r.br)}</h4>
+      <div class="sub">${fmtInt(r.list.length)} tickets · ${P.B.label}</div>
+      ${t5.map(([k, n], i) => `<div class="mini-row"><span class="rank-badge" style="width:20px;height:20px;font-size:11px;border-radius:6px;background:${RANK_COLORS[i]}22;color:${RANK_COLORS[i]}">${i + 1}</span>
+        <span class="lbl" title="${escapeHtml(k)}">${escapeHtml(k)}</span><span class="n">${fmtInt(n)}</span><span class="p">${pctOf(n, r.list.length)}</span></div>`).join('')}
+    </div>`;
+  }).join('') || '<div class="note">No tickets in the report month.</div>';
+}
+
+async function loadTickets(force) {
+  document.getElementById('tkErr').innerHTML = '';
+  try {
+    allTickets = await TicketData.fetchTickets(!!force, (partial, done, total) => {
+      document.getElementById('tkKpis').innerHTML = `<div class="loading">Loading ticket sheets… ${done}/${total}</div>`;
+    });
+    renderTickets();
+  } catch (e) {
+    document.getElementById('tkErr').innerHTML = `<div class="err">Tickets could not load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// ================= 5. OPENAI =================
+async function loadOpenAI() {
+  const kp = document.getElementById('aiKpis');
+  document.getElementById('aiErr').innerHTML = '';
+  kp.innerHTML = '<div class="loading">Loading OpenAI costs… (may take up to a minute)</div>';
+  try {
+    const q = per => `/openai-billing/summary?account=all&range=custom&start=${per.startYmd}&end=${per.endYmd}`;
+    const [a, b, fx] = await Promise.all([
+      apiGet(q(P.A)), apiGet(q(P.B)),
+      fetch('https://open.er-api.com/v6/latest/USD').then(r => r.json()).catch(() => null),
+    ]);
+    const rate = fx && fx.rates && fx.rates.PHP ? fx.rates.PHP : null;
+    const php = v => (rate && v != null ? ' · ≈ ' + fmtPhp(v * rate) : '');
+    kp.innerHTML =
+      kpi('OpenAI spend (USD)', a.totalUsd, b.totalUsd, fmtUsd, `${php(b.totalUsd).replace(' · ', '')}`, true) +
+      kpi('Avg per day', a.totalUsd / P.A.days, b.totalUsd / P.B.days, fmtUsd, null, true) +
+      kpi('Accounts', (a.byAccount || []).length, (b.byAccount || []).length);
+    const mapA = new Map((a.byAccount || []).map(x => [x.name, x.totalUsd]));
+    const names = Array.from(new Set([...(b.byAccount || []).map(x => x.name), ...mapA.keys()]));
+    const mapB = new Map((b.byAccount || []).map(x => [x.name, x.totalUsd]));
+    names.sort((x, y) => (mapB.get(y) || 0) - (mapB.get(x) || 0));
+    document.getElementById('aiTable').innerHTML = `<table class="rt"><thead><tr><th>Account</th>
+      <th class="num">${P.A.label}</th><th class="num">${P.B.label}</th><th class="num">Change</th><th class="num">${P.B.label} (PHP)</th></tr></thead><tbody>
+      ${names.map(n => `<tr><td>${escapeHtml(n)}</td><td class="num" style="color:var(--ink-faint)">${fmtUsd(mapA.get(n) || 0)}</td>
+        <td class="num">${fmtUsd(mapB.get(n) || 0)}</td><td class="num">${delta(mapB.get(n) || 0, mapA.get(n) || 0, true)}</td>
+        <td class="num">${rate ? fmtPhp((mapB.get(n) || 0) * rate) : '—'}</td></tr>`).join('')}
+      </tbody><tfoot><tr><td>Total</td><td class="num">${fmtUsd(a.totalUsd)}</td><td class="num">${fmtUsd(b.totalUsd)}</td>
+      <td class="num">${delta(b.totalUsd, a.totalUsd, true)}</td><td class="num">${rate ? fmtPhp(b.totalUsd * rate) : '—'}</td></tr></tfoot></table>`;
+    const asOf = b.asOf ? new Date(b.asOf).toLocaleString() : null;
+    document.getElementById('aiAsOf').textContent = (asOf ? `As of ${asOf}` : '') + (a.stale || b.stale ? ' · some figures cached' : '') + (rate ? ` · ₱${rate.toFixed(2)}/$` : '');
+  } catch (e) {
+    kp.innerHTML = '';
+    document.getElementById('aiErr').innerHTML = `<div class="err">OpenAI totals could not load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// ================= Boot =================
+function setHeader() {
+  document.getElementById('periodTitle').textContent = `${P.A.month} vs ${P.B.month}`;
+  document.getElementById('legendA').textContent = `${P.A.label} (comparison)`;
+  document.getElementById('legendB').textContent = `${P.B.label}${P.running ? ' (to date)' : ''}`;
+  document.getElementById('generatedAt').textContent = new Date().toLocaleString();
+}
+function loadAll(force) {
+  setHeader();
+  loadChats();
+  loadTickets(force);
+  loadOpenAI();
+}
+document.getElementById('modeSel').addEventListener('change', e => {
+  P = buildPeriods(Number(e.target.value));
+  setHeader();
+  loadChats();
+  if (allTickets) renderTickets(); else loadTickets(false);
+  loadOpenAI();
+});
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  P = buildPeriods(Number(document.getElementById('modeSel').value));
+  loadAll(true);
+});
+loadAll(false);
+</script>
+</body>
+</html>
