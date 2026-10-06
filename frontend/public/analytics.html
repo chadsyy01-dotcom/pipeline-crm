@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=5"></script>
+<script src="ticket-data.js?v=15"></script>
 <style>
   :root{
     --primary:#2563EB; --primary-dark:#1D4ED8; --primary-tint:#EFF4FF;
@@ -364,7 +364,7 @@
 
     <!-- 2. TICKETS -->
     <section class="block">
-      <div class="section-head"><h2>2. Tickets &amp; resolution</h2><span class="lede">From the ticket sheets (same source as Tickets page)</span></div>
+      <div class="section-head"><h2>2. Tickets &amp; resolution</h2><span class="lede">Report month only · from the ticket sheets</span></div>
       <div id="tkErr"></div>
       <div class="kpi-row" id="tkKpis"><div class="loading">Loading ticket sheets…</div></div>
       <div class="cols-2">
@@ -373,7 +373,7 @@
           <div id="topConcerns"></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><h3>Resolution by brand</h3><span class="hint">Filed · resolved · rate (report month)</span></div>
+          <div class="panel-head"><h3>Resolution by brand</h3><span class="hint">Report month only</span></div>
           <div class="scroll tall" id="resoTable"></div>
         </div>
       </div>
@@ -381,7 +381,7 @@
 
     <!-- 3. CUSTOMERS PER BRAND -->
     <section class="block">
-      <div class="section-head"><h2>3. Customers per brand</h2><span class="lede">Unique customers who filed a ticket</span></div>
+      <div class="section-head"><h2>3. Customers per brand</h2><span class="lede">Unique customers who filed a ticket · report month only</span></div>
       <div class="panel"><div class="scroll" id="custTable"><div class="loading">Loading…</div></div></div>
     </section>
 
@@ -648,7 +648,9 @@ function inPeriod(t, per) { return t.submitted >= per.from && t.submitted <= per
 function isOpen(t) { return t.statusCls !== 'done' && t.statusCls !== 'rejected'; }
 
 function renderTickets() {
-  const A = allTickets.filter(t => inPeriod(t, P.A));
+  // Ticket sections show the REPORT MONTH only (no month-vs-month comparison,
+  // per user Oct 6, 2026): older months in the ticket sheets are incomplete,
+  // so a comparison would mislead.
   const B = allTickets.filter(t => inPeriod(t, P.B));
   const stats = list => {
     const done = list.filter(t => t.statusCls === 'done');
@@ -660,72 +662,71 @@ function renderTickets() {
       avgRes: avg(done.map(t => t.resolveDurationSec).filter(v => v != null && !isNaN(v) && v >= 0)),
     };
   };
-  const a = stats(A), b = stats(B);
+  const one = (label, value, sub) => `<div class="kpi-card accent-b"><div class="kpi-label">${label}</div>
+    <div class="kpi-value">${value}</div>${sub ? `<div class="kpi-delta flat" style="font-weight:600;">${sub}</div>` : ''}</div>`;
+  const b = stats(B);
   document.getElementById('tkKpis').innerHTML =
-    kpi('Tickets filed', a.filed, b.filed, null, `Per day: ${fmtInt(b.filed / P.B.days)} vs ${fmtInt(a.filed / P.A.days)}`, true) +
-    kpi('Resolved (Done)', a.done, b.done) +
-    kpi('Resolution rate', a.rate, b.rate, v => (v == null ? '—' : v + '%'), 'Done ÷ (Done + Rejected)') +
-    kpi('Avg resolving time', a.avgRes, b.avgRes, fmtDur, null, true) +
-    kpi('Rejected', a.rej, b.rej, null, null, true) +
-    kpi('Still open', a.open, b.open, null, 'New / In Progress / OTP / Line Up', true);
+    one('Tickets filed', fmtInt(b.filed), `${P.B.label} · ${fmtInt(b.filed / P.B.days)} per day`) +
+    one('Resolved (Done)', fmtInt(b.done)) +
+    one('Resolution rate', b.rate == null ? '—' : b.rate + '%', 'Done ÷ (Done + Rejected)') +
+    one('Avg resolving time', fmtDur(b.avgRes)) +
+    one('Rejected', fmtInt(b.rej)) +
+    one('Still open', fmtInt(b.open), 'New / In Progress / OTP / Line Up');
 
-  // Top 5 concerns (this month), with last month's count beside it
   const countBy = (list, key) => list.reduce((m, t) => { const k = key(t); m[k] = (m[k] || 0) + 1; return m; }, {});
-  const cB = countBy(B, t => t.issue), cA = countBy(A, t => t.issue);
+  const pctOf = (n, t) => (t ? Math.round((n / t) * 1000) / 10 + '%' : '—');
+
+  // Top 5 concerns
+  const cB = countBy(B, t => t.issue);
   const top = Object.entries(cB).sort((x, y) => y[1] - x[1]).slice(0, 5);
-  document.getElementById('topHint').textContent = `${P.B.label} · ${P.A.label} in grey`;
+  document.getElementById('topHint').textContent = `${P.B.label} · share of all tickets`;
   document.getElementById('topConcerns').innerHTML = top.length ? top.map(([issue, n], i) => `
     <div class="rank-row">
       <div class="rank-badge" style="background:${RANK_COLORS[i]}22;color:${RANK_COLORS[i]};">${i + 1}</div>
       <div class="rank-main"><div class="rank-name" title="${escapeHtml(issue)}">${escapeHtml(issue)}</div>
         <div class="rank-track"><div class="rank-fill" style="width:${(n / top[0][1]) * 100}%;background:${RANK_COLORS[i]}"></div></div></div>
       <div class="rank-count">${fmtInt(n)}</div>
-      <div class="rank-share" title="${P.A.label}">${fmtInt(cA[issue] || 0)}</div>
-      <div class="rank-share">${delta(n, cA[issue] || 0, true)}</div>
+      <div class="rank-share">${pctOf(n, B.length)}</div>
     </div>`).join('') : '<div class="note">No tickets filed in the report month.</div>';
 
   // Resolution by brand
-  const brands = Array.from(new Set([...A, ...B].map(t => t.brandLabel)));
-  const byBrand = brands.map(br => ({ br, a: stats(A.filter(t => t.brandLabel === br)), b: stats(B.filter(t => t.brandLabel === br)) }))
-    .sort((x, y) => y.b.filed - x.b.filed || y.a.filed - x.a.filed);
+  const brands = Array.from(new Set(B.map(t => t.brandLabel)));
+  const byBrand = brands.map(br => ({ br, list: B.filter(t => t.brandLabel === br) }))
+    .map(r => ({ ...r, s: stats(r.list) })).sort((x, y) => y.s.filed - x.s.filed);
   document.getElementById('resoTable').innerHTML = `<table class="rt"><thead><tr><th>Brand</th>
-    <th class="num">Filed ${P.A.label}</th><th class="num">Filed ${P.B.label}</th><th class="num">Done</th>
+    <th class="num">Filed</th><th class="num">Done</th><th class="num">Rejected</th>
     <th class="num">Open</th><th class="num">Rate</th><th class="num">Avg time</th></tr></thead><tbody>
-    ${byBrand.map(r => `<tr><td>${escapeHtml(r.br)}</td><td class="num" style="color:var(--ink-faint)">${fmtInt(r.a.filed)}</td>
-      <td class="num">${fmtInt(r.b.filed)}</td><td class="num">${fmtInt(r.b.done)}</td><td class="num">${fmtInt(r.b.open)}</td>
-      <td class="num">${r.b.rate == null ? '—' : `<span class="tag ${r.b.rate >= 80 ? 'good' : r.b.rate >= 50 ? 'mid' : 'bad'}">${r.b.rate}%</span>`}</td>
-      <td class="num">${fmtDur(r.b.avgRes)}</td></tr>`).join('')}
-    </tbody></table>`;
+    ${byBrand.map(r => `<tr><td>${escapeHtml(r.br)}</td><td class="num">${fmtInt(r.s.filed)}</td><td class="num">${fmtInt(r.s.done)}</td>
+      <td class="num">${fmtInt(r.s.rej)}</td><td class="num">${fmtInt(r.s.open)}</td>
+      <td class="num">${r.s.rate == null ? '—' : `<span class="tag ${r.s.rate >= 80 ? 'good' : r.s.rate >= 50 ? 'mid' : 'bad'}">${r.s.rate}%</span>`}</td>
+      <td class="num">${fmtDur(r.s.avgRes)}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>All brands</td><td class="num">${fmtInt(b.filed)}</td><td class="num">${fmtInt(b.done)}</td>
+      <td class="num">${fmtInt(b.rej)}</td><td class="num">${fmtInt(b.open)}</td><td class="num">${b.rate == null ? '—' : b.rate + '%'}</td>
+      <td class="num">${fmtDur(b.avgRes)}</td></tr></tfoot></table>`;
 
   // 3. Customers per brand (unique usernames who filed a ticket)
   const uniq = list => new Set(list.map(t => String(t.name || '').trim().toLowerCase()).filter(n => n && n !== 'unknown')).size;
-  const custRows = brands.map(br => {
-    const la = A.filter(t => t.brandLabel === br), lb = B.filter(t => t.brandLabel === br);
-    return { br, ua: uniq(la), ub: uniq(lb), tb: lb.length };
-  }).sort((x, y) => y.ub - x.ub || y.ua - x.ua);
-  const ua = uniq(A), ub = uniq(B);
+  const custRows = byBrand.map(r => ({ br: r.br, u: uniq(r.list), t: r.list.length })).sort((x, y) => y.u - x.u);
+  const ub = custRows.reduce((s, x) => s + x.u, 0); // same username on two brands = two customers
   document.getElementById('custTable').innerHTML = `<table class="rt"><thead><tr><th>Brand</th>
-    <th class="num">Customers ${P.A.label}</th><th class="num">Customers ${P.B.label}</th><th class="num">Change</th>
-    <th class="num">Tickets per customer (${P.B.label})</th></tr></thead><tbody>
-    ${custRows.map(r => `<tr><td>${escapeHtml(r.br)}</td><td class="num" style="color:var(--ink-faint)">${fmtInt(r.ua)}</td>
-      <td class="num">${fmtInt(r.ub)}</td><td class="num">${delta(r.ub, r.ua)}</td>
-      <td class="num">${r.ub ? (r.tb / r.ub).toFixed(2) : '—'}</td></tr>`).join('')}
-    </tbody><tfoot><tr><td>All brands</td><td class="num">${fmtInt(ua)}</td><td class="num">${fmtInt(ub)}</td>
-    <td class="num">${delta(ub, ua)}</td><td class="num">${ub ? (B.length / ub).toFixed(2) : '—'}</td></tr></tfoot></table>`;
+    <th class="num">Customers</th><th class="num">Share</th><th class="num">Tickets</th><th class="num">Tickets per customer</th></tr></thead><tbody>
+    ${custRows.map(r => `<tr><td>${escapeHtml(r.br)}</td><td class="num">${fmtInt(r.u)}</td>
+      <td class="num" style="color:var(--ink-faint)">${pctOf(r.u, custRows.reduce((s, x) => s + x.u, 0))}</td>
+      <td class="num">${fmtInt(r.t)}</td><td class="num">${r.u ? (r.t / r.u).toFixed(2) : '—'}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>All brands</td><td class="num">${fmtInt(ub)}</td><td class="num"></td>
+    <td class="num">${fmtInt(B.length)}</td><td class="num">${ub ? (B.length / ub).toFixed(2) : '—'}</td></tr></tfoot></table>`;
 
   // 4. Top 5 reasons per brand
-  document.getElementById('perBrandLede').textContent = `${P.B.label} · ${P.A.label} count in grey`;
-  document.getElementById('perBrand').innerHTML = byBrand.filter(r => r.b.filed || r.a.filed).map(r => {
-    const lb = B.filter(t => t.brandLabel === r.br), la = A.filter(t => t.brandLabel === r.br);
-    const cb = countBy(lb, t => t.issue), ca = countBy(la, t => t.issue);
-    const src = lb.length ? cb : ca; // brand with no tickets yet this month: show last month's top 5
-    const t5 = Object.entries(src).sort((x, y) => y[1] - x[1]).slice(0, 5);
+  document.getElementById('perBrandLede').textContent = `${P.B.label} · share of the brand's tickets`;
+  document.getElementById('perBrand').innerHTML = byBrand.map(r => {
+    const cb = countBy(r.list, t => t.issue);
+    const t5 = Object.entries(cb).sort((x, y) => y[1] - x[1]).slice(0, 5);
     return `<div class="brand-card"><h4>${escapeHtml(r.br)}</h4>
-      <div class="sub">${fmtInt(lb.length)} tickets ${P.B.label} · ${fmtInt(la.length)} ${P.A.label}${lb.length ? '' : ' · showing comparison month'}</div>
-      ${t5.map(([k], i) => `<div class="mini-row"><span class="rank-badge" style="width:20px;height:20px;font-size:11px;border-radius:6px;background:${RANK_COLORS[i]}22;color:${RANK_COLORS[i]}">${i + 1}</span>
-        <span class="lbl" title="${escapeHtml(k)}">${escapeHtml(k)}</span><span class="n">${fmtInt(cb[k] || 0)}</span><span class="p">${fmtInt(ca[k] || 0)}</span></div>`).join('')}
+      <div class="sub">${fmtInt(r.list.length)} tickets · ${P.B.label}</div>
+      ${t5.map(([k, n], i) => `<div class="mini-row"><span class="rank-badge" style="width:20px;height:20px;font-size:11px;border-radius:6px;background:${RANK_COLORS[i]}22;color:${RANK_COLORS[i]}">${i + 1}</span>
+        <span class="lbl" title="${escapeHtml(k)}">${escapeHtml(k)}</span><span class="n">${fmtInt(n)}</span><span class="p">${pctOf(n, r.list.length)}</span></div>`).join('')}
     </div>`;
-  }).join('') || '<div class="note">No tickets in either period.</div>';
+  }).join('') || '<div class="note">No tickets in the report month.</div>';
 }
 
 async function loadTickets(force) {
