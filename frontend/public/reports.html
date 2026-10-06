@@ -235,6 +235,20 @@
     .cols-2{grid-template-columns:1fr;}
   }
 
+  /* PRESENTATION MODE — body.presenting: full screen, no sidebar, larger type */
+  body.presenting .sidebar{display:none;}
+  body.presenting .main{padding:22px 34px 40px;}
+  body.presenting .titlebar h1, body.presenting .titlebar .period{font-size:32px;}
+  body.presenting .subtab{font-size:16px;padding:14px 20px;}
+  body.presenting .kpi-label{font-size:14.5px;}
+  body.presenting .kpi-value{font-size:38px;}
+  body.presenting .kpi-delta{font-size:13.5px;}
+  body.presenting .panel-head h3{font-size:18px;}
+  body.presenting table.rt td{font-size:15px;padding:12px 10px;}
+  body.presenting table.rt th{font-size:12.5px;}
+  body.presenting .rank-name{font-size:15px;}
+  body.presenting .rank-count{font-size:17px;}
+
   @media print{
     @page{size:A4 landscape;margin:12mm;}
     body{background:#fff;}
@@ -365,13 +379,11 @@
               </div>
             </div>
           </div>
-          <button class="btn" onclick="exportActiveReport()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-            Download CSV
-          </button>
-          <button class="btn primary" onclick="window.print()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Print
+          <!-- Presentation mode (2026-10-06): replaces Download CSV + Print.
+               Full screen, sidebar hidden, bigger figures. Esc or the button exits. -->
+          <button class="btn primary" id="presentBtn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            <span id="presentLabel">Presentation</span>
           </button>
         </div>
       </div>
@@ -2276,6 +2288,35 @@ document.addEventListener('click', (e) => {
   if (document.getElementById('rpWrap').contains(e.target)) return;
   cancelCustom();
 });
+
+// ---- Presentation mode ----
+// Goes full screen (browser Fullscreen API) and switches on body.presenting.
+// Leaving full screen any way (Esc, F11, the button) switches it back off.
+(function setupPresentation() {
+  const btn = document.getElementById('presentBtn');
+  const label = document.getElementById('presentLabel');
+  const setMode = on => {
+    document.body.classList.toggle('presenting', on);
+    label.textContent = on ? 'Exit presentation' : 'Presentation';
+    // Charts measure their box when drawn; let them re-fit the new width.
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 150);
+  };
+  btn.addEventListener('click', () => {
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl || document.body.classList.contains('presenting')) {
+      if (fsEl) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      setMode(false);
+      return;
+    }
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) { try { const p = req.call(el); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+    setMode(true);
+  });
+  const onFsChange = () => { if (!(document.fullscreenElement || document.webkitFullscreenElement)) setMode(false); };
+  document.addEventListener('fullscreenchange', onFsChange);
+  document.addEventListener('webkitfullscreenchange', onFsChange);
+})();
 
 // ---- Boot ----
 document.getElementById('generatedAt').textContent =
