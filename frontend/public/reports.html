@@ -345,6 +345,7 @@
                 <option value="7d">Last 7 Days</option>
                 <option value="30d">Last 30 Days</option>
                 <option value="month" selected>This Month</option>
+                <optgroup label="Month vs month" id="rpMonthPairs"></optgroup>
                 <option value="custom" id="rpCustomOption">Custom Date…</option>
                 <option value="custom-applied" id="rpAppliedOption" hidden></option>
               </select>
@@ -787,6 +788,15 @@ function buildPeriods(preset) {
   else if (preset === 'yesterday') { bStart = addDays(today, -1); bEnd = bStart; }
   else if (preset === '7d') { bStart = addDays(today, -6); bEnd = today; }
   else if (preset === '30d') { bStart = addDays(today, -29); bEnd = today; }
+  else if (/^m\d+$/.test(preset)) {
+    // Month vs month (added 2026-10-06): "m1" = last month vs the month before
+    // it (e.g. Sep 2026 vs Aug 2026), "m2" = two months back, and so on.
+    const off = Number(preset.slice(1));
+    bStart = new Date(today.getFullYear(), today.getMonth() - off, 1);
+    bEnd = new Date(today.getFullYear(), today.getMonth() - off + 1, 0);
+    aStart = new Date(today.getFullYear(), today.getMonth() - off - 1, 1);
+    aEnd = new Date(today.getFullYear(), today.getMonth() - off, 0);
+  }
   else if (preset === 'custom' && customRange) {
     bStart = customRange.from; bEnd = customRange.to;
     if (customRange.cFrom && customRange.cTo) { aStart = customRange.cFrom; aEnd = customRange.cTo; }
@@ -2220,6 +2230,17 @@ async function loadAvatars() {
 // picking Custom Date opens the popover and waits for Apply. Every change
 // reloads everything that depends on the dates.
 const rpSelect = document.getElementById('rpPreset');
+// Month-vs-month choices: last 6 complete months, each against the month before.
+(function fillMonthPairs() {
+  const grp = document.getElementById('rpMonthPairs');
+  const t = new Date();
+  for (let off = 1; off <= 6; off++) {
+    const b = new Date(t.getFullYear(), t.getMonth() - off, 1);
+    const a = new Date(t.getFullYear(), t.getMonth() - off - 1, 1);
+    const lab = d => `${MONTH_NAMES[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
+    grp.appendChild(new Option(`${lab(b)} vs ${lab(a)}`, 'm' + off));
+  }
+})();
 const rpPop = document.getElementById('rpPop');
 
 function refreshAllReports() {
