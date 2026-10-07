@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=5"></script>
+<script src="ticket-data.js?v=15"></script>
 <style>
   :root{
     --primary:#2563EB; --primary-dark:#1D4ED8; --primary-tint:#EFF4FF;
@@ -394,6 +394,7 @@
         <button class="subtab active" data-page="chats">Chats Comparison</button>
         <button class="subtab" data-page="tickets">Ticket Resolution</button>
         <button class="subtab" data-page="satisfaction">Customer Satisfaction</button>
+        <button class="subtab" data-page="analytics">Ticket Analytics</button>
       </nav>
     </header>
 
@@ -673,6 +674,75 @@
   </main>
 
   <!-- THREAD MODAL — shared by the satisfaction report -->
+
+    <!-- ============ TICKET ANALYTICS (added 2026-10-07) ============
+         Follows the SAME titlebar date range as every other sub-tab
+         (Today / Yesterday / Last 7 Days / Last 30 Days / This Month /
+         Custom). Shows per-brand Done/Rejected %, top concerns, and
+         repetitive players with avg tickets per day. -->
+    <div class="report-page" id="page-analytics">
+
+      <div id="analyticsFlag"></div>
+
+      <div class="kpi-row">
+        <div class="kpi-card accent-b">
+          <div class="kpi-label">Tickets filed</div>
+          <div class="kpi-value" id="anFiled">—</div>
+          <div class="kpi-delta flat" id="anFiledSub">Loading…</div>
+        </div>
+        <div class="kpi-card accent-ok">
+          <div class="kpi-label">Done</div>
+          <div class="kpi-value" id="anDone">—</div>
+          <div class="kpi-delta flat" id="anDoneSub">—</div>
+        </div>
+        <div class="kpi-card accent-bad">
+          <div class="kpi-label">Rejected</div>
+          <div class="kpi-value" id="anRej">—</div>
+          <div class="kpi-delta flat" id="anRejSub">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Repeat tickets</div>
+          <div class="kpi-value" id="anRepPct">—</div>
+          <div class="kpi-delta flat" id="anRepSub">from players with 2+ tickets</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Repeat players</div>
+          <div class="kpi-value" id="anRepPlayers">—</div>
+          <div class="kpi-delta flat">filed 2 or more tickets</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Per brand</h3>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <select id="anBrand" class="tab" style="border:1px solid var(--rule);background:var(--card);padding:7px 10px;border-radius:8px;font-size:12px;font-weight:700;color:var(--ink);">
+              <option value="">All brands</option>
+            </select>
+            <button class="btn" id="anCsv" type="button">Export CSV</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;"><table class="rt" id="anBrandTable"></table></div>
+      </div>
+
+      <div class="cols-2">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Top concerns</h3>
+            <div class="hint">What players filed tickets about</div>
+          </div>
+          <div class="tall" style="max-height:420px;overflow-y:auto;"><table class="rt" id="anConcernTable"></table></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Repeat players</h3>
+            <div class="hint">2+ tickets in the period · avg per active day</div>
+          </div>
+          <div class="tall" style="max-height:420px;overflow-y:auto;"><table class="rt" id="anRepeatTable"></table></div>
+        </div>
+      </div>
+    </div>
+
   <div class="modal-overlay" id="convModalOverlay">
     <div class="modal-panel">
       <div class="modal-head">
@@ -2345,6 +2415,154 @@ TicketData.fetchTickets()
     console.error('Tickets failed:', err);
     flag('ticketsFlag', 'Ticket figures could not be loaded from the brand sheets — check the sheet links and refresh.');
   });
+</script>
+
+<script>
+// =====================================================================
+// TICKET ANALYTICS SUB-TAB (added 2026-10-07). Reuses the shared
+// allTickets dataset and the titlebar date range (reportWindow()), so it
+// updates together with every other sub-tab and the auto-refresh.
+// =====================================================================
+(function () {
+  'use strict';
+  let brandFilter = '';
+
+  const pct = (n, d) => d ? (n / d * 100).toFixed(1) + '%' : '—';
+  const dayKey = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const concernOf = t => {
+    const c = (t.category || '').replace(/[^\w\s\/&-]/g, '').trim() || '(no category)';
+    const s = (t.issue && t.issue !== c && t.issue !== '—') ? t.issue : '';
+    return c + (s ? ' • ' + s : '');
+  };
+  const isDone = t => t.statusCls === 'done';
+  const isRej = t => t.statusCls === 'rejected';
+
+  function repeatMap(list) {
+    const m = new Map();
+    list.forEach(t => {
+      const u = (t.name || '').trim();
+      if (!u || /^unknown$/i.test(u)) return;
+      const k = t.brandLabel + '|' + u.toLowerCase();
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(t);
+    });
+    return m;
+  }
+
+  window.renderAnalytics = function renderAnalytics() {
+    if (!allTickets.length) return;
+    const w = reportWindow();
+    const inWin = d => d && d >= w.start && d <= w.end;
+    const all = allTickets.filter(t => inWin(t.submitted));
+    const list = brandFilter ? all.filter(t => t.brandLabel === brandFilter) : all;
+
+    const total = list.length;
+    const done = list.filter(isDone).length;
+    const rej = list.filter(isRej).length;
+    const reps = repeatMap(list);
+    let repTix = 0, repPlayers = 0;
+    reps.forEach(v => { if (v.length >= 2) { repTix += v.length; repPlayers++; } });
+
+    document.getElementById('anFiled').textContent = fmtInt(total);
+    document.getElementById('anFiledSub').textContent = MONTH_B.label + (brandFilter ? ' · ' + brandFilter : '');
+    document.getElementById('anDone').textContent = fmtInt(done);
+    document.getElementById('anDoneSub').textContent = pct(done, total) + ' of filed';
+    document.getElementById('anRej').textContent = fmtInt(rej);
+    document.getElementById('anRejSub').textContent = pct(rej, total) + ' of filed';
+    document.getElementById('anRepPct').textContent = pct(repTix, total);
+    document.getElementById('anRepSub').textContent = fmtInt(repTix) + ' tickets from repeat players';
+    document.getElementById('anRepPlayers').textContent = fmtInt(repPlayers);
+
+    // brand dropdown options (laging mula sa BUONG window, hindi sa filtered)
+    const sel = document.getElementById('anBrand');
+    const brands = Array.from(new Set(all.map(t => t.brandLabel))).sort();
+    const cur = brandFilter;
+    sel.innerHTML = '<option value="">All brands</option>' + brands.map(b =>
+      '<option' + (b === cur ? ' selected' : '') + '>' + escapeHtml(b) + '</option>').join('');
+
+    // ---- per brand ----
+    const byBrand = new Map();
+    all.forEach(t => {
+      if (!byBrand.has(t.brandLabel)) byBrand.set(t.brandLabel, []);
+      byBrand.get(t.brandLabel).push(t);
+    });
+    let h = '<thead><tr><th>Brand</th><th class="num">Filed</th><th class="num">Done</th><th class="num">Rejected</th><th class="num">Open</th><th class="num">% Done</th><th class="num">% Rejected</th><th class="num">% Repeat</th></tr></thead><tbody>';
+    Array.from(byBrand.entries()).sort((a, b) => b[1].length - a[1].length).forEach(([b, arr]) => {
+      const d = arr.filter(isDone).length, r = arr.filter(isRej).length;
+      const rm = repeatMap(arr); let rt = 0;
+      rm.forEach(v => { if (v.length >= 2) rt += v.length; });
+      const hot = arr.length >= 5 && rt / arr.length >= 0.7;
+      h += '<tr' + (hot ? ' style="background:var(--danger-tint,#FDECEC);"' : '') + '><td>' + escapeHtml(b) + '</td>'
+        + '<td class="num">' + arr.length + '</td><td class="num" style="color:var(--ok,#16A34A);">' + d + '</td>'
+        + '<td class="num" style="color:var(--bad,#DC2626);">' + r + '</td><td class="num">' + (arr.length - d - r) + '</td>'
+        + '<td class="num">' + pct(d, arr.length) + '</td><td class="num">' + pct(r, arr.length) + '</td>'
+        + '<td class="num">' + pct(rt, arr.length) + '</td></tr>';
+    });
+    const allDone = all.filter(isDone).length, allRej = all.filter(isRej).length;
+    const allReps = repeatMap(all); let allRepTix = 0;
+    allReps.forEach(v => { if (v.length >= 2) allRepTix += v.length; });
+    h += '</tbody><tfoot><tr><td>TOTAL</td><td class="num">' + all.length + '</td><td class="num">' + allDone + '</td><td class="num">' + allRej + '</td><td class="num">' + (all.length - allDone - allRej) + '</td><td class="num">' + pct(allDone, all.length) + '</td><td class="num">' + pct(allRej, all.length) + '</td><td class="num">' + pct(allRepTix, all.length) + '</td></tr></tfoot>';
+    document.getElementById('anBrandTable').innerHTML = h;
+
+    // ---- top concerns ----
+    const cc = new Map();
+    list.forEach(t => {
+      const k = concernOf(t);
+      if (!cc.has(k)) cc.set(k, { n: 0, d: 0, r: 0 });
+      const o = cc.get(k); o.n++; if (isDone(t)) o.d++; if (isRej(t)) o.r++;
+    });
+    h = '<thead><tr><th>#</th><th>Concern</th><th class="num">Tickets</th><th class="num">%</th><th class="num">Done</th><th class="num">Rej</th></tr></thead><tbody>';
+    Array.from(cc.entries()).sort((a, b) => b[1].n - a[1].n).slice(0, 15).forEach(([k, o], i) => {
+      h += '<tr><td class="num">' + (i + 1) + '</td><td>' + escapeHtml(k) + '</td><td class="num">' + o.n + '</td><td class="num">' + pct(o.n, total) + '</td><td class="num">' + o.d + '</td><td class="num">' + o.r + '</td></tr>';
+    });
+    h += '</tbody>';
+    document.getElementById('anConcernTable').innerHTML = h;
+
+    // ---- repeat players ----
+    h = '<thead><tr><th>Username</th><th>Brand</th><th class="num">Tickets</th><th class="num">Days</th><th class="num">Avg/Day</th><th class="num">Done</th><th class="num">Rej</th><th>Top concern</th></tr></thead><tbody>';
+    const rows = Array.from(reps.values()).filter(v => v.length >= 2).sort((a, b) => b.length - a.length).slice(0, 50);
+    rows.forEach(v => {
+      const days = new Set(v.map(t => dayKey(t.submitted))).size;
+      const avg = v.length / days;
+      const d = v.filter(isDone).length;
+      const cm = new Map(); v.forEach(t => cm.set(concernOf(t), (cm.get(concernOf(t)) || 0) + 1));
+      const top = Array.from(cm.entries()).sort((a, b) => b[1] - a[1])[0];
+      const hot = avg >= 5 || v.length >= 20;
+      h += '<tr' + (hot ? ' style="background:var(--danger-tint,#FDECEC);"' : '') + '><td>' + escapeHtml(v[0].name) + '</td><td>' + escapeHtml(v[0].brandLabel) + '</td>'
+        + '<td class="num">' + v.length + '</td><td class="num">' + days + '</td><td class="num">' + avg.toFixed(1) + '</td>'
+        + '<td class="num">' + d + '</td><td class="num">' + (v.length - d) + '</td>'
+        + '<td>' + escapeHtml(top ? top[0] + ' (' + top[1] + ')' : '—') + '</td></tr>';
+    });
+    if (!rows.length) h += '<tr><td colspan="8" style="color:var(--ink-faint);">No repeat players in this period.</td></tr>';
+    h += '</tbody>';
+    document.getElementById('anRepeatTable').innerHTML = h;
+  };
+
+  // Re-render kasabay ng bawat Ticket Resolution render (range change,
+  // auto-refresh, unang load) — wrap na lang ang existing function.
+  const _origRTR = renderTicketResolution;
+  renderTicketResolution = function () {
+    _origRTR.apply(this, arguments);
+    try { renderAnalytics(); } catch (e) { console.error('analytics render:', e); }
+  };
+
+  document.getElementById('anBrand').addEventListener('change', e => { brandFilter = e.target.value; renderAnalytics(); });
+  document.getElementById('subtabs').addEventListener('click', e => {
+    const btn = e.target.closest('.subtab');
+    if (btn && btn.dataset.page === 'analytics' && allTickets.length) renderAnalytics();
+  });
+
+  // CSV export ng kasalukuyang analytics view
+  document.getElementById('anCsv').addEventListener('click', () => {
+    const w = reportWindow();
+    const inWin = d => d && d >= w.start && d <= w.end;
+    const list = allTickets.filter(t => inWin(t.submitted) && (!brandFilter || t.brandLabel === brandFilter));
+    const out = ['Ticket ID,Brand,Username,Concern,Status,Submitted'];
+    list.forEach(t => out.push([t.id, t.brandLabel, t.name, concernOf(t), t.statusLabel, t.submitted.toISOString()]
+      .map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
+    downloadCsv(out.join('\n'), 'ticket-analytics-' + MONTH_B.key + (brandFilter ? '-' + brandFilter.toLowerCase().replace(/\s+/g, '-') : '') + '.csv');
+  });
+})();
 </script>
 </body>
 </html>
