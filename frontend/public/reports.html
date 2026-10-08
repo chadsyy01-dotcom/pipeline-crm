@@ -272,7 +272,8 @@
   .cb-btn{font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line,#EEF1F6);background:var(--card,#fff);color:var(--ink-soft,#475569);font-family:inherit;}
   .cb-btn.primary{background:var(--primary,#2563EB);color:#fff;border-color:var(--primary,#2563EB);}
   .cb-btn:disabled{opacity:.55;cursor:wait;}
-  .cb-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+  .cb-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px;}
+  @media (max-width:1200px){.cb-cards{grid-template-columns:repeat(2,1fr);}}
   @media (max-width:900px){.cb-cards{grid-template-columns:1fr;}}
   .cb-card{background:var(--card,#fff);border-radius:14px;padding:16px;box-shadow:var(--shadow,0 1px 2px rgba(15,23,42,.04),0 8px 24px -12px rgba(15,23,42,.10));}
   .cb-card .cb-label{font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint,#94A3B8);margin-bottom:6px;}
@@ -808,6 +809,7 @@
         <div class="cb-card"><div class="cb-label">Grand Total / Month</div><div class="cb-value" id="rbGrand">—</div><div class="cb-sub" id="rbGrandSub"></div></div>
         <div class="cb-card"><div class="cb-label">Highest Division</div><div class="cb-value" id="rbTopDiv" style="font-size:17px;">—</div><div class="cb-sub" id="rbTopDivSub"></div></div>
         <div class="cb-card"><div class="cb-label">Biggest Service Cost</div><div class="cb-value" id="rbTopSvc" style="font-size:17px;">—</div><div class="cb-sub" id="rbTopSvcSub"></div></div>
+        <div class="cb-card"><div class="cb-label">Open AI — Aug vs Sept</div><div class="cb-value" id="rbOaCmp" style="font-size:17px;">—</div><div class="cb-sub" id="rbOaCmpSub"></div></div>
       </div>
       <div class="cb-panel"><div id="rbTableWrap"><div class="cb-empty">Loading billing data…</div></div></div>
     </div>
@@ -2742,18 +2744,19 @@ TicketData.fetchTickets()
     'BUENAS CREDITS': 189.68,
   };
   const AUG_OPENAI_PHP = {
-    // August 2026 (kinuha 2026-10-08 mula sa OpenAI Billing page,
-    // custom range 08-01..08-31, All Accounts; $355.45 ≈ ₱22,325.20)
-    'BUENAS CASH': 12099.31,
-    'TMTCASH': 6847.14,
-    'MOBILE PLAY CASINO': 1305.93,
-    'MANILA PLAY': 903.74,
-    'TMTPLAY': 418.64,
-    'HYPEPLAY PH': 378.37,
-    'HYPEPLAY BDT': 244.21,
-    'MGK': 63.99,
-    'BUENAS CREDITS': 47.36,
-    'LUCKSTACKS': 16.49,
+    // August 2026 — mula sa "OPEN AI BILLING" Google Sheet (per-brand tabs,
+    // naka-highlight na August total kada tab; kinuha 2026-10-08).
+    // Pinalitan ang dating API pull na mali ayon kay Chad.
+    'BUENAS CASH': 22585.24,
+    'TMTCASH': 16922.26,
+    'MANILA PLAY': 8817.11,
+    'MOBILE PLAY CASINO': 6048.52,
+    'HYPEPLAY PH': 5388.76,
+    'HYPEPLAY BDT': 2538.63,
+    'TMTPLAY': 1057.08,
+    'LUCKSTACKS': 352.21,
+    'MGK': 352.15,
+    'BUENAS CREDITS': 0.00,
   };
   const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   function staticLookup(map, divName) {
@@ -2893,6 +2896,14 @@ TicketData.fetchTickets()
       let si = 0; svcTotals.forEach((v, i) => { if ((v || 0) > (svcTotals[si] || 0)) si = i; });
       document.getElementById('rbTopSvc').textContent = d.services[cols[si]] || '—';
       document.getElementById('rbTopSvcSub').textContent = (money(svcTotals[si]) || '—') + ' across all divisions';
+      // Open AI month-vs-month comparison (static Aug/Sept figures)
+      const augSum = Object.values(AUG_OPENAI_PHP).reduce((x, y) => x + y, 0);
+      const sepSum = Object.values(SEPT_OPENAI_PHP).reduce((x, y) => x + y, 0);
+      const chg = augSum > 0 ? Math.round(((sepSum - augSum) / augSum) * 100) : null;
+      const oaCmp = document.getElementById('rbOaCmp');
+      oaCmp.textContent = chg == null ? '—' : (chg >= 0 ? '↑ +' : '↓ ') + chg + '%';
+      oaCmp.style.color = chg == null ? '' : (chg >= 0 ? 'var(--danger,#EF4444)' : 'var(--success,#22C55E)');
+      document.getElementById('rbOaCmpSub').textContent = 'Aug ' + money(augSum) + ' → Sept ' + money(sepSum);
     }
 
     const head = '<tr><th>Division</th>' + cols.map(k =>
