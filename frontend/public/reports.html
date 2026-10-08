@@ -396,7 +396,6 @@
         <button class="subtab active" data-page="chats">Chats Comparison</button>
         <button class="subtab" data-page="tickets">Ticket Resolution</button>
         <button class="subtab" data-page="satisfaction">Customer Satisfaction</button>
-        <button class="subtab" data-page="analytics">Ticket Analytics</button>
       </nav>
     </header>
 
@@ -613,6 +612,74 @@
         </div>
       </div>
 
+
+      <!-- ============ TICKET ANALYTICS (merged into this tab 2026-10-08) ============ -->
+      <div class="section-head" style="margin-top:26px;">
+        <h2>Ticket Analytics</h2>
+        <div class="lede">Per brand · top concerns · repeat players</div>
+      </div>
+
+
+      <div id="analyticsFlag"></div>
+
+      <div class="kpi-row">
+        <div style="display:none;"><div class="kpi-card accent-b">
+          <div class="kpi-label">Tickets filed</div>
+          <div class="kpi-value" id="anFiled">—</div>
+          <div class="kpi-delta flat" id="anFiledSub">Loading…</div>
+        </div></div>
+        <div style="display:none;"><div class="kpi-card accent-ok">
+          <div class="kpi-label">Done</div>
+          <div class="kpi-value" id="anDone">—</div>
+          <div class="kpi-delta flat" id="anDoneSub">—</div>
+        </div></div>
+        <div style="display:none;"><div class="kpi-card accent-bad">
+          <div class="kpi-label">Rejected</div>
+          <div class="kpi-value" id="anRej">—</div>
+          <div class="kpi-delta flat" id="anRejSub">—</div>
+        </div></div>
+        <div class="kpi-card">
+          <div class="kpi-label">Repeat tickets</div>
+          <div class="kpi-value" id="anRepPct">—</div>
+          <div class="kpi-delta flat" id="anRepSub">from players with 2+ tickets</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Repeat players</div>
+          <div class="kpi-value" id="anRepPlayers">—</div>
+          <div class="kpi-delta flat">filed 2 or more tickets</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Per brand</h3>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <select id="anBrand" class="tab" style="border:1px solid var(--rule);background:var(--card);padding:7px 10px;border-radius:8px;font-size:12px;font-weight:700;color:var(--ink);">
+              <option value="">All brands</option>
+            </select>
+            <button class="btn" id="anCsv" type="button">Export CSV</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;"><table class="rt" id="anBrandTable"></table></div>
+      </div>
+
+      <div class="cols-2">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Top concerns</h3>
+            <div class="hint">What players filed tickets about</div>
+          </div>
+          <div class="tall" style="max-height:420px;overflow-y:auto;"><table class="rt" id="anConcernTable"></table></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Repeat players</h3>
+            <div class="hint">2+ tickets in the period · avg per active day</div>
+          </div>
+          <div class="tall" style="max-height:420px;overflow-y:auto;"><table class="rt" id="anRepeatTable"></table></div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ================= REPORT 3: CUSTOMER SATISFACTION ================= -->
@@ -673,73 +740,6 @@
 
     </div>
 
-    <!-- ============ TICKET ANALYTICS (added 2026-10-07) ============
-         Follows the SAME titlebar date range as every other sub-tab
-         (Today / Yesterday / Last 7 Days / Last 30 Days / This Month /
-         Custom). Shows per-brand Done/Rejected %, top concerns, and
-         repetitive players with avg tickets per day. -->
-    <div class="report-page" id="page-analytics">
-
-      <div id="analyticsFlag"></div>
-
-      <div class="kpi-row">
-        <div class="kpi-card accent-b">
-          <div class="kpi-label">Tickets filed</div>
-          <div class="kpi-value" id="anFiled">—</div>
-          <div class="kpi-delta flat" id="anFiledSub">Loading…</div>
-        </div>
-        <div class="kpi-card accent-ok">
-          <div class="kpi-label">Done</div>
-          <div class="kpi-value" id="anDone">—</div>
-          <div class="kpi-delta flat" id="anDoneSub">—</div>
-        </div>
-        <div class="kpi-card accent-bad">
-          <div class="kpi-label">Rejected</div>
-          <div class="kpi-value" id="anRej">—</div>
-          <div class="kpi-delta flat" id="anRejSub">—</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Repeat tickets</div>
-          <div class="kpi-value" id="anRepPct">—</div>
-          <div class="kpi-delta flat" id="anRepSub">from players with 2+ tickets</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Repeat players</div>
-          <div class="kpi-value" id="anRepPlayers">—</div>
-          <div class="kpi-delta flat">filed 2 or more tickets</div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head">
-          <h3>Per brand</h3>
-          <div style="display:flex;gap:10px;align-items:center;">
-            <select id="anBrand" class="tab" style="border:1px solid var(--rule);background:var(--card);padding:7px 10px;border-radius:8px;font-size:12px;font-weight:700;color:var(--ink);">
-              <option value="">All brands</option>
-            </select>
-            <button class="btn" id="anCsv" type="button">Export CSV</button>
-          </div>
-        </div>
-        <div style="overflow-x:auto;"><table class="rt" id="anBrandTable"></table></div>
-      </div>
-
-      <div class="cols-2">
-        <div class="panel">
-          <div class="panel-head">
-            <h3>Top concerns</h3>
-            <div class="hint">What players filed tickets about</div>
-          </div>
-          <div class="tall" style="max-height:420px;overflow-y:auto;"><table class="rt" id="anConcernTable"></table></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head">
-            <h3>Repeat players</h3>
-            <div class="hint">2+ tickets in the period · avg per active day</div>
-          </div>
-          <div class="tall" style="max-height:420px;overflow-y:auto;"><table class="rt" id="anRepeatTable"></table></div>
-        </div>
-      </div>
-    </div>
 
   </main>
 
