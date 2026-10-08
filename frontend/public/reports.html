@@ -2742,8 +2742,18 @@ TicketData.fetchTickets()
     'BUENAS CREDITS': 189.68,
   };
   const AUG_OPENAI_PHP = {
-    // PUNAN: August 2026 per-division OpenAI spend sa ₱ — idagdag dito
-    // kapag naibigay na ang figures, hal. 'BUENAS CASH': 12345.67,
+    // August 2026 (kinuha 2026-10-08 mula sa OpenAI Billing page,
+    // custom range 08-01..08-31, All Accounts; $355.45 ≈ ₱22,325.20)
+    'BUENAS CASH': 12099.31,
+    'TMTCASH': 6847.14,
+    'MOBILE PLAY CASINO': 1305.93,
+    'MANILA PLAY': 903.74,
+    'TMTPLAY': 418.64,
+    'HYPEPLAY PH': 378.37,
+    'HYPEPLAY BDT': 244.21,
+    'MGK': 63.99,
+    'BUENAS CREDITS': 47.36,
+    'LUCKSTACKS': 16.49,
   };
   const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   function staticLookup(map, divName) {
