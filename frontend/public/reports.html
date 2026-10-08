@@ -2726,6 +2726,7 @@ TicketData.fetchTickets()
     'LUCKSTACKS': 'LUCKYSTACKS PH',
   };
   let septOpenAi = { ok: false, byDivision: new Map(), unmatched: [], limited: false };
+  let augOpenAi  = { ok: false, byDivision: new Map(), unmatched: [], limited: false };
   const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const peso = v => { if (v == null) return null; const n = parseFloat(String(v).replace(/[₱,\s]/g, '')); return isNaN(n) ? null : n; };
   const money = n => n == null ? null : '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2738,9 +2739,9 @@ TicketData.fetchTickets()
   // mga column na IPINAPAKITA dito (lahat maliban sa LiveChat)
   const visibleCols = () => rbData.services.map((_, k) => k).filter(k => k !== lcIdx());
 
-  async function loadSeptOpenAi() {
+  async function loadMonthOpenAi(start, end) {
     try {
-      const path = `/openai-billing/summary?range=custom&start=${SEPT_START}&end=${SEPT_END}&account=all&compare=false`;
+      const path = `/openai-billing/summary?range=custom&start=${start}&end=${end}&account=all&compare=false`;
       const [sumResult, rateRes] = await Promise.all([
         (typeof window.fetchOpenAiSummary === 'function')
           ? window.fetchOpenAiSummary(path)
@@ -2748,11 +2749,7 @@ TicketData.fetchTickets()
         fetch('https://open.er-api.com/v6/latest/USD').catch(() => null),
       ]);
       const limited = sumResult.status === 429 || /429|rate limit/i.test(JSON.stringify(sumResult.data || ''));
-      if (limited) {
-        septOpenAi = { ok: false, limited: true, byDivision: new Map(), unmatched: [] };
-        setTimeout(() => { loadSeptOpenAi().then(() => { if (!rbEditing && rbData) rbRender(); }); }, 65000);
-        return;
-      }
+      if (limited) return { ok: false, limited: true, byDivision: new Map(), unmatched: [] };
       if (!sumResult.ok) throw new Error('openai-billing HTTP ' + sumResult.status);
       const sum = sumResult.data;
       let rate = null;
@@ -2775,10 +2772,19 @@ TicketData.fetchTickets()
         if (divName) byDivision.set(divName, (byDivision.get(divName) || 0) + php);
         else if ((a.totalUsd || 0) > 0) unmatched.push(a.name + ' ($' + (a.totalUsd || 0).toFixed(2) + ')');
       }
-      septOpenAi = { ok: true, byDivision, unmatched, limited: false };
+      return { ok: true, byDivision, unmatched, limited: false };
     } catch (err) {
-      console.warn('Sept Open AI column unavailable:', err.message);
-      septOpenAi = { ok: false, byDivision: new Map(), unmatched: [], limited: false };
+      console.warn('Open AI month column unavailable:', err.message);
+      return { ok: false, byDivision: new Map(), unmatched: [], limited: false };
+    }
+  }
+
+  async function loadSeptOpenAi() {
+    septOpenAi = await loadMonthOpenAi(SEPT_START, SEPT_END);
+    // Aug pagkatapos ng Sept para hindi sabay kumagat sa 10/min rate limit
+    augOpenAi = await loadMonthOpenAi('2026-08-01', '2026-08-31');
+    if (septOpenAi.limited || augOpenAi.limited) {
+      setTimeout(() => { loadSeptOpenAi().then(() => { if (!rbEditing && rbData) rbRender(); }); }, 65000);
     }
   }
 
@@ -2903,7 +2909,8 @@ TicketData.fetchTickets()
     const head = '<tr><th>Division</th>' + cols.map(k =>
       `<th>${esc(d.services[k])}${k === ok
         ? `<span class="cb-date">${septOpenAi.ok ? 'September 2026' : 'Sept · unavailable'}</span>`
-        : ((d.dates || [])[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : '')}</th>`).join('')
+        : ((d.dates || [])[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : '')}</th>`
+      + (k === ok ? `<th style="color:var(--ink-faint,#94A3B8);">Open AI<span class="cb-date">${augOpenAi.ok ? 'August 2026 · reference' : 'Aug · unavailable'}</span></th>` : '')).join('')
       + '<th>Total</th>' + (rbEditing ? '<th></th>' : '') + '</tr>';
 
     const order = d.divisions.map((_, i) => i);
@@ -2915,17 +2922,25 @@ TicketData.fetchTickets()
       if (rbEditing) {
         return `<tr data-orig="${i}">
           <td><input class="cb-input cb-name" value="${esc(div.name)}"></td>
-          ${cols.map(k => k === ok
+          ${cols.map(k => (k === ok
             ? `<td style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(eff[k])}<br>auto (Sept)</td>`
-            : `<td><input class="cb-input cb-val" data-k="${k}" inputmode="decimal" value="${div.vals[k] == null ? '' : div.vals[k]}"></td>`).join('')}
+              + `<td style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(augOpenAi.ok ? (augOpenAi.byDivision.get(div.name) ?? null) : null)}<br>auto (Aug)</td>`
+            : `<td><input class="cb-input cb-val" data-k="${k}" inputmode="decimal" value="${div.vals[k] == null ? '' : div.vals[k]}"></td>`)).join('')}
           <td class="cb-total cb-rowtotal">${fmt(totals[i])}</td>
           <td><button class="cb-rowdel" title="Remove division" data-i="${i}">✕</button></td>
         </tr>`;
       }
-      return `<tr><td>${esc(div.name)}</td>${cols.map(k => `<td>${fmt(eff[k])}</td>`).join('')}<td class="cb-total">${fmt(totals[i])}</td></tr>`;
+      return `<tr><td>${esc(div.name)}</td>${cols.map(k => `<td>${fmt(eff[k])}</td>`
+        + (k === ok ? `<td style="color:var(--ink-faint,#94A3B8);">${fmt(augOpenAi.ok ? (augOpenAi.byDivision.get(div.name) ?? null) : null)}</td>` : '')).join('')}<td class="cb-total">${fmt(totals[i])}</td></tr>`;
     }).join('');
 
-    const foot = `<tr><td>ALL DIVISIONS</td>${svcTotals.map(v => `<td>${fmt(v)}</td>`).join('')}<td>${fmt(grand || null)}</td>${rbEditing ? '<td></td>' : ''}</tr>`;
+    const augTotal = augOpenAi.ok
+      ? Array.from(augOpenAi.byDivision.entries())
+          .filter(([name]) => d.divisions.some(dv => dv.name === name))
+          .reduce((a, [, v]) => a + v, 0) || null
+      : null;
+    const foot = `<tr><td>ALL DIVISIONS</td>${svcTotals.map((v, ci) => `<td>${fmt(v)}</td>`
+      + (cols[ci] === ok ? `<td style="color:var(--ink-faint,#94A3B8);">${fmt(augTotal)}</td>` : '')).join('')}<td>${fmt(grand || null)}</td>${rbEditing ? '<td></td>' : ''}</tr>`;
 
     const liveNote = septOpenAi.ok
       ? (septOpenAi.unmatched.length
@@ -2933,13 +2948,14 @@ TicketData.fetchTickets()
       : (septOpenAi.limited
           ? `<div class="cb-note" style="margin-top:8px;">⏳ Open AI column is waiting on OpenAI's rate limit — it fills in on its own in about a minute.</div>`
           : `<div class="cb-note" style="margin-top:8px;">September Open AI figures unavailable right now — totals shown without them.</div>`);
+    const augNote = `<div class="cb-note" style="margin-top:6px;">Ang "Open AI — August 2026" column ay reference lang (comparison) — HINDI kasama sa Total at Grand Total.</div>`;
     const noteHtml = rbEditing
       ? `<div style="margin-top:12px;"><input class="cb-input" id="rbNoteInput" style="width:100%;text-align:left;font-weight:500;" placeholder="Optional note shown under the table" value="${esc(d.note || '')}"></div>`
       : (d.note ? `<div class="cb-note" style="margin-top:12px;">${esc(d.note)}</div>` : '');
 
     wrap.innerHTML = (d.divisions.length || rbEditing
       ? `<table class="cb-table"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`
-      : '<div class="cb-empty">No billing data yet.</div>') + noteHtml + liveNote;
+      : '<div class="cb-empty">No billing data yet.</div>') + noteHtml + liveNote + augNote;
 
     if (rbEditing) {
       wrap.querySelectorAll('.cb-val').forEach(inp => inp.addEventListener('input', (e) => {
