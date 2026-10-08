@@ -2725,80 +2725,45 @@ TicketData.fetchTickets()
     'HYPE BD': 'HYPEPLAY BDT',
     'LUCKSTACKS': 'LUCKYSTACKS PH',
   };
-  let septOpenAi = { ok: false, byDivision: new Map(), unmatched: [], limited: false };
-  let augOpenAi  = { ok: false, byDivision: new Map(), unmatched: [], limited: false };
+  // ---- STATIC OpenAI figures (2026-10-08): fixed na report ito, kaya
+  // naka-paste na ang mga halaga — WALANG live API calls, walang loading,
+  // walang rate limit. Pinagmulan: live September pull (₱58,479.81 total,
+  // USD→PHP sa araw na iyon). Ang August ay punan kapag naibigay na.
+  const SEPT_OPENAI_PHP = {
+    'BUENAS CASH': 19902.30,
+    'TMTCASH': 17206.77,
+    'MANILA PLAY': 9966.26,
+    'MOBILE PLAY CASINO': 4742.98,
+    'HYPEPLAY PH': 3089.29,
+    'HYPEPLAY BDT': 1765.53,
+    'TMTPLAY': 1250.90,
+    'LUCKSTACKS': 269.09,
+    'MGK': 97.01,
+    'BUENAS CREDITS': 189.68,
+  };
+  const AUG_OPENAI_PHP = {
+    // PUNAN: August 2026 per-division OpenAI spend sa ₱ — idagdag dito
+    // kapag naibigay na ang figures, hal. 'BUENAS CASH': 12345.67,
+  };
   const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const peso = v => { if (v == null) return null; const n = parseFloat(String(v).replace(/[₱,\s]/g, '')); return isNaN(n) ? null : n; };
-  const money = n => n == null ? null : '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const fmt = n => n == null ? '<span class="cb-dim">—</span>' : money(n);
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const authHeaders = () => ({ Authorization: 'Bearer ' + localStorage.getItem('pipeline_token') });
-
-  const oaIdx = () => rbData ? rbData.services.findIndex(s => /open\s*ai/i.test(String(s || ''))) : -1;
-  const lcIdx = () => rbData ? rbData.services.findIndex(s => /live\s*chat/i.test(String(s || ''))) : -1;
-  // mga column na IPINAPAKITA dito (lahat maliban sa LiveChat)
-  const visibleCols = () => rbData.services.map((_, k) => k).filter(k => k !== lcIdx());
-
-  async function loadMonthOpenAi(start, end) {
-    try {
-      const path = `/openai-billing/summary?range=custom&start=${start}&end=${end}&account=all&compare=false`;
-      const [sumResult, rateRes] = await Promise.all([
-        (typeof window.fetchOpenAiSummary === 'function')
-          ? window.fetchOpenAiSummary(path)
-          : fetch(`${RB_API}${path}`, { headers: authHeaders() }).then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
-        fetch('https://open.er-api.com/v6/latest/USD').catch(() => null),
-      ]);
-      const limited = sumResult.status === 429 || /429|rate limit/i.test(JSON.stringify(sumResult.data || ''));
-      if (limited) return { ok: false, limited: true, byDivision: new Map(), unmatched: [] };
-      if (!sumResult.ok) throw new Error('openai-billing HTTP ' + sumResult.status);
-      const sum = sumResult.data;
-      let rate = null;
-      if (rateRes && rateRes.ok) { const r = await rateRes.json(); rate = r && r.rates && r.rates.PHP ? r.rates.PHP : null; }
-      if (!rate) throw new Error('no USD->PHP rate');
-      const accounts = (sum.byAccount && sum.byAccount.length)
-        ? sum.byAccount
-        : [{ name: sum.account || 'OpenAI', totalUsd: sum.totalUsd || 0 }];
-      const divNorms = new Map(rbData ? rbData.divisions.map(d => [norm(d.name), d.name]) : []);
-      const byDivision = new Map(); const unmatched = [];
-      for (const a of accounts) {
-        const aliased = OPENAI_ACCOUNT_TO_DIVISION[a.name];
-        let divName = aliased && divNorms.get(norm(aliased)) ? divNorms.get(norm(aliased)) : null;
-        if (!divName) {
-          const n = norm(a.name);
-          divName = divNorms.get(n) || null;
-          if (!divName) for (const [dn, orig] of divNorms) { if (dn && n && (n.includes(dn) || dn.includes(n))) { divName = orig; break; } }
-        }
-        const php = Math.round((a.totalUsd || 0) * rate * 100) / 100;
-        if (divName) byDivision.set(divName, (byDivision.get(divName) || 0) + php);
-        else if ((a.totalUsd || 0) > 0) unmatched.push(a.name + ' ($' + (a.totalUsd || 0).toFixed(2) + ')');
-      }
-      return { ok: true, byDivision, unmatched, limited: false };
-    } catch (err) {
-      console.warn('Open AI month column unavailable:', err.message);
-      return { ok: false, byDivision: new Map(), unmatched: [], limited: false };
+  function staticLookup(map, divName) {
+    const n = norm(divName);
+    for (const k of Object.keys(map)) {
+      const kn = norm(k);
+      if (kn === n || kn.includes(n) || n.includes(kn)) return map[k];
     }
+    return null;
   }
-
-  // Fixed historical months: kapag nakuha na, HINDI na ire-refetch — ang
-  // bawat buwan ay maaaring umubos ng ilang OpenAI Costs calls (10/min ang
-  // limit), kaya ang hindi pa nakukuhang buwan LANG ang sinusubukan ulit.
-  async function loadSeptOpenAi() {
-    if (!septOpenAi.ok) {
-      septOpenAi = await loadMonthOpenAi(SEPT_START, SEPT_END);
-      if (!rbEditing && rbData) rbRender();   // ipakita agad ang Sept habang hinihintay ang Aug
-    }
-    if (!augOpenAi.ok) augOpenAi = await loadMonthOpenAi('2026-08-01', '2026-08-31');
-    if (!septOpenAi.ok || !augOpenAi.ok) {
-      // 70s: siguradong sariwa na ang per-minute allowance bago ang susunod
-      setTimeout(() => { loadSeptOpenAi().then(() => { if (!rbEditing && rbData) rbRender(); }); }, 70000);
-    }
-  }
+  const septOpenAi = { ok: true };
+  const augOpenAi = { ok: Object.keys(AUG_OPENAI_PHP).length > 0 };
+  septOpenAi.get = d => staticLookup(SEPT_OPENAI_PHP, d);
+  augOpenAi.get = d => staticLookup(AUG_OPENAI_PHP, d);
 
   // vals na may Sept OpenAI overlay (render lang, hindi sine-save)
   function effectiveVals(div) {
     const idx = oaIdx();
     const out = div.vals.slice();
-    if (idx >= 0) out[idx] = septOpenAi.ok ? (septOpenAi.byDivision.get(div.name) ?? null) : null;
+    if (idx >= 0) out[idx] = septOpenAi.get(div.name);
     return out;
   }
 
@@ -2868,7 +2833,6 @@ TicketData.fetchTickets()
       if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
       rbEditing = false;
       rbMeta = { updatedAt: new Date().toISOString(), updatedBy: 'you' };
-      await loadSeptOpenAi();
       rbRender();
     } catch (err) {
       console.error('Billing save failed:', err);
@@ -2914,9 +2878,9 @@ TicketData.fetchTickets()
 
     const head = '<tr><th>Division</th>' + cols.map(k =>
       `<th>${esc(d.services[k])}${k === ok
-        ? `<span class="cb-date">${septOpenAi.ok ? 'September 2026' : 'Sept · unavailable'}</span>`
+        ? `<span class="cb-date">September 2026</span>`
         : ((d.dates || [])[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : '')}</th>`
-      + (k === ok ? `<th style="color:var(--ink-faint,#94A3B8);">Open AI<span class="cb-date">${augOpenAi.ok ? 'August 2026 · reference' : 'Aug · loading…'}</span></th>` : '')).join('')
+      + (k === ok ? `<th style="color:var(--ink-faint,#94A3B8);">Open AI<span class="cb-date">${augOpenAi.ok ? 'August 2026 · reference' : 'Aug · pending data'}</span></th>` : '')).join('')
       + '<th>Total</th>' + (rbEditing ? '<th></th>' : '') + '</tr>';
 
     const order = d.divisions.map((_, i) => i);
@@ -2930,32 +2894,26 @@ TicketData.fetchTickets()
           <td><input class="cb-input cb-name" value="${esc(div.name)}"></td>
           ${cols.map(k => (k === ok
             ? `<td style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(eff[k])}<br>auto (Sept)</td>`
-              + `<td style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(augOpenAi.ok ? (augOpenAi.byDivision.get(div.name) ?? null) : null)}<br>auto (Aug)</td>`
+              + `<td style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(augOpenAi.get(div.name))}<br>auto (Aug)</td>`
             : `<td><input class="cb-input cb-val" data-k="${k}" inputmode="decimal" value="${div.vals[k] == null ? '' : div.vals[k]}"></td>`)).join('')}
           <td class="cb-total cb-rowtotal">${fmt(totals[i])}</td>
           <td><button class="cb-rowdel" title="Remove division" data-i="${i}">✕</button></td>
         </tr>`;
       }
       return `<tr><td>${esc(div.name)}</td>${cols.map(k => `<td>${fmt(eff[k])}</td>`
-        + (k === ok ? `<td style="color:var(--ink-faint,#94A3B8);">${fmt(augOpenAi.ok ? (augOpenAi.byDivision.get(div.name) ?? null) : null)}</td>` : '')).join('')}<td class="cb-total">${fmt(totals[i])}</td></tr>`;
+        + (k === ok ? `<td style="color:var(--ink-faint,#94A3B8);">${fmt(augOpenAi.get(div.name))}</td>` : '')).join('')}<td class="cb-total">${fmt(totals[i])}</td></tr>`;
     }).join('');
 
-    const augTotal = augOpenAi.ok
-      ? Array.from(augOpenAi.byDivision.entries())
-          .filter(([name]) => d.divisions.some(dv => dv.name === name))
-          .reduce((a, [, v]) => a + v, 0) || null
-      : null;
+    const augTotal = (() => {
+      const vals = d.divisions.map(dv => augOpenAi.get(dv.name)).filter(v => v != null);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+    })();
     const foot = `<tr><td>ALL DIVISIONS</td>${svcTotals.map((v, ci) => `<td>${fmt(v)}</td>`
       + (cols[ci] === ok ? `<td style="color:var(--ink-faint,#94A3B8);">${fmt(augTotal)}</td>` : '')).join('')}<td>${fmt(grand || null)}</td>${rbEditing ? '<td></td>' : ''}</tr>`;
 
-    const liveNote = septOpenAi.ok
-      ? (septOpenAi.unmatched.length
-          ? `<div class="cb-note" style="margin-top:8px;color:var(--warning,#F59E0B);">Open AI accounts not matched to a division: ${esc(septOpenAi.unmatched.join(', '))}</div>` : '')
-      : (septOpenAi.limited
-          ? `<div class="cb-note" style="margin-top:8px;">⏳ Open AI column is waiting on OpenAI's rate limit — it fills in on its own in about a minute.</div>`
-          : `<div class="cb-note" style="margin-top:8px;">September Open AI figures unavailable right now — totals shown without them.</div>`);
+    const liveNote = '';
     const augWait = !augOpenAi.ok
-      ? `<div class="cb-note" style="margin-top:6px;">⏳ Hinihintay pa ang August Open AI figures — dahil sa 10-per-minute limit ng OpenAI, mapupunan ito nang kusa sa loob ng 1–2 minuto. Huwag i-refresh.</div>` : '';
+      ? `<div class="cb-note" style="margin-top:6px;">Ang August Open AI column ay wala pang datos — ibibigay pa ang figures.</div>` : '';
     const augNote = `<div class="cb-note" style="margin-top:6px;">Ang "Open AI — August 2026" column ay reference lang (comparison) — HINDI kasama sa Total at Grand Total.</div>`;
     const noteHtml = rbEditing
       ? `<div style="margin-top:12px;"><input class="cb-input" id="rbNoteInput" style="width:100%;text-align:left;font-weight:500;" placeholder="Optional note shown under the table" value="${esc(d.note || '')}"></div>`
@@ -2971,7 +2929,7 @@ TicketData.fetchTickets()
         const nums = [...tr.querySelectorAll('.cb-val')]
           .map(x => parseFloat(x.value.replace(/[₱,\s]/g, ''))).filter(n => !isNaN(n));
         const origI = Number(tr.dataset.orig);
-        const oa = septOpenAi.ok ? septOpenAi.byDivision.get(rbData.divisions[origI]?.name) : null;
+        const oa = septOpenAi.get(rbData.divisions[origI]?.name);
         if (oa != null) nums.push(oa);
         tr.querySelector('.cb-rowtotal').innerHTML = nums.length ? money(nums.reduce((a, b) => a + b, 0)) : '<span class="cb-dim">—</span>';
       }));
@@ -3001,7 +2959,7 @@ TicketData.fetchTickets()
     const btn = e.target.closest('.subtab');
     if (btn && btn.dataset.page === 'billing' && !rbLoaded) {
       rbLoaded = true;
-      (async () => { await rbLoad(); await loadSeptOpenAi(); if (rbData && !rbEditing) rbRender(); })();
+      rbLoad();
     }
   });
 })();
