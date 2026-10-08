@@ -2779,12 +2779,18 @@ TicketData.fetchTickets()
     }
   }
 
+  // Fixed historical months: kapag nakuha na, HINDI na ire-refetch — ang
+  // bawat buwan ay maaaring umubos ng ilang OpenAI Costs calls (10/min ang
+  // limit), kaya ang hindi pa nakukuhang buwan LANG ang sinusubukan ulit.
   async function loadSeptOpenAi() {
-    septOpenAi = await loadMonthOpenAi(SEPT_START, SEPT_END);
-    // Aug pagkatapos ng Sept para hindi sabay kumagat sa 10/min rate limit
-    augOpenAi = await loadMonthOpenAi('2026-08-01', '2026-08-31');
-    if (septOpenAi.limited || augOpenAi.limited) {
-      setTimeout(() => { loadSeptOpenAi().then(() => { if (!rbEditing && rbData) rbRender(); }); }, 65000);
+    if (!septOpenAi.ok) {
+      septOpenAi = await loadMonthOpenAi(SEPT_START, SEPT_END);
+      if (!rbEditing && rbData) rbRender();   // ipakita agad ang Sept habang hinihintay ang Aug
+    }
+    if (!augOpenAi.ok) augOpenAi = await loadMonthOpenAi('2026-08-01', '2026-08-31');
+    if (!septOpenAi.ok || !augOpenAi.ok) {
+      // 70s: siguradong sariwa na ang per-minute allowance bago ang susunod
+      setTimeout(() => { loadSeptOpenAi().then(() => { if (!rbEditing && rbData) rbRender(); }); }, 70000);
     }
   }
 
@@ -2910,7 +2916,7 @@ TicketData.fetchTickets()
       `<th>${esc(d.services[k])}${k === ok
         ? `<span class="cb-date">${septOpenAi.ok ? 'September 2026' : 'Sept · unavailable'}</span>`
         : ((d.dates || [])[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : '')}</th>`
-      + (k === ok ? `<th style="color:var(--ink-faint,#94A3B8);">Open AI<span class="cb-date">${augOpenAi.ok ? 'August 2026 · reference' : 'Aug · unavailable'}</span></th>` : '')).join('')
+      + (k === ok ? `<th style="color:var(--ink-faint,#94A3B8);">Open AI<span class="cb-date">${augOpenAi.ok ? 'August 2026 · reference' : 'Aug · loading…'}</span></th>` : '')).join('')
       + '<th>Total</th>' + (rbEditing ? '<th></th>' : '') + '</tr>';
 
     const order = d.divisions.map((_, i) => i);
@@ -2948,6 +2954,8 @@ TicketData.fetchTickets()
       : (septOpenAi.limited
           ? `<div class="cb-note" style="margin-top:8px;">⏳ Open AI column is waiting on OpenAI's rate limit — it fills in on its own in about a minute.</div>`
           : `<div class="cb-note" style="margin-top:8px;">September Open AI figures unavailable right now — totals shown without them.</div>`);
+    const augWait = !augOpenAi.ok
+      ? `<div class="cb-note" style="margin-top:6px;">⏳ Hinihintay pa ang August Open AI figures — dahil sa 10-per-minute limit ng OpenAI, mapupunan ito nang kusa sa loob ng 1–2 minuto. Huwag i-refresh.</div>` : '';
     const augNote = `<div class="cb-note" style="margin-top:6px;">Ang "Open AI — August 2026" column ay reference lang (comparison) — HINDI kasama sa Total at Grand Total.</div>`;
     const noteHtml = rbEditing
       ? `<div style="margin-top:12px;"><input class="cb-input" id="rbNoteInput" style="width:100%;text-align:left;font-weight:500;" placeholder="Optional note shown under the table" value="${esc(d.note || '')}"></div>`
@@ -2955,7 +2963,7 @@ TicketData.fetchTickets()
 
     wrap.innerHTML = (d.divisions.length || rbEditing
       ? `<table class="cb-table"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`
-      : '<div class="cb-empty">No billing data yet.</div>') + noteHtml + liveNote + augNote;
+      : '<div class="cb-empty">No billing data yet.</div>') + noteHtml + liveNote + augWait + augNote;
 
     if (rbEditing) {
       wrap.querySelectorAll('.cb-val').forEach(inp => inp.addEventListener('input', (e) => {
