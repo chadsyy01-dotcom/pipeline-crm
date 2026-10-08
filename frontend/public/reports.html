@@ -2754,6 +2754,15 @@ TicketData.fetchTickets()
     }
     return null;
   }
+  const peso = v => { if (v == null) return null; const n = parseFloat(String(v).replace(/[₱,\s]/g, '')); return isNaN(n) ? null : n; };
+  const money = n => n == null ? null : '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = n => n == null ? '<span class="cb-dim">—</span>' : money(n);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const authHeaders = () => ({ Authorization: 'Bearer ' + localStorage.getItem('pipeline_token') });
+  const oaIdx = () => rbData ? rbData.services.findIndex(s => /open\s*ai/i.test(String(s || ''))) : -1;
+  const lcIdx = () => rbData ? rbData.services.findIndex(s => /live\s*chat/i.test(String(s || ''))) : -1;
+  const visibleCols = () => rbData.services.map((_, k) => k).filter(k => k !== lcIdx());
+
   const septOpenAi = { ok: true };
   const augOpenAi = { ok: Object.keys(AUG_OPENAI_PHP).length > 0 };
   septOpenAi.get = d => staticLookup(SEPT_OPENAI_PHP, d);
