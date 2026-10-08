@@ -259,6 +259,8 @@
     .panel{box-shadow:none;border:1px solid var(--rule);break-inside:avoid;}
     .tall{max-height:none;overflow:visible;}
   }
+  /* PINNED SEPT (2026-10-08): nakatago ang date filter habang fixed sa September ang report */
+  #rpWrap{display:none !important;}
 </style>
 </head>
 <body>
@@ -855,14 +857,18 @@ const PRESET_LABELS = { today: 'Today', yesterday: 'Yesterday', '7d': 'Last 7 Da
 // Report + comparison ranges for a preset. Custom uses the dates held in
 // customRange; its comparison is the one the user gave, or the equal stretch
 // just before.
-let currentPreset = 'month';
+let currentPreset = 'sep2026';   // PINNED (2026-10-08): buong page ay fixed sa September 2026 — tinanggal ang date filter sa UI
 let customRange = null;   // { from, to, cFrom, cTo } as Date objects (cFrom/cTo optional)
 
 function buildPeriods(preset) {
   const today = startOfDay(new Date());
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   let bStart, bEnd, aStart, aEnd;
-  if (preset === 'today') { bStart = today; bEnd = today; }
+  if (preset === 'sep2026') {   // PINNED September 2026 (comparison: August 2026)
+    bStart = new Date(2026, 8, 1); bEnd = new Date(2026, 8, 30);
+    aStart = new Date(2026, 7, 1); aEnd = new Date(2026, 7, 31);
+  }
+  else if (preset === 'today') { bStart = today; bEnd = today; }
   else if (preset === 'yesterday') { bStart = addDays(today, -1); bEnd = bStart; }
   else if (preset === '7d') { bStart = addDays(today, -6); bEnd = today; }
   else if (preset === '30d') { bStart = addDays(today, -29); bEnd = today; }
