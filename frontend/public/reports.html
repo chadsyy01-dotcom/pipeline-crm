@@ -2437,11 +2437,10 @@ TicketData.fetchTickets()
 
   const pct = (n, d) => d ? (n / d * 100).toFixed(1) + '%' : '—';
   const dayKey = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  const concernOf = t => {
-    const c = (t.category || '').replace(/[^\w\s\/&-]/g, '').trim() || '(no category)';
-    const s = (t.issue && t.issue !== c && t.issue !== '—') ? t.issue : '';
-    return c + (s ? ' • ' + s : '');
-  };
+  // PAREHONG grouping ng "Top 5 ticket concerns" (t.issue = subcategory,
+  // fallback sa category) para magtugma ang numbers sa dalawang panel.
+  const concernOf = t => (t.issue && t.issue !== '—') ? t.issue
+    : ((t.category || '').replace(/[^\w\s\/&-]/g, '').trim() || '(no category)');
   const isDone = t => t.statusCls === 'done';
   const isRej = t => t.statusCls === 'rejected';
 
