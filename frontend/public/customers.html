@@ -1374,6 +1374,13 @@
   // Habang hindi pa tapos at wala pang sagot → WAITING (kahit gaano katagal).
   // Kapag may sagot na ang agent (kahit late), hindi na kailanman missed.
   const AUTO_CLOSE_MIN = 10;
+  // Bot message na nagsasabing ililipat sa live agent ("transfer notice").
+  // Dagdagan ang listahan kapag may bagong wording ang bot.
+  const TRANSFER_RE = /(transfer|ililipat|lilipat|live agent|human agent|real agent|\bcsr\b|connect(ing)? you|ikokonekta|kokonekta|an? agent will|our (support )?agent|please wait|paki-?hintay|hintayin|wait (lang|po))/i;
+  // Rating/survey prompt pagkatapos ng chat — hindi ito sagot sa player.
+  const CLOSING_RE = /(rate|rating|survey|feedback|experience|kumusta ang iyong|i-?rate)/i;
+  function isTransferNotice(text) { return TRANSFER_RE.test(String(text || '')); }
+  function isClosingPrompt(text) { return CLOSING_RE.test(String(text || '')); }
   function chatStatusKey(c) {
     const idleMin = c.lastActivityAt ? (Date.now() - new Date(c.lastActivityAt).getTime()) / 60000 : Infinity;
     const ended = idleMin >= AUTO_CLOSE_MIN
@@ -1389,7 +1396,15 @@
     // Ang bot na "Rate our support" ay hindi bilang na agent reply.
     const agentSpokeLast = c.lastMessageSenderType === 'user' && c.lastMessageSender
       && !isBotClient(c.brand, c.lastMessageSender);
-    if (c.handoffStage && !answered && !agentSpokeLast) {
+    // FIX 2026-10-10 (rule ni Chad): Missed Chat = TALAGANG na-transfer ng
+    // bot sa human agent, walang sumagot na agent, at nag-close na. Kung ang
+    // BOT ang huling sumagot ng tunay na sagot (hindi transfer notice at
+    // hindi rating/survey prompt), ang bot pa ang humahawak ng usapan —
+    // hindi ito naiwan, kaya HINDI missed.
+    const botSpokeLast = c.lastMessageSenderType === 'user' && c.lastMessageSender
+      && isBotClient(c.brand, c.lastMessageSender);
+    const botStillHandling = botSpokeLast && !isTransferNotice(c.lastMessage) && !isClosingPrompt(c.lastMessage);
+    if (c.handoffStage && !answered && !agentSpokeLast && !botStillHandling) {
       if (ended) return { cls: 'missed', label: 'Missed Chat' };
       return { cls: 'waiting', label: 'Waiting' };
     }
@@ -1943,23 +1958,28 @@
     const conv = (allConversations || []).find(c => String(c.conversationId) === String(currentThreadConvId));
     const sk = conv ? chatStatusKey(conv) : null;
     const hoIdx = withContent.findIndex(m => m.handoffStage);
-    const lastHumanIdx = withContent.reduce((acc, m, i) => isHumanMsg(m) ? i : acc, -1);
+    // "Tunay na sagot" = reply ng tao, O reply ng bot na hindi transfer
+    // notice / rating prompt (ibig sabihin, ang bot pa ang humahawak).
+    const isRealReply = m => m.senderType === 'user' && m.senderName &&
+      (isHumanMsg(m) || (!isTransferNotice(m.content) && !isClosingPrompt(m.content)));
+    const lastRealReplyIdx = withContent.reduce((acc, m, i) => isRealReply(m) ? i : acc, -1);
+    // Ang transfer point: unang transfer notice ng bot pagkatapos ng huling
+    // tunay na sagot; kung wala, ang unang event na may handoff info.
+    const transferIdx = withContent.findIndex((m, i) => i > lastRealReplyIdx &&
+      m.senderType === 'user' && !isHumanMsg(m) && isTransferNotice(m.content));
+    const markIdx = transferIdx >= 0 ? transferIdx : hoIdx;
     const flagged = new Set();
     if (sk && (sk.cls === 'missed' || sk.cls === 'waiting')) {
-      // Mga mensahe ng player mula sa handoff (o simula, kung hindi alam)
-      // na wala nang kasunod na sagot ng tao.
-      const from = Math.max(hoIdx >= 0 ? hoIdx : 0, lastHumanIdx + 1);
-      withContent.forEach((m, i) => { if (i >= from && m.senderType === 'contact') flagged.add(i); });
+      // Mga mensahe ng player pagkatapos ng huling tunay na sagot — ito ang
+      // naiwan nang ilipat sa agent at walang sumagot.
+      withContent.forEach((m, i) => { if (i > lastRealReplyIdx && m.senderType === 'contact') flagged.add(i); });
     }
     let banner = '';
     if (sk && sk.cls === 'missed') {
-      const ho = hoIdx >= 0 ? withContent[hoIdx] : null;
+      const ho = markIdx >= 0 ? withContent[markIdx] : null;
       const hoWhen = ho && ho.createdAt ? new Date(ho.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
-      const botsAfter = [...new Set(withContent.slice(Math.max(hoIdx, 0))
-        .filter(m => m.senderType === 'user' && m.senderName && isBotClient(m.brand, m.senderName)).map(m => m.senderName))];
-      banner = `<div class="miss-banner"><b>Bakit Missed Chat:</b> ${ho ? `na-handoff sa live agent noong <b>${escapeHtml(hoWhen)}</b>` : 'na-handoff sa live agent'} pero <b>walang sumagot na totoong agent</b> bago natapos ang usapan.`
-        + (botsAfter.length ? ` Ang sumagot ay <b>bot</b> lang (${botsAfter.map(escapeHtml).join(', ')}) — hindi ito bilang na agent reply.` : '')
-        + (flagged.size ? ` Naka-pula ang ${flagged.size} mensahe ng player na hindi nasagot.` : '') + `</div>`;
+      banner = `<div class="miss-banner"><b>Bakit Missed Chat:</b> ${ho ? `na-transfer sa human agent noong <b>${escapeHtml(hoWhen)}</b>` : 'na-transfer sa human agent'} pero <b>walang sumagot na agent</b> at natapos na ang chat.`
+        + (flagged.size ? ` Naka-pula ang ${flagged.size} mensahe ng player na naiwang walang sagot.` : '') + `</div>`;
     }
 
     body.innerHTML = banner + withContent.map((m, idx) => {
@@ -1987,8 +2007,8 @@
       bubbleHtml += renderAttachments(attachmentsOf(m), !!bubbleHtml);
       const isBotMsg = m.senderType === 'user' && isBotClient(m.brand, m.senderName);
       const missed = flagged.has(idx);
-      const divider = idx === hoIdx
-        ? `<div class="ho-divider"><span>Na-handoff sa live agent${when ? ' · ' + escapeHtml(when) : ''}</span></div>` : '';
+      const divider = (sk && (sk.cls === "missed" || sk.cls === "waiting") && idx === markIdx)
+        ? `<div class="ho-divider"><span>Na-transfer sa human agent${when ? ' · ' + escapeHtml(when) : ''}</span></div>` : '';
       return `${divider}
         <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${missed ? ' msg-missed' : ''}">
           <div class="msg-meta">${escapeHtml(who)}${isBotMsg ? ' <span class="bot-tag">BOT</span>' : ''} · ${escapeHtml(when)}</div>
