@@ -28,6 +28,7 @@ app.use('/api/billing', require('./routes/billing'));
 app.use('/api/kb', require('./routes/kb'));
 app.use('/api/qa', require('./routes/qa-kb')); // KB Accuracy QA (added 2026-09-22) — needs OPENAI_API_KEY
 app.use('/api/chat', require('./routes/chat-search')); // Chat-content search para sa Customers page (2026-09-24)
+app.use('/api/divbilling', require('./routes/divbilling'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
