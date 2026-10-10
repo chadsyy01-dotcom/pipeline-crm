@@ -194,6 +194,23 @@
   .handoff-pill.closed{background:var(--success-tint);color:var(--success);}
   .handoff-pill.handoff{background:var(--purple-tint);color:var(--purple);}
   .handoff-pill.none{color:var(--ink-faint);}
+  /* BAGONG CHAT STATUS (2026-10-10, utos ni Chad):
+     Ongoing Chats (green) = may human agent na aktibong nakikipag-chat
+     Closed (gray) = 10 min nang walang bagong mensahe; bumabalik sa Ongoing
+                     kapag nag-reply ulit ang player (lastActivityAt gumagalaw)
+     Missed Chat (red) = handoff na 3+ min walang human reply at hindi na nasagot
+     Waiting (amber) = handoff, wala pang 3 min — hinihintay pa ang agent
+     Late reply = Ongoing/Closed na pero may pulang "MISSED 3MIN" remark */
+  .status.ongoing{background:var(--success-tint);color:var(--success);}
+  .status.ongoing::before{background:var(--success);}
+  .status.closedx{background:#F1F5F9;color:var(--ink-soft);}
+  .status.closedx::before{background:var(--ink-faint);}
+  .status.missed{background:var(--danger-tint);color:var(--danger);}
+  .status.missed::before{background:var(--danger);}
+  .status.waiting{background:var(--warning-tint);color:var(--warning);}
+  .status.waiting::before{background:var(--warning);}
+  .late-tag{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.02em;padding:2px 7px;border-radius:20px;background:var(--danger-tint);color:var(--danger);margin-top:4px;}
+  .concern-pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;background:var(--primary-tint);color:var(--primary);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
 
   /* CONVERSATION MODAL */
   .modal-overlay{
@@ -564,7 +581,7 @@
               <th>IP</th>
               <th>Last Message</th>
               <th>Status</th>
-              <th>Handoff</th>
+              <th>Concern</th>
               <th>First Reply Time</th>
               <th>Chatting Time</th>
               <th>Updated</th>
@@ -1240,6 +1257,31 @@
     return `<span class="handoff-pill ${stage}">${labels[stage]}</span>`;
   }
 
+  // ---- BAGONG STATUS LOGIC (2026-10-10) ----
+  // Batay sa handoffStage + ftr (segundo mula handoff hanggang unang human
+  // reply) + lastActivityAt. Ang 3 minuto ang missed-SLA (opisyal na rule,
+  // Oct 7) at 10 minutong katahimikan ang auto-close. Kapag nag-message
+  // ulit ang player, umuusad ang lastActivityAt kaya bumabalik sa Ongoing.
+  const MISSED_SLA_SEC = 180, AUTO_CLOSE_MIN = 10;
+  function chatStatusHtml(c) {
+    const idleMin = c.lastActivityAt ? (Date.now() - new Date(c.lastActivityAt).getTime()) / 60000 : Infinity;
+    const lateReply = c.ftr != null && c.ftr > MISSED_SLA_SEC;
+    const answered = c.handoffStage === 'opened' || c.handoffStage === 'closed' || c.ftr != null;
+    let cls, label;
+    if (c.handoffStage === 'pending' && !answered) {
+      if (idleMin >= MISSED_SLA_SEC / 60) { cls = 'missed'; label = 'Missed Chat'; }
+      else { cls = 'waiting'; label = 'Waiting'; }
+    } else if (idleMin >= AUTO_CLOSE_MIN) { cls = 'closedx'; label = 'Closed'; }
+    else { cls = 'ongoing'; label = 'Ongoing Chats'; }
+    const tag = (lateReply && cls !== 'missed') ? '<br><span class="late-tag" title="Lumagpas sa 3 minuto bago nakasagot ang agent">MISSED 3MIN</span>' : '';
+    return `<span class="status ${cls}">${label}</span>${tag}`;
+  }
+
+  function concernPillHtml(c) {
+    if (c.concern) return `<span class="concern-pill" title="${escapeHtml(c.concern)}">${escapeHtml(c.concern)}</span>`;
+    return '<span class="handoff-pill none">—</span>';
+  }
+
   function renderConversations(conversations) {
     const tbody = document.getElementById('convBody');
     if (conversations.length === 0) {
@@ -1279,8 +1321,8 @@
           <td><span class="c-brand">${escapeHtml(brandLabel(c.brand))}</span></td>
           <td><div class="c-ip">${c.customerIp ? escapeHtml(c.customerIp) : '\u2014'}</div></td>
           <td><div class="c-preview ${c.lastMessage || hasFeedback ? '' : 'empty'}" style="display:flex;align-items:center;">${csatBadge}${sevPill}${c.lastMessage || hasFeedback ? preview : 'No messages yet'}</div></td>
-          <td><span class="status ${si.cls}">${escapeHtml(si.label)}</span></td>
-          <td>${handoffPillHtml(c.handoffStage)}</td>
+          <td>${chatStatusHtml(c)}</td>
+          <td>${concernPillHtml(c)}</td>
           <td><div class="c-time">${formatDuration(c.ftr)}</div></td>
           <td><div class="c-time">${formatDuration(c.art)}</div></td>
           <td><div class="c-time">${timeAgo(c.lastActivityAt)}</div></td>
