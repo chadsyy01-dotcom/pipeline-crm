@@ -186,9 +186,29 @@
   /* GRID PANELS */
   .grid-4{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;align-items:start;}
   .grid-3{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin-bottom:20px;align-items:start;}
-  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;
+    position:relative;overflow:hidden;transition:transform .16s ease, box-shadow .16s ease;}
+  .panel:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(15,23,42,.05),0 16px 34px -16px rgba(15,23,42,.18);}
+  /* PANEL ACCENTS (2026-10-10): manipis na gradient strip sa itaas ng bawat
+     card + icon chip sa header — para may sariling identity bawat panel. */
+  .panel::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:transparent;}
+  .panel.acc-blue::before{background:linear-gradient(90deg,#2563EB,#60A5FA);}
+  .panel.acc-red::before{background:linear-gradient(90deg,#EF4444,#FCA5A5);}
+  .panel.acc-amber::before{background:linear-gradient(90deg,#F59E0B,#FCD34D);}
+  .panel.acc-teal::before{background:linear-gradient(90deg,#14B8A6,#5EEAD4);}
+  .panel.acc-purple::before{background:linear-gradient(90deg,#8B5CF6,#C4B5FD);}
+  .panel.acc-green::before{background:linear-gradient(90deg,#22C55E,#86EFAC);}
   .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
-  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:9px;flex:1 1 auto;min-width:0;}
+  .panel-head .view-all{white-space:nowrap;}
+  .ph-ic{width:27px;height:27px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ph-ic svg{width:15px;height:15px;}
+  .empty-hero{display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 10px 20px;text-align:center;}
+  .empty-hero .eh-ic{width:52px;height:52px;border-radius:50%;background:var(--success-tint);color:var(--success);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 8px rgba(34,197,94,.08);}
+  .empty-hero .eh-ic svg{width:26px;height:26px;}
+  .empty-hero .eh-t{font-size:13.5px;font-weight:800;color:var(--success);}
+  .empty-hero .eh-s{font-size:11.5px;color:var(--ink-faint);}
   .panel-head .view-all{font-size:12px;color:var(--primary);font-weight:600;}
 
   .queue-item{display:flex;align-items:center;gap:11px;padding:12px 10px;border-radius:10px;margin-bottom:6px;transition:background .15s;cursor:pointer;text-decoration:none;color:inherit;}
@@ -557,16 +577,16 @@
     </div>
 
     <div class="grid-3">
-      <div class="panel">
-        <div class="panel-head"><h3>Needs Attention — Waiting for Agent</h3><a class="view-all" href="/customers">View all</a></div>
+      <div class="panel acc-amber">
+        <div class="panel-head"><h3><span class="ph-ic" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg></span>Needs Attention — Waiting for Agent</h3><a class="view-all" href="/customers">View all</a></div>
         <div id="chatPendingList"><div class="empty-note">Loading…</div></div>
       </div>
-      <div class="panel">
-        <div class="panel-head"><h3>Chats by Brand (<span class="chat-range-tag">Today</span>)</h3></div>
+      <div class="panel acc-blue">
+        <div class="panel-head"><h3><span class="ph-ic" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>Chats by Brand (<span class="chat-range-tag">Today</span>)</h3></div>
         <div id="chatByBrand"><div class="empty-note">Loading…</div></div>
       </div>
-      <div class="panel">
-        <div class="panel-head"><h3>DSAT by Brand (<span class="chat-range-tag">Today</span>)</h3></div>
+      <div class="panel acc-red">
+        <div class="panel-head"><h3><span class="ph-ic" style="background:var(--danger-tint);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/></svg></span>DSAT by Brand (<span class="chat-range-tag">Today</span>)</h3></div>
         <div id="chatDsatByBrand"><div class="empty-note">Loading…</div></div>
       </div>
     </div>
@@ -580,9 +600,9 @@
          Sheet. Kept as two separate panels since the two sources match
          names with very different reliability. -->
     <div class="grid-4" style="margin-bottom:20px;">
-      <div class="panel">
+      <div class="panel acc-teal">
         <div class="panel-head">
-          <h3>Top 5 Players — Most Chats (<span class="chat-range-tag">Today</span>)</h3>
+          <h3><span class="ph-ic" style="background:var(--teal-tint,#E9FAF8);color:var(--teal,#14B8A6);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>Top 5 Players — Most Chats (<span class="chat-range-tag">Today</span>)</h3>
           <a class="view-all" href="/customers">Open Customers →</a>
         </div>
         <div class="table-wrap">
@@ -593,9 +613,9 @@
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel acc-purple">
         <div class="panel-head">
-          <h3>Top 5 Players — Most Ticket Requests (<span class="chat-range-tag">Today</span>)</h3>
+          <h3><span class="ph-ic" style="background:var(--purple-tint,#F3EEFE);color:var(--purple,#8B5CF6);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></span>Top 5 Players — Most Ticket Requests (<span class="chat-range-tag">Today</span>)</h3>
           <a class="view-all" href="/tickets">Open Tickets →</a>
         </div>
         <div class="table-wrap">
@@ -670,9 +690,9 @@
     </div>
 
     <!-- TOP TICKET CONCERNS -->
-    <div class="panel" style="margin-bottom:14px;">
+    <div class="panel acc-amber" style="margin-bottom:14px;">
       <div class="panel-head">
-        <h3>Top 5 Ticket Concerns (<span class="ticket-range-tag">Today</span>)</h3>
+        <h3><span class="ph-ic" style="background:var(--warning-tint);color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span>Top 5 Ticket Concerns (<span class="ticket-range-tag">Today</span>)</h3>
       </div>
       <div id="topConcerns">
         <div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">Loading…</div></div>
@@ -681,8 +701,8 @@
 
     <!-- QUEUE / ACTIVITY / PERFORMANCE / ALERTS -->
     <div class="grid-4">
-      <div class="panel">
-        <div class="panel-head"><h3>Ticket Status Breakdown (<span class="ticket-range-tag">Today</span>)</h3></div>
+      <div class="panel acc-green">
+        <div class="panel-head"><h3><span class="ph-ic" style="background:var(--success-tint);color:var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 118 2.83"/><path d="M22 12A10 10 0 0012 2v10z"/></svg></span>Ticket Status Breakdown (<span class="ticket-range-tag">Today</span>)</h3></div>
         <div id="ticketQueue">
           <div class="queue-item"><div class="queue-name" style="color:var(--ink-faint);">Loading…</div></div>
         </div>
@@ -690,15 +710,15 @@
       </div>
 
 
-      <div class="panel">
-        <div class="panel-head"><h3>Tickets by Brand (<span class="ticket-range-tag">Today</span>)</h3></div>
+      <div class="panel acc-blue">
+        <div class="panel-head"><h3><span class="ph-ic" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></span>Tickets by Brand (<span class="ticket-range-tag">Today</span>)</h3></div>
         <div id="ticketByBrand"><div class="empty-note">Loading…</div></div>
       </div>
     </div>
 
     <!-- TEAM -->
-    <div class="panel" style="margin-bottom:14px;">
-      <div class="panel-head"><h3>Agents Active (<span class="ticket-range-tag">Today</span>)</h3><a href="/reports" class="view-all">Full report</a></div>
+    <div class="panel acc-purple" style="margin-bottom:14px;">
+      <div class="panel-head"><h3><span class="ph-ic" style="background:var(--purple-tint,#F3EEFE);color:var(--purple,#8B5CF6);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>Agents Active (<span class="ticket-range-tag">Today</span>)</h3><a href="/reports" class="view-all">Full report</a></div>
       <div style="overflow-x:auto;">
         <table class="team-table">
           <thead><tr><th>Agent</th><th class="num">Acked</th><th class="num">Resolved</th><th class="num">Rejected</th><th class="num">Avg Handle</th><th class="num">Last Active</th></tr></thead>
@@ -1234,7 +1254,7 @@ async function loadChatOverviewInner() {
       ? `<div class="empty-note" style="padding:8px 4px;font-size:11px;">${hiddenStale} finished/stale chat${hiddenStale === 1 ? '' : 's'} hidden (older than ${PENDING_STALE_HOURS}h or already surveyed).</div>`
       : '';
     if (!pending.length) {
-      listEl.innerHTML = '<div class="empty-note" style="color:var(--success);">No chats waiting for an agent — nice!</div>' + staleNote;
+      listEl.innerHTML = '<div class="empty-hero"><div class="eh-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div><div class="eh-t">All clear — no chats waiting for an agent</div><div class="eh-s">Bagong handoffs ay lalabas dito agad.</div></div>' + staleNote;
     } else {
       listEl.innerHTML = pending.slice(0, 6).map(c => {
         const waitedMin = (now - new Date(c.lastActivityAt)) / 60000;
