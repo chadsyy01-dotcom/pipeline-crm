@@ -680,17 +680,23 @@ router.get('/conversations', requireAuth, async (req, res) => {
       ? `rn <= CASE "brand" ${overrideKeys.map((_, i) => `WHEN :ob${i} THEN :on${i}`).join(' ')} ELSE :perBrand END`
       : 'rn <= :perBrand';
 
+    // ID COLLISION FIX (2026-10-10): magkahiwalay na Chatwoot installs ang
+    // bawat brand at pare-pareho silang nagsisimula sa conversation #1 — kaya
+    // ang TMTPLAY #2378 at HypePlay #2378 ay DALAWANG magkaibang usapan.
+    // Lahat ng grouping dito ay (brand, conversationId) na ang susi, hindi
+    // na conversationId lang (dating naghahalo ang threads/preview/FTR ng
+    // magkaibang brand na nagkataong magkapareho ang numero).
     const latestPerConversation = await sequelize.query(`
       SELECT "conversationId", "brand", "inboxName", "status", "lastActivityAt"
       FROM (
         SELECT latest.*,
                ROW_NUMBER() OVER (PARTITION BY "brand" ORDER BY "lastActivityAt" DESC) AS rn
         FROM (
-          SELECT DISTINCT ON ("conversationId")
+          SELECT DISTINCT ON ("brand", "conversationId")
             "conversationId", "brand", "inboxName", "status", "createdAt" AS "lastActivityAt"
           FROM "ChatwootEvents"
           WHERE "conversationId" IS NOT NULL ${brandClause} ${dateClause}
-          ORDER BY "conversationId", "createdAt" DESC
+          ORDER BY "brand", "conversationId", "createdAt" DESC
         ) latest
       ) ranked
       WHERE ${rnClause}
@@ -708,45 +714,45 @@ router.get('/conversations', requireAuth, async (req, res) => {
     const idsClause = 'AND "conversationId" IN (:selectedIds)';
 
     const latestContactPerConversation = await sequelize.query(`
-      SELECT DISTINCT ON ("conversationId")
-        "conversationId", "contactName", "contactEmail"
+      SELECT DISTINCT ON ("brand", "conversationId")
+        "conversationId", "brand", "contactName", "contactEmail"
       FROM "ChatwootEvents"
       WHERE "conversationId" IS NOT NULL AND "contactName" IS NOT NULL ${brandClause} ${idsClause}
-      ORDER BY "conversationId", "createdAt" DESC
+      ORDER BY "brand", "conversationId", "createdAt" DESC
     `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
     const latestMessagePerConversation = await sequelize.query(`
-      SELECT DISTINCT ON ("conversationId")
-        "conversationId", "content", "senderName", "senderType", "createdAt" AS "lastMessageAt"
+      SELECT DISTINCT ON ("brand", "conversationId")
+        "conversationId", "brand", "content", "senderName", "senderType", "createdAt" AS "lastMessageAt"
       FROM "ChatwootEvents"
       WHERE "conversationId" IS NOT NULL AND "content" IS NOT NULL ${brandClause} ${idsClause}
-      ORDER BY "conversationId", "createdAt" DESC
+      ORDER BY "brand", "conversationId", "createdAt" DESC
     `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
     const latestHandoffPerConversation = await sequelize.query(`
-      SELECT DISTINCT ON ("conversationId")
-        "conversationId", "handoffStage", "labels"
+      SELECT DISTINCT ON ("brand", "conversationId")
+        "conversationId", "brand", "handoffStage", "labels"
       FROM "ChatwootEvents"
       WHERE "conversationId" IS NOT NULL AND "handoffStage" IS NOT NULL ${brandClause} ${idsClause}
-      ORDER BY "conversationId", "createdAt" DESC
+      ORDER BY "brand", "conversationId", "createdAt" DESC
     `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
     const latestCsatPerConversation = await sequelize.query(`
-      SELECT DISTINCT ON ("conversationId")
-        "conversationId", "csatRating", "csatFeedback"
+      SELECT DISTINCT ON ("brand", "conversationId")
+        "conversationId", "brand", "csatRating", "csatFeedback"
       FROM "ChatwootEvents"
       WHERE "conversationId" IS NOT NULL AND "csatRating" IS NOT NULL ${brandClause} ${idsClause}
-      ORDER BY "conversationId", "createdAt" DESC
+      ORDER BY "brand", "conversationId", "createdAt" DESC
     `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
     // IP kada conversation (2026-09-24): pinakabagong non-null customerIp —
     // para sa IP column ng Customers table.
     const latestIpPerConversation = await sequelize.query(`
-      SELECT DISTINCT ON ("conversationId")
-        "conversationId", "customerIp"
+      SELECT DISTINCT ON ("brand", "conversationId")
+        "conversationId", "brand", "customerIp"
       FROM "ChatwootEvents"
       WHERE "conversationId" IS NOT NULL AND "customerIp" IS NOT NULL ${brandClause} ${idsClause}
-      ORDER BY "conversationId", "createdAt" DESC
+      ORDER BY "brand", "conversationId", "createdAt" DESC
     `, { replacements: { brand, selectedIds }, type: QueryTypes.SELECT });
 
     // CONCERN (2026-09-28): unang 6 na mensahe ng PLAYER kada conversation
@@ -754,10 +760,10 @@ router.get('/conversations', requireAuth, async (req, res) => {
     // replies), pinagdudugtong at kine-classify sa ticket-style categories.
     // LEFT(content,300) para maliit ang egress; senderType='contact' lang.
     const firstContactMsgs = await sequelize.query(`
-      SELECT "conversationId", "content"
+      SELECT "conversationId", "brand", "content"
       FROM (
-        SELECT "conversationId", LEFT("content", 300) AS "content",
-               ROW_NUMBER() OVER (PARTITION BY "conversationId" ORDER BY "createdAt" ASC) AS rn
+        SELECT "conversationId", "brand", LEFT("content", 300) AS "content",
+               ROW_NUMBER() OVER (PARTITION BY "brand", "conversationId" ORDER BY "createdAt" ASC) AS rn
         FROM "ChatwootEvents"
         WHERE "conversationId" IN (:selectedIds)
           AND event = 'message_created'
@@ -765,25 +771,28 @@ router.get('/conversations', requireAuth, async (req, res) => {
           AND "content" IS NOT NULL
       ) t WHERE rn <= 6
     `, { replacements: { selectedIds }, type: QueryTypes.SELECT });
+    const ck = (b, id) => `${b}|${id}`;   // composite key: brand + conversationId
     const concernTextByConv = new Map();
     firstContactMsgs.forEach(r => {
-      const prev = concernTextByConv.get(r.conversationId) || '';
-      concernTextByConv.set(r.conversationId, prev + '\n' + stripHtml(r.content));
+      const k = ck(r.brand, r.conversationId);
+      const prev = concernTextByConv.get(k) || '';
+      concernTextByConv.set(k, prev + '\n' + stripHtml(r.content));
     });
     const concernMap = new Map();
-    concernTextByConv.forEach((text, id) => { concernMap.set(id, classifyConcern(text)); });
+    concernTextByConv.forEach((text, k) => { concernMap.set(k, classifyConcern(text)); });
 
-    const contactMap = new Map(latestContactPerConversation.map(r => [r.conversationId, r]));
-    const messageMap = new Map(latestMessagePerConversation.map(r => [r.conversationId, r]));
-    const handoffMap = new Map(latestHandoffPerConversation.map(r => [r.conversationId, r]));
-    const csatMap = new Map(latestCsatPerConversation.map(r => [r.conversationId, r]));
-    const ipMap = new Map(latestIpPerConversation.map(r => [r.conversationId, r.customerIp]));
+    const contactMap = new Map(latestContactPerConversation.map(r => [ck(r.brand, r.conversationId), r]));
+    const messageMap = new Map(latestMessagePerConversation.map(r => [ck(r.brand, r.conversationId), r]));
+    const handoffMap = new Map(latestHandoffPerConversation.map(r => [ck(r.brand, r.conversationId), r]));
+    const csatMap = new Map(latestCsatPerConversation.map(r => [ck(r.brand, r.conversationId), r]));
+    const ipMap = new Map(latestIpPerConversation.map(r => [ck(r.brand, r.conversationId), r.customerIp]));
     const conversations = latestPerConversation
       .map(row => {
-        const contact = contactMap.get(row.conversationId);
-        const msg = messageMap.get(row.conversationId);
-        const handoff = handoffMap.get(row.conversationId);
-        const csat = csatMap.get(row.conversationId);
+        const k = ck(row.brand, row.conversationId);
+        const contact = contactMap.get(k);
+        const msg = messageMap.get(k);
+        const handoff = handoffMap.get(k);
+        const csat = csatMap.get(k);
         return {
           conversationId: row.conversationId,
           brand: row.brand,
@@ -800,8 +809,8 @@ router.get('/conversations', requireAuth, async (req, res) => {
           labels: handoff ? handoff.labels : null,
           csatRating: csat ? csat.csatRating : null,
           csatFeedback: csat ? csat.csatFeedback : null,
-          customerIp: ipMap.get(row.conversationId) || null,
-          concern: concernMap.get(row.conversationId) || null,
+          customerIp: ipMap.get(k) || null,
+          concern: concernMap.get(k) || null,
           art: null,
           ftr: null,
         };
@@ -814,21 +823,21 @@ router.get('/conversations', requireAuth, async (req, res) => {
     const handoffIds = conversations.filter(c => c.handoffStage).map(c => c.conversationId);
     if (handoffIds.length > 0) {
       const allMessages = await sequelize.query(`
-        SELECT "conversationId", "senderType", "senderName", "createdAt"
+        SELECT "conversationId", "brand", "senderType", "senderName", "createdAt"
         FROM "ChatwootEvents"
         WHERE event = 'message_created' AND content IS NOT NULL
           AND "conversationId" IN (:handoffIds)
-        ORDER BY "conversationId", "createdAt" ASC
+        ORDER BY "brand", "conversationId", "createdAt" ASC
       `, { replacements: { handoffIds }, type: QueryTypes.SELECT });
 
       const byConversation = {};
       allMessages.forEach(m => {
-        (byConversation[m.conversationId] ??= []).push(m);
+        (byConversation[ck(m.brand, m.conversationId)] ??= []).push(m);
       });
 
       conversations.forEach(c => {
         if (!c.handoffStage) return;
-        const msgs = byConversation[c.conversationId];
+        const msgs = byConversation[ck(c.brand, c.conversationId)];
         if (!msgs) return;
         const { art, ftr } = computeArtFtr(msgs, c.brand);
         c.art = art;
