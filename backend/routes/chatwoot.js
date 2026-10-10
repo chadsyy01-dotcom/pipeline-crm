@@ -160,6 +160,11 @@ const AI_BOT_SENDER_NAMES = new Set([
   // HypePlay BDT
   'Admin Mim', 'Agent Mim', 'Mim',
   'Bogchi',                // admin@hypeplaybdt.com (lumang persona)
+  // SUPERADMIN accounts (opisyal na roster ni Chad, 2026-10-10): hindi
+  // sila HH agent — owner/system logins na nagpapadala ng automated
+  // messages (hal. 'Rate our support'). Hindi binibilang sa human
+  // handoff/FTR, gaya ng bots.
+  'Love', 'OM - AOM', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'Admin Bogchi',
 ]);
 
 // Brand-scoped bot personas (2026-09-24): iisang display name, magkaibang
