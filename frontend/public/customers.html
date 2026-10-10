@@ -2148,6 +2148,11 @@
   };
   function isBotClient(brand, senderName) {
     if (!senderName) return false;
+    // RULE 2026-10-10 (per Chad): LAHAT ng pangalang may "Admin" ay TOTOONG
+    // agent, hindi bot — kahit nakalista pa sa ibaba (hal. "Hype Play PH
+    // Admin", "Admin Jem", "Admin Hanna"). Ang mga bot ay yung walang
+    // "Admin" sa pangalan (hal. "Agent Jem", "Tala", "Hanna").
+    if (/admin/i.test(senderName)) return false;
     if (AI_BOT_NAMES_CLIENT.has(senderName)) return true;
     const scoped = BRAND_BOT_CLIENT[String(brand || '').toLowerCase()];
     return !!(scoped && scoped.has(senderName));
