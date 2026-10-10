@@ -537,13 +537,14 @@
           <select id="brandFilter" class="admin-select" style="max-width:240px;"></select>
         </div>
         <div class="f-group">
-          <span class="f-label">Status</span>
-          <select id="statusFilter" class="admin-select">
-            <option value="active" selected>Active (not resolved)</option>
-            <option value="all">All statuses</option>
-            <option value="open">Open</option>
-            <option value="pending">Pending</option>
-            <option value="resolved">Resolved</option>
+          <span class="f-label">Show</span>
+          <!-- 2026-10-10: inalis ang Open / Pending / Resolved (raw Chatwoot
+               status) — hindi tugma sa bagong Chat Status. Ang Chat Status
+               (Ongoing / Waiting / Missed / Closed) na ang basehan; ito na
+               lang ang nagpapasya kung isasama ang mga tapos/resolved. -->
+          <select id="statusFilter" class="admin-select" title="Isama o itago ang mga tapos na (Resolved / HH Closed) na chats">
+            <option value="active" selected>Active only</option>
+            <option value="all">Include resolved</option>
           </select>
         </div>
         <div class="f-group">
