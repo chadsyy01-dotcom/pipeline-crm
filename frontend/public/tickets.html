@@ -466,9 +466,8 @@
         <div class="f-group">
           <span class="f-label">Status</span>
           <select id="statusFilter" class="issue-select">
-            <option value="open" selected>All open statuses (0)</option>
             <option value="all">All statuses (0)</option>
-            <option value="pending">New (0)</option>
+            <option value="pending" selected>New (0)</option>
             <option value="checking">In Progress (0)</option>
             <option value="backlog">Backlog (0)</option>
             <option value="done">Done (0)</option>
@@ -589,7 +588,7 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
-  let currentFilter = 'open'; // default view: New + In Progress (2026-09-23)
+  let currentFilter = 'pending'; // default view: New lang (2026-10-11, utos ni Chad — inalis ang "All open statuses")
   let currentBrand = 'all';
   let currentIssue = 'all';
   let currentDateFilter = 'today'; // default: Today (2026-10-10, utos ni Chad)
@@ -1072,10 +1071,10 @@
   function ticketMatchesFilters(t, skip = {}) {
     if (!skip.skipStatus) {
       // SEARCH OVERRIDE (2026-09-23): kapag may search query at nasa
-      // DEFAULT na "All open statuses" pa ang dropdown, huwag itago ang
+      // DEFAULT na "New" pa ang dropdown, huwag itago ang
       // Done/Rejected — ang hinahanap ay dapat mahanap anuman ang status.
       // Kapag SADYANG pumili ng specific na status, nirerespeto pa rin.
-      const effFilter = (currentSearch && currentFilter === 'open') ? 'all' : currentFilter;
+      const effFilter = (currentSearch && currentFilter === 'pending') ? 'all' : currentFilter;
       if (effFilter === 'backlog') {
         const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
         const isToday = TicketData.isSameLocalDay(t.submitted, new Date());
@@ -1298,13 +1297,13 @@
     document.body.appendChild(bg);
   }
 
-  // CLEAR FILTERS (2026-10-10): ibalik sa default view (All open statuses,
+  // CLEAR FILTERS (2026-10-10): ibalik sa default view (New,
   // lahat ng brand/category, any time, walang search).
   function clearAllTicketFilters() {
-    currentFilter = 'open'; currentBrand = 'all'; currentIssue = 'all';
+    currentFilter = 'pending'; currentBrand = 'all'; currentIssue = 'all';
     currentDateFilter = 'all'; currentSearch = '';
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-    set('statusFilter', 'open'); set('brandFilter', 'all'); set('issueFilter', 'all'); set('dateFilter', 'all');
+    set('statusFilter', 'pending'); set('brandFilter', 'all'); set('issueFilter', 'all'); set('dateFilter', 'all');
     const si = document.querySelector('.topbar-right .search input'); if (si) si.value = '';
     applyFilters();
   }
@@ -1313,6 +1312,30 @@
     if (filteredTickets.length === 0) {
       // Kapag may open tickets pero natatago dahil sa filters, sabihin ito
       // nang malinaw — dati "No tickets found." lang kahit may 3 pending.
+      // STATUS-AWARE (2026-10-11): kapag may tugma sa ibang status (hal.
+      // Done/Rejected) pero wala sa napiling status, sabihin iyon at mag-alok
+      // ng "All statuses" — dati "open ticket na natatago" lang ang sinasabi.
+      const scopeAny = currentFilter !== 'all' ? allTickets.filter(t => ticketMatchesFilters(t, { skipStatus: true })) : [];
+      if (scopeAny.length > 0) {
+        const SL = { pending: 'New', checking: 'In Progress', done: 'Done', rejected: 'Rejected' };
+        const by = {};
+        scopeAny.forEach(t => { const k = SL[t.statusCls] || t.statusCls; by[k] = (by[k] || 0) + 1; });
+        const parts = Object.keys(by).map(k => `<b>${by[k].toLocaleString()}</b> ${k}`).join(' · ');
+        const curLabel = { pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected', open: 'open' }[currentFilter] || currentFilter;
+        body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:36px;">
+          <div style="font-weight:800;font-size:15px;color:var(--ink);">Walang ${curLabel} ticket sa filters mo</div>
+          <div style="color:var(--ink-faint);margin:6px 0 14px;">Pero may ${scopeAny.length.toLocaleString()} ticket sa ibang status: ${parts}</div>
+          <button type="button" id="showAllStatusBtn" style="height:40px;padding:0 18px;border-radius:12px;border:0;background:var(--primary);color:#fff;font-weight:700;font-family:inherit;cursor:pointer;">Ipakita lahat ng status</button>
+        </td></tr>`;
+        document.getElementById('showAllStatusBtn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          currentFilter = 'all';
+          const sel = document.getElementById('statusFilter'); if (sel) sel.value = 'all';
+          applyFilters();
+        });
+        renderFooter();
+        return;
+      }
       const hiddenOpen = allTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
       if (hiddenOpen > 0) {
         body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:36px;">
@@ -1395,7 +1418,7 @@
     document.getElementById('qOldestId').textContent = oldest ? oldest.id : 'Walang naghihintay';
 
     // Done vs Rejected — hindi sakop ng Status filter, para may makita
-    // kahit nasa default na "All open statuses".
+    // kahit nasa default na "New".
     const scope = allTickets.filter(t => ticketMatchesFilters(t, { skipStatus: true }));
     const nDone = scope.filter(t => t.statusCls === 'done').length;
     const nRej = scope.filter(t => t.statusCls === 'rejected').length;
@@ -1496,11 +1519,11 @@
   }
 
   // Done / Rejected card click (2026-10-10): i-filter sa status na iyon;
-  // i-click ulit para bumalik sa default na "All open statuses".
+  // i-click ulit para bumalik sa default na "New".
   document.querySelectorAll('#resDoneBtn, #resRejBtn').forEach(btn => {
     btn.addEventListener('click', () => {
       const s = btn.dataset.status;
-      currentFilter = (currentFilter === s) ? 'open' : s;
+      currentFilter = (currentFilter === s) ? 'pending' : s;
       const sel = document.getElementById('statusFilter');
       if (sel) sel.value = currentFilter;
       applyFilters();
