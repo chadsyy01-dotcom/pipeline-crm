@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="ticket-data.js?v=15"></script>
 <style>
@@ -261,6 +261,8 @@
     .search{min-width:0;flex:1;}
   }
 </style>
+<!-- Redesign 2026-10-10: bagong itsura (hero band, queue cards, row highlights) -->
+<link rel="stylesheet" href="redesign.css?v=1">
 </head>
 <body>
 <script>
@@ -361,6 +363,7 @@
 
   <!-- MAIN -->
   <main class="main">
+    <div class="hero">
     <div class="topbar">
       <div class="greeting">
         <h1>Tickets</h1>
@@ -399,6 +402,35 @@
         </div>
       </div>
     </div>
+    </div><!-- /hero -->
+
+    <!-- QUEUE AT A GLANCE (redesign 2026-10-10) — kinukwenta mula sa
+         kasalukuyang filtered view, nire-refresh sa bawat render. -->
+    <section class="kpi-row" id="queueStats" aria-label="Queue at a glance">
+      <div class="kpi-card">
+        <div class="kpi-head"><span class="kpi-label">Open tickets</span>
+          <span class="kpi-ico violet" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></span>
+        </div>
+        <div class="kpi-val" id="qOpen">—</div>
+        <div class="kpi-sub">New + In Progress, current view</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-head"><span class="kpi-label">Not yet acknowledged</span><span class="kpi-flag red" id="qUnackFlag" hidden>Action</span></div>
+        <div class="kpi-val" id="qUnack">—</div>
+        <div class="kpi-sub">Waiting for an agent to pick up</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-head"><span class="kpi-label">Oldest waiting</span>
+          <span class="kpi-ico amber" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        </div>
+        <div class="kpi-val" id="qOldest">—</div>
+        <div class="kpi-sub" id="qOldestId">Walang naghihintay</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-head"><span class="kpi-label">Open by priority</span></div>
+        <div class="prio-list" id="qPriority"><div class="kpi-sub">—</div></div>
+      </div>
+    </section>
 
     <!-- TICKETS PANEL -->
     <div class="panel">
@@ -1257,6 +1289,12 @@
     body.innerHTML = '';
     pageItems.forEach(t => {
       const tr = document.createElement('tr');
+      const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
+      // Redesign 2026-10-10: open + walang umaako = naka-highlight ang row
+      if (isOpen && !t.acknowledgedBy) tr.className = 'row-unclaimed';
+      const ackCell = t.acknowledgedBy
+        ? escapeHtml(t.acknowledgedBy)
+        : (isOpen ? '<span class="unclaimed">Unclaimed</span>' : '<span style="color:var(--ink-faint);">—</span>');
       tr.innerHTML = `
         <td class="t-id">${escapeHtml(t.id)}</td>
         <td>
@@ -1269,7 +1307,7 @@
         <td class="t-channel">${escapeHtml(t.channel)}</td>
         <td><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span></td>
         <td><span class="status ${t.statusCls}">${escapeHtml(t.statusLabel)}</span></td>
-        <td class="t-ack">${t.acknowledgedBy ? escapeHtml(t.acknowledgedBy) : '<span style="color:var(--ink-faint);">—</span>'}</td>
+        <td class="t-ack">${ackCell}</td>
         <td class="t-time">${relativeTime(t.submitted)}</td>
         <td>
           <div class="t-actions">
@@ -1285,7 +1323,55 @@
     renderFooter();
   }
 
+  // ---- QUEUE AT A GLANCE (redesign 2026-10-10) ----
+  // Galing sa filteredTickets (kung ano ang naka-filter sa table). Open =
+  // New (pending) + In Progress (checking). Unacknowledged = open na walang
+  // "Acknowledged By".
+  function compactAge(date) {
+    if (!date) return '—';
+    const mins = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+    if (mins < 60) return mins + 'm';
+    const h = Math.floor(mins / 60);
+    if (h < 24) return h + 'h ' + (mins % 60) + 'm';
+    return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+  }
+  function renderQueueStats() {
+    const openEl = document.getElementById('qOpen');
+    if (!openEl) return;
+    const open = filteredTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking');
+    const unack = open.filter(t => !t.acknowledgedBy);
+    openEl.textContent = open.length.toLocaleString();
+
+    const unackEl = document.getElementById('qUnack');
+    unackEl.textContent = unack.length.toLocaleString();
+    unackEl.classList.toggle('bad', unack.length > 0);
+    document.getElementById('qUnackFlag').hidden = unack.length === 0;
+
+    const oldest = unack.filter(t => t.submitted).sort((a, b) => a.submitted - b.submitted)[0];
+    document.getElementById('qOldest').textContent = oldest ? compactAge(oldest.submitted) : '—';
+    document.getElementById('qOldestId').textContent = oldest ? oldest.id : 'Walang naghihintay';
+
+    const groups = {};
+    open.forEach(t => {
+      const key = t.priorityLabel || 'Unset';
+      if (!groups[key]) groups[key] = { n: 0, cls: t.priority || '' };
+      groups[key].n++;
+    });
+    const order = { high: 0, medium: 1, low: 2 };
+    const rows = Object.entries(groups).sort((a, b) => (order[a[1].cls] ?? 9) - (order[b[1].cls] ?? 9));
+    const max = Math.max(1, ...rows.map(r => r[1].n));
+    document.getElementById('qPriority').innerHTML = rows.length
+      ? rows.map(([label, g]) => `
+          <div class="prio-row ${escapeHtml(g.cls)}">
+            <span class="p-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+            <span class="p-track"><span class="p-fill" style="display:block;width:${(g.n / max * 100).toFixed(1)}%"></span></span>
+            <span class="p-n">${g.n.toLocaleString()}</span>
+          </div>`).join('')
+      : '<div class="kpi-sub">Walang open ticket</div>';
+  }
+
   function renderFooter() {
+    renderQueueStats();
     const total = filteredTickets.length;
     const start = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
     const end = Math.min(currentPage * PAGE_SIZE, total);
