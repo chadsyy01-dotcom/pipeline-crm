@@ -375,7 +375,9 @@
     'Admin May', 'Agent May', 'May',
     'Admin Lucy', 'Agent Lucy', 'Lucy',
     'Lucky Stacks Admin',
-    'Agent Hanna', 'Hanna',
+    // 'Agent Hanna'/'Hanna' — INALIS sa global list (2026-10-10, utos ni Chad:
+  // sa TMTCash sina ADMIN HANNAH at ADMIN HEART ay TAO; si ADMIN JEM ang bot).
+  // Bot pa rin sila sa HypePlay — tingnan ang brand-scoped list sa ibaba.
     'Hype Play PH Admin',
     'Admin Maya', 'Agent Maya', 'Maya',
     'Manila Play Admin',
@@ -389,8 +391,8 @@
   ]);
   // 'Admin Hanna' ay BOT sa Hype PH pero TUNAY NA TAO sa TMTCash — brand-scoped.
   const BRAND_BOT_CLIENT = {
-    hypleplayph: new Set(['Admin Hanna']),
-    hypeplayph: new Set(['Admin Hanna']),
+    hypleplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
+    hypeplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
   };
   function isBotClient(brand, senderName) {
     if (!senderName) return false;
