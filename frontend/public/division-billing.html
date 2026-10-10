@@ -141,6 +141,32 @@
 
   @media (max-width:1200px){ .kpis{grid-template-columns:repeat(3,minmax(0,1fr));} .grid2{grid-template-columns:1fr;} }
   @media (max-width:640px){ .kpis{grid-template-columns:1fr 1fr;} .banks{grid-template-columns:1fr;} .svc-row{grid-template-columns:80px 1fr;} .svc-row .m{grid-column:1/-1;text-align:left;} }
+
+  /* ===== hero band (same pattern as Dashboard / QA / KB / OpenAI / SMS) ===== */
+  .hero-band{position:relative;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);
+    margin:-26px -32px 0;padding:26px 32px 92px;border-radius:0 0 20px 20px;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .hero-band .topbar{margin-bottom:14px;}
+  .hero-band .greeting h1{color:#fff;}
+  .hero-band .greeting p{color:#9FB2D8;}
+  .hero-band .db-month,.hero-band .db-btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#fff;color-scheme:dark;}
+  .hero-band .db-btn:hover{background:rgba(255,255,255,.16);}
+  .hero-band .db-meta{margin:0;gap:8px;}
+  .hero-band .db-meta span{font-size:11.5px;font-weight:700;color:#C7D5F0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:4px 10px;border-radius:99px;}
+  .hero-band .db-meta b{color:#fff;}
+  .hero-band .db-error{margin:12px 0 0;}
+  .kpis{margin-top:-66px;position:relative;z-index:2;}
+  .kpi{border-top:none !important;border:1px solid #E8EDF5;position:relative;overflow:hidden;padding:18px 20px;}
+  .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc,#2563EB);}
+  .kpi.k-ok{--acc:#22C55E;} .kpi.k-warn{--acc:#F59E0B;} .kpi.k-bad{--acc:#EF4444;} .kpi.k-bank{--acc:#7C3AED;}
+  .kpi .l{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .kpi .ki{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--acc,#2563EB) 12%,#fff);color:var(--acc,#2563EB);flex-shrink:0;}
+  .kpi .ki svg{width:15px;height:15px;}
+  .kpi .v{font-size:26px;margin-top:2px;}
+  .grid2 .panel,.panel{border:1px solid #EEF1F6;}
+  @media (max-width:860px){ .hero-band{margin:-20px -16px 0;padding:20px 16px 88px;} }
 </style>
 </head>
 <body>
@@ -220,6 +246,7 @@
 
 
   <main class="main">
+    <div class="hero-band">
     <div class="topbar">
       <div class="greeting">
         <h1>Division Billing</h1>
@@ -235,14 +262,15 @@
     </div>
     <div class="db-meta" id="dbMeta"><span>Loading…</span></div>
     <div class="db-error" id="dbError"></div>
+    </div><!-- /hero-band -->
 
     <div id="dbBody">
       <div class="kpis">
-        <div class="kpi"><div class="l">Total billed</div><div class="v" id="kBilled">—</div><div class="s" id="kBilledS">&nbsp;</div></div>
-        <div class="kpi k-ok"><div class="l">Collected</div><div class="v" id="kPaid">—</div><div class="s" id="kPaidS">&nbsp;</div><div class="prog"><i id="kPaidBar" style="width:0"></i></div></div>
-        <div class="kpi k-warn"><div class="l">Waiting (not yet due)</div><div class="v" id="kWait">—</div><div class="s" id="kWaitS">&nbsp;</div></div>
-        <div class="kpi k-bad"><div class="l">Overdue</div><div class="v" id="kOver">—</div><div class="s" id="kOverS">&nbsp;</div></div>
-        <div class="kpi k-bank"><div class="l">Bank balance</div><div class="v" id="kBank">—</div><div class="s" id="kBankS">&nbsp;</div></div>
+        <div class="kpi"><div class="l">Total billed<span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></span></div><div class="v" id="kBilled">—</div><div class="s" id="kBilledS">&nbsp;</div></div>
+        <div class="kpi k-ok"><div class="l">Collected<span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></span></div><div class="v" id="kPaid">—</div><div class="s" id="kPaidS">&nbsp;</div><div class="prog"><i id="kPaidBar" style="width:0"></i></div></div>
+        <div class="kpi k-warn"><div class="l">Waiting<span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span></div><div class="v" id="kWait">—</div><div class="s" id="kWaitS">&nbsp;</div></div>
+        <div class="kpi k-bad"><div class="l">Overdue<span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></span></div><div class="v" id="kOver">—</div><div class="s" id="kOverS">&nbsp;</div></div>
+        <div class="kpi k-bank"><div class="l">Bank balance<span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M6 10v8M10 10v8M14 10v8M18 10v8"/></svg></span></div><div class="v" id="kBank">—</div><div class="s" id="kBankS">&nbsp;</div></div>
       </div>
 
       <div class="grid2">
