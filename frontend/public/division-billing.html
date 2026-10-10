@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Division Billing — CSR Dashboard</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#2563EB; --primary-tint:#EFF4FF;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --danger:#EF4444; --danger-tint:#FDECEC;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-md:14px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;margin-bottom:2px;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  /* OpenAI section with sub-tabs (added 2026-09-19). The parent is a section
+     header when a child is active — the blue highlight belongs to the child. */
+  .nav-item.open{background:#151E30;color:#fff;}
+  .nav-item .nav-caret{margin-left:auto;width:14px;height:14px;opacity:.7;}
+  .nav-sub{margin:2px 0 6px 19px;padding-left:10px;border-left:1px solid #1E293B;}
+  .nav-sub .nav-item{font-size:13px;padding:8px 12px;}
+  .nav-sub .nav-item svg{width:15px;height:15px;}
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .tabs{display:flex;gap:4px;background:#F1F5F9;border-radius:8px;padding:3px;}
+  .tab{font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:6px;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;font-family:inherit;}
+  .tab.active{background:var(--card);color:var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+
+  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:20px;box-shadow:var(--shadow);margin-bottom:16px;}
+  .kpi-label{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-bottom:8px;}
+  .kpi-value{font-size:34px;font-weight:800;letter-spacing:-.01em;}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+
+  .li-table{width:100%;border-collapse:collapse;}
+  .li-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);font-weight:700;padding:0 8px 10px;border-bottom:1px solid var(--line);}
+  .li-table td{padding:10px 8px;font-size:13px;border-bottom:1px solid var(--line);}
+  .li-table tr:last-child td{border-bottom:none;}
+  .li-table td.num{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+  .li-table th.num{text-align:right;}
+
+  .empty-note{color:var(--ink-faint);font-size:13px;padding:24px 4px;text-align:center;}
+  .setup-note{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;margin-bottom:16px;line-height:1.5;}
+
+  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+</style>
+<style>
+  .db-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .db-btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid #E2E8F0;background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;}
+  .db-btn svg{width:15px;height:15px;}
+  .db-btn:disabled{opacity:.6;cursor:wait;}
+  .db-month{font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 10px;border-radius:8px;border:1px solid #E2E8F0;background:var(--card);color:var(--ink);}
+  .db-meta{font-size:12px;color:var(--ink-faint);display:flex;gap:12px;flex-wrap:wrap;margin:-12px 0 18px;}
+  .db-meta b{color:var(--ink-soft);font-weight:700;}
+  .db-error{display:none;background:var(--danger-tint);color:#B42318;border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;margin-bottom:16px;line-height:1.5;}
+  .db-error.show{display:block;}
+
+  .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:16px;}
+  .kpi{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:16px 18px;border-top:3px solid var(--primary);}
+  .kpi .l{font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:6px;}
+  .kpi .v{font-size:24px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
+  .kpi .s{font-size:11.5px;color:var(--ink-faint);margin-top:4px;font-weight:600;}
+  .kpi.k-ok{border-top-color:var(--success);} .kpi.k-ok .v{color:#15803D;}
+  .kpi.k-warn{border-top-color:var(--warning);} .kpi.k-warn .v{color:#B45309;}
+  .kpi.k-bad{border-top-color:var(--danger);} .kpi.k-bad .v{color:#B42318;}
+  .kpi.k-bank{border-top-color:#7C3AED;}
+  .prog{height:6px;border-radius:99px;background:#EEF1F6;overflow:hidden;margin-top:8px;}
+  .prog i{display:block;height:100%;background:var(--success);border-radius:99px;}
+
+  .grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-bottom:0;}
+  .panel-head .sub{font-size:11.5px;color:var(--ink-faint);font-weight:600;}
+
+  .pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap;}
+  .p-paid{background:var(--success-tint);color:#15803D;}
+  .p-wait{background:#F1F5F9;color:var(--ink-soft);}
+  .p-over{background:var(--danger-tint);color:#B42318;}
+  .p-late{background:var(--warning-tint);color:#B45309;}
+  .p-pend{background:var(--primary-tint);color:var(--primary);}
+  .p-na{color:#CBD5E1;font-size:12px;}
+
+  .over-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:#FFF7F7;border:1px solid #FDE2E2;margin-bottom:8px;}
+  .over-item .n{font-weight:700;font-size:13px;}
+  .over-item .d{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .over-item .a{font-weight:800;color:#B42318;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .ok-note{display:flex;align-items:center;gap:8px;background:var(--success-tint);color:#15803D;border-radius:10px;padding:14px;font-size:13px;font-weight:700;}
+
+  .banks{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .bank{border:1px solid var(--line);border-radius:12px;padding:14px;}
+  .bank .bn{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);}
+  .bank .bb{font-size:22px;font-weight:800;margin:6px 0 8px;font-variant-numeric:tabular-nums;}
+  .bank .row{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);padding:2px 0;}
+  .bank .row b{font-variant-numeric:tabular-nums;color:var(--ink);}
+  .payout{margin-top:12px;font-size:12px;color:var(--ink-soft);background:#F8FAFC;border-radius:10px;padding:10px 12px;line-height:1.55;}
+
+  .tbl-wrap{overflow-x:auto;}
+  .div-table td,.div-table th{white-space:nowrap;}
+  .div-table td.c,.div-table th.c{text-align:center;}
+  .div-table .bar{width:90px;}
+  .div-table tr.has-over td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
+  .div-table tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;}
+
+  .svc-row{display:grid;grid-template-columns:110px 1fr 150px;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .svc-row:last-child{border-bottom:none;}
+  .svc-row .t{height:10px;border-radius:99px;background:#EEF1F6;overflow:hidden;}
+  .svc-row .t i{display:block;height:100%;background:var(--success);}
+  .svc-row .m{text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink-soft);}
+  .svc-row .m b{color:var(--ink);}
+
+  .muted{color:var(--ink-faint);}
+  .loading{opacity:.55;transition:opacity .2s;}
+
+  @media (max-width:1200px){ .kpis{grid-template-columns:repeat(3,minmax(0,1fr));} .grid2{grid-template-columns:1fr;} }
+  @media (max-width:640px){ .kpis{grid-template-columns:1fr 1fr;} .banks{grid-template-columns:1fr;} .svc-row{grid-template-columns:80px 1fr;} .svc-row .m{grid-column:1/-1;text-align:left;} }
+</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Invalid session");
+    } catch (err) {
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <a href="csr-dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a href="tickets.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+      Tickets
+    </a>
+    <a href="kyc.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M4 17c0-1.5 1.5-3 4.5-3s4.5 1.5 4.5 3"/><path d="M15 10h5M15 14h3"/></svg>
+      KYC
+    </a>
+    <a href="customers.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Customers
+    </a>
+    <a href="reports.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      Reports
+    </a>
+    <!-- OpenAI section — sub-tabs are only rendered on the pages inside this
+         section (openai.html, sms-monitoring.html). On every other page the
+         sidebar keeps the plain single "OpenAI" link. -->
+    <a href="openai.html" class="nav-item open">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      OpenAI
+      <svg class="nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </a>
+    <div class="nav-sub">
+      <a href="openai.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        Billing
+      </a>
+      <a href="sms-monitoring.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"/></svg>
+        SMS Monitoring
+      </a>
+      <a href="division-billing.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M9 21v-6h6v6"/></svg>
+        Division Billing
+      </a>
+    </div>
+    <a href="agents.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Agents
+    </a>
+    <a href="settings.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </a>
+    <div class="sidebar-status" style="margin-top:auto;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+
+  <main class="main">
+    <div class="topbar">
+      <div class="greeting">
+        <h1>Division Billing</h1>
+        <p>Collections, overdue brands, and bank balances per division.</p>
+      </div>
+      <div class="db-actions">
+        <input type="month" class="db-month" id="dbMonth">
+        <button class="db-btn" id="dbRefresh" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+    <div class="db-meta" id="dbMeta"><span>Loading…</span></div>
+    <div class="db-error" id="dbError"></div>
+
+    <div id="dbBody">
+      <div class="kpis">
+        <div class="kpi"><div class="l">Total billed</div><div class="v" id="kBilled">—</div><div class="s" id="kBilledS">&nbsp;</div></div>
+        <div class="kpi k-ok"><div class="l">Collected</div><div class="v" id="kPaid">—</div><div class="s" id="kPaidS">&nbsp;</div><div class="prog"><i id="kPaidBar" style="width:0"></i></div></div>
+        <div class="kpi k-warn"><div class="l">Waiting (not yet due)</div><div class="v" id="kWait">—</div><div class="s" id="kWaitS">&nbsp;</div></div>
+        <div class="kpi k-bad"><div class="l">Overdue</div><div class="v" id="kOver">—</div><div class="s" id="kOverS">&nbsp;</div></div>
+        <div class="kpi k-bank"><div class="l">Bank balance</div><div class="v" id="kBank">—</div><div class="s" id="kBankS">&nbsp;</div></div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-head"><h3>Overdue brands</h3><span class="sub" id="overSub"></span></div>
+          <div id="overList"><div class="empty-note">Loading…</div></div>
+          <div class="panel-head" style="margin-top:18px;"><h3>Due in the next 7 days</h3><span class="sub" id="soonSub"></span></div>
+          <div id="soonList"><div class="empty-note">Loading…</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Bank balances</h3><span class="sub">all-time in / out</span></div>
+          <div class="banks" id="bankCards"><div class="empty-note">Loading…</div></div>
+          <div id="payoutBox"></div>
+          <div class="panel-head" style="margin-top:18px;"><h3>By service</h3><span class="sub">collected / billed</span></div>
+          <div id="svcList"><div class="empty-note">Loading…</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Collection by division</h3><span class="sub" id="divSub"></span></div>
+        <div class="tbl-wrap">
+          <table class="li-table div-table">
+            <thead id="divHead"></thead>
+            <tbody id="divBody"><tr><td class="empty-note" colspan="10">Loading…</td></tr></tbody>
+            <tfoot id="divFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="panel-head"><h3>Recent payments</h3><span class="sub" id="paySub"></span></div>
+          <div class="tbl-wrap">
+            <table class="li-table">
+              <thead><tr><th>Date</th><th>Division</th><th>For</th><th>Bank</th><th class="num">Amount</th><th>Status</th></tr></thead>
+              <tbody id="payBody"><tr><td class="empty-note" colspan="6">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // Division Billing — native view. Data: GET /api/divbilling/overview?month=YYYY-MM
+  // (backend/routes/divbilling.js proxies the Division Billing app).
+  (function () {
+    const $ = id => document.getElementById(id);
+    const SVC_LABEL = { netlify: 'Netlify', n8n: 'n8n', claude: 'Claude', host: 'Host server', supabase: 'Supabase', sms: 'SMS' };
+    const BANK_LABEL = { gotyme: 'GoTyme', maribank: 'MariBank' };
+    const peso = n => '₱' + (Number(n) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const pesoShort = n => '₱' + Math.round(Number(n) || 0).toLocaleString('en-PH');
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const manilaToday = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+    const fmtDate = iso => { if (!iso) return '—'; const d = new Date(iso.length === 10 ? iso + 'T00:00:00+08:00' : iso); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' }); };
+    const fmtTime = iso => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' });
+    const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400e3);
+
+    const monthInput = $('dbMonth');
+    let currentMonth = (new URLSearchParams(location.search).get('month')) || manilaToday().slice(0, 7);
+    monthInput.value = currentMonth;
+
+    function rowStatus(r) {
+      if (r.paidStatus === 'credited') return r.flag === 'late' ? 'late' : 'paid';
+      if (r.flag === 'overdue') return 'over';
+      if (r.paidStatus && r.paidStatus !== 'rejected') return 'pend';
+      return 'wait';
+    }
+    function cellPill(r) {
+      const st = rowStatus(r);
+      const t = `${esc(r.label)} · ${peso(r.amount)} · due ${fmtDate(r.due)}`;
+      if (st === 'paid') return `<span class="pill p-paid" title="${t}">✓ Paid</span>`;
+      if (st === 'late') return `<span class="pill p-late" title="${t}">✓ Paid late</span>`;
+      if (st === 'over') return `<span class="pill p-over" title="${t}">Overdue${r.lateDays ? ' ' + r.lateDays + 'd' : ''}</span>`;
+      if (st === 'pend') return `<span class="pill p-pend" title="${t}">Pending</span>`;
+      return `<span class="pill p-wait" title="${t}">Due ${fmtDate(r.due)}</span>`;
+    }
+
+    function render(d) {
+      const rows = d.report.rows || [];
+      const today = manilaToday();
+      const sum = arr => arr.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const paidRows = rows.filter(r => ['paid', 'late'].includes(rowStatus(r)));
+      const overRows = rows.filter(r => rowStatus(r) === 'over');
+      const waitRows = rows.filter(r => ['wait', 'pend'].includes(rowStatus(r)));
+      const billed = sum(rows), paid = sum(paidRows), over = sum(overRows), wait = sum(waitRows);
+      const divisions = [...new Set(rows.map(r => r.division))];
+      const overDivs = [...new Set(overRows.map(r => r.division))];
+      const pct = billed ? Math.round(paid / billed * 100) : 0;
+
+      // Meta line
+      const monthName = new Date(d.month + '-01T00:00:00+08:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      $('dbMeta').innerHTML = [
+        `<span><b>${monthName}</b></span>`,
+        `<span>Updated <b>${fmtTime(d.fetchedAt)}</b>${d.cached ? ' (cached)' : ''}</span>`,
+        d.fx ? `<span>FX <b>₱${Number(d.fx.rate).toFixed(4)}</b> / USD${d.fx.locked ? ' (locked)' : ''}</span>` : '',
+        d.stale ? `<span style="color:#B45309"><b>Showing last saved data</b> — billing app unreachable</span>` : '',
+      ].join('');
+
+      // KPIs
+      $('kBilled').textContent = pesoShort(billed);
+      $('kBilledS').textContent = `${rows.length} bills · ${divisions.length} divisions`;
+      $('kPaid').textContent = pesoShort(paid);
+      $('kPaidS').textContent = `${pct}% collected · ${paidRows.length} bills`;
+      $('kPaidBar').style.width = pct + '%';
+      $('kWait').textContent = pesoShort(wait);
+      $('kWaitS').textContent = `${waitRows.length} bills not yet due`;
+      $('kOver').textContent = pesoShort(over);
+      $('kOverS').textContent = overRows.length ? `${overRows.length} bills · ${overDivs.length} brands` : 'None — all clear';
+      const bankTotal = (d.banks || []).reduce((s, b) => s + (Number(b.balance) || 0), 0);
+      $('kBank').textContent = pesoShort(bankTotal);
+      $('kBankS').textContent = (d.banks || []).map(b => `${BANK_LABEL[b.method] || b.method} ${pesoShort(b.balance)}`).join(' · ') || '—';
+
+      // Overdue list
+      $('overSub').textContent = overRows.length ? `${overDivs.length} brands` : '';
+      $('overList').innerHTML = overRows.length
+        ? overRows.sort((a, b) => (b.lateDays || 0) - (a.lateDays || 0)).map(r => `
+            <div class="over-item"><div><div class="n">${esc(r.division)}</div>
+            <div class="d">${esc(r.label)} · due ${fmtDate(r.due)}${r.lateDays ? ` · ${r.lateDays} day${r.lateDays > 1 ? 's' : ''} late` : ''}${r.sentAt ? ` · reminded ${fmtDate(r.sentAt)}` : ''}</div></div>
+            <div class="a">${peso(r.amount)}</div></div>`).join('')
+        : `<div class="ok-note">✓ No overdue bills for this month.</div>`;
+
+      // Due soon (unpaid, due within 7 days)
+      const soon = waitRows.filter(r => { const g = daysBetween(today, r.due); return g >= 0 && g <= 7; })
+                           .sort((a, b) => a.due.localeCompare(b.due));
+      const soonByDue = {};
+      soon.forEach(r => { (soonByDue[r.due + '|' + r.label] ||= { due: r.due, label: r.label, divs: [], amt: 0 }); const g = soonByDue[r.due + '|' + r.label]; g.divs.push(r.division); g.amt += Number(r.amount) || 0; });
+      const soonGroups = Object.values(soonByDue);
+      $('soonSub').textContent = soon.length ? `${soon.length} bills · ${pesoShort(sum(soon))}` : '';
+      $('soonList').innerHTML = soonGroups.length
+        ? soonGroups.map(g => { const left = daysBetween(today, g.due); return `
+            <div class="over-item" style="background:#FFFBF2;border-color:#FDEBC8;"><div><div class="n">${esc(g.label)} — ${fmtDate(g.due)} <span class="pill p-late" style="margin-left:4px">${left === 0 ? 'today' : 'in ' + left + 'd'}</span></div>
+            <div class="d">${g.divs.map(esc).join(', ')}</div></div>
+            <div class="a" style="color:#B45309">${peso(g.amt)}</div></div>`; }).join('')
+        : `<div class="empty-note" style="padding:12px 4px">Nothing due in the next 7 days.</div>`;
+
+      // Banks
+      $('bankCards').innerHTML = (d.banks || []).map(b => `
+        <div class="bank"><div class="bn">${esc(BANK_LABEL[b.method] || b.method)}</div>
+        <div class="bb">${peso(b.balance)}</div>
+        <div class="row"><span>In</span><b>${peso(b.in)}</b></div>
+        <div class="row"><span>Out</span><b>${peso(b.out)}</b></div>
+        ${b.pending ? `<div class="row"><span>Pending</span><b>${peso(b.pending)}</b></div>` : ''}</div>`).join('')
+        || `<div class="empty-note">No bank data.</div>`;
+      const payouts = (d.payouts || []).slice().sort((a, b) => String(b.paid_on).localeCompare(String(a.paid_on)));
+      $('payoutBox').innerHTML = payouts.length
+        ? `<div class="payout"><b>Payouts</b><br>${payouts.slice(0, 4).map(p =>
+            `${fmtDate(p.paid_on)} · ${esc(p.payee)}${p.note ? ' (' + esc(p.note) + ')' : ''} · ${esc(BANK_LABEL[p.method] || p.method)} · <b>${peso(p.amount)}</b>`).join('<br>')}</div>`
+        : '';
+
+      // Division × service table
+      const svcs = (d.order && d.order.length ? d.order : Object.keys(SVC_LABEL)).filter(s => rows.some(r => r.service === s));
+      $('divHead').innerHTML = `<tr><th>Division</th>${svcs.map(s => `<th class="c">${esc(SVC_LABEL[s] || s)}</th>`).join('')}<th class="num">Billed</th><th class="num">Paid</th><th class="num">Balance</th><th>Progress</th></tr>`;
+      const divRows = divisions.map(name => {
+        const rs = rows.filter(r => r.division === name);
+        const b = sum(rs), p = sum(rs.filter(r => ['paid', 'late'].includes(rowStatus(r))));
+        return { name, rs, b, p, bal: b - p, hasOver: rs.some(r => rowStatus(r) === 'over') };
+      }).sort((a, b) => (b.hasOver - a.hasOver) || (b.bal - a.bal) || a.name.localeCompare(b.name));
+      $('divSub').textContent = `${divisions.length} divisions · ${overDivs.length} with overdue`;
+      $('divBody').innerHTML = divRows.map(x => {
+        const pc = x.b ? Math.round(x.p / x.b * 100) : 0;
+        return `<tr class="${x.hasOver ? 'has-over' : ''}"><td><b>${esc(x.name)}</b></td>
+          ${svcs.map(s => { const r = x.rs.find(r => r.service === s); return `<td class="c">${r ? cellPill(r) : '<span class="p-na">—</span>'}</td>`; }).join('')}
+          <td class="num">${peso(x.b)}</td><td class="num" style="color:#15803D">${peso(x.p)}</td>
+          <td class="num" style="color:${x.bal > 0 ? (x.hasOver ? '#B42318' : 'var(--ink)') : 'var(--ink-faint)'}">${peso(x.bal)}</td>
+          <td class="bar"><div class="prog" style="margin:0"><i style="width:${pc}%"></i></div><div class="muted" style="font-size:10.5px;margin-top:3px">${pc}%</div></td></tr>`;
+      }).join('') || `<tr><td class="empty-note" colspan="${svcs.length + 5}">No bills for this month.</td></tr>`;
+      $('divFoot').innerHTML = divRows.length ? `<tr><td>Total</td>${svcs.map(s => `<td class="c muted" style="font-size:11.5px">${pesoShort(sum(rows.filter(r => r.service === s)))}</td>`).join('')}
+        <td class="num">${peso(billed)}</td><td class="num" style="color:#15803D">${peso(paid)}</td><td class="num">${peso(billed - paid)}</td><td class="muted">${pct}%</td></tr>` : '';
+
+      // By service
+      $('svcList').innerHTML = svcs.map(s => {
+        const rs = rows.filter(r => r.service === s);
+        const b = sum(rs), p = sum(rs.filter(r => ['paid', 'late'].includes(rowStatus(r))));
+        const pc = b ? Math.round(p / b * 100) : 0;
+        const ov = rs.filter(r => rowStatus(r) === 'over').length;
+        return `<div class="svc-row"><div><b>${esc(SVC_LABEL[s] || s)}</b>${ov ? ` <span class="pill p-over">${ov} overdue</span>` : ''}</div>
+          <div class="t"><i style="width:${pc}%"></i></div>
+          <div class="m"><b>${pesoShort(p)}</b> / ${pesoShort(b)} · ${pc}%</div></div>`;
+      }).join('') || `<div class="empty-note">No data.</div>`;
+
+      // Recent payments (this month)
+      const pays = (d.payments || []).filter(p => String(p.createdAt).slice(0, 7) === d.month || !d.month)
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      $('paySub').textContent = pays.length ? `${pays.length} this month · showing latest 15` : '';
+      $('payBody').innerHTML = pays.slice(0, 15).map(p => {
+        const forTxt = (p.bills || []).map(b => `${(SVC_LABEL[b.key] || b.label)}${b.division && b.division !== p.division ? ' → ' + b.division : ''}`).join(', ');
+        const st = p.status === 'credited' ? '<span class="pill p-paid">Credited</span>'
+                 : p.status === 'rejected' ? '<span class="pill p-over">Rejected</span>'
+                 : `<span class="pill p-pend">${esc(p.status || 'Pending')}</span>`;
+        return `<tr><td class="muted">${fmtDate(p.createdAt)}</td><td><b>${esc(p.division)}</b></td>
+          <td style="white-space:normal;font-size:12px">${esc(forTxt)}</td><td>${esc(BANK_LABEL[p.method] || p.method)}</td>
+          <td class="num">${peso(p.amount)}</td><td>${st}</td></tr>`;
+      }).join('') || `<tr><td class="empty-note" colspan="6">No payments this month.</td></tr>`;
+    }
+
+    async function load(force) {
+      const btn = $('dbRefresh'); btn.disabled = true;
+      $('dbBody').classList.add('loading');
+      $('dbError').classList.remove('show');
+      try {
+        const token = localStorage.getItem('pipeline_token');
+        const res = await fetch(`${API_BASE}/divbilling/overview?month=${currentMonth}${force ? '&refresh=1' : ''}`,
+          { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        render(data);
+        if (data.stale && data.error) { $('dbError').textContent = 'Billing app error: ' + data.error; $('dbError').classList.add('show'); }
+      } catch (err) {
+        $('dbMeta').innerHTML = '<span>Could not load data.</span>';
+        $('dbError').innerHTML = `Could not load Division Billing data: <b>${esc(err.message)}</b><br>
+          Check that <code>divbilling.js</code> is deployed on Railway and the DIVBILL_* variables are set.`;
+        $('dbError').classList.add('show');
+      } finally {
+        btn.disabled = false;
+        $('dbBody').classList.remove('loading');
+      }
+    }
+
+    monthInput.addEventListener('change', () => { if (monthInput.value) { currentMonth = monthInput.value; load(false); } });
+    $('dbRefresh').addEventListener('click', () => load(true));
+    load(false);
+    setInterval(() => { if (!document.hidden) load(false); }, 5 * 60 * 1000);
+  })();
+</script>
+</body>
+</html>
