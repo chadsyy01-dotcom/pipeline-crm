@@ -1212,7 +1212,11 @@
     }
     let filtered = allConversations;
     if (currentBrand !== 'all') filtered = filtered.filter(c => c.brand === currentBrand);
-    if (currentStatus === 'active') {
+    if (currentStatus === 'active' && currentHandoff === 'all') {
+      // Kapag may piniling Chat Status (hal. Missed Chat), laktawan ang
+      // default na "active" trimming — kung hindi, lahat ng lumang chats
+      // (Resolved / HH Closed na) ay tanggal na bago pa mag-filter, kaya
+      // laging walang resulta sa Last Month / ibang araw (2026-10-10 fix).
       // Active = tapos na ang usapan → alis sa default view. Kasama dito ang
       // Resolved status AT ang HH Closed handoffs (sa LiveChat brands ang
       // status ay madalas 'Unknown', kaya ang handoffStage 'closed' ang
@@ -1273,8 +1277,12 @@
   function chatStatusKey(c) {
     const idleMin = c.lastActivityAt ? (Date.now() - new Date(c.lastActivityAt).getTime()) / 60000 : Infinity;
     const late = c.ftr != null && c.ftr > MISSED_SLA_SEC;
-    const answered = c.handoffStage === 'opened' || c.handoffStage === 'closed' || c.ftr != null;
-    if (c.handoffStage === 'pending' && !answered) {
+    // "May sumagot" = may FTR (unang human reply) o stage 'opened'. Ang
+    // 'closed' ay HINDI katibayan na may sumagot — maraming lumang chats
+    // ang nag-closed na walang human reply (deactivated habang pending),
+    // at dapat MISSED pa rin ang mga iyon (2026-10-10 fix).
+    const answered = c.ftr != null || c.handoffStage === 'opened';
+    if (c.handoffStage && !answered) {
       if (idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
       return { cls: 'waiting', label: 'Waiting', late };
     }
