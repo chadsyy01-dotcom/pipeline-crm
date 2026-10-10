@@ -941,6 +941,7 @@
       renderConcernFilter();
       applyFiltersAndRender();
       renderArtFtrStats();
+      verifyMissedCandidates();   // double-check ng Missed/Waiting gamit ang thread
     } catch (err) {
       console.error('Failed to load conversations:', err);
       document.getElementById('liveIndicator').textContent = '● Error loading';
@@ -1374,6 +1375,54 @@
   // Habang hindi pa tapos at wala pang sagot → WAITING (kahit gaano katagal).
   // Kapag may sagot na ang agent (kahit late), hindi na kailanman missed.
   const AUTO_CLOSE_MIN = 10;
+
+  // ---- HUMAN-REPLY VERIFICATION (2026-10-10) ----
+  // Minsan walang FTR ang summary kahit may sumagot na agent (hal. si Admin
+  // Raya kay Gelai29 — nauna ng ilang segundo ang reply sa handoff record).
+  // Kaya bago manatiling Missed/Waiting ang isang chat, binabasa ang mismong
+  // thread nito: kapag may PUBLIC na reply ang totoong tao (hindi bot, hindi
+  // private note), "answered" na ito at HINDI na Missed. Naka-cache kada
+  // conversation + lastActivityAt para hindi paulit-ulit ang fetch.
+  const humanReplyCache = new Map();   // key → true / false
+  const humanReplyInflight = new Set();
+  const hrKey = c => `${c.conversationId}|${c.lastActivityAt || ''}`;
+  function isHumanPublicReply(m) {
+    return m.senderType === 'user' && m.senderName && !m.isPrivate
+      && !isBotClient(m.brand, m.senderName) && (m.content || attachmentsOf(m).length);
+  }
+  async function verifyMissedCandidates() {
+    const token = localStorage.getItem('pipeline_token');
+    if (!token) return;
+    const todo = allConversations.filter(c => {
+      const k = chatStatusKey(c);
+      return (k.cls === 'missed' || k.cls === 'waiting') && !humanReplyCache.has(hrKey(c)) && !humanReplyInflight.has(hrKey(c));
+    });
+    if (!todo.length) return;
+    let changed = false;
+    const worker = async () => {
+      while (todo.length) {
+        const c = todo.shift();
+        const key = hrKey(c);
+        humanReplyInflight.add(key);
+        try {
+          const res = await fetch(`${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(c.conversationId)}&limit=200`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const answered = (data.events || []).some(m => isHumanPublicReply({ brand: c.brand, ...m }));
+          humanReplyCache.set(key, answered);
+          if (answered) changed = true;
+        } catch (e) {
+          console.warn('Human-reply check failed for', c.conversationId, e);
+        } finally {
+          humanReplyInflight.delete(key);
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);   // 4 sabay-sabay
+    if (changed) applyFiltersAndRender();
+  }
   // Bot message na nagsasabing ililipat sa live agent ("transfer notice").
   // Dagdagan ang listahan kapag may bagong wording ang bot.
   const TRANSFER_RE = /(transfer|ililipat|lilipat|live agent|human agent|real agent|\bcsr\b|connect(ing)? you|ikokonekta|kokonekta|an? agent will|our (support )?agent|please wait|paki-?hintay|hintayin|wait (lang|po))/i;
@@ -1390,7 +1439,8 @@
     // 'closed' ay HINDI katibayan na may sumagot — maraming lumang chats
     // ang nag-closed na walang human reply (deactivated habang pending),
     // at dapat MISSED pa rin ang mga iyon (2026-10-10 fix).
-    const answered = c.ftr != null || c.handoffStage === 'opened';
+    const answered = c.ftr != null || c.handoffStage === 'opened'
+      || humanReplyCache.get(hrKey(c)) === true;   // nakitang may human reply sa thread
     // Kung HUMAN agent ang huling nagsalita (hal. greeting na hindi sinagot
     // ng player), HINDI ito missed — walang customer message na na-miss.
     // Ang bot na "Rate our support" ay hindi bilang na agent reply.
@@ -1954,8 +2004,14 @@
     // player ang WALANG sagot mula sa TOTOONG tao (ang bot persona gaya ni
     // Agent Jem ay hindi bilang na sagot). Ito ang dahilan kung bakit
     // "Missed Chat" ang status sa table.
-    const isHumanMsg = m => m.senderType === 'user' && m.senderName && !isBotClient(m.brand, m.senderName);
+    const isHumanMsg = m => isHumanPublicReply(m);
     const conv = (allConversations || []).find(c => String(c.conversationId) === String(currentThreadConvId));
+    // Kapag may nakitang human reply sa thread na ito, itala agad para
+    // hindi na Missed ang status — sa modal at sa table.
+    if (conv && withContent.some(isHumanMsg) && humanReplyCache.get(hrKey(conv)) !== true) {
+      humanReplyCache.set(hrKey(conv), true);
+      setTimeout(applyFiltersAndRender, 0);
+    }
     const sk = conv ? chatStatusKey(conv) : null;
     const hoIdx = withContent.findIndex(m => m.handoffStage);
     // "Tunay na sagot" = reply ng tao, O reply ng bot na hindi transfer
