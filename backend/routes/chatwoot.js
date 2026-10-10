@@ -521,7 +521,26 @@ router.post('/webhook/:brand', async (req, res) => {
 // that handoff point to the conversation's last message — not an average
 // of individual reply gaps — so it reflects how long the customer was
 // actually being chatted with by an agent.
-function computeArtFtr(messages, brand) {
+// NEWEST-SESSION SCOPING (2026-10-10, utos ni Chad): sa LiveChat (at kahit
+// Chatwoot) iisang conversation ang maraming balikan ng parehong customer,
+// kaya ang first-to-last na sukat ay umaabot ng ilang ARAW (hal. 187h) —
+// hindi iyon ang totoong chatting time. Hinahati muna ang messages sa mga
+// "session": bagong session kapag may 60+ minutong puwang sa pagitan ng
+// mga mensahe. Ang PINAKABAGONG session lang ang sinusukat para sa ftr at
+// chatting time — ang kasalukuyang usapan, hindi ang buong history.
+const SESSION_GAP_MS = 60 * 60 * 1000;
+function latestSession(messages) {
+  if (messages.length <= 1) return messages;
+  let start = 0;
+  for (let i = 1; i < messages.length; i++) {
+    const gap = new Date(messages[i].createdAt).getTime() - new Date(messages[i - 1].createdAt).getTime();
+    if (gap >= SESSION_GAP_MS) start = i;   // bagong usapan — simulan dito
+  }
+  return messages.slice(start);
+}
+
+function computeArtFtr(allMessages, brand) {
+  const messages = latestSession(allMessages);
   let lastCustomerMsgTime = null;
   let firstAgentGap = null;
   let firstAgentMsgTime = null;
