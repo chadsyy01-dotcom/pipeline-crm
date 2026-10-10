@@ -1315,7 +1315,11 @@
         return true;
       });
     }
-    else if (currentStatus !== 'all') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
+    // FIX 2026-10-10: ang 'active' ay hindi tunay na Chatwoot status. Dati,
+    // kapag may Chat Status na pinili (hal. Missed) habang "Active" ang
+    // Status, napupunta rito at hinahanap ang status === 'active' → laging
+    // walang resulta. Ngayon, nilalaktawan na ang 'active' dito.
+    else if (currentStatus !== 'all' && currentStatus !== 'active') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
     if (currentHandoff !== 'all') {
       // Bagong Chat Status filter (2026-10-10): derived status ang basehan,
       // hindi na ang raw handoffStage. 'late' = nasagot pero lampas 3 min.
