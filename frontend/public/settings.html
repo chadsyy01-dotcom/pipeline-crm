@@ -20,6 +20,8 @@
     --success:#22C55E; --success-tint:#EAFBF1;
     --warning:#F59E0B; --warning-tint:#FEF6E7;
     --danger:#EF4444; --danger-tint:#FDECEC;
+    --purple:#8B5CF6; --purple-tint:#F3EEFE;
+    --teal:#14B8A6; --teal-tint:#E9FAF8;
     --bg:#F8FAFC; --card:#FFFFFF;
     --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
     --line:#EEF1F6;
@@ -45,40 +47,86 @@
   .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
 
-  .main{flex:1;min-width:0;padding:26px 32px 40px;max-width:760px;}
-  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
-  .greeting p{margin:0 0 24px;color:var(--ink-soft);font-size:13.5px;}
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
 
-  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:22px;margin-bottom:16px;}
-  .panel h3{margin:0 0 4px;font-size:15px;font-weight:700;}
-  .panel .panel-sub{margin:0 0 18px;font-size:12.5px;color:var(--ink-faint);}
+  /* ===== SETTINGS REDESIGN (2026-10-11) — hero band + card grid ===== */
+  .hero-band{position:relative;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);
+    margin:-26px -32px 0;padding:26px 32px 86px;border-radius:0 0 20px 20px;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;color:#fff;}
+  .greeting p{margin:0;color:#9FB2D8;font-size:13.5px;}
+  .hero-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .hero-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#C7D5F0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:4px 10px;border-radius:99px;}
+  .hero-chip b{color:#fff;}
+  .hero-chip i{width:7px;height:7px;border-radius:50%;background:#94A3B8;}
+  .hero-chip i.on{background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.25);}
+  .hero-profile{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;}
+  .hero-profile:hover{background:rgba(255,255,255,.16);}
+  .hero-profile svg{width:15px;height:15px;}
+
+  .set-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:-58px;position:relative;z-index:2;align-items:start;}
+  .set-grid .full{grid-column:1 / -1;}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:20px 22px;border:1px solid #E8EDF5;position:relative;overflow:hidden;}
+  .panel::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc,#2563EB);}
+  .p-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:6px;}
+  .p-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--acc-t,#EFF4FF);color:var(--acc,#2563EB);flex-shrink:0;}
+  .p-ic svg{width:18px;height:18px;}
+  .panel h3{margin:0 0 3px;font-size:15px;font-weight:800;}
+  .panel .panel-sub{margin:0;font-size:12.5px;color:var(--ink-faint);line-height:1.5;}
 
   .setting-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);gap:16px;}
-  .setting-row:last-child{border-bottom:none;}
+  .setting-row:last-of-type{border-bottom:none;}
   .setting-label{font-size:13.5px;font-weight:700;}
-  .setting-desc{font-size:12px;color:var(--ink-faint);margin-top:2px;}
-  .setting-select{font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:var(--card);cursor:pointer;}
+  .setting-desc{font-size:12px;color:var(--ink-faint);margin-top:2px;line-height:1.45;}
+  .setting-select{font-family:inherit;font-size:13px;font-weight:700;padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;color:var(--ink);background:var(--card);cursor:pointer;transition:border-color .12s,box-shadow .12s;}
+  .setting-select:hover{border-color:#CBD5E1;}
+  .setting-select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+  .btn-test{display:inline-flex;align-items:center;gap:6px;background:var(--primary-tint);color:var(--primary);border-color:var(--primary-tint);}
+  .btn-test:hover{border-color:var(--primary);}
 
-  .toggle{position:relative;width:42px;height:24px;flex-shrink:0;}
+  .toggle{position:relative;width:46px;height:26px;flex-shrink:0;}
   .toggle input{opacity:0;width:0;height:0;}
   .toggle-track{position:absolute;inset:0;background:#CBD5E1;border-radius:20px;cursor:pointer;transition:background .15s;}
-  .toggle-track:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .15s;}
+  .toggle-track:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .18s;box-shadow:0 1px 3px rgba(15,23,42,.25);}
   .toggle input:checked + .toggle-track{background:var(--success);}
-  .toggle input:checked + .toggle-track:before{transform:translateX(18px);}
+  .toggle input:checked + .toggle-track:before{transform:translateX(20px);}
+  .toggle input:focus-visible + .toggle-track{box-shadow:0 0 0 3px var(--primary-tint);}
+  .notif-state{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;margin-left:6px;vertical-align:middle;}
+  .notif-state.on{background:var(--success-tint);color:#15803D;}
+  .notif-state.off{background:#F1F5F9;color:var(--ink-faint);}
 
-  .source-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);}
-  .source-row:last-child{border-bottom:none;}
-  .source-name{font-size:13.5px;font-weight:600;}
-  .source-count{font-size:12px;color:var(--ink-faint);}
-  .source-status{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--success);}
-  .source-status .dot2{width:7px;height:7px;border-radius:50%;background:var(--success);}
+  .src-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:14px;}
+  .src-tile{position:relative;display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:border-color .12s,box-shadow .12s;}
+  .src-tile:hover{border-color:#CBD5E1;box-shadow:0 6px 16px -10px rgba(15,23,42,.25);}
+  .src-av{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;flex-shrink:0;}
+  .src-meta{flex:1;min-width:0;}
+  .source-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .source-count{font-size:11.5px;color:var(--ink-faint);}
+  .src-bar{height:4px;border-radius:99px;background:#EEF1F6;margin-top:6px;overflow:hidden;}
+  .src-bar i{display:block;height:100%;border-radius:99px;background:var(--primary);}
+  .source-status{position:absolute;top:10px;right:10px;font-size:0;}
+  .source-status .dot2{display:block;width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+  .src-meta{padding-right:14px;}
+  .src-sum{font-size:12px;font-weight:700;color:var(--ink-soft);white-space:nowrap;}
 
-  .save-note{font-size:12px;color:var(--success);font-weight:600;display:none;margin-top:4px;}
+  .acct-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;padding:14px;border-radius:12px;background:#F8FAFC;border:1px solid var(--line);flex-wrap:wrap;}
+  .acct-link{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;padding:9px 14px;border-radius:10px;background:var(--primary);color:#fff;box-shadow:0 6px 14px -8px rgba(37,99,235,.7);}
+  .acct-link:hover{background:#1D4ED8;}
+
+  .save-note{font-size:12px;color:#15803D;font-weight:700;display:none;margin-top:10px;background:var(--success-tint);padding:7px 10px;border-radius:9px;}
   .save-note.show{display:block;}
 
   .admin-badge{font-size:10px;font-weight:800;color:var(--primary);background:var(--primary-tint);padding:2px 8px;border-radius:20px;vertical-align:middle;margin-left:6px;}
 
-  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+  .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);opacity:0;background:#0F172A;color:#fff;font-size:12.5px;font-weight:700;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);transition:all .2s;z-index:100;pointer-events:none;}
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+
+  @media (max-width:1000px){ .set-grid{grid-template-columns:1fr;} }
+  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .hero-band{margin:-20px -16px 0;padding:20px 16px 80px;} }
 </style>
 </head>
 <body>
@@ -96,6 +144,12 @@
       if (!res.ok) throw new Error("Invalid session");
       const data = await res.json();
       const user = data.user || data;
+      // UI only (2026-10-11): ipakita kung sino ang naka-login sa hero
+      try {
+        const who = document.getElementById('heroUser');
+        window.__me = user;
+        if (who && user && (user.name || user.email)) { who.innerHTML = 'Signed in as <b></b>'; who.querySelector('b').textContent = user.name || user.email; who.style.display = ''; }
+      } catch (_) {}
       if (user && String(user.email || '').trim().toLowerCase() === VOICE_ADMIN_EMAIL) {
         // DOM handa na kapag umabot dito ang async fetch; pero guard pa rin.
         if (window.initVoicePanel) window.initVoicePanel();
@@ -141,91 +195,135 @@
   </aside>
 
   <main class="main">
-    <div class="greeting">
-      <h1>Settings</h1>
-      <p>Preferences for this dashboard. These are saved to this browser only.</p>
-    </div>
-
-    <div class="panel">
-      <h3>Notifications</h3>
-      <p class="panel-sub">Control how you're alerted about new tickets.</p>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Desktop notifications</div>
-          <div class="setting-desc">Get a popup alert when a new ticket arrives, even if this tab isn't focused.</div>
+    <div class="hero-band">
+      <div class="hero-top">
+        <div class="greeting">
+          <h1>Settings</h1>
+          <p>Preferences for this dashboard. These are saved to this browser only.</p>
+          <div class="hero-chips">
+            <span class="hero-chip" id="heroUser" style="display:none;"></span>
+            <span class="hero-chip"><i id="heroNotifDot"></i> Desktop alerts: <b id="heroNotif">Off</b></span>
+            <span class="hero-chip">Refresh: <b id="heroRefresh">—</b></span>
+            <span class="hero-chip">Rows: <b id="heroRows">—</b></span>
+          </div>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="desktopNotifToggle" onchange="onDesktopNotifChange()">
-          <span class="toggle-track"></span>
-        </label>
+        <a href="profile.html" class="hero-profile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Profile &amp; Account
+        </a>
       </div>
     </div>
 
-    <!-- NOTIFICATION VOICE (2026-09-23) — ADMIN ONLY (richard.bacong@fhbpo.com).
-         Nakatago sa lahat ng ibang accounts; pinapakita lang ng checkAuth
-         kapag tumugma ang email. Ang pinili ay naka-save sa localStorage
-         'csr_notif_voice' at agad ginagamit ng lahat ng spoken alerts. -->
-    <div class="panel" id="voicePanel" style="display:none;">
-      <h3>Notification Voice <span class="admin-badge">ADMIN</span></h3>
-      <p class="panel-sub">Boses ng spoken alerts ("New ticket received!", "Alert! Pending tickets!", "Ticket pending!"). Ang listahan ng voices ay galing sa computer na ito — ang pipiliin dito ay masusunod sa browser/computer na ito.</p>
-      <div class="setting-row">
-        <div style="flex:1;">
-          <div class="setting-label">Voice</div>
-          <div class="setting-desc" id="voiceDesc">Loading voices…</div>
+    <div class="set-grid">
+      <div class="panel" style="--acc:#22C55E;--acc-t:#EAFBF1;">
+        <div class="p-head">
+          <div class="p-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></div>
+          <div>
+            <h3>Notifications</h3>
+            <p class="panel-sub">Control how you're alerted about new tickets.</p>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-          <select class="setting-select" id="voiceSelect" style="max-width:300px;"></select>
-          <button type="button" id="voiceTestBtn" class="setting-select" style="cursor:pointer;">▶ Test</button>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Desktop notifications <span class="notif-state off" id="notifState">OFF</span></div>
+            <div class="setting-desc">Get a popup alert when a new ticket arrives, even if this tab isn't focused.</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="desktopNotifToggle" onchange="onDesktopNotifChange()">
+            <span class="toggle-track"></span>
+          </label>
         </div>
       </div>
-      <div class="save-note" id="voiceSaveNote">✓ Saved — gagamitin agad ng lahat ng alerts sa browser na ito</div>
-    </div>
 
-    <div class="panel">
-      <h3>Display</h3>
-      <p class="panel-sub">How data refreshes and how many rows show per page.</p>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Auto-refresh interval</div>
-          <div class="setting-desc">How often Dashboard and Tickets pull fresh data.</div>
+      <div class="panel" style="--acc:#2563EB;--acc-t:#EFF4FF;">
+        <div class="p-head">
+          <div class="p-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></div>
+          <div>
+            <h3>Display</h3>
+            <p class="panel-sub">How data refreshes and how many rows show per page.</p>
+          </div>
         </div>
-        <select class="setting-select" id="refreshIntervalSelect" onchange="onRefreshIntervalChange()">
-          <option value="10000">Every 10 seconds</option>
-          <option value="20000">Every 20 seconds</option>
-          <option value="30000">Every 30 seconds</option>
-          <option value="60000">Every 60 seconds</option>
-        </select>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Tickets per page</div>
-          <div class="setting-desc">Number of rows shown per page on the Tickets list.</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Auto-refresh interval</div>
+            <div class="setting-desc">How often Dashboard and Tickets pull fresh data.</div>
+          </div>
+          <select class="setting-select" id="refreshIntervalSelect" onchange="onRefreshIntervalChange()">
+            <option value="10000">Every 10 seconds</option>
+            <option value="20000">Every 20 seconds</option>
+            <option value="30000">Every 30 seconds</option>
+            <option value="60000">Every 60 seconds</option>
+          </select>
         </div>
-        <select class="setting-select" id="pageSizeSelect" onchange="onPageSizeChange()">
-          <option value="10">10 rows</option>
-          <option value="20">20 rows</option>
-          <option value="50">50 rows</option>
-          <option value="100">100 rows</option>
-        </select>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Tickets per page</div>
+            <div class="setting-desc">Number of rows shown per page on the Tickets list.</div>
+          </div>
+          <select class="setting-select" id="pageSizeSelect" onchange="onPageSizeChange()">
+            <option value="10">10 rows</option>
+            <option value="20">20 rows</option>
+            <option value="50">50 rows</option>
+            <option value="100">100 rows</option>
+          </select>
+        </div>
+        <div class="save-note show" id="displaySaveNote">✓ Saved — applies next time Dashboard or Tickets loads</div>
       </div>
-      <div class="save-note show" id="displaySaveNote">✓ Saved — applies next time Dashboard or Tickets loads</div>
-    </div>
 
-    <div class="panel">
-      <h3>Connected Data Sources</h3>
-      <p class="panel-sub">Brands currently feeding this dashboard, read from live Google Sheets.</p>
-      <div id="sourcesList"><div style="color:var(--ink-faint);font-size:13px;">Loading…</div></div>
-    </div>
+      <!-- NOTIFICATION VOICE (2026-09-23) — ADMIN ONLY (richard.bacong@fhbpo.com).
+           Nakatago sa lahat ng ibang accounts; pinapakita lang ng checkAuth
+           kapag tumugma ang email. Ang pinili ay naka-save sa localStorage
+           'csr_notif_voice' at agad ginagamit ng lahat ng spoken alerts. -->
+      <div class="panel full" id="voicePanel" style="display:none;--acc:#8B5CF6;--acc-t:#F3EEFE;">
+        <div class="p-head">
+          <div class="p-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg></div>
+          <div>
+            <h3>Notification Voice <span class="admin-badge">ADMIN</span></h3>
+            <p class="panel-sub">Boses ng spoken alerts ("New ticket received!", "Alert! Pending tickets!", "Ticket pending!"). Ang listahan ng voices ay galing sa computer na ito — ang pipiliin dito ay masusunod sa browser/computer na ito.</p>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div style="flex:1;">
+            <div class="setting-label">Voice</div>
+            <div class="setting-desc" id="voiceDesc">Loading voices…</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+            <select class="setting-select" id="voiceSelect" style="max-width:300px;"></select>
+            <button type="button" id="voiceTestBtn" class="setting-select btn-test">▶ Test</button>
+          </div>
+        </div>
+        <div class="save-note" id="voiceSaveNote">✓ Saved — gagamitin agad ng lahat ng alerts sa browser na ito</div>
+      </div>
 
-    <div class="panel">
-      <h3>Account</h3>
-      <p class="panel-sub">Manage your profile and log out.</p>
-      <a href="profile.html" style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--primary);">
-        Go to Profile &amp; Account →
-      </a>
+      <div class="panel full" style="--acc:#14B8A6;--acc-t:#E9FAF8;">
+        <div class="p-head">
+          <div class="p-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+          <div style="flex:1;">
+            <h3>Connected Data Sources</h3>
+            <p class="panel-sub">Brands currently feeding this dashboard, read from live Google Sheets.</p>
+          </div>
+          <span class="src-sum" id="srcSummary"></span>
+        </div>
+        <div id="sourcesList"><div style="color:var(--ink-faint);font-size:13px;margin-top:12px;">Loading…</div></div>
+      </div>
+
+      <div class="panel full" style="--acc:#F59E0B;--acc-t:#FEF6E7;">
+        <div class="p-head">
+          <div class="p-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div>
+            <h3>Account</h3>
+            <p class="panel-sub">Manage your profile and log out.</p>
+          </div>
+        </div>
+        <div class="acct-row">
+          <span style="font-size:12.5px;color:var(--ink-soft);">Update your profile or sign out from the Profile page.</span>
+          <a href="profile.html" class="acct-link">Go to Profile &amp; Account →</a>
+        </div>
+      </div>
     </div>
   </main>
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
 // ---- Load saved preferences into the UI ----
@@ -234,9 +332,36 @@ document.getElementById('refreshIntervalSelect').value = localStorage.getItem('c
 document.getElementById('pageSizeSelect').value = localStorage.getItem('csr_page_size') || '10';
 document.getElementById('desktopNotifToggle').checked = localStorage.getItem('csr_desktop_notif') === 'true';
 
+// UI only (2026-10-11): hero chips + ON/OFF badge + toast
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(showToast._t); showToast._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+function refreshSummary() {
+  const sel = document.getElementById('refreshIntervalSelect');
+  const rows = document.getElementById('pageSizeSelect');
+  const on = document.getElementById('desktopNotifToggle').checked;
+  document.getElementById('heroRefresh').textContent = (Number(sel.value) / 1000) + 's';
+  document.getElementById('heroRows').textContent = rows.value;
+  document.getElementById('heroNotif').textContent = on ? 'On' : 'Off';
+  document.getElementById('heroNotifDot').className = on ? 'on' : '';
+  const st = document.getElementById('notifState');
+  st.textContent = on ? 'ON' : 'OFF';
+  st.className = 'notif-state ' + (on ? 'on' : 'off');
+}
+refreshSummary();
+(function showUserChip() {
+  const u = window.__me, who = document.getElementById('heroUser');
+  if (u && who && who.style.display === 'none' && (u.name || u.email)) { who.innerHTML = 'Signed in as <b></b>'; who.querySelector('b').textContent = u.name || u.email; who.style.display = ''; }
+  else if (!u) setTimeout(showUserChip, 400);
+})();
+
 function flashSaved() {
   const note = document.getElementById('displaySaveNote');
   note.classList.add('show');
+  refreshSummary();
+  showToast('✓ Saved');
 }
 
 function onRefreshIntervalChange() {
@@ -261,9 +386,12 @@ function onDesktopNotifChange() {
         document.getElementById('desktopNotifToggle').checked = false;
         alert('Notification permission was blocked. Enable it in your browser\'s site settings to use this feature.');
       }
+      refreshSummary();
     });
   } else {
     localStorage.setItem('csr_desktop_notif', checked ? 'true' : 'false');
+    refreshSummary();
+    showToast(checked ? '✓ Desktop notifications on' : 'Desktop notifications off');
   }
 }
 
@@ -278,17 +406,17 @@ function initVoicePanel() {
 
   function populate() {
     const voices = speechSynthesis.getVoices();
-    if (!voices.length) { desc.textContent = 'Naglo-load pa ang voices\u2026 (i-click ang Test kung matagal)'; return; }
+    if (!voices.length) { desc.textContent = 'Naglo-load pa ang voices… (i-click ang Test kung matagal)'; return; }
     const saved = localStorage.getItem('csr_notif_voice') || '';
     // English muna (yun ang wika ng alerts), tapos alphabetical
     const sorted = voices.slice().sort((a, b) => {
       const sc = v => /^en/i.test(v.lang) ? 0 : 1;
       return sc(a) - sc(b) || a.name.localeCompare(b.name);
     });
-    select.innerHTML = '<option value="">Default \u2014 unang English voice ng computer</option>' +
+    select.innerHTML = '<option value="">Default — unang English voice ng computer</option>' +
       sorted.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name} (${v.lang})</option>`).join('');
     if (saved && sorted.some(v => v.name === saved)) select.value = saved;
-    desc.textContent = `${voices.length} voices ang available sa computer na ito` + (saved ? ` \u00b7 kasalukuyan: ${saved}` : '');
+    desc.textContent = `${voices.length} voices ang available sa computer na ito` + (saved ? ` · kasalukuyan: ${saved}` : '');
   }
   populate();
   if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = populate;
@@ -298,7 +426,8 @@ function initVoicePanel() {
     else localStorage.removeItem('csr_notif_voice');
     document.getElementById('voiceSaveNote').classList.add('show');
     const saved = localStorage.getItem('csr_notif_voice');
-    desc.textContent = `${speechSynthesis.getVoices().length} voices ang available sa computer na ito` + (saved ? ` \u00b7 kasalukuyan: ${saved}` : '');
+    desc.textContent = `${speechSynthesis.getVoices().length} voices ang available sa computer na ito` + (saved ? ` · kasalukuyan: ${saved}` : '');
+    showToast('✓ Voice saved');
   });
 
   document.getElementById('voiceTestBtn').addEventListener('click', () => {
@@ -319,6 +448,15 @@ window.initVoicePanel = initVoicePanel;
 if (window.__showVoicePanelWhenReady) initVoicePanel();
 
 // ---- Connected Data Sources: derive from live ticket data (brand + count) ----
+const SRC_COLORS = ['#2563EB','#8B5CF6','#EC4899','#F59E0B','#14B8A6','#22C55E','#EF4444','#0EA5E9'];
+function srcColor(name) {
+  let h = 0; const s = String(name || '');
+  for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
+  return SRC_COLORS[Math.abs(h) % SRC_COLORS.length];
+}
+function srcInitials(name) {
+  return String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+}
 TicketData.fetchTickets()
   .then(tickets => {
     const counts = {};
@@ -326,21 +464,26 @@ TicketData.fetchTickets()
     const brands = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
     const list = document.getElementById('sourcesList');
     if (brands.length === 0) {
-      list.innerHTML = '<div style="color:var(--ink-faint);font-size:13px;">No data sources responded.</div>';
+      list.innerHTML = '<div style="color:var(--ink-faint);font-size:13px;margin-top:12px;">No data sources responded.</div>';
       return;
     }
-    list.innerHTML = brands.map(b => `
-      <div class="source-row">
-        <div>
+    const max = counts[brands[0]] || 1;
+    const total = brands.reduce((s, b) => s + counts[b], 0);
+    document.getElementById('srcSummary').textContent = `${brands.length} connected · ${total.toLocaleString()} tickets`;
+    list.innerHTML = '<div class="src-grid">' + brands.map(b => `
+      <div class="src-tile">
+        <div class="src-av" style="background:${srcColor(b)};">${TicketData.escapeHtml(srcInitials(b))}</div>
+        <div class="src-meta">
           <div class="source-name">${TicketData.escapeHtml(b)}</div>
           <div class="source-count">${counts[b].toLocaleString()} tickets on file</div>
+          <div class="src-bar"><i style="width:${Math.max(4, Math.round(counts[b] / max * 100))}%;background:${srcColor(b)};"></i></div>
         </div>
-        <div class="source-status"><span class="dot2"></span>Connected</div>
+        <div class="source-status" title="Connected"><span class="dot2"></span>Connected</div>
       </div>
-    `).join('');
+    `).join('') + '</div>';
   })
   .catch(() => {
-    document.getElementById('sourcesList').innerHTML = '<div style="color:var(--danger);font-size:13px;">Could not load source status.</div>';
+    document.getElementById('sourcesList').innerHTML = '<div style="color:var(--danger);font-size:13px;margin-top:12px;">Could not load source status.</div>';
   });
 </script>
 </body>
