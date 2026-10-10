@@ -109,6 +109,56 @@
   .kb-modal-item .warn{font-size:10px;font-weight:800;color:#92620A;background:var(--warning-tint);padding:2px 7px;border-radius:12px;margin-left:auto;flex-shrink:0;}
   .kb-modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .kb-layout{flex-direction:column;} .kb-seclist{width:100%;border-right:none;border-bottom:1px solid var(--line);padding:0 0 12px;margin:0 0 14px;} }
+
+  /* ===== KB REDESIGN (2026-10-10) — hero band, brand tabs on navy, cleaner reader ===== */
+  .hero-band{position:relative;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);
+    margin:-26px -32px 0;padding:26px 32px 76px;border-radius:0 0 20px 20px;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .hero-band .topbar{margin-bottom:18px;}
+  .hero-band .greeting h1{color:#fff;}
+  .hero-band .greeting p{color:#9FB2D8;}
+  .hero-stats{display:flex;gap:8px;flex-wrap:wrap;}
+  .hero-stat{display:flex;flex-direction:column;align-items:flex-start;min-width:96px;padding:9px 14px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);}
+  .hero-stat b{font-size:18px;font-weight:800;color:#fff;line-height:1.1;}
+  .hero-stat span{font-size:11px;font-weight:600;color:#9FB2D8;margin-top:2px;}
+  .hero-stat.warn b{color:#FCD34D;} .hero-stat.bad b{color:#FCA5A5;}
+  .hero-band .brand-tabs{margin-bottom:0;gap:6px;}
+  .hero-band .brand-tab{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#D7E1F5;border-radius:99px;padding:7px 13px;transition:background .15s,border-color .15s;}
+  .hero-band .brand-tab:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff;}
+  .hero-band .brand-tab.active{background:#fff;color:var(--primary);border-color:#fff;box-shadow:0 6px 18px -8px rgba(0,0,0,.5);}
+  .hero-band .brand-tab.active .kb-has{background:var(--success);}
+  .hero-band .brand-tab .kb-none{background:rgba(255,255,255,.28);}
+  .kb-panel{margin-top:-52px;position:relative;z-index:2;padding:20px;}
+
+  .kb-seclist{width:268px;}
+  .kb-seclist-head span{font-size:11px;}
+  .kb-seccount{font-size:10.5px;font-weight:800;color:var(--primary);background:var(--primary-tint);padding:2px 8px;border-radius:99px;margin-left:6px;letter-spacing:0;text-transform:none;}
+  .kb-doctools{background:#F8FAFC;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:12px;}
+  .kb-doctools-t{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint);margin:0 2px 8px;}
+  .kb-doctools .kb-btn{background:#fff;}
+  .kb-doctools #kbSyncStatus{margin-bottom:0 !important;}
+  .kb-secfilter{position:relative;margin-bottom:8px;}
+  .kb-secfilter svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--ink-faint);}
+  .kb-secfilter input{width:100%;padding:8px 10px 8px 30px;border:1px solid #E2E8F0;border-radius:9px;font:inherit;font-size:12.5px;background:#fff;color:var(--ink);outline:none;}
+  .kb-secfilter input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+  .kb-secitems{gap:3px;max-height:56vh;padding-right:2px;}
+  .kb-secitem{position:relative;padding:9px 10px 9px 12px;border-radius:10px;transition:background .12s,color .12s;}
+  .kb-secitem.active{font-weight:700;box-shadow:inset 3px 0 0 var(--primary);}
+  .kb-secitem.kb-hide{display:none;}
+
+  .kb-content .panel-head{align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:14px;}
+  #kbTitle{font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.3;}
+  .kb-actions .kb-btn{border-color:#E2E8F0;border-radius:9px;transition:border-color .12s,color .12s,background .12s;}
+  .kb-actions .kb-btn:not(.primary):hover{border-color:var(--primary);color:var(--primary);}
+  .kb-actions .kb-btn.primary{box-shadow:0 6px 14px -8px rgba(37,99,235,.7);}
+  .kb-search input{max-width:none;padding-left:34px;border-color:#E2E8F0;border-radius:10px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E") no-repeat 11px center/15px 15px;}
+  .kb-search input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+  .kb-view{background:#fff;font-size:13.5px;line-height:1.8;padding:22px 26px;max-height:68vh;border-color:#E8EDF5;border-radius:12px;box-shadow:inset 0 1px 0 #F1F5F9;}
+  .kb-view::-webkit-scrollbar{width:8px;} .kb-view::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:8px;}
+  .kb-empty{padding:60px 12px;}
+  @media (max-width:860px){ .hero-band{margin:-20px -16px 0;padding:20px 16px 72px;} .kb-seclist{width:100%;} }
 </style>
 </head>
 <body>
@@ -173,27 +223,36 @@
   </aside>
 
   <main class="main">
+    <div class="hero-band">
     <div class="topbar">
       <div class="greeting">
         <h1>Knowledge Base</h1>
         <p>The Chatwoot KB for every brand — one shared, editable source of truth for the whole team.</p>
       </div>
+      <div class="hero-stats" id="kbHeroStats"></div>
     </div>
 
     <div class="brand-tabs" id="brandTabs"></div>
+    </div><!-- /hero-band -->
 
-    <div class="panel">
+    <div class="panel kb-panel">
       <div id="kbBrandNotice"></div>
       <div class="kb-layout">
         <div class="kb-seclist">
           <div class="kb-seclist-head">
-            <span>Sections</span>
+            <span>Sections<span class="kb-seccount" id="kbSecCount" style="display:none"></span></span>
             <button class="kb-addbtn" id="kbAddBtn" title="Add a new section">+</button>
           </div>
+          <div class="kb-doctools"><div class="kb-doctools-t">Google Doc sync</div>
           <button class="kb-btn" id="kbDocLinkBtn" style="width:100%;justify-content:center;margin-bottom:6px;" title="Set this brand's published Google Doc link (File → Share → Publish to web)">🔗 Doc link</button>
           <button class="kb-btn" id="kbImportBtn" title="Basahin ang naka-link na doc, awtomatikong gawing sections ang bawat tab heading (hal. LLM Instruction, 00 admin persona, 01 about …), tapos i-sync agad ang laman" style="display:none;width:100%;justify-content:center;margin-bottom:6px;color:var(--success);border-color:var(--success-tint);">⬇ Import from doc</button>
           <button class="kb-btn" id="kbSyncAllBtn" title="I-sync LAHAT ng sections ng brand na ito mula sa doc" style="display:none;width:100%;justify-content:center;margin-bottom:8px;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync All</button>
           <div id="kbSyncStatus" style="font-size:10.5px;font-weight:600;color:var(--ink-faint);text-align:center;margin-bottom:8px;min-height:14px;"></div>
+          </div>
+          <div class="kb-secfilter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" id="kbSecFilter" placeholder="Filter sections…" autocomplete="off">
+          </div>
           <div class="kb-secitems" id="kbSecItems"><div class="kb-empty-side">Loading…</div></div>
         </div>
         <div class="kb-content">
@@ -286,6 +345,19 @@
         <span class="${dot}"></span>${esc(b.label)}
       </button>`;
     }).join('');
+    // Hero stats (UI only)
+    try {
+      const metas = BRANDS.map(b => kbIndex[b.key]).filter(Boolean);
+      const withKb = metas.filter(m => m.sections > 0).length;
+      const secs = metas.reduce((s, m) => s + (Number(m.sections) || 0), 0);
+      const exp = metas.filter(m => m.alert === 'expired').length;
+      const soon = metas.filter(m => m.alert === 'soon').length;
+      $('kbHeroStats').innerHTML =
+        `<div class="hero-stat"><b>${withKb}/${BRANDS.length}</b><span>brands with KB</span></div>` +
+        `<div class="hero-stat"><b>${secs}</b><span>sections</span></div>` +
+        `<div class="hero-stat ${exp ? 'bad' : ''}"><b>${exp}</b><span>expired dates</span></div>` +
+        `<div class="hero-stat ${soon ? 'warn' : ''}"><b>${soon}</b><span>ending soon</span></div>`;
+    } catch (_) {}
     document.querySelectorAll('.brand-tab').forEach(btn => btn.addEventListener('click', () => {
       if (editing && !confirm('Discard unsaved changes?')) return;
       setEditing(false);
@@ -1026,6 +1098,28 @@
   // ---- boot: metadata + default brand's sections. No polling. ----
   loadIndex().then(() => loadSections());
 })();
+</script>
+<script>
+  // KB section filter + count (UI only, 2026-10-10)
+  (function () {
+    const list = document.getElementById('kbSecItems');
+    const input = document.getElementById('kbSecFilter');
+    const count = document.getElementById('kbSecCount');
+    if (!list || !input) return;
+    function apply() {
+      const q = input.value.trim().toLowerCase();
+      const items = list.querySelectorAll('.kb-secitem');
+      let shown = 0;
+      items.forEach(it => { const hit = !q || it.textContent.toLowerCase().includes(q); it.classList.toggle('kb-hide', !hit); if (hit) shown++; });
+      if (items.length) { count.style.display = ''; count.textContent = q ? `${shown}/${items.length}` : items.length; }
+      else count.style.display = 'none';
+    }
+    input.addEventListener('input', apply);
+    new MutationObserver(apply).observe(list, { childList: true });
+    apply();
+    // Clear filter when switching brand
+    document.getElementById('brandTabs').addEventListener('click', e => { if (e.target.closest('.brand-tab')) { input.value = ''; } });
+  })();
 </script>
 </body>
 </html>
