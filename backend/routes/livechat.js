@@ -204,6 +204,24 @@ function senderTypeFor(authorId) {
   return String(authorId).includes('@') ? 'user' : 'contact';
 }
 
+// FILE/IMAGE events (2026-10-10): ang mga larawan/screenshot na pinapadala
+// ng customer ay dumarating na ev.type='file' (may url/name/content_type) —
+// dating NI-IGNORE kaya "nawawala" sa thread at hindi nabibilang sa FTR/
+// Missed (nadiskubre kay Jackie30: screenshot ang sagot niya, hindi text).
+// Iniimbak na ngayon bilang message_created na may placeholder na content;
+// ang url ay nasa payload (lc_file_url) para magamit ng frontend.
+function fileEventContent(ev) {
+  const isImage = /^image\//i.test(ev.content_type || '') || /\.(png|jpe?g|gif|webp)(\?|$)/i.test(ev.url || '');
+  const name = ev.name ? ` (${ev.name})` : '';
+  return (isImage ? '📷 [Nagpadala ng larawan]' : '📎 [Nagpadala ng file]') + name;
+}
+function isStorableEvent(ev) {
+  return (ev.type === 'message' && ev.text) || (ev.type === 'file' && (ev.url || ev.name));
+}
+function eventContent(ev) {
+  return ev.type === 'file' ? fileEventContent(ev) : cleanText(ev.text);
+}
+
 // LiveChat message text may be plain; keep a light strip for safety.
 function cleanText(t) {
   if (!t) return null;
@@ -304,9 +322,9 @@ async function normalize(body) {
     }];
     // Initial events that came with the chat (e.g. the customer's first message).
     for (const ev of thread.events || []) {
-      if (ev.type !== 'message' || !ev.text) continue;
+      if (!isStorableEvent(ev)) continue;
       const st = senderTypeFor(ev.author_id);
-      const content = cleanText(ev.text);
+      const content = eventContent(ev);
       // Auto-greeting (2026-09-14): stored, but never counts as the agent's
       // first reply — see isAutoGreeting().
       const greeting = st === 'user' && isAutoGreeting(content);
@@ -319,7 +337,7 @@ async function normalize(body) {
         senderName: st === 'user' ? agentDisplayName(ev.author_id) : (customer.name || null),
         senderType: st,
         handoffStage: st === 'user' && !greeting ? 'opened' : null,
-        payload: { source: 'livechat', action, lc_chat_id: chat.id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined },
+        payload: { source: 'livechat', action, lc_chat_id: chat.id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined, lc_file_url: ev.type === 'file' ? ev.url : undefined, lc_file_type: ev.type === 'file' ? ev.content_type : undefined },
       });
     }
     return rows;
@@ -327,7 +345,7 @@ async function normalize(body) {
 
   if (action === 'incoming_event') {
     const ev = p.event || {};
-    if (ev.type !== 'message' || !ev.text) {
+    if (!isStorableEvent(ev)) {
       // DEBUG (2026-09-14): visible instead of silent
       console.log(`LiveChat webhook: ignoring incoming_event (type=${ev.type || '?'}, hasText=${!!ev.text}) chat=${p.chat_id || '?'}`);
       return null; // ignore system/rich/form events
@@ -335,7 +353,7 @@ async function normalize(body) {
     const conversationId = stableIntId(p.chat_id);
     const known = await lookupBrand(conversationId);
     const st = senderTypeFor(ev.author_id);
-    const content = cleanText(ev.text);
+    const content = eventContent(ev);
     // DEBUG (2026-10-10): makikita sa Railway logs kung ang bawat message ay
     // na-classify na agent ('user') o customer ('contact') — ginagamit sa
     // pag-diagnose ng nawawalang customer messages.
@@ -358,7 +376,7 @@ async function normalize(body) {
       isPrivate: false,
       handoffStage: st === 'user' && !greeting ? 'opened' : null,
       event: 'message_created',
-      payload: { source: 'livechat', action, lc_chat_id: p.chat_id, lc_thread_id: p.thread_id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined },
+      payload: { source: 'livechat', action, lc_chat_id: p.chat_id, lc_thread_id: p.thread_id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined, lc_file_url: ev.type === 'file' ? ev.url : undefined, lc_file_type: ev.type === 'file' ? ev.content_type : undefined },
     }];
   }
 
