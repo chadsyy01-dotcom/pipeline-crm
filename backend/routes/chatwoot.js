@@ -574,6 +574,10 @@ const CONCERN_RULES = [
   { label: "Didn't Receive Expected Cashback", re: /cash\s*back|cashback|rebate/i },
   { label: 'Recall Balance / Chips Transfer',
     re: /recall|chips?\s*transfer|(wrong|mali)ng?[\s\S]{0,30}(transfer|send|account|number)|na-?send\s*sa\s*mali|napunta\s*sa\s*mali/i },
+  { label: 'Cannot Receive OTP / Verification Code',
+    // "Hindi ako maka kuha ng code", "walang dumadating na OTP", "di ko
+    // natanggap yung verification code", "resend code", "otp" (2026-10-10)
+    re: /\botp\b|verification\s*code|(hindi|d[i]|wala(?:ng)?|cannot|can'?t|unable|ayaw|no)[\s\S]{0,40}(maka?\s*-?\s*(kuha|tanggap)|receiv\w*|dumating|natanggap|makuha|matanggap)[\s\S]{0,25}\b(code|otp)\b|\b(code|otp)\b[\s\S]{0,40}(hindi|wala|not\s*receiv|ayaw|d[i]\s*(dumarating|dumating)|delay)|resend[\s\S]{0,15}\bcode\b|send[\s\S]{0,15}\botp\b/i },
   { label: 'Reset Player Payment PIN',
     re: /payment\s*pin|(reset|forgot|nakalimutan)[\s\S]{0,20}\bpin\b|\bpin\b[\s\S]{0,20}(reset|forgot|nakalimutan)/i },
   { label: 'Reset Fund Password', re: /fund\s*password|withdrawal\s*password/i },
@@ -582,7 +586,7 @@ const CONCERN_RULES = [
   { label: 'Open / Reactivate Account',
     re: /reactivat|buksan\s*(ulit|muli)|i-?open\s*ulit|unban|unblock|ibalik[\s\S]{0,25}account|ma-?activate\s*ulit/i },
   { label: 'Cannot Access / Open Gaming Account',
-    re: /(hindi|d[i]|cannot|can'?t|unable|ayaw)[\s\S]{0,30}(log\s*in|login|maka-?pasok|pumasok\s*sa\s*account|ma-?access)|forgot\s*password|nakalimutan[\s\S]{0,25}password|reset\s*(ng\s*)?password|account[\s\S]{0,20}(locked|blocked|banned|suspended|frozen)|na-?lock|na-?ban|\botp\b/i },
+    re: /(hindi|d[i]|cannot|can'?t|unable|ayaw)[\s\S]{0,30}(log\s*in|login|maka-?pasok|pumasok\s*sa\s*account|ma-?access)|forgot\s*password|nakalimutan[\s\S]{0,25}password|reset\s*(ng\s*)?password|account[\s\S]{0,20}(locked|blocked|banned|suspended|frozen)|na-?lock|na-?ban/i },
   { label: 'Game Cannot Be Accessed',
     re: /(game|laro|slot)s?[\s\S]{0,55}(hindi|d[i]|cannot|can'?t|ayaw|stuck|loading|error|lag|freeze|black\s*screen|not?\s*(open|load)|maintenance)|(hindi|ayaw|d[i])[\s\S]{0,25}(mabuksan|gumana|ma-?open)[\s\S]{0,25}(game|laro)/i },
   { label: 'Follow-up (Ticket ID)',
