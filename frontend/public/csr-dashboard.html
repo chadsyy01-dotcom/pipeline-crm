@@ -94,6 +94,22 @@
 
   /* MAIN */
   .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  /* HERO BAND (added 2026-10-10): navy gradient band sa likod ng greeting +
+     Live Chat heading, na tugma sa sidebar; ang unang KPI row ay lumulutang
+     sa gilid ng band (overlap). Pure presentation — walang JS na ginalaw. */
+  .hero-band{position:relative;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);
+    margin:-26px -32px 24px;padding:26px 32px 88px;border-radius:0 0 20px 20px;overflow:visible;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .hero-band .greeting h1{color:#fff;}
+  .hero-band .greeting p{color:#9FB2D8;}
+  .hero-band .profile-name{color:#fff;}
+  .hero-band .profile-name span{color:#9FB2D8;}
+  .hero-band .section-title h2{color:#fff;}
+  .hero-band .section-title a{color:#A9C4FE;}
+  .hero-kpis{margin-top:-64px;position:relative;z-index:2;}
+
   .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
   .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
   .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
@@ -276,6 +292,8 @@
     .grid-4{grid-template-columns:1fr;}
     .grid-3{grid-template-columns:1fr;}
     .main{padding:20px 16px 32px;}
+    .hero-band{margin:-20px -16px 20px;padding:20px 16px 84px;}
+
     .search{min-width:0;flex:1;}
   }
 </style>
@@ -434,6 +452,7 @@
 
   <!-- MAIN -->
   <main class="main">
+    <div class="hero-band">
     <div class="topbar">
       <div class="greeting">
         <h1 id="greetingText">Hello 👋</h1>
@@ -502,7 +521,9 @@
       </div>
     </div>
 
-    <div class="kpi-row">
+    </div><!-- /hero-band -->
+
+    <div class="kpi-row hero-kpis">
       <div class="kpi-card">
         <div class="kpi-top"><div class="kpi-icon" style="background:var(--primary-tint);color:var(--primary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div class="kpi-label">Chats Active <span class="chat-range-tag">Today</span></div></div>
         <div class="kpi-value" id="chatTotalValue">—</div>
