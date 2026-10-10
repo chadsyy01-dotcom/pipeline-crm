@@ -312,7 +312,7 @@
   }
 </style>
 <!-- Redesign 2026-10-10: bagong itsura (hero band, KPI cards, status tabs) -->
-<link rel="stylesheet" href="redesign.css?v=3">
+<link rel="stylesheet" href="redesign.css?v=4">
 </head>
 <body>
 <script>
@@ -1804,7 +1804,9 @@
     }));
   }
 
+  let currentThreadConvId = null;   // para sa missed-chat highlight sa thread
   async function openConversationModal(conversationId, customerName, customerSub, brand) {
+    currentThreadConvId = conversationId;
     const overlay = document.getElementById('convModalOverlay');
     const body = document.getElementById('modalBody');
     document.getElementById('modalCustomerName').textContent = customerName || 'Unknown';
@@ -1931,7 +1933,36 @@
       body.innerHTML = '<div class="empty-note">No messages found for this conversation. (This can happen for older conversations that were already resolved before this dashboard started syncing.)</div>';
       return;
     }
-    body.innerHTML = withContent.map(m => {
+
+    // ---- MISSED CHAT HIGHLIGHT (2026-10-10) ----
+    // Ipinapakita KUNG SAAN na-handoff ang chat at aling mga mensahe ng
+    // player ang WALANG sagot mula sa TOTOONG tao (ang bot persona gaya ni
+    // Agent Jem ay hindi bilang na sagot). Ito ang dahilan kung bakit
+    // "Missed Chat" ang status sa table.
+    const isHumanMsg = m => m.senderType === 'user' && m.senderName && !isBotClient(m.brand, m.senderName);
+    const conv = (allConversations || []).find(c => String(c.conversationId) === String(currentThreadConvId));
+    const sk = conv ? chatStatusKey(conv) : null;
+    const hoIdx = withContent.findIndex(m => m.handoffStage);
+    const lastHumanIdx = withContent.reduce((acc, m, i) => isHumanMsg(m) ? i : acc, -1);
+    const flagged = new Set();
+    if (sk && (sk.cls === 'missed' || sk.cls === 'waiting')) {
+      // Mga mensahe ng player mula sa handoff (o simula, kung hindi alam)
+      // na wala nang kasunod na sagot ng tao.
+      const from = Math.max(hoIdx >= 0 ? hoIdx : 0, lastHumanIdx + 1);
+      withContent.forEach((m, i) => { if (i >= from && m.senderType === 'contact') flagged.add(i); });
+    }
+    let banner = '';
+    if (sk && sk.cls === 'missed') {
+      const ho = hoIdx >= 0 ? withContent[hoIdx] : null;
+      const hoWhen = ho && ho.createdAt ? new Date(ho.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+      const botsAfter = [...new Set(withContent.slice(Math.max(hoIdx, 0))
+        .filter(m => m.senderType === 'user' && m.senderName && isBotClient(m.brand, m.senderName)).map(m => m.senderName))];
+      banner = `<div class="miss-banner"><b>Bakit Missed Chat:</b> ${ho ? `na-handoff sa live agent noong <b>${escapeHtml(hoWhen)}</b>` : 'na-handoff sa live agent'} pero <b>walang sumagot na totoong agent</b> bago natapos ang usapan.`
+        + (botsAfter.length ? ` Ang sumagot ay <b>bot</b> lang (${botsAfter.map(escapeHtml).join(', ')}) — hindi ito bilang na agent reply.` : '')
+        + (flagged.size ? ` Naka-pula ang ${flagged.size} mensahe ng player na hindi nasagot.` : '') + `</div>`;
+    }
+
+    body.innerHTML = banner + withContent.map((m, idx) => {
       // Automated/system messages (auto-close notices, CSAT prompts, etc.)
       // have no real sender — senderType is null/missing, not 'contact' or
       // 'user'. Attributing these to the customer (as a naive fallback
@@ -1954,18 +1985,27 @@
       let bubbleHtml = renderMessageContent(m.content);
       if (hit) bubbleHtml = highlightMatches(bubbleHtml, searchQ);
       bubbleHtml += renderAttachments(attachmentsOf(m), !!bubbleHtml);
-      return `
-        <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}">
-          <div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div>
+      const isBotMsg = m.senderType === 'user' && isBotClient(m.brand, m.senderName);
+      const missed = flagged.has(idx);
+      const divider = idx === hoIdx
+        ? `<div class="ho-divider"><span>Na-handoff sa live agent${when ? ' · ' + escapeHtml(when) : ''}</span></div>` : '';
+      return `${divider}
+        <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${missed ? ' msg-missed' : ''}">
+          <div class="msg-meta">${escapeHtml(who)}${isBotMsg ? ' <span class="bot-tag">BOT</span>' : ''} · ${escapeHtml(when)}</div>
           <div class="msg-bubble">${bubbleHtml}</div>
+          ${missed ? '<span class="miss-tag">Walang human reply</span>' : ''}
         </div>
       `;
     }).join('');
     // Kapag may search hit: diretso sa PINAKABAGONG tumamang mensahe
     // (yun ang ipinakita sa snippet); kung wala, sa dulo gaya ng dati.
     const hits = body.querySelectorAll('.msg-row.msg-hit');
+    const firstMissed = body.querySelector('.msg-row.msg-missed');
     if (hits.length) {
       hits[hits.length - 1].scrollIntoView({ block: 'center' });
+    } else if (firstMissed) {
+      // Diretso sa unang mensaheng hindi nasagot ng tao.
+      (body.querySelector('.ho-divider') || firstMissed).scrollIntoView({ block: 'start' });
     } else {
       body.scrollTop = body.scrollHeight;
     }
