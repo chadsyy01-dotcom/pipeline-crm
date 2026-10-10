@@ -196,9 +196,12 @@ function agentDisplayName(authorId) {
 }
 
 // LiveChat author_id: agents are emails, customers are UUIDs.
+// 2026-10-10: ang message na WALANG author_id ay itinuturing nang 'contact'
+// (dating null → hindi lumalabas sa thread view at hindi nabibilang sa
+// FTR/Missed computation, kaya "nawawala" ang mga mensahe ng customer).
 function senderTypeFor(authorId) {
-  if (!authorId) return null;
-  return authorId.includes('@') ? 'user' : 'contact';
+  if (!authorId) return 'contact';
+  return String(authorId).includes('@') ? 'user' : 'contact';
 }
 
 // LiveChat message text may be plain; keep a light strip for safety.
@@ -333,6 +336,10 @@ async function normalize(body) {
     const known = await lookupBrand(conversationId);
     const st = senderTypeFor(ev.author_id);
     const content = cleanText(ev.text);
+    // DEBUG (2026-10-10): makikita sa Railway logs kung ang bawat message ay
+    // na-classify na agent ('user') o customer ('contact') — ginagamit sa
+    // pag-diagnose ng nawawalang customer messages.
+    console.log(`LiveChat webhook: message chat=${p.chat_id} author=${ev.author_id || '(wala)'} -> senderType=${st}`);
     // Auto-greeting (2026-09-14): stored, but never counts as the agent's
     // first reply — see isAutoGreeting().
     const greeting = st === 'user' && isAutoGreeting(content);
