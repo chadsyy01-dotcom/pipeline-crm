@@ -75,6 +75,63 @@
   .setup-note{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;margin-bottom:16px;line-height:1.5;}
 
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+
+  /* ===== OPENAI BILLING REDESIGN (2026-10-10) ===== */
+  .hero-band{position:relative;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);
+    margin:-26px -32px 0;padding:26px 32px 96px;border-radius:0 0 20px 20px;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .hero-band .topbar{margin-bottom:18px;}
+  .hero-band .greeting h1{color:#fff;}
+  .hero-band .greeting p{color:#9FB2D8;}
+  .oa-ctrl{font-family:inherit;font-size:12.5px;font-weight:700;padding:9px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:7px;}
+  .oa-ctrl:hover{background:rgba(255,255,255,.15);}
+  .oa-ctrl option{color:#0F172A;}
+  .oa-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .oa-filters input[type=date]{font-family:inherit;font-size:12.5px;font-weight:600;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.92);color:#0F172A;}
+  .oa-filters .to{color:#9FB2D8;font-size:12.5px;}
+  .oa-apply{font-family:inherit;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:10px;border:none;background:#fff;color:var(--primary);cursor:pointer;}
+  .oa-compare{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#C7D5F0;cursor:pointer;margin-left:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);}
+  .oa-compare input{accent-color:#60A5FA;width:15px;height:15px;}
+
+  .oa-kpis{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:14px;margin-top:-70px;position:relative;z-index:2;margin-bottom:16px;}
+  .oa-kpi{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px 20px;border:1px solid #E8EDF5;position:relative;overflow:hidden;}
+  .oa-kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc,#2563EB);}
+  .oa-kpi .l{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);margin-bottom:8px;}
+  .oa-kpi .v{font-size:24px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
+  .oa-kpi .s{font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:4px;}
+  .oa-kpi.main .kpi-value{font-size:36px;font-weight:800;letter-spacing:-.02em;line-height:1.1;}
+  .oa-kpi.main .kpi-label{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);margin-bottom:8px;}
+  #kpiCompare{display:inline-block !important;padding:3px 9px;border-radius:99px;background:#F8FAFC;}
+  #kpiCompare[style*="display: none"], #kpiCompare[style*="display:none"]{display:none !important;}
+
+  .oa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:14px;align-items:start;}
+  .oa-grid .panel{margin-bottom:0;}
+  .panel-head .sub{font-size:11.5px;font-weight:600;color:var(--ink-faint);}
+  .oa-rank{width:22px;height:22px;border-radius:7px;background:#F1F5F9;color:var(--ink-soft);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;}
+  tr:nth-child(1) .oa-rank{background:#FEF3C7;color:#B45309;}
+  tr:nth-child(2) .oa-rank{background:#E2E8F0;color:#334155;}
+  tr:nth-child(3) .oa-rank{background:#FFEDD5;color:#C2410C;}
+  .oa-name{font-weight:700;}
+  .oa-bar{height:8px;border-radius:99px;background:#EEF1F6;overflow:hidden;min-width:80px;}
+  .oa-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#3B82F6,#2563EB);}
+  .oa-pct{font-size:11px;font-weight:700;color:var(--ink-faint);margin-top:3px;}
+  .li-table td.php{text-align:right;color:var(--ink-soft);font-variant-numeric:tabular-nums;font-size:12.5px;}
+  .li-table th.php{text-align:right;}
+  .li-table tbody tr:hover{background:#F8FAFC;}
+  .li-table tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;padding-top:12px;}
+  .oa-more{display:block;width:100%;margin-top:10px;font-family:inherit;font-size:12px;font-weight:700;padding:8px;border-radius:9px;border:1px dashed #CBD5E1;background:#fff;color:var(--ink-soft);cursor:pointer;}
+  .oa-more:hover{border-color:var(--primary);color:var(--primary);}
+  .setup-note{margin-top:0;}
+  .cb-section{margin-top:22px;}
+  .cb-title h2{font-size:16px;}
+  .cb-card{border:1px solid #E8EDF5;position:relative;overflow:hidden;}
+  .cb-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#8B5CF6;}
+
+  @media (max-width:1100px){ .oa-kpis{grid-template-columns:1fr 1fr;} }
+  @media (max-width:860px){ .hero-band{margin:-20px -16px 0;padding:20px 16px 90px;} .oa-grid{grid-template-columns:1fr;} .oa-compare{margin-left:0;} }
+  @media (max-width:560px){ .oa-kpis{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
@@ -153,22 +210,23 @@
   </aside>
 
   <main class="main">
+    <div class="hero-band">
     <div class="topbar">
       <div class="greeting">
         <h1>OpenAI Billing</h1>
         <p>Spend on your connected OpenAI organization.</p>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <select id="accountSelect" style="font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:var(--card);cursor:pointer;"></select>
-        <button onclick="exportBillingCsv()" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <select id="accountSelect" class="oa-ctrl"></select>
+        <button onclick="exportBillingCsv()" class="oa-ctrl">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
           Export CSV
         </button>
       </div>
     </div>
 
-    <div class="panel" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-      <select id="rangeSelect" style="font-size:13px;font-weight:700;padding:9px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:var(--card);cursor:pointer;">
+    <div class="oa-filters">
+      <select id="rangeSelect" class="oa-ctrl">
         <option value="today">Today</option>
         <option value="7d">7 Days</option>
         <option value="month" selected>This Month</option>
@@ -177,40 +235,50 @@
         <option value="custom">Custom Range…</option>
       </select>
       <div id="customRangeRow" style="display:none;align-items:center;gap:8px;">
-        <input type="date" id="customStart" style="font-size:13px;font-weight:600;padding:8px 10px;border-radius:8px;border:1px solid var(--line);">
-        <span style="color:var(--ink-faint);font-size:13px;">to</span>
-        <input type="date" id="customEnd" style="font-size:13px;font-weight:600;padding:8px 10px;border-radius:8px;border:1px solid var(--line);">
-        <button onclick="loadBilling()" style="font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-family:inherit;">Apply</button>
+        <input type="date" id="customStart">
+        <span class="to">to</span>
+        <input type="date" id="customEnd">
+        <button onclick="loadBilling()" class="oa-apply">Apply</button>
       </div>
-      <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;margin-left:auto;">
+      <label class="oa-compare">
         <input type="checkbox" id="compareToggle" onchange="loadBilling()">
         Compare to previous period
       </label>
     </div>
+    </div><!-- /hero-band -->
+
+    <div class="oa-kpis">
+      <div class="oa-kpi main" style="--acc:#2563EB;">
+        <div class="kpi-label" id="kpiLabel">Total spend — this month</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div id="kpiPhp" style="font-size:14px;font-weight:700;color:var(--ink-soft);margin-top:4px;"></div>
+        <div id="kpiCompare" style="font-size:12px;font-weight:700;margin-top:8px;display:none;"></div>
+      </div>
+      <div class="oa-kpi" style="--acc:#F59E0B;"><div class="l">Top spender</div><div class="v" id="oaTopName" style="font-size:18px;">—</div><div class="s" id="oaTopSub">&nbsp;</div></div>
+      <div class="oa-kpi" style="--acc:#22C55E;"><div class="l">Accounts with spend</div><div class="v" id="oaAcctCount">—</div><div class="s" id="oaAcctSub">&nbsp;</div></div>
+      <div class="oa-kpi" style="--acc:#8B5CF6;"><div class="l">Top cost item</div><div class="v" id="oaTopItem" style="font-size:15px;line-height:1.35;">—</div><div class="s" id="oaTopItemSub">&nbsp;</div></div>
+    </div>
 
     <div id="setupNote" class="setup-note" style="display:none;"></div>
 
-    <div class="kpi-card">
-      <div class="kpi-label" id="kpiLabel">Total spend — this month</div>
-      <div class="kpi-value" id="kpiTotal">—</div>
-      <div id="kpiPhp" style="font-size:14px;font-weight:600;color:var(--ink-soft);margin-top:2px;"></div>
-      <div id="kpiCompare" style="font-size:12.5px;font-weight:600;margin-top:8px;display:none;"></div>
-    </div>
+    <div class="oa-grid">
+      <div class="panel" id="byAccountPanel" style="display:none;">
+        <div class="panel-head"><h3>Spend by Account</h3><span class="sub" id="byAccountSub"></span></div>
+        <table class="li-table">
+          <thead><tr><th style="width:34px;">#</th><th>Account</th><th>Share</th><th class="num">USD</th><th class="php">PHP</th></tr></thead>
+          <tbody id="byAccountBody"></tbody>
+          <tfoot id="byAccountFoot"></tfoot>
+        </table>
+      </div>
 
-    <div class="panel" id="byAccountPanel" style="display:none;">
-      <div class="panel-head"><h3>Spend by Account</h3></div>
-      <table class="li-table">
-        <thead><tr><th>Account</th><th class="num">Cost</th></tr></thead>
-        <tbody id="byAccountBody"></tbody>
-      </table>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><h3>Cost by Line Item</h3></div>
-      <table class="li-table">
-        <thead><tr><th>Line Item</th><th class="num">Cost</th></tr></thead>
-        <tbody id="lineItemsBody"></tbody>
-      </table>
+      <div class="panel">
+        <div class="panel-head"><h3>Cost by Line Item</h3><span class="sub" id="lineItemsSub"></span></div>
+        <table class="li-table">
+          <thead><tr><th>Line Item</th><th>Share</th><th class="num">Cost</th></tr></thead>
+          <tbody id="lineItemsBody"></tbody>
+        </table>
+        <button class="oa-more" id="lineItemsMore" type="button" style="display:none;"></button>
+      </div>
     </div>
   </main>
 </div>
@@ -394,30 +462,74 @@ function renderBilling(data) {
     compareEl.style.display = 'none';
   }
 
+  const total = data.totalUsd || 0;
+  const share = v => total > 0 ? Math.max(0, Math.min(100, (v / total) * 100)) : 0;
+  const phpTxt = usd => usdToPhpRate ? '₱' + (usd * usdToPhpRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
   const byAccountPanel = document.getElementById('byAccountPanel');
-  if (data.byAccount && data.byAccount.length > 0) {
+  const accts = (data.byAccount || []).slice().sort((a, b) => b.totalUsd - a.totalUsd);
+  if (accts.length > 0) {
     byAccountPanel.style.display = 'block';
-    document.getElementById('byAccountBody').innerHTML = data.byAccount.map(a => `
+    document.getElementById('byAccountBody').innerHTML = accts.map((a, i) => `
       <tr>
-        <td>${a.name}</td>
-        <td class="num">$${a.totalUsd.toFixed(2)}${phpEquivalent(a.totalUsd)}</td>
+        <td><span class="oa-rank">${i + 1}</span></td>
+        <td class="oa-name">${escH(a.name)}</td>
+        <td style="width:28%;"><div class="oa-bar"><i style="width:${share(a.totalUsd).toFixed(1)}%"></i></div><div class="oa-pct">${share(a.totalUsd).toFixed(1)}%</div></td>
+        <td class="num">$${a.totalUsd.toFixed(2)}</td>
+        <td class="php">${phpTxt(a.totalUsd)}</td>
       </tr>
     `).join('');
+    document.getElementById('byAccountFoot').innerHTML = `<tr><td></td><td>Total</td><td></td><td class="num">$${total.toFixed(2)}</td><td class="php">${phpTxt(total)}</td></tr>`;
+    document.getElementById('byAccountSub').textContent = `${accts.length} accounts`;
   } else {
     byAccountPanel.style.display = 'none';
   }
 
-  const body = document.getElementById('lineItemsBody');
-  const items = data.topLineItems || [];
-  if (items.length === 0) {
-    body.innerHTML = '<tr><td colspan="2"><div class="empty-note">No cost line items in this period</div></td></tr>';
+  // KPI cards
+  const withSpend = accts.filter(a => a.totalUsd > 0);
+  if (accts.length) {
+    document.getElementById('oaTopName').textContent = accts[0].name;
+    document.getElementById('oaTopSub').textContent = `$${accts[0].totalUsd.toFixed(2)} · ${share(accts[0].totalUsd).toFixed(0)}% of total`;
+    document.getElementById('oaAcctCount').textContent = `${withSpend.length}/${accts.length}`;
+    document.getElementById('oaAcctSub').textContent = withSpend.length ? `avg $${(total / withSpend.length).toFixed(2)} per account` : 'no spend yet';
   } else {
-    body.innerHTML = items.map(li => `
+    document.getElementById('oaTopName').textContent = data.account || '—';
+    document.getElementById('oaTopSub').textContent = `$${total.toFixed(2)}`;
+    document.getElementById('oaAcctCount').textContent = '1';
+    document.getElementById('oaAcctSub').textContent = 'single account view';
+  }
+
+  const body = document.getElementById('lineItemsBody');
+  const items = (data.topLineItems || []).slice().sort((a, b) => b.amount - a.amount);
+  const moreBtn = document.getElementById('lineItemsMore');
+  document.getElementById('lineItemsSub').textContent = items.length ? `${items.length} items` : '';
+  if (items.length) {
+    document.getElementById('oaTopItem').textContent = items[0].label;
+    document.getElementById('oaTopItemSub').textContent = `$${items[0].amount.toFixed(2)} · ${share(items[0].amount).toFixed(0)}% of total`;
+  } else {
+    document.getElementById('oaTopItem').textContent = '—';
+    document.getElementById('oaTopItemSub').innerHTML = '&nbsp;';
+  }
+  if (items.length === 0) {
+    body.innerHTML = '<tr><td colspan="3"><div class="empty-note">No cost line items in this period</div></td></tr>';
+    moreBtn.style.display = 'none';
+  } else {
+    const LIMIT = 10;
+    const showAll = window.__oaShowAllItems === true;
+    const shown = showAll ? items : items.slice(0, LIMIT);
+    body.innerHTML = shown.map(li => `
       <tr>
-        <td>${li.label}</td>
+        <td style="font-size:12.5px;">${escH(li.label)}</td>
+        <td style="width:30%;"><div class="oa-bar"><i style="width:${share(li.amount).toFixed(1)}%;background:linear-gradient(90deg,#A78BFA,#8B5CF6);"></i></div><div class="oa-pct">${share(li.amount).toFixed(1)}%</div></td>
         <td class="num">$${li.amount.toFixed(4)}</td>
       </tr>
     `).join('');
+    if (items.length > LIMIT) {
+      moreBtn.style.display = 'block';
+      moreBtn.textContent = showAll ? 'Show top 10 only' : `Show all ${items.length} items`;
+      moreBtn.onclick = () => { window.__oaShowAllItems = !showAll; renderBilling(lastBillingData); };
+    } else moreBtn.style.display = 'none';
   }
 }
 
