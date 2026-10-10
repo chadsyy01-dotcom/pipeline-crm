@@ -310,6 +310,278 @@
     .search{min-width:0;flex:1;}
   }
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   REDESIGN 2026-10-10 — Customers + Tickets
+   Load AFTER each page's own <style> block; it only overrides looks.
+   Walang JS logic dito — puro itsura.
+   ===================================================================== */
+
+:root{
+  --primary:#5A48F0;
+  --primary-dark:#3F2FD1;
+  --primary-tint:#EEEBFF;
+  --success:#0E7C55;
+  --success-tint:#DDF5EA;
+  --warning:#9A5200;
+  --warning-tint:#FFF1DC;
+  --danger:#C8283A;
+  --danger-tint:#FDE8EA;
+  --bg:#F3F4F8;
+  --ink:#1B1C33;
+  --ink-soft:#4B4F66;
+  --ink-faint:#6B6F8A;
+  --line:#E9EAF2;
+  --hero:#14152B;
+  --hero-2:#23244A;
+  --hero-line:#34366A;
+  --hero-muted:#A9ABCB;
+  --radius-md:20px;
+  --shadow:0 1px 2px rgba(20,21,43,.04), 0 12px 32px -14px rgba(20,21,43,.18);
+  --display:'Bricolage Grotesque','Plus Jakarta Sans',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+
+/* ---------- HERO BAND (dark header) ---------- */
+.hero{
+  background:var(--hero);color:#fff;border-radius:24px;
+  padding:22px 28px 104px;margin-bottom:-80px;position:relative;
+}
+.hero .topbar{margin-bottom:0;align-items:center;}
+.hero .greeting h1{font-family:var(--display);font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1.05;margin:0 0 8px;color:#fff;}
+.hero .greeting p{color:#C9CBE6;font-size:14.5px;}
+.hero .search{background:var(--hero-2);border-color:var(--hero-line);box-shadow:none;color:var(--hero-muted);height:44px;border-radius:12px;}
+.hero .search input{color:#fff;}
+.hero .search input::placeholder{color:var(--hero-muted);}
+.hero .icon-btn{background:var(--hero-2);border-color:var(--hero-line);box-shadow:none;width:44px;height:44px;border-radius:12px;}
+.hero .icon-btn svg{color:#fff;}
+.hero .icon-btn .badge{border:2px solid var(--hero);font-size:10px;padding:1px 6px;}
+.hero .profile-name{color:#fff;}
+.hero .profile-name span{color:var(--hero-muted);}
+.hero .avatar{width:42px;height:42px;background:#FF7A45;color:var(--hero);font-weight:800;}
+
+/* ---------- KPI CARDS (shared) ---------- */
+.kpi-row{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;
+  padding:0 18px;margin-bottom:22px;position:relative;z-index:1;
+}
+.kpi-card{background:var(--card);border-radius:20px;padding:20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;min-width:0;}
+.kpi-head{min-height:36px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.kpi-label{font-size:13px;font-weight:600;color:var(--ink-faint);}
+.kpi-val{font-family:var(--display);font-size:38px;font-weight:800;line-height:1;color:var(--ink);}
+.kpi-val.bad{color:var(--danger);}
+.kpi-sub{font-size:12.5px;color:var(--ink-faint);}
+.kpi-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.kpi-ico svg{width:18px;height:18px;}
+.kpi-ico.violet{background:var(--primary-tint);color:var(--primary);}
+.kpi-ico.blue{background:#E6F0FF;color:#2456D6;}
+.kpi-ico.amber{background:var(--warning-tint);color:var(--warning);}
+.kpi-flag{text-transform:none;letter-spacing:0;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--warning-tint);color:var(--warning);white-space:nowrap;}
+.kpi-flag.red{background:var(--danger);color:#fff;}
+.kpi-flag[hidden]{display:none;}
+
+/* ---------- CUSTOMERS: CSAT panel → cards ---------- */
+.csat-panel{
+  background:none;box-shadow:none;border-radius:0;
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr);gap:14px;
+  padding:0 18px;margin-bottom:22px;position:relative;z-index:1;
+}
+.csat-panel > .csat-stat,
+.csat-split{
+  background:var(--card);border:0;border-radius:20px;padding:20px;box-shadow:var(--shadow);min-width:0;
+}
+.csat-stat{border-right:0 !important;}
+.csat-stat:hover{background:var(--card);}
+.csat-panel > .csat-stat:first-child:hover{background:var(--card);}
+.csat-stat-label{font-size:12px;letter-spacing:.04em;color:var(--ink-faint);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.csat-stat-value{font-family:var(--display);font-size:36px;font-weight:800;}
+.csat-stat-sub{font-size:12.5px;color:var(--ink-faint);margin-top:8px;}
+.csat-stat-label .kpi-ico{width:32px;height:32px;margin:-6px 0;}
+
+.stars{position:relative;display:inline-block;font-size:19px;letter-spacing:3px;color:#E4E5EE;line-height:1;margin-top:10px;}
+.stars::before{content:'★★★★★';}
+.stars > span{position:absolute;left:0;top:0;bottom:0;overflow:hidden;white-space:nowrap;color:#F5A524;width:0;transition:width .4s ease;}
+.stars > span::before{content:'★★★★★';}
+
+.csat-split{grid-column:auto;display:flex;flex-direction:column;gap:12px;}
+.csat-split-top{display:flex;justify-content:space-between;gap:10px;}
+.csat-split .csat-stat{flex:1;padding:8px 10px;margin:-8px -10px;border-radius:14px;cursor:pointer;min-width:0;}
+.csat-split .csat-stat.right{text-align:right;}
+.csat-split .csat-stat.right .csat-stat-label{justify-content:flex-end;}
+.csat-split .csat-stat:hover{background:var(--bg);}
+.csat-stat.active,
+.csat-split .csat-stat-value{font-size:30px;}
+.csat-split .csat-stat-label{font-size:11px;letter-spacing:.02em;white-space:nowrap;}
+.csat-split .csat-stat-sub{font-size:11.5px;}
+.csat-split .csat-stat.active{background:var(--primary-tint);box-shadow:inset 0 0 0 2px var(--primary);}
+.split-bar{display:flex;gap:3px;height:12px;border-radius:999px;overflow:hidden;background:var(--bg);}
+.split-bar > span{display:block;height:100%;width:0;transition:width .5s ease;}
+.split-bar .s-good{background:#12A574;}
+.split-bar .s-mid{background:#C9CBD9;}
+.split-bar .s-bad{background:#E5484D;}
+.split-note{font-size:12px;color:var(--ink-faint);}
+@media (max-width:1280px){
+  .csat-panel{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .csat-split{grid-column:span 2;}
+}
+@media (max-width:700px){
+  .csat-panel{grid-template-columns:minmax(0,1fr);}
+  .csat-split{grid-column:auto;}
+  .csat-stat{padding:20px;border-bottom:0;}
+}
+
+/* ---------- PANEL ---------- */
+.panel{border-radius:24px;padding:22px 24px;}
+.panel-head h3{font-family:var(--display);font-size:22px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+#liveIndicator{
+  display:inline-flex;align-items:center;font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  font-size:12px !important;font-weight:700 !important;padding:5px 12px;border-radius:999px;background:var(--bg);
+}
+#exportBtn,#refreshBtn,#backfillBtn,#hardRefreshBtn,#exportCsvBtn{
+  height:42px;padding:0 16px !important;border-radius:12px !important;font-size:13px !important;
+  display:inline-flex !important;align-items:center;gap:7px;border:1px solid var(--line) !important;
+  background:var(--card) !important;color:var(--ink) !important;transition:transform .12s, box-shadow .12s;
+}
+#exportBtn,#exportCsvBtn{
+  background:var(--primary) !important;color:#fff !important;border-color:var(--primary) !important;
+  box-shadow:0 8px 18px -8px rgba(90,72,240,.6);
+}
+#exportBtn:hover,#exportCsvBtn:hover{background:var(--primary-dark) !important;}
+#refreshBtn:hover,#backfillBtn:hover,#hardRefreshBtn:hover{background:var(--bg) !important;}
+
+/* ---------- QUICK STATUS TABS ---------- */
+.quick-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.qtab{
+  display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 18px;border-radius:999px;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13.5px;font-weight:700;cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.qtab:hover{background:var(--bg);}
+.qtab.active{background:var(--hero);color:#fff;border-color:var(--hero);}
+.qdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.qdot.ongoing{background:#12A574;}
+.qdot.waiting{background:#F5A524;}
+.qdot.missed{background:#E5484D;}
+.qdot.closedx{background:#8A8DA6;}
+.qdot.late{background:#C8283A;box-shadow:0 0 0 2px #FDE8EA;}
+
+/* ---------- FILTER BAR ---------- */
+.filter-bar{background:#F6F7FB;border-radius:16px;padding:12px 14px;gap:12px;}
+.f-label{color:var(--ink-faint);}
+.admin-select,
+.issue-select,
+.date-filter-wrap select{
+  height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);
+  color:var(--ink);font-size:13px;font-weight:700;font-family:inherit;
+}
+.admin-select:focus,.issue-select:focus,.date-filter-wrap select:focus{outline:2px solid var(--primary);outline-offset:1px;}
+
+/* ---------- TABLES (shared) ---------- */
+.conv-table,.t-table{border-collapse:separate;border-spacing:0;}
+.conv-table th,.t-table th{font-size:11.5px;letter-spacing:.06em;color:var(--ink-faint);padding:12px;border-bottom:1px solid var(--line);}
+.conv-table td,.t-table td{padding:13px 12px;font-size:13.5px;border-bottom:1px solid var(--line);}
+.conv-table tbody tr:hover td,.t-table tbody tr:hover td{background:#F7F7FC;}
+.conv-table tbody tr td:first-child,.t-table tbody tr td:first-child{border-radius:0;}
+
+/* ---------- CUSTOMERS ROWS ---------- */
+.c-av{width:40px;height:40px;font-size:13px;font-weight:800;}
+.c-cname{font-size:14px;}
+.c-ip{font-family:var(--mono);font-size:11px;word-break:normal;white-space:nowrap;}
+.c-brand{font-size:11.5px;font-weight:700;color:#4A35D6;background:var(--primary-tint);padding:5px 10px;border-radius:8px;white-space:nowrap;}
+.c-preview{font-size:13px;}
+.c-time{color:var(--ink-soft);font-weight:600;}
+.status{font-size:11.5px;padding:5px 11px;border-radius:999px;white-space:nowrap;}
+.status::before{width:7px;height:7px;}
+.status.ongoing{background:var(--success-tint);color:var(--success);}
+.status.ongoing::before{background:#12A574;box-shadow:0 0 0 3px rgba(18,165,116,.22);animation:pulse 1.8s ease-in-out infinite;}
+.status.closedx{background:#EEF0F5;color:var(--ink-soft);}
+.status.missed{background:var(--danger);color:#fff;}
+.status.missed::before{background:#fff;}
+.status.waiting{background:var(--warning-tint);color:var(--warning);}
+.status.waiting::before{background:#F5A524;}
+.late-tag{font-size:9.5px;padding:3px 8px;}
+.concern-pill{font-size:11.5px;padding:5px 10px;border-radius:8px;max-width:170px;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(18,165,116,.22);}50%{box-shadow:0 0 0 6px rgba(18,165,116,.06);}}
+
+.conv-table tbody tr.row-missed td{background:#FFF4F4;}
+.conv-table tbody tr.row-missed:hover td{background:#FFEBEC;}
+.conv-table tbody tr.row-waiting td{background:#FFF9EE;}
+.conv-table tbody tr.row-waiting:hover td{background:#FFF2DC;}
+.conv-table tbody tr.row-ongoing td{background:#F3FBF7;}
+.conv-table tbody tr.row-ongoing:hover td{background:#E7F7EF;}
+
+/* ---------- TICKETS ROWS ---------- */
+.t-id{font-family:var(--mono);font-size:13px;color:#4A35D6;white-space:nowrap;}
+.t-av{width:40px;height:40px;font-size:12.5px;font-weight:800;}
+.t-cname{font-size:14px;}
+.t-channel{font-weight:600;color:var(--ink-soft);}
+.pill{font-size:11.5px;padding:5px 10px;border-radius:8px;}
+.t-time{color:var(--ink-soft);font-weight:600;}
+.t-btn{width:36px;height:36px;border-radius:10px;background:var(--card);}
+.t-table .status.pending{background:#2E5BFF;color:#fff;}
+.t-table .status.pending::before{background:#fff;}
+.unclaimed{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;padding:5px 11px;border-radius:999px;background:var(--danger-tint);color:var(--danger);white-space:nowrap;}
+.unclaimed::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--danger);}
+.t-table tbody tr.row-unclaimed td{background:#F5F3FF;}
+.t-table tbody tr.row-unclaimed:hover td{background:#ECE8FF;}
+
+/* ---------- TICKETS: Done vs Rejected card ---------- */
+#queueStats{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);}
+@media (max-width:1280px){
+  #queueStats{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #queueStats .res-card{grid-column:span 2;}
+}
+@media (max-width:700px){
+  #queueStats{grid-template-columns:minmax(0,1fr);}
+  #queueStats .res-card{grid-column:auto;}
+}
+.res-card{gap:12px;}
+.res-top{display:flex;justify-content:space-between;gap:10px;}
+.res-side{
+  flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;
+  background:none;border:0;padding:8px 10px;margin:-8px -10px;border-radius:14px;cursor:pointer;font:inherit;color:inherit;
+}
+.res-side.right{align-items:flex-end;text-align:right;}
+.res-side:hover{background:var(--bg);}
+.res-side.active{background:var(--primary-tint);box-shadow:inset 0 0 0 2px var(--primary);}
+.res-label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint);white-space:nowrap;}
+.res-val{font-family:var(--display);font-size:30px;font-weight:800;line-height:1;}
+.res-val.good{color:var(--success);}
+.res-val.bad{color:var(--danger);}
+
+.prio-list{display:flex;flex-direction:column;gap:9px;margin-top:2px;}
+.prio-row{display:flex;align-items:center;gap:10px;font-size:12.5px;}
+.prio-row .p-name{width:72px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.prio-row .p-track{flex:1;height:8px;border-radius:999px;background:var(--bg);overflow:hidden;}
+.prio-row .p-fill{height:100%;border-radius:999px;}
+.prio-row .p-n{width:28px;text-align:right;font-weight:800;}
+.prio-row.high .p-name{color:var(--danger);}  .prio-row.high .p-fill{background:#E5484D;}
+.prio-row.medium .p-name{color:var(--warning);} .prio-row.medium .p-fill{background:#F5A524;}
+.prio-row.low .p-name{color:#2456D6;}          .prio-row.low .p-fill{background:#2E5BFF;}
+.prio-row .p-fill{background:var(--primary);}
+
+.t-foot{margin-top:18px;font-size:13px;}
+.pg-btn{width:38px;height:38px;border-radius:10px;}
+.pg-btn.active{background:var(--hero);border-color:var(--hero);}
+
+/* ---------- MOBILE ---------- */
+@media (max-width:860px){
+  .hero{border-radius:18px;padding:18px 18px 96px;}
+  .hero .greeting h1{font-size:32px;}
+  .kpi-row,.csat-panel{padding:0 8px;}
+  .panel{padding:18px 14px;}
+}
+
+/* ---------- CUSTOMERS: missed-chat highlight sa thread (2026-10-10) ---------- */
+.miss-banner{background:#FDE8EA;color:#7A1020;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55;}
+.ho-divider{display:flex;align-items:center;gap:10px;margin:4px 0;font-size:11.5px;font-weight:800;color:#9A5200;}
+.ho-divider::before,.ho-divider::after{content:'';flex:1;height:1px;background:#F5C37A;}
+.ho-divider span{background:#FFF1DC;padding:4px 12px;border-radius:999px;white-space:nowrap;}
+.msg-row.msg-missed .msg-bubble{background:#FFF0F1;box-shadow:0 0 0 2px #E5484D;}
+.miss-tag{display:inline-block;margin-top:5px;font-size:10px;font-weight:800;letter-spacing:.02em;color:#fff;background:#C8283A;padding:2px 8px;border-radius:999px;}
+.bot-tag{display:inline-block;font-size:9.5px;font-weight:800;background:#EEEBFF;color:#4A35D6;padding:1px 6px;border-radius:6px;vertical-align:1px;}
+</style>
 </head>
 <body>
 <script>
@@ -428,6 +700,7 @@
 
   <!-- MAIN -->
   <main class="main">
+    <div class="hero">
     <div class="topbar">
       <div class="greeting">
         <h1>Customers</h1>
@@ -461,32 +734,40 @@
         </div>
       </div>
     </div>
+    </div><!-- /hero -->
 
     <!-- CHATS PANEL -->
     <!-- CSAT / DSAT SUMMARY -->
     <div class="csat-panel" id="csatPanel">
       <div class="csat-stat">
-        <div class="csat-stat-label">Avg Rating</div>
+        <div class="csat-stat-label">Avg Rating <span class="kpi-ico amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span></div>
         <div class="csat-stat-value" id="csatAvgRating">—</div>
+        <div class="stars" aria-hidden="true"><span id="csatStarsFill"></span></div>
         <div class="csat-stat-sub" id="csatTotalSub">No responses yet</div>
       </div>
-      <div class="csat-stat" id="csatStatBlock" data-csat-filter="csat">
-        <div class="csat-stat-label">CSAT (Satisfied)</div>
-        <div class="csat-stat-value good" id="csatPercent">—</div>
-        <div class="csat-stat-sub" id="csatCountSub"></div>
-      </div>
-      <div class="csat-stat" id="dsatStatBlock" data-csat-filter="dsat">
-        <div class="csat-stat-label">DSAT (Dissatisfied)</div>
-        <div class="csat-stat-value bad" id="dsatPercent">—</div>
-        <div class="csat-stat-sub" id="dsatCountSub"></div>
+      <div class="csat-split">
+        <div class="csat-split-top">
+          <div class="csat-stat" id="csatStatBlock" data-csat-filter="csat">
+            <div class="csat-stat-label">CSAT (Satisfied)</div>
+            <div class="csat-stat-value good" id="csatPercent">—</div>
+            <div class="csat-stat-sub" id="csatCountSub"></div>
+          </div>
+          <div class="csat-stat right" id="dsatStatBlock" data-csat-filter="dsat">
+            <div class="csat-stat-label">DSAT (Dissatisfied)</div>
+            <div class="csat-stat-value bad" id="dsatPercent">—</div>
+            <div class="csat-stat-sub" id="dsatCountSub"></div>
+          </div>
+        </div>
+        <div class="split-bar" aria-hidden="true"><span class="s-good" id="splitGood"></span><span class="s-mid" id="splitMid"></span><span class="s-bad" id="splitBad"></span></div>
+        <div class="split-note" id="splitNote">Click CSAT o DSAT para i-filter ang table.</div>
       </div>
       <div class="csat-stat">
-        <div class="csat-stat-label">Avg HH First Reply</div>
+        <div class="csat-stat-label">Avg HH First Reply <span class="kpi-ico violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span></div>
         <div class="csat-stat-value" id="avgFtrValue">—</div>
         <div class="csat-stat-sub" id="avgFtrSub">No handoffs yet</div>
       </div>
       <div class="csat-stat">
-        <div class="csat-stat-label">Avg HH Chatting Time</div>
+        <div class="csat-stat-label">Avg HH Chatting Time <span class="kpi-ico blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span></div>
         <div class="csat-stat-value" id="avgArtValue">—</div>
         <div class="csat-stat-sub" id="avgArtSub">No handoffs yet</div>
       </div>
@@ -504,6 +785,14 @@
       <!-- Labeled filter bar (2026-09-23) — dating tatlong tab rows
            (brands / status / handoff), ngayon dropdowns na kagaya ng
            Tickets page: BRAND / STATUS / HANDOFF / ADMIN / ACTIVITY. -->
+      <div class="quick-tabs" id="quickTabs" role="tablist" aria-label="Chat status">
+        <button type="button" class="qtab active" data-qs="all">All chats</button>
+        <button type="button" class="qtab" data-qs="ongoing"><span class="qdot ongoing"></span>Ongoing Chats</button>
+        <button type="button" class="qtab" data-qs="waiting"><span class="qdot waiting"></span>Waiting</button>
+        <button type="button" class="qtab" data-qs="missed"><span class="qdot missed"></span>Missed Chat</button>
+        <button type="button" class="qtab" data-qs="closedx"><span class="qdot closedx"></span>Closed</button>
+        <button type="button" class="qtab" data-qs="late"><span class="qdot late"></span>Missed 3min</button>
+      </div>
       <div class="filter-bar">
         <div class="f-group">
           <span class="f-label">Brand</span>
@@ -988,6 +1277,17 @@
     csatSub.textContent = `${stats.csatCount} response${stats.csatCount === 1 ? '' : 's'} (4–5★)`;
     dsatEl.textContent = `${stats.dsatPercent}%`;
     dsatSub.textContent = `${stats.dsatCount} response${stats.dsatCount === 1 ? '' : 's'} (1–2★)`;
+    // Redesign visuals (2026-10-10): star fill + CSAT/neutral/DSAT split bar
+    const starsFill = document.getElementById('csatStarsFill');
+    if (starsFill) starsFill.style.width = `${Math.max(0, Math.min(100, (Number(stats.avgRating) || 0) / 5 * 100))}%`;
+    const g = Number(stats.csatPercent) || 0, b = Number(stats.dsatPercent) || 0, m = Math.max(0, 100 - g - b);
+    const sg = document.getElementById('splitGood'), sm = document.getElementById('splitMid'), sb = document.getElementById('splitBad');
+    if (sg) { sg.style.width = g + '%'; sm.style.width = m + '%'; sb.style.width = b + '%'; }
+    const sn = document.getElementById('splitNote');
+    if (sn) {
+      const neutral = Math.max(0, (stats.total || 0) - (stats.csatCount || 0) - (stats.dsatCount || 0));
+      sn.textContent = `${neutral} neutral (3★) · Click CSAT o DSAT para i-filter ang table.`;
+    }
   }
 
   // Average First Reply Time / Average Total Chatting Time across handoff
@@ -1348,7 +1648,7 @@
         ? `<div class="c-cname cust-link" data-cust-name="${escapeHtml(name)}" data-cust-brand="${escapeHtml(c.brand)}" title="View customer profile">${escapeHtml(name)}</div>`
         : `<div class="c-cname">${escapeHtml(name)}</div>`;
       return `
-        <tr data-conversation-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
+        <tr class="row-${chatStatusKey(c).cls}" data-conversation-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
           <td>
             <div class="c-customer">
               <div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div>
@@ -1402,6 +1702,19 @@
     document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
     URL.revokeObjectURL(aEl.href);
   });
+
+  // Quick status tabs (redesign 2026-10-10) — shortcut sa CHAT STATUS dropdown
+  (function setupQuickTabs() {
+    const sel = document.getElementById('handoffFilter');
+    const tabs = document.querySelectorAll('#quickTabs .qtab');
+    const sync = () => tabs.forEach(t => t.classList.toggle('active', t.dataset.qs === sel.value));
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+      sel.value = tab.dataset.qs;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }));
+    sel.addEventListener('change', sync);
+    sync();
+  })();
 
   loadConversations();
   loadCsatStats();
@@ -1842,7 +2155,37 @@
       body.innerHTML = '<div class="empty-note">No messages found for this conversation. (This can happen for older conversations that were already resolved before this dashboard started syncing.)</div>';
       return;
     }
-    body.innerHTML = withContent.map(m => {
+    // ---- MISSED HIGHLIGHT (redesign 2026-10-10) ----
+    // Handoff point = unang 'pending' row. Pagkatapos noon, ang bawat UNANG
+    // mensahe ng player sa isang "takbo" (pagkatapos ng huling human reply)
+    // ay sinusukat: walang human reply sa loob ng 3 min -> MISSED.
+    const hoRow = messages.find(m => m.handoffStage === 'pending');
+    const hoAt = hoRow && hoRow.createdAt ? new Date(hoRow.createdAt).getTime() : null;
+    const isHumanAgent = m => m.senderType === 'user' && m.senderName && !isBotClient(m.brand, m.senderName);
+    const missInfo = new Map();   // index sa withContent -> {late:bool, mins}
+    if (hoAt != null) {
+      let runStartIdx = null;
+      withContent.forEach((m, i) => {
+        const at = m.createdAt ? new Date(m.createdAt).getTime() : null;
+        if (at == null || at < hoAt) return;
+        if (m.senderType === 'contact' && runStartIdx == null) runStartIdx = i;
+        else if (isHumanAgent(m) && runStartIdx != null) {
+          const waited = (at - new Date(withContent[runStartIdx].createdAt).getTime()) / 1000;
+          if (waited > 180) missInfo.set(runStartIdx, { late: true, mins: Math.round(waited / 60) });
+          runStartIdx = null;
+        }
+      });
+      if (runStartIdx != null) {
+        const waited = (Date.now() - new Date(withContent[runStartIdx].createdAt).getTime()) / 1000;
+        if (waited > 180) missInfo.set(runStartIdx, { late: false });
+      }
+    }
+    let dividerDone = false;
+    const missBanner = missInfo.size
+      ? `<div class="miss-banner">⚠ ${missInfo.size} pagkakataon na hindi nasagot ng human agent ang player sa loob ng 3 minuto. Naka-highlight sa pula sa ibaba.</div>`
+      : '';
+
+    body.innerHTML = missBanner + withContent.map((m, idx) => {
       // Automated/system messages (auto-close notices, CSAT prompts, etc.)
       // have no real sender — senderType is null/missing, not 'contact' or
       // 'user'. Attributing these to the customer (as a naive fallback
@@ -1865,10 +2208,20 @@
       let bubbleHtml = renderMessageContent(m.content);
       if (hit) bubbleHtml = highlightMatches(bubbleHtml, searchQ);
       bubbleHtml += renderAttachments(attachmentsOf(m), !!bubbleHtml);
-      return `
-        <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}">
-          <div class="msg-meta">${escapeHtml(who)} · ${escapeHtml(when)}</div>
-          <div class="msg-bubble">${bubbleHtml}</div>
+      const atMs = m.createdAt ? new Date(m.createdAt).getTime() : null;
+      let divider = '';
+      if (!dividerDone && hoAt != null && atMs != null && atMs >= hoAt) {
+        dividerDone = true;
+        const hoWhen = new Date(hoAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        divider = `<div class="ho-divider"><span>Handoff sa human agent · ${escapeHtml(hoWhen)}</span></div>`;
+      }
+      const mi = missInfo.get(idx);
+      const missTag = mi ? `<br><span class="miss-tag">${mi.late ? `MISSED 3MIN · nasagot after ${mi.mins}m` : 'WALANG SAGOT'}</span>` : '';
+      const botTag = (m.senderType === 'user' && isBotClient(m.brand, m.senderName)) ? ' <span class="bot-tag">BOT</span>' : '';
+      return `${divider}
+        <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${mi ? ' msg-missed' : ''}">
+          <div class="msg-meta">${escapeHtml(who)}${botTag} · ${escapeHtml(when)}</div>
+          <div class="msg-bubble">${bubbleHtml}</div>${missTag}
         </div>
       `;
     }).join('');
