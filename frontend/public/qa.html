@@ -366,7 +366,8 @@
     // I-decode ang HTML entities (2026-09-30): ang Chatwoot ay nagpapadala ng &gt;/&amp; bilang teksto — kaya literal na "&gt;" ang nakikita sa bubbles kapag hindi dine-decode. Ligtas ito: ang render ay dumadaan pa rin sa escapeHtml.
     return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#0?39;/g, "'").replace(/&apos;/gi, "'").replace(/&#(\d+);/g, (m, n) => String.fromCharCode(Number(n))).replace(/&amp;/gi, '&').replace(/\n{3,}/g, '\n\n').trim();
   }
-  // KEEP IN SYNC sa customers.html / chatwoot.js (final roster Sep 24).
+  // KEEP IN SYNC sa customers.html / csr-dashboard.html / chatwoot.js
+  // (OPISYAL na roster ni Chad, 2026-10-10 — tingnan ang Project Knowledge).
   const AI_BOT_NAMES_CLIENT = new Set([
     'Agent Joy', 'Admin Joy', 'Joy',
     'Admin Love',
@@ -388,6 +389,9 @@
     'TMTPlay Admin',
     'Admin Mim', 'Agent Mim', 'Mim',
     'Bogchi',
+    // SUPERADMIN accounts (opisyal na roster, 2026-10-10): owner/system logins,
+    // hindi HH agent — hindi kasama sa Agent Conduct scan, gaya ng bots.
+    'Love', 'OM - AOM', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'Admin Bogchi',
   ]);
   // 'Admin Hanna' ay BOT sa Hype PH pero TUNAY NA TAO sa TMTCash — brand-scoped.
   const BRAND_BOT_CLIENT = {
@@ -634,9 +638,9 @@
   // PINALAWAK 2026-10-02 sa LAHAT ng brands: kumpleto na ang bot roster
   // (39 entries + brand-scoped Admin Hanna), at ang backend /agent-messages
   // ang nag-aalis ng bot replies server-side — kaya kahit anong brand,
-  // puro TUNAY na agents lang ang dumadaan dito (Bea/Faith/Hope, Hanna/
-  // Heart, Mika, Kaia, Raya, Nami, Ana, Margo, Holly, Gwen, Lane + LiveChat
-  // agents). Case-sensitive slugs, mula sa webhook URLs.
+  // puro TUNAY na agents lang ang dumadaan dito (roster 2026-10-10: Hope/Bea/
+  // Faith, Telly/Hanna/Heart, Mika, Kaia, Robin, Nami, Ana, Margo, Holly, Gwen,
+  // Lane + LiveChat agents). Case-sensitive slugs, mula sa webhook URLs.
   const CONDUCT_BRANDS = [
     'buenasph', 'tmtcash', 'mcp', 'manilaplayph', 'HypleplayPH',
     'HypeplayBD', 'Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH',
