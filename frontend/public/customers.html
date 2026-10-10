@@ -1026,6 +1026,16 @@
     applyFiltersAndRender();
   });
 
+  // ?search=<username> deep link (2026-10-10): galing sa Dashboard "Top 5
+  // Players — Most Chats" rows — pre-fill ang search at patakbuhin agad.
+  (function applySearchParam() {
+    const sp = new URLSearchParams(window.location.search).get('search');
+    if (!sp) return;
+    const si = document.getElementById('searchInput');
+    si.value = sp;
+    // ipagpaliban nang isang tick para tapos nang naka-register ang listener
+    setTimeout(() => si.dispatchEvent(new Event('input', { bubbles: true })), 0);
+  })();
   document.getElementById('searchInput').addEventListener('input', (e) => {
     const val = e.target.value.trim();
     currentSearch = val.toLowerCase();
