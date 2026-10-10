@@ -146,8 +146,17 @@ router.get('/overview', requireAuth, async (req, res) => {
       report: { month: report.month, rows: report.rows || [] },
       // Huwag isama ang proof links — naka-login lang sila sa billing app
       payments: (state.payments || []).map(({ proofs, ...p }) => ({ ...p, proofCount: (proofs || []).length })),
-      banks: banks.banks || [],
-      payouts: (banks.payouts || []).map(({ receipts, invoices, ...p }) => p),
+      // NOTE: /api/banks ay naka-CENTAVOS (hal. 487882 = ₱4,878.82) — i-convert sa piso.
+      // Na-verify: GoTyme "in" 487882 = kabuuan ng credited GoTyme payments (₱4,878.82).
+      banks: (banks.banks || []).map(b => ({
+        ...b,
+        opening: (Number(b.opening) || 0) / 100,
+        in: (Number(b.in) || 0) / 100,
+        out: (Number(b.out) || 0) / 100,
+        pending: (Number(b.pending) || 0) / 100,
+        balance: (Number(b.balance) || 0) / 100,
+      })),
+      payouts: (banks.payouts || []).map(({ receipts, invoices, ...p }) => ({ ...p, amount: (Number(p.amount) || 0) / 100 })),
       fx: billing.fx || null,
       services: billing.services || {},
       order: billing.order || [],
