@@ -805,7 +805,7 @@ const AI_BOT_NAMES_CLIENT = new Set([
   'Admin May', 'Agent May', 'May',
   'Admin Lucy', 'Agent Lucy', 'Lucy',
   'Lucky Stacks Admin',
-  'Agent Hanna', 'Hanna',
+  // 'Agent Hanna'/'Hanna' — inilipat sa HypePlay brand-scoped list (2026-10-10)
   'Hype Play PH Admin',
   'Admin Maya', 'Agent Maya', 'Maya',
   'Manila Play Admin',
@@ -816,11 +816,16 @@ const AI_BOT_NAMES_CLIENT = new Set([
   'TMTPlay Admin',
   'Admin Mim', 'Agent Mim', 'Mim',
   'Bogchi',
+  // SUPERADMIN accounts (opisyal na roster ni Chad, 2026-10-10): hindi
+  // sila HH agent — owner/system logins na nagpapadala ng automated
+  // messages (hal. 'Rate our support'). Hindi binibilang sa human
+  // handoff/FTR, gaya ng bots.
+  'Love', 'OM - AOM', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'Admin Bogchi',
 ]);
 // 'Admin Hanna' ay BOT sa Hype PH pero TUNAY NA TAO sa TMTCash — brand-scoped.
 const BRAND_BOT_CLIENT = {
-  hypleplayph: new Set(['Admin Hanna']),
-  hypeplayph: new Set(['Admin Hanna']),
+  hypleplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
+  hypeplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
 };
 function isBotClient(brand, senderName) {
   if (!senderName) return false;
