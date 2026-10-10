@@ -2217,7 +2217,9 @@
       }
       const mi = missInfo.get(idx);
       const missTag = mi ? `<br><span class="miss-tag">${mi.late ? `MISSED 3MIN · nasagot after ${mi.mins}m` : 'WALANG SAGOT'}</span>` : '';
-      const botTag = (m.senderType === 'user' && isBotClient(m.brand, m.senderName)) ? ' <span class="bot-tag">BOT</span>' : '';
+      const SUPERADMIN_NAMES = new Set(['Love', 'Admin Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi']);
+      const botTag = (m.senderType === 'user' && isBotClient(m.brand, m.senderName))
+        ? ` <span class="bot-tag">${SUPERADMIN_NAMES.has(m.senderName) ? 'SUPERADMIN' : 'AI'}</span>` : '';
       return `${divider}
         <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${mi ? ' msg-missed' : ''}">
           <div class="msg-meta">${escapeHtml(who)}${botTag} · ${escapeHtml(when)}</div>
@@ -2259,6 +2261,11 @@
     'TMTPlay Admin',
     'Admin Mim', 'Agent Mim', 'Mim',
     'Bogchi',
+    // SUPERADMIN accounts (opisyal na roster ni Chad, 2026-10-10): hindi
+    // sila HH agent — owner/system logins na nagpapadala ng automated
+    // messages (hal. 'Rate our support'). Hindi binibilang sa human
+    // handoff/FTR, gaya ng bots.
+    'Love', 'OM - AOM', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'Admin Bogchi',
   ]);
 
   // Brand-scoped bot personas — sync sa chatwoot.js. 'Admin Hanna' ay BOT
