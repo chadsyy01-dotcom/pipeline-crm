@@ -198,9 +198,10 @@
      Ongoing Chats (green) = may human agent na aktibong nakikipag-chat
      Closed (gray) = 10 min nang walang bagong mensahe; bumabalik sa Ongoing
                      kapag nag-reply ulit ang player (lastActivityAt gumagalaw)
-     Missed Chat (red) = handoff na 3+ min walang human reply at hindi na nasagot
-     Waiting (amber) = handoff, wala pang 3 min — hinihintay pa ang agent
-     Late reply = Ongoing/Closed na pero may pulang "MISSED 3MIN" remark */
+     Missed Chat (red) = handoff na WALANG kahit isang human reply at tapos
+                         na ang usapan (umalis ang player / resolved / HH closed)
+     Waiting (amber) = handoff, wala pang sagot pero buhay pa ang usapan
+     (Inalis na ang 3-min SLA at "MISSED 3MIN" late-reply tag — 2026-10-10) */
   .status.ongoing{background:var(--success-tint);color:var(--success);}
   .status.ongoing::before{background:var(--success);}
   .status.closedx{background:#F1F5F9;color:var(--ink-soft);}
@@ -528,7 +529,6 @@
         <button type="button" class="qtab" role="tab" data-v="ongoing"><span class="qdot ongoing"></span>Ongoing</button>
         <button type="button" class="qtab" role="tab" data-v="waiting"><span class="qdot waiting"></span>Waiting</button>
         <button type="button" class="qtab" role="tab" data-v="missed"><span class="qdot missed"></span>Missed</button>
-        <button type="button" class="qtab" role="tab" data-v="late"><span class="qdot late"></span>Late reply</button>
         <button type="button" class="qtab" role="tab" data-v="closedx"><span class="qdot closedx"></span>Closed</button>
       </div>
       <div class="filter-bar">
@@ -560,7 +560,6 @@
             <option value="waiting">Waiting</option>
             <option value="missed">Missed Chat</option>
             <option value="closedx">Closed</option>
-            <option value="late">Missed 3min (late reply)</option>
           </select>
         </div>
         <div class="f-group">
@@ -1322,10 +1321,10 @@
     else if (currentStatus !== 'all' && currentStatus !== 'active') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
     if (currentHandoff !== 'all') {
       // Bagong Chat Status filter (2026-10-10): derived status ang basehan,
-      // hindi na ang raw handoffStage. 'late' = nasagot pero lampas 3 min.
+      // hindi na ang raw handoffStage.
       filtered = filtered.filter(c => {
         const k = chatStatusKey(c);
-        return currentHandoff === 'late' ? k.late : k.cls === currentHandoff;
+        return k.cls === currentHandoff;
       });
     }
     if (currentCater !== 'all') {
@@ -1359,15 +1358,20 @@
     return `<span class="handoff-pill ${stage}">${labels[stage]}</span>`;
   }
 
-  // ---- BAGONG STATUS LOGIC (2026-10-10) ----
-  // Batay sa handoffStage + ftr (segundo mula handoff hanggang unang human
-  // reply) + lastActivityAt. Ang 3 minuto ang missed-SLA (opisyal na rule,
-  // Oct 7) at 10 minutong katahimikan ang auto-close. Kapag nag-message
-  // ulit ang player, umuusad ang lastActivityAt kaya bumabalik sa Ongoing.
-  const MISSED_SLA_SEC = 180, AUTO_CLOSE_MIN = 10;
+  // ---- STATUS LOGIC (binago 2026-10-10, hard rule ni Chad) ----
+  // WALA nang 3-minute SLA at "late reply". MISSED CHAT lang kapag:
+  //   1) handoff ito (dapat may human agent), AT
+  //   2) WALANG kahit isang reply ang agent, AT
+  //   3) tapos na ang usapan — umalis/nawala na ang player (10 min nang
+  //      walang galaw), o Resolved / HH Closed na ang conversation.
+  // Habang hindi pa tapos at wala pang sagot → WAITING (kahit gaano katagal).
+  // Kapag may sagot na ang agent (kahit late), hindi na kailanman missed.
+  const AUTO_CLOSE_MIN = 10;
   function chatStatusKey(c) {
     const idleMin = c.lastActivityAt ? (Date.now() - new Date(c.lastActivityAt).getTime()) / 60000 : Infinity;
-    const late = c.ftr != null && c.ftr > MISSED_SLA_SEC;
+    const ended = idleMin >= AUTO_CLOSE_MIN
+      || (c.status || '').toLowerCase() === 'resolved'
+      || c.handoffStage === 'closed';
     // "May sumagot" = may FTR (unang human reply) o stage 'opened'. Ang
     // 'closed' ay HINDI katibayan na may sumagot — maraming lumang chats
     // ang nag-closed na walang human reply (deactivated habang pending),
@@ -1379,16 +1383,15 @@
     const agentSpokeLast = c.lastMessageSenderType === 'user' && c.lastMessageSender
       && !isBotClient(c.brand, c.lastMessageSender);
     if (c.handoffStage && !answered && !agentSpokeLast) {
-      if (idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
-      return { cls: 'waiting', label: 'Waiting', late };
+      if (ended) return { cls: 'missed', label: 'Missed Chat' };
+      return { cls: 'waiting', label: 'Waiting' };
     }
-    if (idleMin >= AUTO_CLOSE_MIN) return { cls: 'closedx', label: 'Closed', late };
-    return { cls: 'ongoing', label: 'Ongoing Chats', late };
+    if (ended) return { cls: 'closedx', label: 'Closed' };
+    return { cls: 'ongoing', label: 'Ongoing Chats' };
   }
   function chatStatusHtml(c) {
     const k = chatStatusKey(c);
-    const tag = (k.late && k.cls !== 'missed') ? '<br><span class="late-tag" title="Lumagpas sa 3 minuto bago nakasagot ang agent">MISSED 3MIN</span>' : '';
-    return `<span class="status ${k.cls}">${k.label}</span>${tag}`;
+    return `<span class="status ${k.cls}">${k.label}</span>`;
   }
 
   function concernPillHtml(c) {
@@ -1457,7 +1460,7 @@
     if (!list.length) { alert('Walang rows na ie-export sa kasalukuyang view.'); return; }
     const esc_ = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
     const rows = [[
-      'Customer','Email/Inbox','IP','Brand','Chat Status','Late Reply (3min+)','Concern',
+      'Customer','Email/Inbox','IP','Brand','Chat Status','Concern',
       'Last Message Sender','Last Message','First Reply Time (sec)','Chatting Time (sec)',
       'Last Activity','Conversation ID'
     ].join(',')];
@@ -1465,7 +1468,7 @@
       const k = chatStatusKey(c);
       rows.push([
         c.contactName || 'Unknown', c.contactEmail || c.inboxName || '', c.customerIp || '',
-        brandLabel(c.brand), k.label, k.late ? 'YES' : '', c.concern || '',
+        brandLabel(c.brand), k.label, c.concern || '',
         c.lastMessageSender || '', c.lastMessage || '', c.ftr != null ? c.ftr : '',
         c.art != null ? c.art : '', c.lastActivityAt ? new Date(c.lastActivityAt).toISOString() : '',
         c.conversationId
