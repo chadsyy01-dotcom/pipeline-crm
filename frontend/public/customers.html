@@ -1037,6 +1037,9 @@
 
   document.getElementById('handoffFilter').addEventListener('change', (e) => {
     currentHandoff = e.target.value;
+    // lumabas sa chat-content search mode para umandar ang filters sa
+    // kasalukuyang search text (2026-10-10)
+    if (searchMode) { searchMode = false; lastSearchResults = null; }
     applyFiltersAndRender();
   });
 
@@ -1060,6 +1063,17 @@
     currentSearch = val.toLowerCase();
     clearTimeout(searchDebounce);
     if (val.length < 3) {
+      searchMode = false;
+      lastSearchResults = null;
+      applyFiltersAndRender();
+      return;
+    }
+    // KAPAG may piniling Chat Status (Missed/Ongoing/atbp.), huwag tumalon
+    // sa chat-content search mode — iyon ay LUMALAMPAS sa lahat ng filters.
+    // Mag-local filter na lang (pangalan/email/huling mensahe) KASAMA ang
+    // mga filter, para gumagana ang "username + Missed Chat" combo
+    // (2026-10-10 fix).
+    if (currentHandoff !== 'all') {
       searchMode = false;
       lastSearchResults = null;
       applyFiltersAndRender();
@@ -1283,7 +1297,12 @@
     // ang nag-closed na walang human reply (deactivated habang pending),
     // at dapat MISSED pa rin ang mga iyon (2026-10-10 fix).
     const answered = c.ftr != null || c.handoffStage === 'opened';
-    if (c.handoffStage && !answered) {
+    // Kung HUMAN agent ang huling nagsalita (hal. greeting na hindi sinagot
+    // ng player), HINDI ito missed — walang customer message na na-miss.
+    // Ang bot na "Rate our support" ay hindi bilang na agent reply.
+    const agentSpokeLast = c.lastMessageSenderType === 'user' && c.lastMessageSender
+      && !isBotClient(c.brand, c.lastMessageSender);
+    if (c.handoffStage && !answered && !agentSpokeLast) {
       if (idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
       return { cls: 'waiting', label: 'Waiting', late };
     }
