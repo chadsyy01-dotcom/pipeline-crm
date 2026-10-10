@@ -80,6 +80,66 @@
   .setup-note{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;margin-bottom:16px;line-height:1.5;}
 
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+
+  /* ===== SMS MONITORING REDESIGN (2026-10-10) ===== */
+  .hero-band{position:relative;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);
+    margin:-26px -32px 0;padding:26px 32px 92px;border-radius:0 0 20px 20px;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .hero-band .topbar{margin-bottom:0;}
+  .hero-band .greeting h1{color:#fff;}
+  .hero-band .greeting p{color:#9FB2D8;}
+  .hero-band .tabs{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:10px;}
+  .hero-band .tab{color:#C7D5F0;border-radius:8px;}
+  .hero-band .tab:hover{color:#fff;}
+  .hero-band .tab.active{background:#fff;color:var(--primary);}
+  .live-chip{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;font-weight:700;color:#C7D5F0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:4px 10px;border-radius:99px;}
+  .live-chip i{width:7px;height:7px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.25);animation:pulse 1.8s infinite;}
+  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(34,197,94,0);}}
+
+  .sms-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:-66px;position:relative;z-index:2;margin-bottom:16px;}
+  .sms-kpis .kpi-card{margin-bottom:0;position:relative;overflow:hidden;border:1px solid #E8EDF5;padding:18px 20px;}
+  .sms-kpis .kpi-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc,#2563EB);}
+  .sms-kpis .kh{display:flex;align-items:center;justify-content:space-between;}
+  .sms-kpis .kpi-label{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint) !important;margin:0;}
+  .sms-kpis .ki{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--acc-t,#EFF4FF);color:var(--acc,#2563EB);}
+  .sms-kpis .ki svg{width:16px;height:16px;}
+  .sms-kpis .kpi-value{font-size:32px;margin-top:6px;}
+  .sms-kpis .ks{font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:2px;}
+  .rate-bar{height:6px;border-radius:99px;background:#EEF1F6;overflow:hidden;margin-top:10px;}
+  .rate-bar i{display:block;height:100%;border-radius:99px;background:var(--success);transition:width .4s;}
+
+  .sms-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;align-items:stretch;margin-bottom:14px;}
+  .sms-grid .panel{margin-bottom:0;}
+  .chart-box{position:relative;height:320px;}
+  .panel-head .sub{font-size:11.5px;font-weight:600;color:var(--ink-faint);}
+  #brandTable td,#brandTable th{padding-left:6px;padding-right:6px;}
+  #brandTable tbody tr:hover{background:#F8FAFC;}
+  .succ{display:flex;align-items:center;justify-content:flex-end;gap:8px;}
+  .succ .sb{width:60px;height:6px;border-radius:99px;background:#EEF1F6;overflow:hidden;}
+  .succ .sb i{display:block;height:100%;border-radius:99px;}
+  .bname{font-weight:700;white-space:nowrap;}
+  #brandTable th{white-space:nowrap;}
+
+  .log-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:10px;background:#F8FAFC;border:1px solid var(--line);border-radius:12px;}
+  .log-tools select,.log-tools input{border-color:#E2E8F0 !important;border-radius:9px !important;}
+  .log-tools select:focus,.log-tools input:focus{outline:none;border-color:var(--primary) !important;box-shadow:0 0 0 3px var(--primary-tint);}
+  #logApply{background:var(--primary) !important;color:#fff !important;box-shadow:none;}
+  #logClear{background:#fff;border:1px solid #E2E8F0;}
+  #logTable tbody tr:hover{background:#F8FAFC;}
+  .st-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;text-transform:capitalize;white-space:nowrap;}
+  .st-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .st-delivered{background:var(--success-tint);color:#15803D;}
+  .st-sent{background:var(--primary-tint);color:var(--primary);}
+  .st-failed{background:var(--danger-tint);color:#B42318;}
+  .st-pending{background:var(--warning-tint);color:#B45309;}
+  .st-other{background:#F1F5F9;color:var(--ink-soft);}
+  #logPrev,#logNext{background:#fff;border:1px solid #E2E8F0;}
+  #logPrev:disabled,#logNext:disabled{opacity:.45;cursor:not-allowed;}
+
+  @media (max-width:1100px){ .sms-kpis{grid-template-columns:1fr 1fr;} .sms-grid{grid-template-columns:1fr;} }
+  @media (max-width:860px){ .hero-band{margin:-20px -16px 0;padding:20px 16px 88px;} }
 </style>
 </head>
 <body>
@@ -137,6 +197,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"/></svg>
         SMS Monitoring
       </a>
+      <a href="division-billing.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M9 21v-6h6v6"/></svg>
+        Division Billing
+      </a>
     </div>
     <a href="agents.html" class="nav-item">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
@@ -150,10 +214,12 @@
   </aside>
 
   <main class="main">
+    <div class="hero-band">
     <div class="topbar">
       <div class="greeting">
         <h1>SMS Monitoring</h1>
         <p>SMS activity across brands.</p>
+        <span class="live-chip"><i></i> Live — updates automatically</span>
       </div>
       <div class="tabs" id="rangeTabs">
         <button class="tab" data-days="1">Today</button>
@@ -162,35 +228,41 @@
         <button class="tab" data-days="">All time</button>
       </div>
     </div>
+    </div><!-- /hero-band -->
+
+    <div class="sms-kpis">
+      <div class="kpi-card" style="--acc:#2563EB;--acc-t:#EFF4FF;">
+        <div class="kh"><div class="kpi-label">Total OTP sent</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></div></div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="ks" id="kpiTotalSub">&nbsp;</div>
+      </div>
+      <div class="kpi-card" style="--acc:#22C55E;--acc-t:#EAFBF1;">
+        <div class="kh"><div class="kpi-label" style="color:#0F8A46">Successfully sent</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div></div>
+        <div class="kpi-value" id="kpiSuccess" style="color:#16A34A">—</div>
+        <div class="ks" id="kpiSuccessSub">&nbsp;</div>
+      </div>
+      <div class="kpi-card" style="--acc:#EF4444;--acc-t:#FDECEC;">
+        <div class="kh"><div class="kpi-label">Failed</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6L6 18M6 6l12 12"/></svg></div></div>
+        <div class="kpi-value" id="kpiFailed" style="color:var(--danger)">—</div>
+        <div class="ks" id="kpiFailedSub">&nbsp;</div>
+      </div>
+      <div class="kpi-card" style="--acc:#8B5CF6;--acc-t:#F3EEFE;">
+        <div class="kh"><div class="kpi-label">Success rate</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div></div>
+        <div class="kpi-value" id="kpiRate">—</div>
+        <div class="rate-bar"><i id="kpiRateBar" style="width:0"></i></div>
+      </div>
+    </div>
 
     <div id="smsSetupNote" class="setup-note" style="display:none"></div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:2px">
-      <div class="kpi-card">
-        <div class="kpi-label">Total OTP sent</div>
-        <div class="kpi-value" id="kpiTotal">—</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label" style="color:#0F8A46">Successfully sent</div>
-        <div class="kpi-value" id="kpiSuccess" style="color:var(--success)">—</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Failed</div>
-        <div class="kpi-value" id="kpiFailed" style="color:var(--danger)">—</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Success rate</div>
-        <div class="kpi-value" id="kpiRate">—</div>
-      </div>
+    <div class="sms-grid">
+    <div class="panel">
+      <div class="panel-head"><h3>Messages per brand</h3><span class="sub">top 8 brands</span></div>
+      <div class="chart-box"><canvas id="brandChart"></canvas></div>
     </div>
 
     <div class="panel">
-      <div class="panel-head"><h3>Messages per brand</h3></div>
-      <canvas id="brandChart" height="90"></canvas>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><h3>Breakdown by brand</h3></div>
+      <div class="panel-head"><h3>Breakdown by brand</h3><span class="sub" id="brandSub"></span></div>
       <table class="li-table" id="brandTable">
         <thead>
           <tr>
@@ -207,13 +279,14 @@
         </tbody>
       </table>
     </div>
+    </div><!-- /sms-grid -->
     <div class="panel">
       <div class="panel-head">
         <h3>Message log</h3>
         <span id="logCount" style="font-size:12px;color:var(--ink-faint);font-weight:600"></span>
       </div>
 
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div class="log-tools">
         <select id="logBrandFilter" style="font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:#fff">
           <option value="">All brands</option>
         </select>
@@ -302,6 +375,13 @@ function renderKpis(totals) {
   document.getElementById("kpiSuccess").textContent = fmtNum(sent + delivered);
   document.getElementById("kpiFailed").textContent = fmtNum(failed);
   document.getElementById("kpiRate").textContent = total ? pct(delivered + sent, total) + "%" : "—";
+  const rate = total ? ((delivered + sent) / total) * 100 : 0;
+  const bar = document.getElementById("kpiRateBar");
+  bar.style.width = rate.toFixed(1) + "%";
+  bar.style.background = rate >= 85 ? "#22C55E" : rate >= 65 ? "#F59E0B" : "#EF4444";
+  document.getElementById("kpiTotalSub").textContent = total ? `${fmtNum(delivered)} delivered · ${fmtNum(sent)} sent` : "\u00a0";
+  document.getElementById("kpiSuccessSub").textContent = total ? `${pct(delivered + sent, total)}% of all OTPs` : "\u00a0";
+  document.getElementById("kpiFailedSub").textContent = total ? `${pct(failed, total)}% failed` : "\u00a0";
 }
 
 function renderTable(brands) {
@@ -310,15 +390,19 @@ function renderTable(brands) {
     body.innerHTML = '<tr><td colspan="6"><div class="empty-note">No SMS activity in this range.</div></td></tr>';
     return;
   }
-  body.innerHTML = brands.map((b) => `
+  document.getElementById("brandSub").textContent = `${brands.length} brand${brands.length === 1 ? "" : "s"}`;
+  body.innerHTML = brands.map((b) => {
+    const r = b.total > 0 ? (((b.delivered || 0) + (b.sent || 0)) / b.total) * 100 : 0;
+    const col = r >= 85 ? "#22C55E" : r >= 65 ? "#F59E0B" : "#EF4444";
+    return `
     <tr>
-      <td>${String(b.brand).replace(/</g, "&lt;")}</td>
+      <td class="bname">${String(b.brand).replace(/</g, "&lt;")}</td>
       <td class="num">${fmtNum(b.total)}</td>
-      <td class="num" style="color:var(--success)">${fmtNum(b.delivered)}</td>
+      <td class="num" style="color:#16A34A">${fmtNum(b.delivered)}</td>
       <td class="num" style="color:var(--primary)">${fmtNum(b.sent)}</td>
       <td class="num" style="color:var(--danger)">${fmtNum(b.failed)}</td>
-      <td class="num">${pct((b.delivered||0) + (b.sent||0), b.total)}%</td>
-    </tr>`).join("");
+      <td class="num"><div class="succ"><div class="sb"><i style="width:${r.toFixed(1)}%;background:${col}"></i></div><span style="color:${col}">${r.toFixed(1)}%</span></div></td>
+    </tr>`; }).join("");
 }
 
 function renderChart(brands) {
@@ -327,9 +411,9 @@ function renderChart(brands) {
   const data = {
     labels: top.map((b) => b.brand),
     datasets: [
-      { label: "Delivered", data: top.map((b) => b.delivered || 0), backgroundColor: "#22C55E" },
-      { label: "Sent", data: top.map((b) => b.sent || 0), backgroundColor: "#2563EB" },
-      { label: "Failed", data: top.map((b) => b.failed || 0), backgroundColor: "#EF4444" },
+      { label: "Delivered", data: top.map((b) => b.delivered || 0), backgroundColor: "#22C55E", borderRadius: 4, maxBarThickness: 46 },
+      { label: "Sent", data: top.map((b) => b.sent || 0), backgroundColor: "#3B82F6", borderRadius: 4, maxBarThickness: 46 },
+      { label: "Failed", data: top.map((b) => b.failed || 0), backgroundColor: "#F87171", borderRadius: 4, maxBarThickness: 46 },
     ],
   };
   if (brandChart) { brandChart.data = data; brandChart.update(); return; }
@@ -338,8 +422,16 @@ function renderChart(brands) {
     data,
     options: {
       responsive: true,
-      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
-      plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } },
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { family: "Plus Jakarta Sans", size: 11, weight: "600" }, color: "#475569" } },
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0, color: "#94A3B8", font: { size: 11 } }, grid: { color: "#EEF1F6" }, border: { display: false } },
+      },
+      plugins: {
+        legend: { position: "top", align: "end", labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: "rectRounded", font: { family: "Plus Jakarta Sans", size: 11, weight: "600" } } },
+        tooltip: { backgroundColor: "#0F172A", padding: 10, cornerRadius: 8, titleFont: { family: "Plus Jakarta Sans", weight: "700" }, bodyFont: { family: "Plus Jakarta Sans" } },
+      },
     },
   });
 }
@@ -387,9 +479,10 @@ function fmtDateTime(iso) {
   return d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 function statusBadge(status) {
-  const colors = { delivered: "var(--success)", sent: "var(--primary)", failed: "var(--danger)", pending: "var(--warning)", received: "var(--ink-soft)" };
-  const c = colors[status] || "var(--ink-faint)";
-  return `<span style="color:${c};font-weight:700;text-transform:capitalize">${status || "—"}</span>`;
+  const known = { delivered: 1, sent: 1, failed: 1, pending: 1 };
+  if (!status) return '<span style="color:var(--ink-faint)">—</span>';
+  const cls = known[status] ? "st-" + status : "st-other";
+  return `<span class="st-pill ${cls}">${String(status).replace(/</g, "&lt;")}</span>`;
 }
 
 // ---- Network column (added 2026-09-20) ----
