@@ -212,6 +212,30 @@
 .t-table tbody tr.row-unclaimed td{background:#F5F3FF;}
 .t-table tbody tr.row-unclaimed:hover td{background:#ECE8FF;}
 
+/* ---------- TICKETS: Done vs Rejected card ---------- */
+#queueStats{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);}
+@media (max-width:1280px){
+  #queueStats{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #queueStats .res-card{grid-column:span 2;}
+}
+@media (max-width:700px){
+  #queueStats{grid-template-columns:minmax(0,1fr);}
+  #queueStats .res-card{grid-column:auto;}
+}
+.res-card{gap:12px;}
+.res-top{display:flex;justify-content:space-between;gap:10px;}
+.res-side{
+  flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;
+  background:none;border:0;padding:8px 10px;margin:-8px -10px;border-radius:14px;cursor:pointer;font:inherit;color:inherit;
+}
+.res-side.right{align-items:flex-end;text-align:right;}
+.res-side:hover{background:var(--bg);}
+.res-side.active{background:var(--primary-tint);box-shadow:inset 0 0 0 2px var(--primary);}
+.res-label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint);white-space:nowrap;}
+.res-val{font-family:var(--display);font-size:30px;font-weight:800;line-height:1;}
+.res-val.good{color:var(--success);}
+.res-val.bad{color:var(--danger);}
+
 .prio-list{display:flex;flex-direction:column;gap:9px;margin-top:2px;}
 .prio-row{display:flex;align-items:center;gap:10px;font-size:12.5px;}
 .prio-row .p-name{width:72px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
