@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <!-- Google Sheet ticket data — used by the customer profile modal to count
      that customer's tickets (added 2026-09-18). Loaded here, fetched lazily
      the first time a profile is opened, so the page load isn't slowed. -->
@@ -310,6 +310,8 @@
     .search{min-width:0;flex:1;}
   }
 </style>
+<!-- Redesign 2026-10-10: bagong itsura (hero band, KPI cards, status tabs) -->
+<link rel="stylesheet" href="redesign.css?v=1">
 </head>
 <body>
 <script>
@@ -428,6 +430,7 @@
 
   <!-- MAIN -->
   <main class="main">
+    <div class="hero">
     <div class="topbar">
       <div class="greeting">
         <h1>Customers</h1>
@@ -461,32 +464,46 @@
         </div>
       </div>
     </div>
+    </div><!-- /hero -->
 
     <!-- CHATS PANEL -->
-    <!-- CSAT / DSAT SUMMARY -->
+    <!-- CSAT / DSAT SUMMARY (redesign 2026-10-10: cards + stars + split bar) -->
     <div class="csat-panel" id="csatPanel">
       <div class="csat-stat">
-        <div class="csat-stat-label">Avg Rating</div>
+        <div class="csat-stat-label">Avg Rating <span class="kpi-flag" id="csatFlag" hidden>Needs attention</span></div>
         <div class="csat-stat-value" id="csatAvgRating">—</div>
+        <div class="stars" aria-hidden="true"><span id="csatStarsFill"></span></div>
         <div class="csat-stat-sub" id="csatTotalSub">No responses yet</div>
       </div>
-      <div class="csat-stat" id="csatStatBlock" data-csat-filter="csat">
-        <div class="csat-stat-label">CSAT (Satisfied)</div>
-        <div class="csat-stat-value good" id="csatPercent">—</div>
-        <div class="csat-stat-sub" id="csatCountSub"></div>
-      </div>
-      <div class="csat-stat" id="dsatStatBlock" data-csat-filter="dsat">
-        <div class="csat-stat-label">DSAT (Dissatisfied)</div>
-        <div class="csat-stat-value bad" id="dsatPercent">—</div>
-        <div class="csat-stat-sub" id="dsatCountSub"></div>
+      <div class="csat-split">
+        <div class="csat-split-top">
+          <div class="csat-stat" id="csatStatBlock" data-csat-filter="csat" title="I-click para i-filter ang CSAT">
+            <div class="csat-stat-label">CSAT (Satisfied)</div>
+            <div class="csat-stat-value good" id="csatPercent">—</div>
+            <div class="csat-stat-sub" id="csatCountSub"></div>
+          </div>
+          <div class="csat-stat right" id="dsatStatBlock" data-csat-filter="dsat" title="I-click para i-filter ang DSAT">
+            <div class="csat-stat-label">DSAT (Dissatisfied)</div>
+            <div class="csat-stat-value bad" id="dsatPercent">—</div>
+            <div class="csat-stat-sub" id="dsatCountSub"></div>
+          </div>
+        </div>
+        <div class="split-bar" role="img" id="splitBar" aria-label="CSAT vs DSAT">
+          <span class="s-good" id="splitGood"></span><span class="s-mid" id="splitMid"></span><span class="s-bad" id="splitBad"></span>
+        </div>
+        <div class="split-note" id="splitNote"></div>
       </div>
       <div class="csat-stat">
-        <div class="csat-stat-label">Avg HH First Reply</div>
+        <div class="csat-stat-label">Avg HH First Reply
+          <span class="kpi-ico violet" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>
+        </div>
         <div class="csat-stat-value" id="avgFtrValue">—</div>
         <div class="csat-stat-sub" id="avgFtrSub">No handoffs yet</div>
       </div>
       <div class="csat-stat">
-        <div class="csat-stat-label">Avg HH Chatting Time</div>
+        <div class="csat-stat-label">Avg HH Chatting Time
+          <span class="kpi-ico blue" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></span>
+        </div>
         <div class="csat-stat-value" id="avgArtValue">—</div>
         <div class="csat-stat-sub" id="avgArtSub">No handoffs yet</div>
       </div>
@@ -504,6 +521,16 @@
       <!-- Labeled filter bar (2026-09-23) — dating tatlong tab rows
            (brands / status / handoff), ngayon dropdowns na kagaya ng
            Tickets page: BRAND / STATUS / HANDOFF / ADMIN / ACTIVITY. -->
+      <!-- Quick status tabs (redesign 2026-10-10) — shortcut lang ng
+           "Chat Status" dropdown sa ibaba; pareho silang naka-sync. -->
+      <div class="quick-tabs" id="quickTabs" role="tablist" aria-label="Chat status">
+        <button type="button" class="qtab active" role="tab" data-v="all">All</button>
+        <button type="button" class="qtab" role="tab" data-v="ongoing"><span class="qdot ongoing"></span>Ongoing</button>
+        <button type="button" class="qtab" role="tab" data-v="waiting"><span class="qdot waiting"></span>Waiting</button>
+        <button type="button" class="qtab" role="tab" data-v="missed"><span class="qdot missed"></span>Missed</button>
+        <button type="button" class="qtab" role="tab" data-v="late"><span class="qdot late"></span>Late reply</button>
+        <button type="button" class="qtab" role="tab" data-v="closedx"><span class="qdot closedx"></span>Closed</button>
+      </div>
       <div class="filter-bar">
         <div class="f-group">
           <span class="f-label">Brand</span>
@@ -973,6 +1000,17 @@
     const dsatEl = document.getElementById('dsatPercent');
     const dsatSub = document.getElementById('dsatCountSub');
 
+    // Redesign 2026-10-10: stars + CSAT/DSAT split bar + "Needs attention"
+    const starsFill = document.getElementById('csatStarsFill');
+    const flag = document.getElementById('csatFlag');
+    const setSplit = (good, mid, bad, note) => {
+      document.getElementById('splitGood').style.width = good + '%';
+      document.getElementById('splitMid').style.width = mid + '%';
+      document.getElementById('splitBad').style.width = bad + '%';
+      document.getElementById('splitNote').textContent = note;
+      document.getElementById('splitBar').setAttribute('aria-label', `CSAT ${good}%, neutral ${mid}%, DSAT ${bad}%`);
+    };
+
     if (!stats.total) {
       avgEl.textContent = '—';
       totalSub.textContent = 'No responses yet';
@@ -980,6 +1018,9 @@
       csatSub.textContent = '';
       dsatEl.textContent = '—';
       dsatSub.textContent = '';
+      if (starsFill) starsFill.style.width = '0%';
+      if (flag) flag.hidden = true;
+      setSplit(0, 0, 0, '');
       return;
     }
     avgEl.textContent = `${stats.avgRating} / 5`;
@@ -988,6 +1029,16 @@
     csatSub.textContent = `${stats.csatCount} response${stats.csatCount === 1 ? '' : 's'} (4–5★)`;
     dsatEl.textContent = `${stats.dsatPercent}%`;
     dsatSub.textContent = `${stats.dsatCount} response${stats.dsatCount === 1 ? '' : 's'} (1–2★)`;
+
+    const avg = parseFloat(stats.avgRating) || 0;
+    if (starsFill) starsFill.style.width = Math.max(0, Math.min(100, avg / 5 * 100)) + '%';
+    // Lalabas lang ang badge kapag mas mababa sa 3.0 ang average rating.
+    if (flag) flag.hidden = !(avg > 0 && avg < 3);
+    const good = parseFloat(stats.csatPercent) || 0;
+    const bad = parseFloat(stats.dsatPercent) || 0;
+    const mid = Math.max(0, +(100 - good - bad).toFixed(1));
+    const neutralCount = Math.max(0, stats.total - (stats.csatCount || 0) - (stats.dsatCount || 0));
+    setSplit(good, mid, bad, neutralCount ? `${neutralCount} neutral (3★) in between` : '');
   }
 
   // Average First Reply Time / Average Total Chatting Time across handoff
@@ -1040,8 +1091,29 @@
     // lumabas sa chat-content search mode para umandar ang filters sa
     // kasalukuyang search text (2026-10-10)
     if (searchMode) { searchMode = false; lastSearchResults = null; }
+    syncQuickTabs();
     applyFiltersAndRender();
   });
+
+  // Quick status tabs (redesign 2026-10-10) — dinadaan lang sa parehong
+  // handoffFilter dropdown para iisa ang logic.
+  function syncQuickTabs() {
+    const v = document.getElementById('handoffFilter').value;
+    document.querySelectorAll('#quickTabs .qtab').forEach(b => {
+      const on = b.dataset.v === v;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+  document.querySelectorAll('#quickTabs .qtab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sel = document.getElementById('handoffFilter');
+      if (sel.value === btn.dataset.v) return;
+      sel.value = btn.dataset.v;
+      sel.dispatchEvent(new Event('change'));
+    });
+  });
+  syncQuickTabs();
 
   document.getElementById('caterFilter').addEventListener('change', (e) => {
     currentCater = e.target.value;
@@ -1347,8 +1419,9 @@
       const nameCell = c.contactName
         ? `<div class="c-cname cust-link" data-cust-name="${escapeHtml(name)}" data-cust-brand="${escapeHtml(c.brand)}" title="View customer profile">${escapeHtml(name)}</div>`
         : `<div class="c-cname">${escapeHtml(name)}</div>`;
+      const rowCls = 'row-' + chatStatusKey(c).cls;   // redesign: tinted rows per status
       return `
-        <tr data-conversation-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
+        <tr class="${rowCls}" data-conversation-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
           <td>
             <div class="c-customer">
               <div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div>
