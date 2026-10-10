@@ -52,15 +52,39 @@ async function login() {
   if (!canLogin()) throw new Error('Walang DIVBILL_USER/DIVBILL_PASS (o DIVBILL_COOKIE) sa Railway variables.');
   if (loginInFlight) return loginInFlight;
   loginInFlight = (async () => {
-    const res = await fetch(BASE + LOGIN_PATH, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ username: process.env.DIVBILL_USER, password: process.env.DIVBILL_PASS }),
-      redirect: 'manual',
-    });
-    if (res.status >= 400) {
-      const txt = await res.text().catch(() => '');
-      throw new Error(`Login sa billing app failed (${res.status}): ${txt.slice(0, 160)}`);
+    // Linisin ang value: tanggalin ang spaces/newline at quotes na baka nadala sa pag-paste sa Railway
+    const clean = v => String(v || '').trim().replace(/^["']|["']$/g, '');
+    const user = clean(process.env.DIVBILL_USER);
+    const pass = clean(process.env.DIVBILL_PASS);
+    // Hindi natin alam ang eksaktong field names ng billing app — subukan ang mga karaniwang anyo
+    const attempts = [
+      { type: 'json', body: { username: user, password: pass } },
+      { type: 'form', body: { username: user, password: pass } },
+      { type: 'json', body: { user, password: pass } },
+      { type: 'json', body: { user, pass } },
+      { type: 'json', body: { name: user, password: pass } },
+      { type: 'json', body: { login: user, password: pass } },
+      { type: 'json', body: { username: user.toLowerCase(), password: pass } },
+    ];
+    let res = null, lastErr = '';
+    for (const a of attempts) {
+      res = await fetch(BASE + LOGIN_PATH, {
+        method: 'POST',
+        headers: {
+          'Content-Type': a.type === 'json' ? 'application/json' : 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+          Origin: BASE,
+          Referer: BASE + '/',
+        },
+        body: a.type === 'json' ? JSON.stringify(a.body) : new URLSearchParams(a.body).toString(),
+        redirect: 'manual',
+      });
+      if (res.status < 400) { console.log('[divbilling] login ok via', a.type, Object.keys(a.body).join('+')); break; }
+      lastErr = await res.text().catch(() => '');
+      res = null;
+    }
+    if (!res) {
+      throw new Error(`Login sa billing app failed: ${lastErr.slice(0, 160)} (user length ${user.length}, pass length ${pass.length})`);
     }
     // Cookie-based session
     const setCookies = typeof res.headers.getSetCookie === 'function'
