@@ -1309,6 +1309,12 @@
       // tunay na marker na tapos na). Kapag HH Closed mismo ang pinili sa
       // Handoff dropdown, hindi ito itinatago para may makita pa rin.
       filtered = filtered.filter(c => {
+        // FIX 2026-10-10: huwag itago ang buhay pa o kailangang makita
+        // (Ongoing / Waiting / Missed) kahit Resolved o HH Closed na ang
+        // raw status — hal. chat na na-resolve pero nag-rate pa ang player
+        // kaya Ongoing pa. Dati nawawala ito sa All pero lumalabas sa
+        // Ongoing tab. Ang tinatago lang: tapos na AT Closed na talaga.
+        if (chatStatusKey(c).cls !== 'closedx') return true;
         if ((c.status || '').toLowerCase() === 'resolved') return false;
         if (currentHandoff !== 'closedx' && c.handoffStage === 'closed') return false;
         return true;
@@ -1386,7 +1392,9 @@
       if (ended) return { cls: 'missed', label: 'Missed Chat' };
       return { cls: 'waiting', label: 'Waiting' };
     }
-    if (ended) return { cls: 'closedx', label: 'Closed' };
+    // Ongoing vs Closed: galaw lang ng usapan ang basehan (10 min idle),
+    // gaya ng dati — kapag nag-message ulit ang player, Ongoing ulit.
+    if (idleMin >= AUTO_CLOSE_MIN) return { cls: 'closedx', label: 'Closed' };
     return { cls: 'ongoing', label: 'Ongoing Chats' };
   }
   function chatStatusHtml(c) {
