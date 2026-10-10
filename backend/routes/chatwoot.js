@@ -97,6 +97,14 @@ function normalizePhone(raw) {
 // brand's admin@ / bot@ login. Real human agents must NOT be listed here,
 // or their replies stop counting as handoffs.
 //
+// ⚠️ RULE 2026-10-10 (per Chad) — PUMAPALIT SA ROSTER SA IBABA: LAHAT ng
+// pangalang may "Admin" (hal. "Hype Play PH Admin", "TMTPlay Admin",
+// "Manila Play Admin", "Admin Jem", "Admin Hanna") ay TOTOONG agent, hindi
+// bot. Ipinapatupad ito sa isBotSender() at sa BOT_NAMES_FOR_SQL — kahit
+// nakalista pa ang pangalan dito, HINDI na ito tinuturing na bot. Ang mga
+// bot ay ang mga pangalang WALANG "Admin" (Agent Jem, Jem, Tala, Hanna,
+// Bogchi, atbp.). Iniwan ang listahan bilang record ng dating roster.
+//
 // CONFIRMED REAL HUMAN AGENTS (roster mula kay Chad, 2026-09-24) — ang mga
 // pangalang ito ay TUNAY NA TAO at HINDI KAILANMAN dapat mapunta sa bot
 // list sa ibaba. Ang handoff logic ay exclusion-based, kaya bilang na sila
@@ -121,12 +129,16 @@ function normalizePhone(raw) {
 // ibaba, na bot lang ang turing sa kanya sa Hype PH. Gamitin ang
 // isBotSender(brand, name) sa LAHAT ng bagong code, hindi ang Set nang
 // diretso, para laging pasok ang brand-scoped na mga kaso.
+// (2026-10-10: dahil sa "Admin" rule sa itaas, TAO na rin ang turing kay
+// "Admin Hanna" sa Hype PH.)
 const AI_BOT_SENDER_NAMES = new Set([
   // ==========================================================================
   // FINAL AI/BOT PERSONA ROSTER (mula kay Chad, 2026-09-24) — isa kada brand.
   // Nakalista ang PAREHONG 'Admin X' at 'Agent X' variants dahil nag-iiba ang
   // display name kada Chatwoot instance; ang variant na hindi umiiral ay
   // walang epekto. Ang mga generic na "<Brand> Admin" logins ay personas din.
+  // (2026-10-10: ang lahat ng may "Admin" dito ay HINDI na bot — tingnan ang
+  // RULE sa itaas.)
   // ==========================================================================
   // Buenas PH
   'Agent Joy', 'Admin Joy', 'Joy',
@@ -169,14 +181,26 @@ const BRAND_BOT_SENDER_NAMES = {
   hypeplayph: new Set(['Admin Hanna']),
 };
 
+// "Admin" rule (2026-10-10, per Chad): kahit anong pangalang may "admin"
+// (case-insensitive) ay TOTOONG agent.
+const ADMIN_NAME_RE = /admin/i;
+function isAdminName(senderName) {
+  return ADMIN_NAME_RE.test(String(senderName || ''));
+}
+
 // ANG opisyal na tanong na "bot ba ito?" — brand-aware. Gamitin ito sa lahat
 // ng bagong code sa halip na AI_BOT_SENDER_NAMES.has() nang diretso.
 function isBotSender(brand, senderName) {
   if (!senderName) return false;
+  if (isAdminName(senderName)) return false;   // "Admin" = laging tao (2026-10-10)
   if (AI_BOT_SENDER_NAMES.has(senderName)) return true;
   const scoped = BRAND_BOT_SENDER_NAMES[String(brand || '').toLowerCase()];
   return !!(scoped && scoped.has(senderName));
 }
+
+// Para sa SQL "NOT IN (:botNames)" (2026-10-10): bot names lang na WALANG
+// "Admin", para hindi ma-exclude ang mga real agent sa mga query.
+const BOT_NAMES_FOR_SQL = [...AI_BOT_SENDER_NAMES].filter(n => !isAdminName(n));
 
 function isRealHumanAgentReply(senderName, senderType, brand) {
   return senderType === 'user' && !!senderName && !isBotSender(brand, senderName);
@@ -1266,7 +1290,8 @@ router.get('/agent-messages', requireAuth, async (req, res) => {
     const to = req.query.to || null;
     const limit = Math.min(Number(req.query.limit) || 2000, 5000);
     const dateClause = (from && to) ? 'AND "createdAt" BETWEEN :from AND :to' : '';
-    const botNames = [...AI_BOT_SENDER_NAMES];
+    // 2026-10-10: bot names lang na walang "Admin" (tingnan ang Admin rule).
+    const botNames = BOT_NAMES_FOR_SQL;
 
     const rows = await sequelize.query(`
       SELECT "conversationId", "brand", "senderName", "content", "createdAt"
@@ -1778,7 +1803,8 @@ router.get('/inactive-depositors', requireAuth, async (req, res) => {
     const from = req.query.from || null;
     const to = req.query.to || null;
     const dateClause = (from && to) ? 'AND "createdAt" BETWEEN :from AND :to' : '';
-    const botNames = [...AI_BOT_SENDER_NAMES];
+    // 2026-10-10: bot names lang na walang "Admin" (tingnan ang Admin rule).
+    const botNames = BOT_NAMES_FOR_SQL;
 
     const patterns = ['%inactive depositor%', '%inactive na depositor%'];
     const extra = String(req.query.q || '').trim();
@@ -1881,7 +1907,7 @@ function sendInactiveDepositorsCsv(res, brand, conversations) {
     c.customerMessages.map(m => `[${manilaTime(m.at)}] ${m.text}`).join('\n'),
   ].map(esc).join(','));
   // BOM para tama ang Tagalog/emoji kapag binuksan sa Excel.
-  const csv = '\uFEFF' + [header.map(esc).join(','), ...lines].join('\r\n');
+  const csv = '﻿' + [header.map(esc).join(','), ...lines].join('\r\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${brand}_inactive_depositors.csv"`);
   res.send(csv);
