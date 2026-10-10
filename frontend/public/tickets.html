@@ -262,7 +262,7 @@
   }
 </style>
 <!-- Redesign 2026-10-10: bagong itsura (hero band, queue cards, row highlights) -->
-<link rel="stylesheet" href="redesign.css?v=2">
+<link rel="stylesheet" href="redesign.css?v=3">
 </head>
 <body>
 <script>
@@ -425,6 +425,26 @@
         </div>
         <div class="kpi-val" id="qOldest">—</div>
         <div class="kpi-sub" id="qOldestId">Walang naghihintay</div>
+      </div>
+      <!-- DONE vs REJECTED (2026-10-10) — sakop ang Brand/Category/Date/Search
+           filters pero HINDI ang Status filter. I-click para i-filter. -->
+      <div class="kpi-card res-card">
+        <div class="res-top">
+          <button type="button" class="res-side" id="resDoneBtn" data-status="done" title="I-click para ipakita ang Done tickets">
+            <span class="res-label">Done · Resolved</span>
+            <span class="res-val good" id="resDonePct">—</span>
+            <span class="kpi-sub" id="resDoneSub"></span>
+          </button>
+          <button type="button" class="res-side right" id="resRejBtn" data-status="rejected" title="I-click para ipakita ang Rejected tickets">
+            <span class="res-label">Rejected</span>
+            <span class="res-val bad" id="resRejPct">—</span>
+            <span class="kpi-sub" id="resRejSub"></span>
+          </button>
+        </div>
+        <div class="split-bar" role="img" id="resBar" aria-label="Done vs Rejected">
+          <span class="s-good" id="resGood"></span><span class="s-bad" id="resBad"></span>
+        </div>
+        <div class="split-note" id="resNote"></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-head"><span class="kpi-label">Open by priority</span></div>
@@ -1278,9 +1298,32 @@
     document.body.appendChild(bg);
   }
 
+  // CLEAR FILTERS (2026-10-10): ibalik sa default view (All open statuses,
+  // lahat ng brand/category, any time, walang search).
+  function clearAllTicketFilters() {
+    currentFilter = 'open'; currentBrand = 'all'; currentIssue = 'all';
+    currentDateFilter = 'all'; currentSearch = '';
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('statusFilter', 'open'); set('brandFilter', 'all'); set('issueFilter', 'all'); set('dateFilter', 'all');
+    const si = document.querySelector('.topbar-right .search input'); if (si) si.value = '';
+    applyFilters();
+  }
+
   function renderPage() {
     if (filteredTickets.length === 0) {
-      showMessage('No tickets found.');
+      // Kapag may open tickets pero natatago dahil sa filters, sabihin ito
+      // nang malinaw — dati "No tickets found." lang kahit may 3 pending.
+      const hiddenOpen = allTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
+      if (hiddenOpen > 0) {
+        body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:36px;">
+          <div style="font-weight:800;font-size:15px;color:var(--ink);">Walang tugma sa filters mo</div>
+          <div style="color:var(--ink-faint);margin:6px 0 14px;">May <b style="color:var(--danger);">${hiddenOpen.toLocaleString()}</b> open ticket na natatago dahil sa naka-select na Brand / Category / Date / Search.</div>
+          <button type="button" id="clearFiltersBtn" style="height:40px;padding:0 18px;border-radius:12px;border:0;background:var(--primary);color:#fff;font-weight:700;font-family:inherit;cursor:pointer;">Ipakita lahat ng open tickets</button>
+        </td></tr>`;
+        document.getElementById('clearFiltersBtn').addEventListener('click', (e) => { e.stopPropagation(); clearAllTicketFilters(); });
+      } else {
+        showMessage('No tickets found.');
+      }
       renderFooter();
       return;
     }
@@ -1350,6 +1393,29 @@
     const oldest = unack.filter(t => t.submitted).sort((a, b) => a.submitted - b.submitted)[0];
     document.getElementById('qOldest').textContent = oldest ? compactAge(oldest.submitted) : '—';
     document.getElementById('qOldestId').textContent = oldest ? oldest.id : 'Walang naghihintay';
+
+    // Done vs Rejected — hindi sakop ng Status filter, para may makita
+    // kahit nasa default na "All open statuses".
+    const scope = allTickets.filter(t => ticketMatchesFilters(t, { skipStatus: true }));
+    const nDone = scope.filter(t => t.statusCls === 'done').length;
+    const nRej = scope.filter(t => t.statusCls === 'rejected').length;
+    const nOpenScope = scope.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
+    const closed = nDone + nRej;
+    const pDone = closed ? +(nDone / closed * 100).toFixed(1) : 0;
+    const pRej = closed ? +(100 - pDone).toFixed(1) : 0;
+    const plural = n => `${n.toLocaleString()} ticket${n === 1 ? '' : 's'}`;
+    document.getElementById('resDonePct').textContent = closed ? pDone + '%' : '—';
+    document.getElementById('resRejPct').textContent = closed ? pRej + '%' : '—';
+    document.getElementById('resDoneSub').textContent = plural(nDone);
+    document.getElementById('resRejSub').textContent = plural(nRej);
+    document.getElementById('resGood').style.width = pDone + '%';
+    document.getElementById('resBad').style.width = pRej + '%';
+    document.getElementById('resBar').setAttribute('aria-label', `Done ${pDone}%, Rejected ${pRej}%`);
+    document.getElementById('resNote').textContent = nOpenScope
+      ? `${plural(nOpenScope)} pa ang open (New / In Progress)`
+      : (closed ? 'Walang open ticket' : 'Wala pang natapos na ticket');
+    document.getElementById('resDoneBtn').classList.toggle('active', currentFilter === 'done');
+    document.getElementById('resRejBtn').classList.toggle('active', currentFilter === 'rejected');
 
     const groups = {};
     open.forEach(t => {
@@ -1429,6 +1495,19 @@
     });
   }
 
+  // Done / Rejected card click (2026-10-10): i-filter sa status na iyon;
+  // i-click ulit para bumalik sa default na "All open statuses".
+  document.querySelectorAll('#resDoneBtn, #resRejBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = btn.dataset.status;
+      currentFilter = (currentFilter === s) ? 'open' : s;
+      const sel = document.getElementById('statusFilter');
+      if (sel) sel.value = currentFilter;
+      applyFilters();
+      document.getElementById('ticketTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
   // Status filter dropdown (converted from tabs, 2026-09-23)
   document.getElementById('statusFilter').addEventListener('change', (e) => {
     currentFilter = e.target.value;
@@ -1500,7 +1579,10 @@
       const changed = codesNow.size !== inSelect.size || [...codesNow].some(c => !inSelect.has(c));
       if (changed) {
         renderBrandTabs();
-        brandSelect.value = (currentBrand === 'all' || codesNow.has(currentBrand)) ? currentBrand : 'all';
+        // FIX 2026-10-10: i-reset din ang variable, hindi lang ang dropdown —
+        // dati "All Brands" ang nakikita pero naka-filter pa rin sa luma.
+        if (currentBrand !== 'all' && !codesNow.has(currentBrand)) currentBrand = 'all';
+        brandSelect.value = currentBrand;
       }
     }
     const issueSelect = document.getElementById('issueFilter');
@@ -1510,7 +1592,8 @@
       const changed = issuesNow.size !== inSel.size || [...issuesNow].some(x => !inSel.has(x));
       if (changed) {
         renderIssueFilter();
-        issueSelect.value = (currentIssue === 'all' || issuesNow.has(currentIssue)) ? currentIssue : 'all';
+        if (currentIssue !== 'all' && !issuesNow.has(currentIssue)) currentIssue = 'all';
+        issueSelect.value = currentIssue;
       }
     }
   }
