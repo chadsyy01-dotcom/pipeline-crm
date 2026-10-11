@@ -16,47 +16,47 @@
   // editable sheet. Add it per-brand as those real IDs become available; sources
   // without it simply get no link (Ticket ID renders as plain text, same as before).
   const SHEET_SOURCES = [
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv", sheetId: "17ECCBVQYC9Ke8Hg5u-YCuUJ1VDjl43OCwfkLi2WV_3I" }, // Buenas PH — Deposit
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyi3716uR8070u3tMdSgcDB9QmtJb6SkJ_3DHAyHfQkl0tgwNr9f5pBZxXrv0gxQOy3zb4QxXoyYgp/pub?gid=0&single=true&output=csv", sheetId: "1hovlnQrr4mIpZ1Q5HkGBSPKhJjg3Up_z-4S77D2lkpk" }, // Buenas PH — Withdrawal
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=0&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84" }, // Buenas PH — Account
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=906571162&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84" }, // Buenas PH — Error/Bug
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=2007332310&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84" }, // Buenas PH — Bonus/Reward
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=1356077885&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84" }, // Buenas PH — Callback Request (uses standard Ticket ID schema)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=0&single=true&output=csv", sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJjSjsokoykFPem4oIurq1-ex1Yho3IsHplupTHPiSs6wueznpFyx2OL2hdYHkXUPePZH1KnJKeiO0/pub?gid=0&single=true&output=csv", sheetId: "1FxrmHVwYcfNdjVMvBmldmDjbIIqDaP7NvBi-IEvVVu8" }, // Mobile Casino Play (MCP)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=0&single=true&output=csv", sheetId: "1pJK2JqPY5o4IICyl6bpIvOtuklveSsRFUfTqIRMcyVc" }, // ManilaPlay (MNP)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=1958931723&single=true&output=csv", kind: 'followup', sheetId: "1pJK2JqPY5o4IICyl6bpIvOtuklveSsRFUfTqIRMcyVc" }, // ManilaPlay — Follow Up
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=1198722654&single=true&output=csv", kind: 'callback', sheetId: "1pJK2JqPY5o4IICyl6bpIvOtuklveSsRFUfTqIRMcyVc" }, // ManilaPlay — Callback
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWWjiEZFlfiJNwLk_wpQAoG6eJaqGAf6UDyj-lycIY9qJfFVGBxzQV0ZYSTWOkMF9V50Kk9sO1iQ4b/pub?gid=0&single=true&output=csv", sheetId: "17ECCBVQYC9Ke8Hg5u-YCuUJ1VDjl43OCwfkLi2WV_3I", name: "Buenas PH — Deposit" }, // Buenas PH — Deposit
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyi3716uR8070u3tMdSgcDB9QmtJb6SkJ_3DHAyHfQkl0tgwNr9f5pBZxXrv0gxQOy3zb4QxXoyYgp/pub?gid=0&single=true&output=csv", sheetId: "1hovlnQrr4mIpZ1Q5HkGBSPKhJjg3Up_z-4S77D2lkpk", name: "Buenas PH — Withdrawal" }, // Buenas PH — Withdrawal
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=0&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84", name: "Buenas PH — Account" }, // Buenas PH — Account
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=906571162&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84", name: "Buenas PH — Error/Bug" }, // Buenas PH — Error/Bug
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=2007332310&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84", name: "Buenas PH — Bonus/Reward" }, // Buenas PH — Bonus/Reward
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEEKoubJBG2YMrDjEPv0DUdmqYPWLBGRl8bM8uHKg1LCfwEjTYGRXpPcBGhDe_RdNPOROrw1PuNJ36/pub?gid=1356077885&single=true&output=csv", sheetId: "1kTiIf9sHUHzLdVi0hgntI4cA8FxNQBhqEYgM97BVV84", name: "Buenas PH — Callback Request" }, // Buenas PH — Callback Request (uses standard Ticket ID schema)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=0&single=true&output=csv", sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU", name: "TMTCash" }, // TMTCash
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJjSjsokoykFPem4oIurq1-ex1Yho3IsHplupTHPiSs6wueznpFyx2OL2hdYHkXUPePZH1KnJKeiO0/pub?gid=0&single=true&output=csv", sheetId: "1FxrmHVwYcfNdjVMvBmldmDjbIIqDaP7NvBi-IEvVVu8", name: "Mobile Casino Play" }, // Mobile Casino Play (MCP)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=0&single=true&output=csv", sheetId: "1pJK2JqPY5o4IICyl6bpIvOtuklveSsRFUfTqIRMcyVc", name: "ManilaPlay" }, // ManilaPlay (MNP)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=1958931723&single=true&output=csv", kind: 'followup', sheetId: "1pJK2JqPY5o4IICyl6bpIvOtuklveSsRFUfTqIRMcyVc", name: "ManilaPlay — Follow Up" }, // ManilaPlay — Follow Up
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_bnVsZoQgdUNpkcG6ZSG1ep_6ky5xZ915I-JJ0VhW_LjNGKmA6RnRr002k-mY1b7590B92s2ROcel/pub?gid=1198722654&single=true&output=csv", kind: 'callback', sheetId: "1pJK2JqPY5o4IICyl6bpIvOtuklveSsRFUfTqIRMcyVc", name: "ManilaPlay — Callback" }, // ManilaPlay — Callback
     // NOTE: ManilaPlay also has an OTP Log tab (gid=793559768) containing live customer
     // OTP codes. Deliberately excluded — publishing it would expose real one-time
     // passwords via an unauthenticated public CSV link. Same call made for TMTCash.
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkYplUz2eq5TzFEYmvHlXDltCZe6RnoYTak5xEtrXZxEb2EvfDTz5LUOZ0AaouuOGcNWJRDQGYGZB4/pub?gid=0&single=true&output=csv", sheetId: "1hQ067jbyADkFlRYecv7mxfn-SG5F4F-wSmyHl_LT-z0" }, // HypePlay PH (HPP)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbB_0D7eB9mxUQUoeBlP8fPRgLcrPhwzmuUpIUl1wyT5NUS4B45YC_yuVvfMFfEVA9tqPqedGSMQSb/pub?gid=0&single=true&output=csv", sheetId: "1WCinfp7w5FEUvE_FpaI9ap9JwekBE019kQ-oErbmaCQ" }, // MasterGoldKey (MGK)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0Sbf9dckRTWoYtJJnXD6uaxrqSn8-wnCHGJk-R8ZU34VvlttKyThhLknBcmm_vQgfERoIAXSRFHth/pub?gid=0&single=true&output=csv", sheetId: "1CnJ4xHHyJu6j8n2ZcUu3zOUSdYBIPOge5IseAvpRotQ" }, // LuckyStacks PH (LSP)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=0&single=true&output=csv", sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE" }, // Casinyeam (CSY)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=1668001762&single=true&output=csv", kind: 'followup', sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE" }, // Casinyeam — Follow Up
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=2070863895&single=true&output=csv", kind: 'callback', sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE" }, // Casinyeam — Callback
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkYplUz2eq5TzFEYmvHlXDltCZe6RnoYTak5xEtrXZxEb2EvfDTz5LUOZ0AaouuOGcNWJRDQGYGZB4/pub?gid=0&single=true&output=csv", sheetId: "1hQ067jbyADkFlRYecv7mxfn-SG5F4F-wSmyHl_LT-z0", name: "HypePlay PH" }, // HypePlay PH (HPP)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbB_0D7eB9mxUQUoeBlP8fPRgLcrPhwzmuUpIUl1wyT5NUS4B45YC_yuVvfMFfEVA9tqPqedGSMQSb/pub?gid=0&single=true&output=csv", sheetId: "1WCinfp7w5FEUvE_FpaI9ap9JwekBE019kQ-oErbmaCQ", name: "MasterGoldKey" }, // MasterGoldKey (MGK)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0Sbf9dckRTWoYtJJnXD6uaxrqSn8-wnCHGJk-R8ZU34VvlttKyThhLknBcmm_vQgfERoIAXSRFHth/pub?gid=0&single=true&output=csv", sheetId: "1CnJ4xHHyJu6j8n2ZcUu3zOUSdYBIPOge5IseAvpRotQ", name: "LuckyStacks PH" }, // LuckyStacks PH (LSP)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=0&single=true&output=csv", sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE", name: "Casinyeam" }, // Casinyeam (CSY)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=1668001762&single=true&output=csv", kind: 'followup', sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE", name: "Casinyeam — Follow Up" }, // Casinyeam — Follow Up
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk8cISAKqAHVdanIILWO4Cm0BX16C7h2fbM-I7ldCqm7_-xfhYTMap1yGktFAMSJTnRm-BjV1jy7Af/pub?gid=2070863895&single=true&output=csv", kind: 'callback', sheetId: "1Hzk4kcDbrznlexhlRmvkij-MpEsJ0pOa6W6ijHm4RlE", name: "Casinyeam — Callback" }, // Casinyeam — Callback
     // NOTE: Casinyeam also has an OTP Log tab (gid=633742038) containing live customer
     // OTP codes. Deliberately excluded — publishing it would expose real one-time
     // passwords via an unauthenticated public CSV link. Same call made for ManilaPlay/TMTCash.
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBUDcdD5qJtw1GjRwHkWKKaIgcvMQUcYlMIq61H8JV-6piChgqQIn-8K0RyyU6KnrCcvkfhxkp1VWd/pub?gid=0&single=true&output=csv", brandOverride: { code: 'HPP_BD', label: 'HypePlay BD' }, sheetId: "1Tm444iBlAx2S79MbXIo3tlCkZeiHut21-Se8P1CXCIA" }, // HypePlay BD — shares the "HPP" ticket-ID prefix with HypePlay PH, disambiguated by source sheet
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU" }, // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2finxr4w7O8FK0KhhGQFB7s7Xs8arcLIZOk4vFS_DxpbJNUElnIN802VNzOYcy0HT-zJUIcGvDjso/pub?output=csv", brandOverride: { code: 'TMT_PLAY', label: 'TMTPLAY' }, sheetId: "12lRRNvsG_o-AOD6_FggRA87yvqxVwJPXDTgV79TcTpI" }, // TMTPLAY — shares the "TMT" ticket-ID prefix with TMTCash, disambiguated by source sheet
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpnmq17Q7n0uLYDgH2WvE2SZFNkvqPgQKnTLY0LT8gqJPlxQQZUmyL1JSlHF9xPGYfvBDLpCpK2Cjp/pub?gid=648660778&single=true&output=csv", kind: 'division', sheetId: "1YB5OBsZ3aqY5Hs5CZeNEU0yO36GcQI74pJYJvjADOww" }, // SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITORING tab (brand comes from the Division column per row, see DIVISION_BRAND_MAP; any other Division value is filtered out)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBUDcdD5qJtw1GjRwHkWKKaIgcvMQUcYlMIq61H8JV-6piChgqQIn-8K0RyyU6KnrCcvkfhxkp1VWd/pub?gid=0&single=true&output=csv", brandOverride: { code: 'HPP_BD', label: 'HypePlay BD' }, sheetId: "1Tm444iBlAx2S79MbXIo3tlCkZeiHut21-Se8P1CXCIA", name: "HypePlay BD — shares the \"HPP\" ticket-ID prefix with HypeP" }, // HypePlay BD — shares the "HPP" ticket-ID prefix with HypePlay PH, disambiguated by source sheet
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU", name: "TMTCash — Follow Up" }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU", name: "TMTCash — Callback" }, // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2finxr4w7O8FK0KhhGQFB7s7Xs8arcLIZOk4vFS_DxpbJNUElnIN802VNzOYcy0HT-zJUIcGvDjso/pub?output=csv", brandOverride: { code: 'TMT_PLAY', label: 'TMTPLAY' }, sheetId: "12lRRNvsG_o-AOD6_FggRA87yvqxVwJPXDTgV79TcTpI", name: "TMTPLAY — shares the \"TMT\" ticket-ID prefix with TMTCash, " }, // TMTPLAY — shares the "TMT" ticket-ID prefix with TMTCash, disambiguated by source sheet
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpnmq17Q7n0uLYDgH2WvE2SZFNkvqPgQKnTLY0LT8gqJPlxQQZUmyL1JSlHF9xPGYfvBDLpCpK2Cjp/pub?gid=648660778&single=true&output=csv", kind: 'division', sheetId: "1YB5OBsZ3aqY5Hs5CZeNEU0yO36GcQI74pJYJvjADOww", name: "SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITO" }, // SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITORING tab (brand comes from the Division column per row, see DIVISION_BRAND_MAP; any other Division value is filtered out)
     // BAGONG TICKET SHEETS (2026-10-01): sariling WebForm ticket sheets na ng
     // Manila Casino at SuperScatter PH (standard Ticket ID schema). Ang MC
     // prefix ay BAGO — may brandOverride ito papuntang MNC para IISA ang
     // "Manila Casino" tab kasama ng dating rows mula sa division sheet sa
     // itaas; ang SSP prefix ay nasa BRAND_MAP na. Walang sheetId pa (walang
     // "Open sa Sheet" links) — idagdag kapag naibigay ang /d/{ID}/edit links.
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?gid=0&single=true&output=csv", brandOverride: { code: 'MNC', label: 'Manila Casino' }, sheetId: "18uJu1QqyYTHBqYBRD3nfIBcKaY_FrOlglIvy57pKd3Q" }, // Manila Casino — tickets/RAW (MC prefix)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?gid=1295462270&single=true&output=csv", kind: 'callback', brandOverride: { code: 'MNC', label: 'Manila Casino' }, sheetId: "18uJu1QqyYTHBqYBRD3nfIBcKaY_FrOlglIvy57pKd3Q" }, // Manila Casino — Callback
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?gid=0&single=true&output=csv", brandOverride: { code: 'MNC', label: 'Manila Casino' }, sheetId: "18uJu1QqyYTHBqYBRD3nfIBcKaY_FrOlglIvy57pKd3Q", name: "Manila Casino — tickets/RAW" }, // Manila Casino — tickets/RAW (MC prefix)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJZnK7AFl5Tqpbna2tGd7ojyN_o9fNr6ChlaIPf6tr1wZ1whkeE0nyqxvnHNZJ2Q3aBGJBN6iS4CUj/pub?gid=1295462270&single=true&output=csv", kind: 'callback', brandOverride: { code: 'MNC', label: 'Manila Casino' }, sheetId: "18uJu1QqyYTHBqYBRD3nfIBcKaY_FrOlglIvy57pKd3Q", name: "Manila Casino — Callback" }, // Manila Casino — Callback
     // NOTE: ang Manila Casino sheet ay may OTP LOG tab (gid=2035193014) na may
     // LIVE OTP CODES — sadyang HINDI isinama (parehong patakaran sa
     // ManilaPlay/TMTCash/Casinyeam: huwag ilantad ang OTP sa public CSV).
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?gid=0&single=true&output=csv", sheetId: "1dYln_wSNtfDTeBltEFzsnSZNSLQaI0qHpEwkdh4nZeY" }, // SuperScatter PH — tickets/RAW (SSP prefix)
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?gid=1515176498&single=true&output=csv", kind: 'callback', sheetId: "1dYln_wSNtfDTeBltEFzsnSZNSLQaI0qHpEwkdh4nZeY" } // SuperScatter PH — Callback
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?gid=0&single=true&output=csv", sheetId: "1dYln_wSNtfDTeBltEFzsnSZNSLQaI0qHpEwkdh4nZeY", name: "SuperScatter PH — tickets/RAW" }, // SuperScatter PH — tickets/RAW (SSP prefix)
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMsx4iDLOAw0r3SX-N509XSP9uptGNKb0d4mUEoohWDAsf4NUxEp5HSxIDaqWjpKY3Upjr2TEeGjFN/pub?gid=1515176498&single=true&output=csv", kind: 'callback', sheetId: "1dYln_wSNtfDTeBltEFzsnSZNSLQaI0qHpEwkdh4nZeY", name: "SuperScatter PH — Callback" } // SuperScatter PH — Callback
     // NOTE: ang SuperScatter sheet ay may OTP LOG tab (gid=1507278709) na may
     // LIVE OTP CODES — sadyang HINDI isinama (see note sa itaas).
   ];
@@ -535,6 +535,10 @@
   // kadalasan error page ng Google), ang huling matagumpay na rows ang
   // ginagamit hanggang gumana ulit.
   const lastGoodRows = new Map(); // source index -> { rows, brandOverride, kind, sheetId, gid }
+  // SOURCE DIAGNOSTICS (2026-10-11): per-sheet na status ng huling load —
+  // ipinapakita sa Tickets page (i-click ang "Updated" chip) para makita
+  // kung aling sheet ang pumapalya, luma, o walang nababasang ticket.
+  const sourceStats = [];
   // PROGRESSIVE LOADING (2026-09-23): dati, hinihintay ang LAHAT ng 20+ na
   // sheets (ang pinakamabagal ang gate ng buong page, hanggang 15s). Ngayon,
   // habang dumarating ang bawat sheet, tinatawag agad ang optional
@@ -547,32 +551,47 @@
     let completed = 0;
     const total = SHEET_SOURCES.length;
     const build = () => Array.from(seen.values()).sort((a, b) => b.submitted - a.submitted);
-    const tasks = SHEET_SOURCES.map((source, i) =>
-      withTimeout(parseSheetCsv(source, !!forceRefresh), SOURCE_TIMEOUT_MS, source.url)
+    const tasks = SHEET_SOURCES.map((source, i) => {
+      const t0 = Date.now();
+      const stat = { i, name: source.name || ('Sheet #' + i), kind: source.kind || 'ticket', state: 'loading', rows: 0, tickets: 0, today: 0, newest: null, ms: 0, error: null, at: new Date() };
+      sourceStats[i] = stat;
+      return withTimeout(parseSheetCsv(source, !!forceRefresh), SOURCE_TIMEOUT_MS, source.url)
         .then(result => {
+          stat.ms = Date.now() - t0;
           const prevGood = lastGoodRows.get(i);
           if ((!result.rows || result.rows.length === 0) && prevGood && prevGood.rows.length > 0) {
             console.warn(`Sheet source #${i} came back empty — keeping last good copy (${prevGood.rows.length} rows).`);
+            stat.state = 'kept'; stat.error = 'Walang laman ang sagot ng Google';
             return prevGood;
           }
+          stat.state = 'ok';
           lastGoodRows.set(i, result);
           return result;
         }, err => {
+          stat.ms = Date.now() - t0;
+          stat.error = (err && err.message) || String(err);
           const prevGood = lastGoodRows.get(i);
           if (prevGood) {
             console.warn(`Sheet source #${i} failed — keeping last good copy (${prevGood.rows.length} rows):`, err && err.message);
+            stat.state = 'kept';
             return prevGood;
           }
+          stat.state = 'failed';
           throw err;
         })
         .then(({ rows, brandOverride, kind, sheetId, gid }) => {
           const sheetMeta = { sheetId, gid };
+          stat.rows = rows.length;
+          const todayNow = new Date();
           rows.forEach(row => {
             const ticket = kind === 'followup' ? mapFollowupRow(row, sheetMeta)
               : kind === 'callback' ? mapCallbackRow(row, sheetMeta, brandOverride)
               : kind === 'division' ? mapDivisionRow(row, sheetMeta)
               : mapTicketRow(row, brandOverride, sheetMeta);
             if (!ticket) return;
+            stat.tickets++;
+            if (!stat.newest || ticket.submitted > stat.newest) stat.newest = ticket.submitted;
+            if (isSameLocalDay(ticket.submitted, todayNow)) stat.today++;
             // De-dupe by ticket ID, GLOBAL na (2026-09-24, dating brand+id):
             // ang shared-prefix pairs (HPP/HPP_BD, TMT/TMT_PLAY) ay may
             // PAREHONG pisikal na ticket sa dalawang sheets — kapag
@@ -611,8 +630,8 @@
           if (onProgress) {
             try { onProgress(build(), completed, total); } catch (e) { console.error('onProgress error:', e); }
           }
-        })
-    );
+        });
+    });
     cachedPromise = Promise.all(tasks).then(build);
     return cachedPromise;
   }
@@ -639,6 +658,7 @@
   }
 
   global.TicketData = {
+    getSourceStats: () => sourceStats.slice(),
     fetchTickets,
     startAutoRefresh,
     escapeHtml,
