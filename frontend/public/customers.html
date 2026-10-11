@@ -14,7 +14,7 @@
      that customer's tickets (added 2026-09-18). Loaded here, fetched lazily
      the first time a profile is opened, so the page load isn't slowed. -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=14"></script>
+<script src="ticket-data.js?v=19"></script>
 <!-- Shared notif engine (2026-09-23): new-ticket + pending alerts tumutunog kahit dito -->
 <script src="notif-sound.js?v=1"></script>
 <style>
@@ -2177,31 +2177,62 @@
       body.innerHTML = '<div class="empty-note">No messages found for this conversation. (This can happen for older conversations that were already resolved before this dashboard started syncing.)</div>';
       return;
     }
-    // ---- MISSED HIGHLIGHT (redesign 2026-10-10) ----
-    // Handoff point = unang 'pending' row. Pagkatapos noon, ang bawat UNANG
-    // mensahe ng player sa isang "takbo" (pagkatapos ng huling human reply)
-    // ay sinusukat: walang human reply sa loob ng 3 min -> MISSED.
-    const hoRow = messages.find(m => m.handoffStage === 'pending');
-    const hoAt = hoRow && hoRow.createdAt ? new Date(hoRow.createdAt).getTime() : null;
+    // ---- MISSED HIGHLIGHT (v2 2026-10-11) ----
+    // Kapareho ng backend computeArtFtr: hinahati ang thread sa "sessions"
+    // (60 min na katahimikan = bagong session). Sa bawat session, ang timer
+    // ay NAGSISIMULA SA HANDOFF (unang 'pending' row sa session, o ang huling
+    // bot message bago ang unang human reply) — HINDI sa lumang customer
+    // message. Ang mga player message bago ang handoff ay hindi binibilang.
+    const SESSION_GAP_MS = 60 * 60 * 1000;
     const isHumanAgent = m => m.senderType === 'user' && m.senderName && !isBotClient(m.brand, m.senderName);
+    const isBotMsg = m => m.senderType === 'user' && m.senderName && isBotClient(m.brand, m.senderName);
+    const tOf = m => m && m.createdAt ? new Date(m.createdAt).getTime() : null;
     const missInfo = new Map();   // index sa withContent -> {late:bool, mins}
-    if (hoAt != null) {
-      let runStartIdx = null;
-      withContent.forEach((m, i) => {
-        const at = m.createdAt ? new Date(m.createdAt).getTime() : null;
-        if (at == null || at < hoAt) return;
-        if (m.senderType === 'contact' && runStartIdx == null) runStartIdx = i;
-        else if (isHumanAgent(m) && runStartIdx != null) {
-          const waited = (at - new Date(withContent[runStartIdx].createdAt).getTime()) / 1000;
-          if (waited > 180) missInfo.set(runStartIdx, { late: true, mins: Math.round(waited / 60) });
-          runStartIdx = null;
+    const sessions = [];
+    let cur = null, prevAt = null;
+    withContent.forEach((m, i) => {
+      const at = tOf(m);
+      if (at == null) return;
+      if (!cur || (prevAt != null && at - prevAt > SESSION_GAP_MS)) { cur = []; sessions.push(cur); }
+      cur.push(i); prevAt = at;
+    });
+    const pendingTimes = messages.filter(m => m.handoffStage === 'pending').map(tOf).filter(x => x != null);
+    let hoAt = null;   // para sa divider: handoff ng pinakahuling session na may handoff
+    sessions.forEach(idxs => {
+      const sStart = tOf(withContent[idxs[0]]), sEnd = tOf(withContent[idxs[idxs.length - 1]]);
+      const firstHumanPos = idxs.findIndex(i => isHumanAgent(withContent[i]));
+      let ho = pendingTimes.find(t => t >= sStart - 5000 && t <= sEnd + SESSION_GAP_MS) ?? null;
+      if (firstHumanPos >= 0) {
+        // huling bot message bago ang unang human reply = transfer point
+        for (let k = firstHumanPos - 1; k >= 0; k--) {
+          if (isBotMsg(withContent[idxs[k]])) { const bt = tOf(withContent[idxs[k]]); if (ho == null || bt < ho) ho = bt; break; }
         }
-      });
-      if (runStartIdx != null) {
-        const waited = (Date.now() - new Date(withContent[runStartIdx].createdAt).getTime()) / 1000;
-        if (waited > 180) missInfo.set(runStartIdx, { late: false });
       }
-    }
+      if (ho == null) return;   // walang handoff sa session na ito -> bot lang, walang i-flag
+      hoAt = ho;
+      let runIdx = null, runAt = null;
+      // Kung may player message bago ang handoff na hindi pa nasasagot, ang
+      // timer ay mula sa handoff mismo.
+      for (const i of idxs) {
+        const m = withContent[i], at = tOf(m);
+        if (at < ho) {
+          if (m.senderType === 'contact') { runIdx = i; runAt = ho; }
+          else if (isHumanAgent(m)) { runIdx = null; runAt = null; }
+          continue;
+        }
+        if (m.senderType === 'contact' && runIdx == null) { runIdx = i; runAt = at; }
+        else if (isHumanAgent(m) && runIdx != null) {
+          const waited = (at - runAt) / 1000;
+          if (waited > 180) missInfo.set(runIdx, { late: true, mins: Math.round(waited / 60) });
+          runIdx = null; runAt = null;
+        }
+      }
+      if (runIdx != null) {
+        const isLastSession = idxs === sessions[sessions.length - 1];
+        const until = isLastSession ? Date.now() : sEnd;
+        if ((until - runAt) / 1000 > 180) missInfo.set(runIdx, { late: false });
+      }
+    });
     let dividerDone = false;
     const missBanner = missInfo.size
       ? `<div class="miss-banner">⚠ ${missInfo.size} pagkakataon na hindi nasagot ng human agent ang player sa loob ng 3 minuto. Naka-highlight sa pula sa ibaba.</div>`
