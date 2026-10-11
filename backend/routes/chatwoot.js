@@ -546,24 +546,38 @@ function latestSession(messages) {
   return messages.slice(start);
 }
 
+// FTR MULA SA HANDOFF (2026-10-11, utos ni Chad): ang timer ng first reply
+// ay nagsisimula kapag ITINRANSFER na ng bot sa human — ang huling mensahe
+// ng bot bago ang unang sagot ng tao (hal. "Let me connect you with our
+// subject matter expert…") — HINDI mula sa huling mensahe ng customer.
+// Dati: customer 9:58 → bot nag-handoff 10:03 → agent 10:03 = 5 min (late),
+// kahit agad sumagot ang agent. Ngayon: 0 min. Kapag walang bot message bago
+// ang unang human reply (hal. LiveChat brands na walang bot), ang huling
+// mensahe ng customer pa rin ang simula (dating patakaran).
 function computeArtFtr(allMessages, brand) {
   const messages = latestSession(allMessages);
   let lastCustomerMsgTime = null;
+  let lastBotMsgTime = null;      // huling bot message mula noong huling customer message
   let firstAgentGap = null;
   let firstAgentMsgTime = null;
 
   for (const m of messages) {
+    const t = new Date(m.createdAt).getTime();
     if (m.senderType === 'contact') {
-      lastCustomerMsgTime = new Date(m.createdAt).getTime();
+      // Kapag nag-message ang customer PAGKATAPOS mag-handoff ang bot (hal.
+      // "hello?" habang naghihintay), ang handoff pa rin ang simula ng timer.
+      if (lastBotMsgTime === null) lastCustomerMsgTime = t;
     } else if (m.senderType === 'user' && isBotSender(brand, m.senderName)) {
-      continue; // bot reply — not a human response, ignore entirely
+      if (lastCustomerMsgTime !== null) lastBotMsgTime = t; // handoff/transfer point ng bot
+      continue; // bot reply — not a human response
     } else if (m.senderType === 'user' && lastCustomerMsgTime !== null) {
-      const msgTime = new Date(m.createdAt).getTime();
       if (firstAgentGap === null) {
-        firstAgentGap = (msgTime - lastCustomerMsgTime) / 1000;
-        firstAgentMsgTime = msgTime; // handoff point = first genuine reply
+        const timerStart = lastBotMsgTime !== null ? lastBotMsgTime : lastCustomerMsgTime;
+        firstAgentGap = Math.max(0, (t - timerStart) / 1000);
+        firstAgentMsgTime = t; // handoff point = first genuine reply
       }
       lastCustomerMsgTime = null;
+      lastBotMsgTime = null;
     }
   }
 
