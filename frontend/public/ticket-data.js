@@ -519,6 +519,14 @@
   const SOURCE_TIMEOUT_MS = 15000;
 
   let cachedPromise = null;
+  // LAST-GOOD PER SHEET (2026-10-11): dati, kapag pumalya o nag-timeout ang
+  // isang sheet sa 10s auto-refresh, nawawala ang LAHAT ng ticket ng sheet
+  // na iyon sa refresh na iyon — kaya pabago-bago ang bilang (hal. Today:
+  // 32 → 9 → 32). Ngayon, tinatandaan ang huling matagumpay na rows ng bawat
+  // sheet; kapag pumalya ito (o biglang 0 rows gayong dati ay may laman —
+  // kadalasan error page ng Google), ang huling matagumpay na rows ang
+  // ginagamit hanggang gumana ulit.
+  const lastGoodRows = new Map(); // source index -> { rows, brandOverride, kind, sheetId, gid }
   // PROGRESSIVE LOADING (2026-09-23): dati, hinihintay ang LAHAT ng 20+ na
   // sheets (ang pinakamabagal ang gate ng buong page, hanggang 15s). Ngayon,
   // habang dumarating ang bawat sheet, tinatawag agad ang optional
@@ -533,6 +541,22 @@
     const build = () => Array.from(seen.values()).sort((a, b) => b.submitted - a.submitted);
     const tasks = SHEET_SOURCES.map((source, i) =>
       withTimeout(parseSheetCsv(source, !!forceRefresh), SOURCE_TIMEOUT_MS, source.url)
+        .then(result => {
+          const prevGood = lastGoodRows.get(i);
+          if ((!result.rows || result.rows.length === 0) && prevGood && prevGood.rows.length > 0) {
+            console.warn(`Sheet source #${i} came back empty — keeping last good copy (${prevGood.rows.length} rows).`);
+            return prevGood;
+          }
+          lastGoodRows.set(i, result);
+          return result;
+        }, err => {
+          const prevGood = lastGoodRows.get(i);
+          if (prevGood) {
+            console.warn(`Sheet source #${i} failed — keeping last good copy (${prevGood.rows.length} rows):`, err && err.message);
+            return prevGood;
+          }
+          throw err;
+        })
         .then(({ rows, brandOverride, kind, sheetId, gid }) => {
           const sheetMeta = { sheetId, gid };
           rows.forEach(row => {
