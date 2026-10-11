@@ -412,7 +412,7 @@
           <span class="kpi-ico violet" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></span>
         </div>
         <div class="kpi-val" id="qOpen">—</div>
-        <div class="kpi-sub">New + In Progress, current view</div>
+        <div class="kpi-sub">New + In Progress, kahit anong petsa</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-head"><span class="kpi-label">Not yet acknowledged</span><span class="kpi-flag red" id="qUnackFlag" hidden>Action</span></div>
@@ -1404,7 +1404,14 @@
   function renderQueueStats() {
     const openEl = document.getElementById('qOpen');
     if (!openEl) return;
-    const open = filteredTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking');
+    // QUEUE CARDS (2026-10-11): ang Open / Not yet acknowledged / Oldest
+    // waiting / Open by priority ay ang KASALUKUYANG queue — hindi sakop ng
+    // Status at Submitted (date) filter, para makita pa rin ang open tickets
+    // kahit naka-"All statuses" + "Today" (hal. open ticket na kahapon pa
+    // na-file). Sinusunod pa rin ang Brand, Category at Search.
+    const open = allTickets
+      .filter(t => t.statusCls === 'pending' || t.statusCls === 'checking')
+      .filter(t => ticketMatchesFilters(t, { skipStatus: true, skipDate: true }));
     const unack = open.filter(t => !t.acknowledgedBy);
     openEl.textContent = open.length.toLocaleString();
 
