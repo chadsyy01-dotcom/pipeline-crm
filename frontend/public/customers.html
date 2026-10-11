@@ -1539,7 +1539,11 @@
         return true;
       });
     }
-     else if (currentStatus !== 'all' && currentStatus !== 'active') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
+    // BUG FIX (2026-10-11): kapag "Active" + may piniling Chat Status, dati
+    // bumabagsak dito at hinahanap ang status na literal na "active" — walang
+    // ganoong status sa Chatwoot (open/pending/resolved lang), kaya laging
+    // "No conversations found". Ang "active" ay default lang, hindi status.
+    else if (currentStatus !== 'all' && currentStatus !== 'active') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
     if (currentHandoff !== 'all') {
       // Bagong Chat Status filter (2026-10-10): derived status ang basehan,
       // hindi na ang raw handoffStage. 'late' = nasagot pero lampas 3 min.
