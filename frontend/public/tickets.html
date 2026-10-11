@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="ticket-data.js?v=17"></script>
+<script src="ticket-data.js?v=18"></script>
 <style>
   :root{
     --primary:#2563EB;
@@ -1745,6 +1745,78 @@
       applyFilters();
     });
   })();
+</script>
+
+<!-- SOURCE DIAGNOSTICS (2026-10-11): i-click ang "Updated" chip para makita
+     ang status ng bawat Google Sheet — kung na-load, pumalya, o luma. -->
+<style>
+  #liveIndicator{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+  .srcdiag-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .srcdiag{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(980px,96vw);max-height:86vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;}
+  .srcdiag-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #EEF1F6;gap:12px;}
+  .srcdiag-h h4{margin:0;font-size:15px;font-weight:800;color:#0F172A;}
+  .srcdiag-h small{display:block;font-size:12px;color:#64748B;font-weight:600;margin-top:2px;}
+  .srcdiag-h button{border:1px solid #E2E8F0;background:#fff;border-radius:8px;padding:6px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .srcdiag-b{overflow:auto;padding:4px 20px 18px;}
+  .srcdiag table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .srcdiag th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:#94A3B8;padding:10px 8px;border-bottom:1px solid #EEF1F6;position:sticky;top:0;background:#fff;}
+  .srcdiag td{padding:8px;border-bottom:1px solid #F1F5F9;color:#0F172A;white-space:nowrap;}
+  .srcdiag td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;}
+  .srcdiag .st{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:99px;}
+  .srcdiag .st.ok{background:#EAFBF1;color:#15803D;} .srcdiag .st.kept{background:#FEF6E7;color:#B45309;}
+  .srcdiag .st.failed{background:#FDECEC;color:#B42318;} .srcdiag .st.loading{background:#EFF4FF;color:#2563EB;}
+  .srcdiag .err{color:#B42318;font-size:11.5px;white-space:normal;max-width:260px;}
+  .srcdiag .warn{color:#B45309;font-weight:700;}
+</style>
+<script>
+(function () {
+  const ind = document.getElementById('liveIndicator');
+  if (!ind || !window.TicketData || !TicketData.getSourceStats) return;
+  ind.title = 'I-click para makita ang status ng bawat sheet';
+  const ago = d => { if (!d) return '—'; const m = Math.round((Date.now() - d.getTime()) / 60000); if (m < 60) return m + 'm ago'; const h = Math.round(m / 60); if (h < 48) return h + 'h ago'; return Math.round(h / 24) + 'd ago'; };
+  const fmt = d => d ? d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function open() {
+    const stats = TicketData.getSourceStats().filter(Boolean);
+    const order = { failed: 0, kept: 1, loading: 2, ok: 3 };
+    stats.sort((a, b) => (order[a.state] - order[b.state]) || a.i - b.i);
+    const totToday = stats.reduce((s, x) => s + (x.today || 0), 0);
+    const bad = stats.filter(s => s.state !== 'ok').length;
+    const LABEL = { ok: 'OK', kept: 'LUMANG KOPYA', failed: 'PUMALYA', loading: 'NAGLO-LOAD' };
+    const rowsHtml = stats.map(s => {
+      const stale = s.kind === 'ticket' && s.newest && (Date.now() - s.newest.getTime()) > 6 * 3600e3;
+      return `<tr>
+        <td>${esc(s.name)}${s.kind !== 'ticket' ? ` <span style="color:#94A3B8">(${esc(s.kind)})</span>` : ''}</td>
+        <td><span class="st ${s.state}">${LABEL[s.state] || s.state}</span></td>
+        <td class="n">${(s.rows || 0).toLocaleString()}</td>
+        <td class="n">${(s.tickets || 0).toLocaleString()}</td>
+        <td class="n">${s.today || 0}</td>
+        <td class="${stale ? 'warn' : ''}" title="${esc(fmt(s.newest))}">${esc(fmt(s.newest))} <span style="color:#94A3B8">(${ago(s.newest)})</span></td>
+        <td class="n">${s.ms ? (s.ms / 1000).toFixed(1) + 's' : '—'}</td>
+        <td class="err">${esc(s.error || '')}</td>
+      </tr>`;
+    }).join('');
+    const bg = document.createElement('div');
+    bg.className = 'srcdiag-bg';
+    bg.innerHTML = `<div class="srcdiag" role="dialog" aria-label="Sheet sources">
+      <div class="srcdiag-h"><div><h4>Data sources — ${stats.length} sheets</h4>
+        <small>${bad ? `<span style="color:#B42318">${bad} sheet may problema</span> · ` : 'Lahat OK · '}Ticket ngayong araw (bago i-dedupe): <b>${totToday}</b> · Huling load: ${esc(fmt(stats[0] && stats[0].at))}</small></div>
+        <button type="button">Close</button></div>
+      <div class="srcdiag-b"><table>
+        <thead><tr><th>Sheet</th><th>Status</th><th style="text-align:right">Rows</th><th style="text-align:right">Tickets</th><th style="text-align:right">Today</th><th>Pinakabagong ticket</th><th style="text-align:right">Load</th><th>Error</th></tr></thead>
+        <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;color:#94A3B8;padding:24px">Wala pang na-load</td></tr>'}</tbody>
+      </table>
+      <div style="font-size:11.5px;color:#64748B;margin-top:10px;line-height:1.6">
+        <b>Rows</b> = linya sa published CSV · <b>Tickets</b> = rows na nabasa bilang ticket (may Ticket ID at valid na Submitted At) ·
+        <b>Pinakabagong ticket</b> na kulay orange = lampas 6 oras na ang pinakabago — posibleng luma ang published copy ng sheet.
+      </div></div></div>`;
+    const close = () => bg.remove();
+    bg.addEventListener('click', e => { if (e.target === bg || e.target.tagName === 'BUTTON') close(); });
+    document.addEventListener('keydown', function k(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', k); } });
+    document.body.appendChild(bg);
+  }
+  ind.addEventListener('click', open);
+})();
 </script>
 </body>
 </html>
