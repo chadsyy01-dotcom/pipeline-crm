@@ -250,7 +250,12 @@
       // Cache-bust LANG kapag force refresh (auto-refresh / Refresh button):
       // ang unang page load ay dumadaan sa Google/browser cache para mabilis
       // ang first paint — ang 10s auto-refresh naman agad ang magpapasariwa.
-      const bustUrl = bust ? source.url + (source.url.includes('?') ? '&' : '?') + '_cb=' + Date.now() : source.url;
+      // BUST BUCKET (2026-10-11): dati Date.now() bawat 10s — pinipilit ang
+      // Google na i-regenerate ang malalaking sheets (5,000+ rows) tuwing
+      // refresh, kaya madalas mag-timeout at mawala ang buong brand. Ang
+      // published CSV ay nag-a-update lang naman kada ~5 min, kaya sapat ang
+      // 60s bucket: sariwa pa rin, pero magagamit ang cache sa pagitan.
+      const bustUrl = bust ? source.url + (source.url.includes('?') ? '&' : '?') + '_cb=' + Math.floor(Date.now() / 60000) : source.url;
       const gidMatch = source.url.match(/[?&]gid=(\d+)/);
       const gid = gidMatch ? gidMatch[1] : '0';
       Papa.parse(bustUrl, {
@@ -516,7 +521,10 @@
     });
   }
 
-  const SOURCE_TIMEOUT_MS = 15000;
+  // 15s → 45s (2026-10-11): ang malalaking sheets (hal. TMTCash, Buenas,
+  // MCP, Manila Play) ay madalas lumampas sa 15s, kaya nawawala ang lahat
+  // ng ticket nila at sobrang baba ng bilang (hal. Today: 14 sa halip na 170+).
+  const SOURCE_TIMEOUT_MS = 45000;
 
   let cachedPromise = null;
   // LAST-GOOD PER SHEET (2026-10-11): dati, kapag pumalya o nag-timeout ang
