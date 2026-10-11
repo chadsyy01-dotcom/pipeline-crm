@@ -362,6 +362,14 @@ function resolveSenderType(payload, conversation) {
   if (payload.sender?.type) return payload.sender.type;
   const nested = conversation?.messages?.find(m => m.id === payload.id);
   if (nested?.sender_type) return nested.sender_type.toLowerCase();
+  // FALLBACK (2026-10-11): ~17k TMTCash na mensahe ng customer mula Oct 1 ang
+  // dumating na walang sender.type, kaya NULL ang senderType — hindi sila
+  // nakikita bilang customer (hindi nabibilang ang FTR, lumalabas na Missed
+  // kahit nasagot). Ang message_type ng Chatwoot ang basehan: incoming (0) =
+  // customer, outgoing (1) = agent/bot account. Activity (2) = system → null.
+  const mt = payload.message_type;
+  if (mt === 'incoming' || mt === 0 || mt === '0') return 'contact';
+  if (mt === 'outgoing' || mt === 1 || mt === '1') return 'user';
   return null;
 }
 
@@ -563,7 +571,10 @@ function computeArtFtr(allMessages, brand) {
 
   for (const m of messages) {
     const t = new Date(m.createdAt).getTime();
-    if (m.senderType === 'contact') {
+    // NULL senderType na may pangalan = customer message (luma, bago ang
+    // resolveSenderType fallback); ang agent/bot ay laging 'user'.
+    const isCustomer = m.senderType === 'contact' || (m.senderType == null && !!m.senderName);
+    if (isCustomer) {
       // Kapag nag-message ang customer PAGKATAPOS mag-handoff ang bot (hal.
       // "hello?" habang naghihintay), ang handoff pa rin ang simula ng timer.
       if (lastBotMsgTime === null) lastCustomerMsgTime = t;
