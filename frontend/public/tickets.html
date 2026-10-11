@@ -466,8 +466,8 @@
         <div class="f-group">
           <span class="f-label">Status</span>
           <select id="statusFilter" class="issue-select">
-            <option value="all">All statuses (0)</option>
-            <option value="pending" selected>New (0)</option>
+            <option value="all" selected>All statuses (0)</option>
+            <option value="pending">New (0)</option>
             <option value="checking">In Progress (0)</option>
             <option value="backlog">Backlog (0)</option>
             <option value="done">Done (0)</option>
@@ -588,7 +588,7 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
-  let currentFilter = 'pending'; // default view: New lang (2026-10-11, utos ni Chad — inalis ang "All open statuses")
+  let currentFilter = 'all'; // default view: All statuses (2026-10-11 hapon, utos ni Chad; dati New lang)
   let currentBrand = 'all';
   let currentIssue = 'all';
   let currentDateFilter = 'today'; // default: Today (2026-10-10, utos ni Chad)
@@ -1074,7 +1074,7 @@
       // DEFAULT na "New" pa ang dropdown, huwag itago ang
       // Done/Rejected — ang hinahanap ay dapat mahanap anuman ang status.
       // Kapag SADYANG pumili ng specific na status, nirerespeto pa rin.
-      const effFilter = (currentSearch && currentFilter === 'pending') ? 'all' : currentFilter;
+      const effFilter = currentFilter; // default na 'all', kaya hindi na kailangan ang search override
       if (effFilter === 'backlog') {
         const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
         const isToday = TicketData.isSameLocalDay(t.submitted, new Date());
@@ -1297,13 +1297,13 @@
     document.body.appendChild(bg);
   }
 
-  // CLEAR FILTERS (2026-10-10): ibalik sa default view (New,
+  // CLEAR FILTERS (2026-10-10): ibalik sa default view (All statuses,
   // lahat ng brand/category, any time, walang search).
   function clearAllTicketFilters() {
-    currentFilter = 'pending'; currentBrand = 'all'; currentIssue = 'all';
+    currentFilter = 'all'; currentBrand = 'all'; currentIssue = 'all';
     currentDateFilter = 'all'; currentSearch = '';
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-    set('statusFilter', 'pending'); set('brandFilter', 'all'); set('issueFilter', 'all'); set('dateFilter', 'all');
+    set('statusFilter', 'all'); set('brandFilter', 'all'); set('issueFilter', 'all'); set('dateFilter', 'all');
     const si = document.querySelector('.topbar-right .search input'); if (si) si.value = '';
     applyFilters();
   }
@@ -1519,11 +1519,11 @@
   }
 
   // Done / Rejected card click (2026-10-10): i-filter sa status na iyon;
-  // i-click ulit para bumalik sa default na "New".
+  // i-click ulit para bumalik sa default na "All statuses".
   document.querySelectorAll('#resDoneBtn, #resRejBtn').forEach(btn => {
     btn.addEventListener('click', () => {
       const s = btn.dataset.status;
-      currentFilter = (currentFilter === s) ? 'pending' : s;
+      currentFilter = (currentFilter === s) ? 'all' : s;
       const sel = document.getElementById('statusFilter');
       if (sel) sel.value = currentFilter;
       applyFilters();
