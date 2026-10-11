@@ -545,6 +545,26 @@
   // onProgress(partialTickets, doneCount, totalCount) para makapag-render na
   // ang page nang maaga; ang final promise ay nagre-resolve pa rin sa
   // kumpletong dataset (parehong shape ng dati — backward compatible).
+  // CONCURRENCY LIMIT (2026-10-11): dati sabay-sabay na 26 na downloads.
+  // Ang browser ay 6 lang ang sabay sa iisang host (docs.google.com), kaya
+  // nakapila ang iba — pero tumatakbo na ang 45s timer nila habang nakapila,
+  // kaya halos lahat ng malalaking sheet ay "Timed out after 45000ms" at
+  // nawawala ang tickets. Ngayon: 4 na sabay lang, at ang timer ay nagsisimula
+  // lang kapag talagang nagsimula na ang download.
+  const MAX_PARALLEL_SHEETS = 4;
+  function makeLimiter(max) {
+    let active = 0;
+    const queue = [];
+    const next = () => {
+      if (active >= max || !queue.length) return;
+      active++;
+      const { fn, resolve, reject } = queue.shift();
+      Promise.resolve().then(fn).then(resolve, reject).finally(() => { active--; next(); });
+    };
+    return fn => new Promise((resolve, reject) => { queue.push({ fn, resolve, reject }); next(); });
+  }
+  const sheetLimiter = makeLimiter(MAX_PARALLEL_SHEETS);
+
   function fetchTickets(forceRefresh, onProgress) {
     if (cachedPromise && !forceRefresh) return cachedPromise;
     const seen = new Map();
@@ -552,10 +572,10 @@
     const total = SHEET_SOURCES.length;
     const build = () => Array.from(seen.values()).sort((a, b) => b.submitted - a.submitted);
     const tasks = SHEET_SOURCES.map((source, i) => {
-      const t0 = Date.now();
+      let t0 = Date.now();
       const stat = { i, name: source.name || ('Sheet #' + i), kind: source.kind || 'ticket', state: 'loading', rows: 0, tickets: 0, today: 0, newest: null, ms: 0, error: null, at: new Date() };
       sourceStats[i] = stat;
-      return withTimeout(parseSheetCsv(source, !!forceRefresh), SOURCE_TIMEOUT_MS, source.url)
+      return sheetLimiter(() => { t0 = Date.now(); return withTimeout(parseSheetCsv(source, !!forceRefresh), SOURCE_TIMEOUT_MS, source.url); })
         .then(result => {
           stat.ms = Date.now() - t0;
           const prevGood = lastGoodRows.get(i);
