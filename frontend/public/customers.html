@@ -1736,9 +1736,31 @@
   }
 
   // ---- Tab switching: All Conversations <-> Player Search (2026-09-19) ----
-  document.getElementById('refreshBtn').addEventListener('click', () => {
-    loadConversations();
-    loadCsatStats();
+  // REFRESH FEEDBACK (2026-10-11): dati walang nakikitang nangyayari kapag
+  // kinlik (tahimik na nagre-reload), kaya parang hindi clickable. Ngayon:
+  // "Refreshing…" habang naglo-load, tapos "✓ Updated" sandali.
+  document.getElementById('refreshBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('refreshBtn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.style.opacity = '.7';
+    btn.style.cursor = 'wait';
+    btn.textContent = '↻ Refreshing…';
+    const ind = document.getElementById('liveIndicator');
+    if (ind) { ind.textContent = '● Refreshing…'; ind.style.color = 'var(--warning)'; }
+    try {
+      await Promise.all([loadConversations(), loadCsatStats()]);
+      btn.textContent = '✓ Updated';
+    } catch (e) {
+      btn.textContent = '⚠ Failed — try again';
+    } finally {
+      setTimeout(() => {
+        btn.textContent = '↻ Refresh';
+        btn.disabled = false;
+        btn.style.opacity = '';
+        btn.style.cursor = 'pointer';
+      }, 1500);
+    }
   });
 
   // ---- Date filter ----
