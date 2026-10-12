@@ -155,6 +155,63 @@
   @media (max-width:1100px){ .ap-kpis{grid-template-columns:1fr 1fr;} }
   @media (max-width:900px){ .ag-podium{grid-template-columns:1fr;} .pod.p1{order:-1;} }
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .hero-band{margin:-20px -16px 0;padding:20px 16px 88px;} }
+
+  /* By concern — cards (2026-10-12 v2) */
+  .cc-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;font-weight:700;color:var(--ink-faint);margin:-4px 0 12px;}
+  .cc-legend span{display:inline-flex;align-items:center;gap:6px;}
+  .cc-legend i{width:9px;height:9px;border-radius:50%;}
+  .cc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
+  .cc{border:1px solid #E8EDF5;border-radius:14px;padding:14px 16px;cursor:pointer;background:#fff;position:relative;overflow:hidden;transition:box-shadow .15s,transform .15s,border-color .15s;}
+  .cc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c);}
+  .cc:hover{transform:translateY(-2px);box-shadow:0 14px 28px -18px rgba(15,23,42,.35);}
+  .cc.sel{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+  .cc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .cc-name{font-weight:800;font-size:14px;line-height:1.3;}
+  .cc-bench{flex-shrink:0;font-size:11.5px;font-weight:800;color:#6D28D9;background:#F3EEFE;border-radius:99px;padding:3px 9px;white-space:nowrap;}
+  .cc-mid{display:flex;align-items:center;gap:14px;margin:12px 0 10px;}
+  .cc-pct{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1;color:var(--c);min-width:74px;}
+  .cc-pct small{display:block;font-size:10.5px;font-weight:700;color:var(--ink-faint);letter-spacing:.04em;text-transform:uppercase;margin-top:4px;}
+  .cc-bar{flex:1;}
+  .cc-bar .t{height:8px;border-radius:99px;background:#EEF1F6;overflow:hidden;}
+  .cc-bar .t i{display:block;height:100%;border-radius:99px;background:var(--c);}
+  .cc-bar .l{font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:6px;}
+  .cc-bar .l b{color:var(--ink);}
+  .cc-people{display:flex;flex-direction:column;gap:7px;border-top:1px dashed #E2E8F0;padding-top:10px;}
+  .cc-p{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .cc-p .k{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);white-space:nowrap;flex-shrink:0;}
+  .cc-p .mini{font-size:12.5px;min-width:0;}
+  .cc-p .mini span{overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  .cc-p .none{font-size:11.5px;color:var(--ink-faint);font-weight:600;}
+  .nob-list{display:flex;flex-wrap:wrap;gap:8px;}
+  .nob{display:inline-flex;align-items:center;gap:8px;border:1px solid #E8EDF5;background:#F8FAFC;border-radius:10px;padding:7px 11px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .nob:hover{border-color:var(--primary);color:var(--primary);}
+  .nob.sel{border-color:var(--primary);background:var(--primary-tint);color:var(--primary);}
+  .nob small{font-weight:600;color:var(--ink-faint);}
+
+  /* By concern — simple table (2026-10-12 v3) */
+  .cs-table tbody tr{cursor:pointer;}
+  .cs-table tbody tr.sel td{background:#EFF4FF;}
+  .cs-table td.cn{font-weight:700;}
+  .cs-table tr.nb td{color:var(--ink-faint);}
+  .cs-table tr.grp td{background:#F8FAFC;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);padding:8px 10px;cursor:default;}
+  .pb{display:flex;align-items:center;gap:10px;}
+  .pb .t{flex:1;height:8px;border-radius:99px;background:#EEF1F6;overflow:hidden;min-width:90px;}
+  .pb .t i{display:block;height:100%;border-radius:99px;}
+  .pb b{font-size:13px;min-width:40px;text-align:right;}
+  .pb small{font-size:11.5px;font-weight:600;color:var(--ink-faint);min-width:64px;}
+
+  /* Agent mode (2026-10-12) */
+  .miss-sum{display:flex;gap:8px;flex-wrap:wrap;margin:-2px 0 12px;}
+  .miss-sum span{font-size:12px;font-weight:700;color:var(--ink-soft);background:#F8FAFC;border:1px solid var(--line);border-radius:99px;padding:5px 11px;}
+  .miss-sum span b{color:var(--ink);}
+  .miss-sum span.bad{background:#FDECEC;border-color:#FBD5D5;color:#B42318;}
+  .tid{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:var(--primary);}
+  .over{color:#B42318;font-weight:800;}
+  .lmp{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:12px;padding:3px 9px;border-radius:8px;background:#FDECEC;color:#B42318;}
+  .lmp.zero{background:#EAFBF1;color:#15803D;}
+
+  .tg-inline{flex-direction:row;align-items:center;gap:8px;}
+  .tg-inline select{min-width:220px;}
 </style>
 </head>
 <body>
@@ -250,7 +307,7 @@
       <button type="button" class="clear-btn" id="clearBtn">Clear</button>
     </div>
 
-    <section class="panel" style="--acc:#F59E0B;">
+    <section class="panel" id="lbSection" style="--acc:#F59E0B;">
       <div class="p-head"><h3>🏆 Leaderboard <span class="sub" id="lbSub"></span></h3><span class="hint">Kailangan ng ≥3 Done tickets para mapasama sa ranking ng SLA / bilis</span></div>
       <div class="ag-podium" id="podium"></div>
       <div class="sec-lbl" id="restLbl">Iba pang agents</div>
@@ -271,18 +328,33 @@
       <button type="button" class="more-btn" id="moreBtn" style="display:none;"></button>
     </section>
 
-    <section class="panel" style="--acc:#2563EB;">
-      <div class="p-head"><h3>📋 By concern <span class="sub" id="ccSub"></span></h3><span class="hint">I-click ang row para makita ang ranking sa concern na iyon</span></div>
+    <section class="panel" id="ccSection" style="--acc:#2563EB;">
+      <div class="p-head"><h3>📋 By concern <span class="sub" id="ccSub"></span></h3><div class="tg tg-inline"><label for="fAgent">Agent</label><select id="fAgent"><option value="">Buong team</option></select></div></div>
+      <div class="hint" id="csHint" style="margin:-4px 0 10px;">Pumili ng agent para makita kung saang concern siya pasok o bumabagsak sa benchmark.</div>
       <div style="overflow-x:auto;">
-        <table class="ag-table cc-table">
+        <table class="ag-table cs-table">
           <thead><tr>
-            <th>Concern</th><th class="num">Benchmark</th><th class="num">Done</th>
-            <th style="min-width:170px;">Team within SLA</th><th class="num">Avg resolve</th>
-            <th>🥇 Best agent</th><th>⚡ Fastest</th>
+            <th>Concern</th>
+            <th class="num">Benchmark</th>
+            <th class="num">Done</th>
+            <th style="min-width:220px;">Pasok sa benchmark</th>
+            <th id="csLastTh">Top agent</th>
           </tr></thead>
-          <tbody id="ccBody"><tr><td colspan="7"><div class="empty-note">Loading…</div></td></tr></tbody>
+          <tbody id="csBody"><tr><td colspan="5"><div class="empty-note">Loading…</div></td></tr></tbody>
         </table>
       </div>
+    </section>
+
+    <section class="panel" id="missSection" style="--acc:#EF4444;display:none;">
+      <div class="p-head"><h3>⏱ Mga ticket na lumampas sa benchmark <span class="sub" id="missSub"></span></h3><span class="hint">Pinakamalaking sobra ang nasa itaas</span></div>
+      <div class="miss-sum" id="missSum"></div>
+      <div style="overflow-x:auto;">
+        <table class="ag-table">
+          <thead><tr><th>Ticket</th><th>Concern</th><th class="num">Benchmark</th><th class="num">Inabot</th><th class="num">Sobra</th><th>Resolved</th><th>Brand</th></tr></thead>
+          <tbody id="missBody"></tbody>
+        </table>
+      </div>
+      <button type="button" class="more-btn" id="missMore" style="display:none;"></button>
     </section>
   </main>
 </div>
@@ -341,7 +413,7 @@
   let allTickets = [];
   let avatarByName = new Map();
   const nameKey = n => String(n || '').trim().toLowerCase();
-  const state = { range: 'today', concern: '', brand: '', rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false };
+  const state = { range: 'today', agent: '', missConcern: '', concern: '', brand: '', missAll: false, rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false };
 
   function fmtDur(sec) {
     if (sec == null || !isFinite(sec)) return '—';
@@ -382,14 +454,17 @@
   const slaColor = p => p >= 90 ? '#22C55E' : p >= 70 ? '#F59E0B' : '#EF4444';
 
   // ---- Aggregation ----
-  function compute() {
+  function compute(opt) {
+    const agentSel = opt && 'agent' in opt ? opt.agent : state.agent;
     const r = rangeOf(state.range);
+    const misses = [];
     // Tinatanggal ang BUONG ticket kapag hinawakan (ack o resolve) ng hidden agent
     const scoped = allTickets.filter(t => (!state.brand || t.brandCode === state.brand)
       && !isHidden(t.acknowledgedBy) && !isHidden(t.resolvedBy));
     const agents = new Map();
     const concerns = new Map(); // issue -> { done, slaN, slaHit, dur:[], byAgent: Map }
     const get = n => {
+      if (agentSel && n !== agentSel) return { byConcern: new Map(), dur: [] }; // dummy, hindi isasama
       let a = agents.get(n);
       if (!a) { a = { name: n, acked: 0, resolved: 0, rejected: 0, dur: [], slaN: 0, slaHit: 0, last: null, byConcern: new Map() }; agents.set(n, a); }
       return a;
@@ -403,8 +478,10 @@
         const a = get(t.acknowledgedBy); a.acked++; touch(a, t.acknowledgedAt);
       }
       if (t.resolvedBy && !isHidden(t.resolvedBy) && inRange(t.resolvedAt, r)) {
-        if (t.statusCls === 'done') {
+        if (t.statusCls === 'done' && (!agentSel || t.resolvedBy === agentSel)) {
           // concern table: lahat ng concern (hindi apektado ng concern filter)
+          if (agentSel && bench && t.resolveDurationSec != null && t.resolveDurationSec > bench.min * 60 && inConcern)
+            misses.push({ t, issue, bench, dur: t.resolveDurationSec, over: t.resolveDurationSec - bench.min * 60 });
           let c = concerns.get(issue);
           if (!c) { c = { issue, bench, done: 0, slaN: 0, slaHit: 0, dur: [], byAgent: new Map() }; concerns.set(issue, c); }
           c.done++;
@@ -443,12 +520,25 @@
       const fast = ags.filter(x => x.avg != null && x.n >= MIN_N).sort((a, b) => a.avg - b.avg)[0] || null;
       return { ...c, avg: avg(c.dur), best, fast };
     }).sort((a, b) => (!!b.bench - !!a.bench) || b.done - a.done);
-    return { r, list, clist, scoped };
+    return { r, list: agentSel ? list.filter(x => x.name === agentSel) : list, clist, scoped, misses };
   }
 
   // ---- Render ----
   function render() {
-    const { r, list, clist, scoped } = compute();
+    // Itaas (KPIs + leaderboard): buong team. Ibaba (By concern + lumampas): agent filter.
+    const { r, list, scoped } = compute({ agent: '' });
+    const agentMode = !!state.agent;
+    const det = agentMode ? compute() : null;
+    const clist = agentMode ? det.clist : compute({ agent: '' }).clist;
+    const misses = agentMode ? det.misses.filter(m => !state.missConcern || m.issue === state.missConcern) : [];
+    const allList = list;
+    const aHtml = '<option value="">Buong team</option>' + [...allList].sort((a, b) => a.name.localeCompare(b.name)).map(x => `<option value="${escapeHtml(x.name)}">${escapeHtml(x.name)}</option>`).join('')
+      + (agentMode && !allList.some(x => x.name === state.agent) ? `<option value="${escapeHtml(state.agent)}">${escapeHtml(state.agent)}</option>` : '');
+    const asel = document.getElementById('fAgent');
+    if (asel.dataset.sig !== aHtml) { asel.innerHTML = aHtml; asel.dataset.sig = aHtml; }
+    asel.value = state.agent;
+    document.getElementById('missSection').style.display = agentMode ? '' : 'none';
+    document.getElementById('csLastTh').textContent = agentMode ? 'Lumampas' : 'Top agent';
     const selBench = state.concern ? benchmarkFor(state.concern) : null;
     const lim = selBench ? selBench.min * 60 : 600;
 
@@ -522,7 +612,7 @@
           const st = mins <= 60 ? '#22C55E' : mins <= 480 ? '#F59E0B' : '#94A3B8';
           return `<div class="pod ${cls}">${cls === 'p1' ? '<span class="pod-crown">👑</span>' : ''}<span class="pod-medal">${x.rank}</span>
             <div class="av" style="background:${colorForName(x.name)}">${avatarHtml(x.name)}<span class="st" style="background:${st}"></span></div>
-            <div class="pod-name" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</div>
+            <div class="pod-name" title="Tingnan ang breakdown ni ${escapeHtml(x.name)}"><a href="#" class="pick-ag" data-agent="${escapeHtml(x.name)}" style="color:inherit;">${escapeHtml(x.name)}</a></div>
             <div class="pod-big">${big(x)}<small>${bigLbl}</small></div>
             <div style="margin-top:8px;">${state.rank === 'sla' ? hdPill(x.handle, lim) : slaPill(x)}</div>
             <div class="pod-stats"><div><b class="res">${x.resolved.toLocaleString()}</b><span>Done</span></div><div><b class="rej">${x.rejected.toLocaleString()}</b><span>Rejected</span></div><div><b>${x.acked.toLocaleString()}</b><span>Acked</span></div></div>
@@ -539,7 +629,7 @@
         return `<tr>
           <td><span class="rank" title="${notRanked ? 'Kulang sa 3 Done tickets — nasa dulo ng ranking' : ''}">${x.rank}</span></td>
           <td><div class="who"><div class="av" style="background:${colorForName(x.name)}">${avatarHtml(x.name)}<span class="st" style="background:${st}"></span></div>
-            <div style="min-width:0;"><div class="nm">${escapeHtml(x.name)}</div><div class="nm-sub">Last active ${escapeHtml(relativeTime(x.last))}</div></div></div></td>
+            <div style="min-width:0;"><div class="nm"><a href="#" class="pick-ag" data-agent="${escapeHtml(x.name)}" style="color:inherit;">${escapeHtml(x.name)}</a></div><div class="nm-sub">Last active ${escapeHtml(relativeTime(x.last))}</div></div></div></td>
           <td class="num res">${x.resolved.toLocaleString()}</td>
           <td class="num rej">${x.rejected.toLocaleString()}</td>
           <td class="num">${x.acked.toLocaleString()}</td>
@@ -552,23 +642,60 @@
       else more.style.display = 'none';
     }
 
-    // By concern
-    const ccBody = document.getElementById('ccBody');
-    const mini = (x, val) => x ? `<div class="mini"><div class="av" style="background:${colorForName(x.name)}">${avatarHtml(x.name)}</div>${escapeHtml(x.name)} <small>${val}</small></div>` : '<span style="color:var(--ink-faint);font-size:12px;">—</span>';
-    ccBody.innerHTML = clist.map(c => {
-      const p = c.slaN ? Math.round(c.slaHit / c.slaN * 100) : null;
-      const bar = p == null ? '<span style="color:var(--ink-faint);font-size:12px;font-weight:600;">Walang benchmark</span>'
-        : `<div class="slabar"><div class="t"><i style="width:${p}%;background:${slaColor(p)}"></i></div><b style="color:${slaColor(p)}">${p}%</b></div>`;
-      return `<tr class="${c.issue === state.concern ? 'sel' : ''}${c.bench ? '' : ' nob'}" data-issue="${escapeHtml(c.issue)}">
-        <td style="font-weight:700;">${escapeHtml(c.issue)}</td>
-        <td class="num">${c.bench ? '≤ ' + c.bench.min + 'm' : '—'}</td>
+    // By concern — simpleng table: Concern | Benchmark | Done | % pasok | Top agent
+    const withB = clist.filter(c => c.bench), noB = clist.filter(c => !c.bench);
+    if (agentMode) withB.sort((a, b) => ((b.slaN - b.slaHit) - (a.slaN - a.slaHit)) || (b.done - a.done));
+    const topAg = c => c.best ? `<div class="mini"><div class="av" style="background:${colorForName(c.best.name)}">${avatarHtml(c.best.name)}</div>${escapeHtml(c.best.name)} <small>${Math.round(c.best.sla * 100)}%</small></div>` : '<span style="color:var(--ink-faint);font-size:12px;">—</span>';
+    const lmp = c => { const n = c.slaN - c.slaHit; return `<span class="lmp${n ? '' : ' zero'}">${n ? n + ' ticket' + (n > 1 ? 's' : '') : '0 — lahat pasok'}</span>`; };
+    const rowB = c => {
+      const p = c.slaN ? Math.round(c.slaHit / c.slaN * 100) : 0, col = slaColor(p);
+      return `<tr class="${c.issue === (agentMode ? state.missConcern : state.concern) ? 'sel' : ''}" data-issue="${escapeHtml(c.issue)}">
+        <td class="cn">${escapeHtml(c.issue)}</td>
+        <td class="num">≤ ${c.bench.min}m</td>
         <td class="num">${c.done.toLocaleString()}</td>
-        <td>${bar}</td>
-        <td class="num">${hdPill(c.avg, c.bench ? c.bench.min * 60 : 600)}</td>
-        <td>${c.bench ? mini(c.best, c.best ? Math.round(c.best.sla * 100) + '% (' + c.best.slaN + ')' : '') : '<span style="color:var(--ink-faint);font-size:12px;">—</span>'}</td>
-        <td>${mini(c.fast, c.fast ? fmtDur(c.fast.avg) : '')}</td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="7"><div class="empty-note">Walang Done tickets sa range na ito.</div></td></tr>';
+        <td><div class="pb"><div class="t"><i style="width:${p}%;background:${col}"></i></div><b style="color:${col}">${p}%</b><small>${c.slaHit}/${c.slaN}</small></div></td>
+        <td>${agentMode ? lmp(c) : topAg(c)}</td></tr>`;
+    };
+    const rowN = c => `<tr class="nb${c.issue === state.concern ? ' sel' : ''}" data-issue="${escapeHtml(c.issue)}">
+        <td class="cn">${escapeHtml(c.issue)}</td><td class="num">—</td><td class="num">${c.done.toLocaleString()}</td>
+        <td><span style="font-size:12px;">Walang benchmark</span></td><td>—</td></tr>`;
+    document.getElementById('csBody').innerHTML = (withB.map(rowB).join('')
+      + (noB.length ? `<tr class="grp"><td colspan="5">Walang benchmark — hindi nasusukat (${noB.length})</td></tr>` + noB.map(rowN).join('') : ''))
+      || '<tr><td colspan="5"><div class="empty-note">Walang Done tickets sa range na ito.</div></td></tr>';
+    document.getElementById('ccSub').textContent = agentMode ? `· ${state.agent} · ${r.label}` : `· ${clist.length} concerns · ${r.label}`;
+    if (agentMode) {
+      const meR = list.find(x => x.name === state.agent), meD = det.list[0];
+      const pct = meD && meD.slaN ? Math.round(meD.slaHit / meD.slaN * 100) + '%' : '—';
+      document.getElementById('csHint').innerHTML = `<b style="color:var(--ink)">${escapeHtml(state.agent)}</b> · Rank <b style="color:var(--ink)">#${meR ? meR.rank : '—'}</b> sa ${list.length} agents · Within SLA <b style="color:var(--ink)">${pct}</b> · I-click ang row para i-filter ang listahan ng lumampas.`;
+    } else document.getElementById('csHint').textContent = 'Pumili ng agent para makita kung saang concern siya pasok o bumabagsak sa benchmark.';
+
+    // Agent mode: listahan ng tickets na lumampas
+    if (agentMode) {
+      misses.sort((a, b) => b.over - a.over);
+      const me = det.list[0] || { slaN: 0, slaHit: 0 };
+      const byC = new Map(); misses.forEach(m => byC.set(m.issue, (byC.get(m.issue) || 0) + 1));
+      const worst = [...byC.entries()].sort((a, b) => b[1] - a[1])[0];
+      const avgOver = misses.length ? misses.reduce((s2, m) => s2 + m.over, 0) / misses.length : 0;
+      document.getElementById('missSub').textContent = `· ${state.agent}${state.missConcern ? ' · ' + state.missConcern : ''} · ${r.label}`;
+      document.getElementById('missSum').innerHTML = misses.length
+        ? `<span class="bad"><b>${misses.length}</b> sa ${me.slaN} tickets ang lumampas</span>
+           ${worst ? `<span>Pinakamadalas: <b>${escapeHtml(worst[0])}</b> (${worst[1]})</span>` : ''}
+           <span>Average na sobra: <b>${fmtDur(avgOver)}</b></span>`
+        : `<span style="background:#EAFBF1;border-color:#C9F0D8;color:#15803D;">✓ Walang lumampas — lahat ng ${me.slaN} tickets ay pasok sa benchmark</span>`;
+      const LIM = 30, shownM = state.missAll ? misses : misses.slice(0, LIM);
+      const fmtWhen = d => d ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+      document.getElementById('missBody').innerHTML = shownM.map(m => `<tr>
+          <td>${m.t.sheetLink ? `<a class="tid" href="${escapeHtml(m.t.sheetLink)}" target="_blank" rel="noopener" title="Buksan sa sheet">${escapeHtml(m.t.id)}</a>` : `<span class="tid">${escapeHtml(m.t.id)}</span>`}</td>
+          <td style="font-weight:600;">${escapeHtml(m.issue)}</td>
+          <td class="num">≤ ${m.bench.min}m</td>
+          <td class="num">${fmtDur(m.dur)}</td>
+          <td class="num over">+${fmtDur(m.over)}</td>
+          <td style="white-space:nowrap;color:var(--ink-soft);">${fmtWhen(m.t.resolvedAt)}</td>
+          <td style="color:var(--ink-soft);">${escapeHtml(m.t.brandLabel || m.t.brandCode || '—')}</td></tr>`).join('')
+        || '<tr><td colspan="7"><div class="empty-note">Walang ticket na lumampas. 🎉</div></td></tr>';
+      const mm = document.getElementById('missMore');
+      if (misses.length > LIM) { mm.style.display = ''; mm.textContent = state.missAll ? 'Itago ▲' : `Ipakita lahat (${misses.length - LIM} pa) ▼`; } else mm.style.display = 'none';
+    }
   }
 
   // ---- Events ----
@@ -576,11 +703,13 @@
     document.querySelectorAll('#rangeTabs .tab').forEach(x => x.classList.toggle('active', x === b));
     state.range = b.dataset.r; state.showAll = false; render();
   }));
+  document.getElementById('fAgent').addEventListener('change', e => { state.agent = e.target.value; state.missConcern = ''; state.missAll = false; render(); });
+  document.getElementById('missMore').addEventListener('click', () => { state.missAll = !state.missAll; render(); });
   document.getElementById('fConcern').addEventListener('change', e => { state.concern = e.target.value; state.sort = { key: 'rank', dir: 1 }; render(); });
   document.getElementById('fBrand').addEventListener('change', e => { state.brand = e.target.value; render(); });
   document.getElementById('fRank').addEventListener('change', e => { state.rank = e.target.value; state.sort = { key: 'rank', dir: 1 }; render(); });
   document.getElementById('clearBtn').addEventListener('click', () => {
-    Object.assign(state, { concern: '', brand: '', rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false });
+    Object.assign(state, { agent: '', missConcern: '', missAll: false, concern: '', brand: '', rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false });
     document.getElementById('fBrand').value = ''; document.getElementById('fRank').value = 'sla'; render();
   });
   document.querySelectorAll('#agTable th.sortable').forEach(th => th.addEventListener('click', () => {
@@ -589,14 +718,26 @@
     else state.sort = state.sort.key === key ? { key, dir: -state.sort.dir } : { key, dir: first };
     render();
   }));
+  document.getElementById('lbSection').addEventListener('click', e => {
+    const a = e.target.closest('.pick-ag'); if (!a) return;
+    e.preventDefault(); state.agent = a.dataset.agent; state.missConcern = ''; state.missAll = false; render(); document.getElementById('ccSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   document.getElementById('moreBtn').addEventListener('click', () => { state.showAll = !state.showAll; render(); });
-  document.getElementById('ccBody').addEventListener('click', e => {
-    const tr = e.target.closest('tr[data-issue]'); if (!tr) return;
-    state.concern = state.concern === tr.dataset.issue ? '' : tr.dataset.issue;
+  const pickConcern = e => {
+    const el = e.target.closest('[data-issue]'); if (!el) return;
+    if (state.agent) {
+      // Agent mode: i-filter lang ang listahan ng lumampas (hindi ginagalaw ang itaas)
+      state.missConcern = state.missConcern === el.dataset.issue ? '' : el.dataset.issue;
+      state.missAll = false; render();
+      document.getElementById('missSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    state.concern = state.concern === el.dataset.issue ? '' : el.dataset.issue;
     state.sort = { key: 'rank', dir: 1 };
     render();
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
+  };
+  document.getElementById('csBody').addEventListener('click', pickConcern);
 
   // ---- Load ----
   function fillBrands() {
