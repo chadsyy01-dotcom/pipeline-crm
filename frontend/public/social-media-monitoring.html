@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  /* Social Media Monitoring (2026-09-25) — Sub-tab sa ilalim ng Customers
+  /* Social Media Monitoring (2026-09-25; nasa ilalim na ng QA mula 2026-10-12)
      (pattern: OpenAI > Billing). Ang design tokens at sidebar ay kinopya
      mula sa ibang pages para pare-pareho. */
   :root{
@@ -135,6 +135,82 @@
   .tg-ico svg{width:17px;height:17px;}
   @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
   @media (max-width:420px){ .fba-grid .fba-card{flex-basis:100%;} .fba-av{width:72px;height:72px;font-size:24px;} .fba-name{font-size:20px;} }
+
+  /* ===== REDESIGN 2026-10-12: hero-band pattern (pareho ng SMS/QA/KB) ===== */
+  .hero-band{position:relative;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);
+    margin:-26px -32px 0;padding:26px 32px 92px;border-radius:0 0 20px 20px;overflow:hidden;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .hero-band .topbar{margin-bottom:0;}
+  .hero-band .greeting h1{color:#fff;}
+  .hero-band .greeting p{color:#9FB2D8;max-width:640px;line-height:1.55;}
+  .hero-band .profile-name{color:#fff;}
+  .hero-band .profile-name span{color:#9FB2D8;}
+  .live-chip{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;font-weight:700;color:#C7D5F0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:4px 10px;border-radius:99px;}
+  .live-chip i{width:7px;height:7px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.25);animation:pulse 1.8s infinite;}
+  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(34,197,94,0);}}
+
+  .sm-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:-66px;position:relative;z-index:2;margin-bottom:16px;}
+  .sm-kpi{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);border:1px solid #E8EDF5;padding:18px 20px;position:relative;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;}
+  .sm-kpi:hover{transform:translateY(-2px);box-shadow:0 1px 2px rgba(15,23,42,.04),0 14px 28px -14px rgba(15,23,42,.22);}
+  .sm-kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc,#2563EB);}
+  .sm-kpi .kh{display:flex;align-items:center;justify-content:space-between;}
+  .sm-kpi .kl{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);}
+  .sm-kpi .ki{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--acc-t,#EFF4FF);color:var(--acc,#2563EB);}
+  .sm-kpi .ki svg{width:16px;height:16px;}
+  .sm-kpi .kv{font-size:32px;font-weight:800;margin-top:6px;letter-spacing:-.01em;}
+  .sm-kpi .kv small{font-size:16px;color:var(--ink-faint);font-weight:700;}
+  .sm-kpi .ks{font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:2px;}
+
+  .sm-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid #E8EDF5;border-radius:var(--radius-md);box-shadow:var(--shadow);padding:10px 12px;margin-bottom:14px;}
+  .seg{display:flex;gap:4px;background:#F1F5F9;border-radius:10px;padding:4px;flex-wrap:wrap;}
+  .seg button{border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:700;color:var(--ink-soft);padding:7px 14px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:6px;}
+  .seg button .n{font-size:10.5px;background:#E2E8F0;color:var(--ink-soft);border-radius:99px;padding:1px 7px;}
+  .seg button.active{background:#fff;color:var(--primary);box-shadow:0 1px 3px rgba(15,23,42,.1);}
+  .seg button.active .n{background:var(--primary-tint);color:var(--primary);}
+  .sm-search{display:flex;align-items:center;gap:8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:8px 12px;min-width:240px;color:var(--ink-faint);}
+  .sm-search svg{width:15px;height:15px;flex-shrink:0;}
+  .sm-search input{border:0;outline:0;background:transparent;font:inherit;font-size:13px;color:var(--ink);width:100%;}
+  .sm-search:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+
+  .sm-section{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);border:1px solid #E8EDF5;padding:18px;margin-bottom:14px;}
+  .sm-section .sec-head{justify-content:flex-start;margin:0 0 14px;}
+  .sm-section .sec-head h2{font-size:15px;}
+  .sm-section .sec-head .sub{margin-left:auto;font-size:12px;font-weight:600;color:var(--ink-faint);}
+  .sm-section.hide{display:none;}
+
+  /* Cards — light, may navy na header (pareho ng hero) */
+  .fba-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;justify-content:stretch;}
+  .fba-grid .fba-card{flex:none;}
+  .fba-card{background:#fff;color:var(--ink);border:1px solid #E8EDF5;border-radius:14px;overflow:hidden;transition:box-shadow .15s,transform .15s;}
+  .fba-card:hover{box-shadow:0 14px 30px -16px rgba(15,23,42,.25);transform:translateY(-1px);}
+  .fba-head{background:linear-gradient(118deg,#0B1220 0%,#152A56 60%,#1E3A8A 100%);padding:16px 18px;gap:14px;position:relative;}
+  .fba-av{width:58px;height:58px;font-size:18px;box-shadow:0 0 0 3px rgba(255,255,255,.18);background:#1E293B;}
+  .fba-name{font-size:17px;color:#fff;margin:0;}
+  .fba-name a:hover{text-decoration:underline;}
+  .fba-sub{font-size:11.5px;color:#9FB2D8;font-weight:600;margin-top:3px;}
+  .fba-pages{border-top:0;padding:8px;}
+  .fba-page{padding:8px 10px;border-radius:10px;}
+  .fba-page:hover{background:#F8FAFC;}
+  .fba-page-av{width:34px;height:34px;box-shadow:0 0 0 1px #E8EDF5;}
+  .fba-page-name{color:var(--ink);font-size:13px;}
+  .fba-page-role{color:var(--ink-faint);font-size:11.5px;}
+  .fba-page.none .fba-page-name{color:var(--ink-faint);}
+  .fba-page.none .fba-page-av{opacity:.55;}
+  .fba-page-btn{background:var(--primary-tint);color:var(--primary);border-radius:8px;padding:6px 12px;display:inline-flex;align-items:center;gap:5px;}
+  .fba-page-btn svg{width:12px;height:12px;}
+  .fba-page-btn:hover{background:var(--primary);color:#fff;}
+  .fba-page-btn:disabled{background:#F1F5F9;color:var(--ink-faint);opacity:1;}
+  .fba-page-btn:disabled:hover{background:#F1F5F9;color:var(--ink-faint);}
+  .fba-page.hit{background:#FFF8E6;}
+  .fba-empty{color:var(--ink-faint);}
+  .tag-none{font-size:10px;font-weight:800;color:#B45309;background:#FEF6E7;border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:1px;}
+  .sm-tip{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--ink-soft);background:var(--primary-tint);border:1px solid #D6E2FD;border-radius:12px;padding:12px 14px;margin-bottom:14px;line-height:1.55;}
+  .sm-tip svg{width:17px;height:17px;flex-shrink:0;color:var(--primary);margin-top:1px;}
+  .sm-noresult{display:none;text-align:center;padding:30px;color:var(--ink-faint);font-size:13px;font-weight:600;}
+  @media (max-width:1100px){ .sm-kpis{grid-template-columns:1fr 1fr;} }
+  @media (max-width:860px){ .hero-band{margin:-20px -16px 0;padding:20px 16px 88px;} .sm-search{min-width:0;flex:1;} }
 </style>
 </head>
 <body>
@@ -287,14 +363,14 @@
               <div class="fba-page-name">${escapeHtmlSmm(g.type || 'Group')}</div>
               <div class="fba-page-role">${escapeHtmlSmm(g.url.replace(/^https?:\/\/(www\.)?/, ''))}</div>
             </div>
-            <button type="button" class="fba-page-btn" onclick="${open}">Open</button>
+            <button type="button" class="fba-page-btn" onclick="${open}">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
           </div>`;
       }).join('');
       return `
-        <div class="fba-card">
+        <div class="fba-card" data-q="${escapeHtmlSmm((brand + ' ' + groups.map(g => g.type + ' ' + g.url).join(' ')).toLowerCase())}">
           <div class="fba-head">
             <div class="fba-av">${av}</div>
-            <div class="fba-info"><h3 class="fba-name">${escapeHtmlSmm(brand)}</h3></div>
+            <div class="fba-info"><h3 class="fba-name">${escapeHtmlSmm(brand)}</h3><div class="fba-sub">${groups.length} link${groups.length > 1 ? 's' : ''}</div></div>
           </div>
           <div class="fba-pages">${rows}</div>
         </div>`;
@@ -322,21 +398,22 @@
           ? `<img src="${escapeHtmlSmm(pSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.textContent='${pInit}'">`
           : pInit;
         return `
-          <div class="fba-page">
+          <div class="fba-page${p.url ? '' : ' none'}" data-q="${escapeHtmlSmm(p.name.toLowerCase())}">
             <div class="fba-page-av" style="background:${FBA_PAGE_COLORS[j % FBA_PAGE_COLORS.length]};">${pAv}</div>
             <div class="fba-page-main">
               <div class="fba-page-name">${escapeHtmlSmm(p.name)}</div>
               <div class="fba-page-role">${escapeHtmlSmm(p.role || 'Admin')}</div>
             </div>
-            <button type="button" class="fba-page-btn" ${p.url ? `onclick="openFbWindow('${escapeHtmlSmm(p.url)}')"` : 'disabled title="No Facebook page yet"'}>Open</button>
+            <button type="button" class="fba-page-btn" ${p.url ? `onclick="openFbWindow('${escapeHtmlSmm(p.url)}')"` : 'disabled title="No Facebook page yet"'}>${p.url ? 'Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17L17 7M8 7h9v9"/></svg>' : 'Wala pa'}</button>
           </div>`;
       }).join('') : '<div class="fba-empty">No pages assigned to this account yet.</div>';
       return `
-        <div class="fba-card">
+        <div class="fba-card" data-q="${escapeHtmlSmm((acc.name + ' ' + pages.map(p => p.name).join(' ')).toLowerCase())}">
           <div class="fba-head">
             <div class="fba-av">${avatar}</div>
             <div class="fba-info">
               <h3 class="fba-name"><a href="#" onclick="openFbWindow('${escapeHtmlSmm(acc.url)}');return false;">${escapeHtmlSmm(acc.name)}</a></h3>
+              <div class="fba-sub">${pages.filter(p => p.url).length} active page${pages.filter(p => p.url).length === 1 ? '' : 's'}${pages.some(p => !p.url) ? ' · ' + pages.filter(p => !p.url).length + ' wala pang page' : ''}</div>
             </div>
           </div>
           <div class="fba-pages">${pageRows}</div>
@@ -505,6 +582,57 @@
     // setInterval(loadSmmSheet, 60000);
   });
 
+
+  // ---- REDESIGN 2026-10-12: KPIs, section tabs, search ----
+  function renderSmKpis() {
+    const allPages = FB_ACCOUNTS.flatMap(a => a.pages || []);
+    const live = allPages.filter(p => p.url).length;
+    const none = allPages.length - live;
+    const gBrands = new Set(FB_GROUPS.map(g => g.brand)).size;
+    const tBrands = new Set(TG_GROUPS.map(g => g.brand)).size;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
+    set('kAcc', FB_ACCOUNTS.length); set('kAccS', 'team profiles na naka-admin');
+    set('kPages', live + (allPages.length ? ` <small>/ ${allPages.length}</small>` : '')); set('kPagesS', none ? `${none} brand na wala pang page` : 'Lahat may page na');
+    set('kGroups', FB_GROUPS.length); set('kGroupsS', `${gBrands} brand`);
+    set('kTg', TG_GROUPS.length); set('kTgS', `${tBrands} brand · community / channel`);
+    set('nPages', allPages.length); set('nGroups', FB_GROUPS.length); set('nTg', TG_GROUPS.length);
+    set('subPages', `${FB_ACCOUNTS.length} accounts · ${live} active pages`);
+    set('subGroups', `${FB_GROUPS.length} groups`);
+    set('subTg', `${TG_GROUPS.length} links`);
+  }
+  let smView = 'all';
+  function applySmFilter() {
+    const q = (document.getElementById('smSearch').value || '').trim().toLowerCase();
+    let anyVisible = false;
+    document.querySelectorAll('.sm-section').forEach(sec => {
+      const inView = smView === 'all' || sec.dataset.sec === smView;
+      let shown = 0;
+      sec.querySelectorAll('.fba-card').forEach(card => {
+        const hit = !q || (card.dataset.q || '').includes(q);
+        card.style.display = hit ? '' : 'none';
+        card.querySelectorAll('.fba-page[data-q]').forEach(r => r.classList.toggle('hit', !!q && r.dataset.q.includes(q)));
+        if (hit) shown++;
+      });
+      const visible = inView && shown > 0;
+      sec.classList.toggle('hide', !visible);
+      if (visible) anyVisible = true;
+    });
+    document.getElementById('smNoResult').style.display = anyVisible ? 'none' : 'block';
+  }
+  function setSmView(v) {
+    smView = v;
+    document.querySelectorAll('#smSeg button').forEach(b => b.classList.toggle('active', b.dataset.v === v));
+    applySmFilter();
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    renderSmKpis();
+    document.querySelectorAll('#smSeg button').forEach(b => b.addEventListener('click', () => setSmView(b.dataset.v)));
+    document.querySelectorAll('.sm-kpi[data-jump]').forEach(k => k.addEventListener('click', () => {
+      setSmView(k.dataset.jump);
+      document.querySelector(`.sm-section[data-sec="${k.dataset.jump}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+    document.getElementById('smSearch').addEventListener('input', applySmFilter);
+  });
   // Buksan ang FB sa sariling window (hindi pwede sa iframe — X-Frame-Options
   // ng Meta). Isang named window ("csrFbWindow") para ang sunud-sunod na
   // click ay sa parehong window lang pumupunta imbes na dumami.
@@ -564,47 +692,67 @@
   </aside>
 
   <main class="main">
+    <div class="hero-band">
     <div class="topbar">
       <div class="greeting">
         <h1>Social Media Monitoring</h1>
-        <p>Monitor social media mentions and messages per brand.</p>
+        <p>Facebook accounts, brand pages, groups at Telegram communities ng team. I-scrub nang regular ang bawat page at group &mdash; comments, messages, posts at mentions.</p>
+        <span class="live-chip"><i></i> Click a name to open its profile &middot; Open to go straight to a page</span>
       </div>
       <div class="profile">
-        <div class="avatar">—</div>
+        <div class="avatar">&mdash;</div>
         <div class="profile-name">&nbsp;<span>&nbsp;</span></div>
       </div>
     </div>
+    </div><!-- /hero-band -->
 
-    <div class="panel fba-panel">
-      <div class="fba-note" role="note">
-        <div class="fba-note-ico" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        </div>
-        <div>
-          <h2>Team social media monitoring</h2>
-          <p>These are the team's Facebook accounts with the brand pages each one manages, plus each brand's Facebook group and Telegram community. Check and scrub every page and group regularly &mdash; comments, messages, posts and mentions &mdash; so nothing goes unmonitored.</p>
-          <p class="fba-note-hint">Click an account name to open its profile, or Open to go straight to a page or group.</p>
-        </div>
+    <div class="sm-kpis">
+      <div class="sm-kpi" data-jump="pages" style="--acc:#2563EB;--acc-t:#EFF4FF;">
+        <div class="kh"><div class="kl">FB accounts</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
+        <div class="kv" id="kAcc">&mdash;</div><div class="ks" id="kAccS">&nbsp;</div>
       </div>
-      <div class="sec-head">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path fill="#fff" d="M13.3 19.5v-6h2l.3-2.4h-2.3V9.6c0-.7.2-1.2 1.2-1.2h1.2V6.3c-.2 0-1-.1-1.8-.1-1.8 0-3 1.1-3 3.1v1.8h-2v2.4h2v6h2.4z"/></svg>
-        <h2>Facebook Pages</h2>
+      <div class="sm-kpi" data-jump="pages" style="--acc:#22C55E;--acc-t:#EAFBF1;">
+        <div class="kh"><div class="kl">Brand pages</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 22V4a1 1 0 011-1h10l-1 4h6l-2 7H6"/></svg></div></div>
+        <div class="kv" id="kPages">&mdash;</div><div class="ks" id="kPagesS">&nbsp;</div>
       </div>
-      <div class="fba-grid" id="fbaGrid"></div>
-
-      <div class="sec-head next">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path fill="#fff" d="M13.3 19.5v-6h2l.3-2.4h-2.3V9.6c0-.7.2-1.2 1.2-1.2h1.2V6.3c-.2 0-1-.1-1.8-.1-1.8 0-3 1.1-3 3.1v1.8h-2v2.4h2v6h2.4z"/></svg>
-        <h2>Facebook Groups</h2>
+      <div class="sm-kpi" data-jump="groups" style="--acc:#1877F2;--acc-t:#E7F0FE;">
+        <div class="kh"><div class="kl">FB groups</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div></div>
+        <div class="kv" id="kGroups">&mdash;</div><div class="ks" id="kGroupsS">&nbsp;</div>
       </div>
-      <div class="fba-grid" id="fbgGrid"></div>
-
-      <div class="sec-head next">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#2AABEE"/><path fill="#fff" d="M17.6 7.4l-1.9 9c-.1.6-.5.8-1.1.5l-2.9-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3 5.4-4.9c.2-.2 0-.3-.4-.1l-6.7 4.2-2.9-.9c-.6-.2-.6-.6.1-.9l11.3-4.4c.5-.2 1 .1.8 1z"/></svg>
-        <h2>Telegram Community</h2>
+      <div class="sm-kpi" data-jump="telegram" style="--acc:#2AABEE;--acc-t:#E6F6FD;">
+        <div class="kh"><div class="kl">Telegram</div><div class="ki"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.9 4.3l-3.2 15.1c-.2 1.1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.4-5 9.1-8.2c.4-.4-.1-.6-.6-.2L6.2 13l-4.8-1.5c-1-.3-1.1-1 .2-1.5L20.6 2.8c.9-.3 1.6.2 1.3 1.5z"/></svg></div></div>
+        <div class="kv" id="kTg">&mdash;</div><div class="ks" id="kTgS">&nbsp;</div>
       </div>
-      <div class="fba-grid" id="tgGrid"></div>
     </div>
 
+    <div class="sm-toolbar">
+      <div class="seg" id="smSeg">
+        <button type="button" data-v="all" class="active">All</button>
+        <button type="button" data-v="pages">Pages <span class="n" id="nPages">0</span></button>
+        <button type="button" data-v="groups">FB Groups <span class="n" id="nGroups">0</span></button>
+        <button type="button" data-v="telegram">Telegram <span class="n" id="nTg">0</span></button>
+      </div>
+      <label class="sm-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="search" id="smSearch" placeholder="Hanapin ang brand o account…">
+      </label>
+    </div>
+
+    <section class="sm-section" data-sec="pages">
+      <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path fill="#fff" d="M13.3 19.5v-6h2l.3-2.4h-2.3V9.6c0-.7.2-1.2 1.2-1.2h1.2V6.3c-.2 0-1-.1-1.8-.1-1.8 0-3 1.1-3 3.1v1.8h-2v2.4h2v6h2.4z"/></svg><h2>Facebook Pages</h2><span class="sub" id="subPages"></span></div>
+      <div class="fba-grid" id="fbaGrid"></div>
+    </section>
+
+    <section class="sm-section" data-sec="groups">
+      <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path fill="#fff" d="M13.3 19.5v-6h2l.3-2.4h-2.3V9.6c0-.7.2-1.2 1.2-1.2h1.2V6.3c-.2 0-1-.1-1.8-.1-1.8 0-3 1.1-3 3.1v1.8h-2v2.4h2v6h2.4z"/></svg><h2>Facebook Groups</h2><span class="sub" id="subGroups"></span></div>
+      <div class="fba-grid" id="fbgGrid"></div>
+    </section>
+
+    <section class="sm-section" data-sec="telegram">
+      <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#2AABEE"/><path fill="#fff" d="M17.6 7.4l-1.9 9c-.1.6-.5.8-1.1.5l-2.9-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3 5.4-4.9c.2-.2 0-.3-.4-.1l-6.7 4.2-2.9-.9c-.6-.2-.6-.6.1-.9l11.3-4.4c.5-.2 1 .1.8 1z"/></svg><h2>Telegram Community</h2><span class="sub" id="subTg"></span></div>
+      <div class="fba-grid" id="tgGrid"></div>
+    </section>
+    <div class="sm-noresult" id="smNoResult">Walang tumugma sa hinahanap mo.</div>
   </main>
 </div>
 <script>
