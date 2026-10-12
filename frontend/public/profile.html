@@ -241,6 +241,20 @@
 
     <div class="grid">
       <div class="col">
+        <!-- ALIASES — lahat ng user (2026-10-12) -->
+        <div class="panel" id="aliasPanel" style="--acc:#14B8A6;--acc-t:#E6FAF7;">
+          <div class="p-head">
+            <div class="p-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg></div>
+            <div><h3>Pangalan sa Tickets at Chats</h3><p class="panel-sub">Ilagay ang username mo sa Google Sheets / Chatwoot para lumabas ang profile picture mo sa Agent Performance, Reports at iba pang page.</p></div>
+          </div>
+          <label class="form-label" for="myAliases">Aliases (paghiwalayin ng comma)</label>
+          <div class="inline-row">
+            <input type="text" id="myAliases" placeholder="hal. csrrowell, Admin Rowell" maxlength="300">
+            <button class="btn btn-primary" id="saveAliasesBtn" type="button">Save</button>
+          </div>
+          <div class="hint">Ang pangalan sa itaas ay awtomatikong kasama na. Hal. kung "csrrowell" ang nasa sheet, ilagay ang <b>csrrowell</b>.</div>
+          <div class="msg" id="aliasMsg"></div>
+        </div>
         <!-- ACCOUNT SETTINGS — admins only -->
         <div class="panel hidden" id="adminAccountPanel" style="--acc:#2563EB;--acc-t:#EFF4FF;">
           <div class="p-head">
@@ -312,6 +326,9 @@
 
             <label class="form-label" for="targetName" style="margin-top:12px;">Display name</label>
             <input type="text" id="targetName">
+
+            <label class="form-label" for="targetAliases">Aliases sa tickets/chats <span style="text-transform:none;font-weight:600;">(comma-separated)</span></label>
+            <input type="text" id="targetAliases" placeholder="hal. csrrowell, Admin Rowell" maxlength="300">
 
             <label class="form-label" for="targetPw">New password <span style="text-transform:none;font-weight:600;">(leave blank to keep the current one)</span></label>
             <div class="pw-wrap"><input type="password" id="targetPw" autocomplete="new-password"><button class="pw-eye" type="button" data-for="targetPw" aria-label="Show password"></button></div>
@@ -389,6 +406,7 @@
     document.getElementById('fieldEmail').textContent = user.email || '—';
     document.getElementById('fieldRole').textContent = user.role || 'member';
     document.getElementById('removePhotoBtn').classList.toggle('hidden', !user.avatar);
+    const al = document.getElementById('myAliases'); if (al && document.activeElement !== al) al.value = user.aliases || '';
   }
 
   // ---- profile picture (everyone) ----
@@ -516,6 +534,7 @@
     const id = document.getElementById('userSelect').value;
     const user = teamUsers.find(u => String(u.id) === String(id));
     document.getElementById('targetName').value = user ? user.name : '';
+    document.getElementById('targetAliases').value = user ? (user.aliases || '') : '';
     document.getElementById('targetPw').value = '';
   }
   document.getElementById('userSelect').addEventListener('change', syncTargetFields);
@@ -528,6 +547,8 @@
     const newPassword = document.getElementById('targetPw').value;
     const payload = {};
     if (name && name !== user.name) payload.name = name;
+    const aliases = document.getElementById('targetAliases').value.trim();
+    if (aliases !== (user.aliases || '')) payload.aliases = aliases || null;
     if (newPassword) {
       if (newPassword.length < 8) { showMsg('teamMsg', 'Password must be at least 8 characters.', 'err'); return; }
       payload.newPassword = newPassword;
@@ -553,6 +574,22 @@
     } finally {
       btn.disabled = false;
     }
+  });
+
+  // ---- own aliases (lahat ng user) ----
+  document.getElementById('saveAliasesBtn').addEventListener('click', async () => {
+    const v = document.getElementById('myAliases').value.trim();
+    const btn = document.getElementById('saveAliasesBtn');
+    btn.disabled = true;
+    try {
+      const body = await api('/auth/me', { method: 'PATCH', body: JSON.stringify({ aliases: v || null }) });
+      currentUser = body.user;
+      renderProfile(currentUser);
+      if (currentUser.role === 'admin') loadTeam();
+      showMsg('aliasMsg', 'Na-save. Lalabas na ang picture mo sa mga page na gumagamit ng mga pangalang ito.', 'ok');
+    } catch (err) {
+      showMsg('aliasMsg', err.message, 'err');
+    } finally { btn.disabled = false; }
   });
 
   document.getElementById('logoutBtn').addEventListener('click', () => {
