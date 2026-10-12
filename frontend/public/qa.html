@@ -201,6 +201,12 @@
   html body #btTranslateBtn:hover{opacity:1;}
 
   @media (max-width:860px){ .hero-band{margin:-20px -16px 0;padding:20px 16px 88px;} .qa-search{min-width:100%;} }
+  .nav-chev{margin-left:auto;width:14px !important;height:14px !important;transition:transform .18s ease;flex-shrink:0;}
+  .nav-chev.open{transform:rotate(180deg);}
+  .nav-sub{display:none;padding-left:16px;}
+  .nav-sub.open{display:block;}
+  .nav-sub .nav-item{font-size:12.5px;padding:8px 12px;}
+  .nav-sub .nav-item svg{width:15px;height:15px;}
 </style>
 </head>
 <body>
@@ -243,7 +249,14 @@
       <a href="qa.html" class="nav-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
         Quality Assurance
+        <svg class="nav-chev open" id="qaChev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" title="Expand/collapse"><path d="M6 9l6 6 6-6"/></svg>
       </a>
+      <div class="nav-sub open" id="qaSub">
+        <a href="social-media-monitoring.html" class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a3 3 0 100-6 3 3 0 000 6z"/><path d="M6 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M18 22a3 3 0 100-6 3 3 0 000 6z"/><path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/></svg>
+          Social Media Monitoring
+        </a>
+      </div>
       <a href="kb.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
         Knowledge Base
@@ -1251,5 +1264,19 @@
 })();
 </script>
 <!-- ============== END TRANSLATE TO ENGLISH BLOCK ============== -->
+<script>
+  // QA subgroup toggle (2026-10-12): Social Media Monitoring ay nasa ilalim na
+  // ng Quality Assurance. Chevron lang ang nagto-toggle; ang "Quality
+  // Assurance" mismo ay normal na link pa rin.
+  (function () {
+    const chev = document.getElementById('qaChev');
+    const sub = document.getElementById('qaSub');
+    if (chev && sub) chev.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      sub.classList.toggle('open');
+      chev.classList.toggle('open', sub.classList.contains('open'));
+    });
+  })();
+</script>
 </body>
 </html>
