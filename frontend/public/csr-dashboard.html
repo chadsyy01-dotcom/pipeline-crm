@@ -368,6 +368,43 @@
   .ag-more{display:block;width:100%;margin-top:10px;border:1px dashed #D6DEEA;background:#fff;color:var(--ink-soft);font:inherit;font-size:12.5px;font-weight:700;border-radius:10px;padding:9px;cursor:pointer;}
   .ag-more:hover{background:#F8FAFC;color:var(--primary);border-color:var(--primary);}
   @media (max-width:900px){ .ag-hide-sm{display:none;} }
+
+  /* ===== AGENTS PODIUM (2026-10-12 v2) ===== */
+  .ag-podium{display:grid;grid-template-columns:1fr 1.12fr 1fr;gap:14px;align-items:end;margin:4px 0 18px;}
+  .pod{position:relative;border-radius:16px;padding:18px 16px 14px;text-align:center;border:1px solid #E8EDF5;background:#fff;overflow:hidden;transition:transform .15s,box-shadow .15s;}
+  .pod:hover{transform:translateY(-3px);box-shadow:0 16px 30px -18px rgba(15,23,42,.35);}
+  .pod::before{content:'';position:absolute;inset:0 0 auto 0;height:64px;background:var(--pg);opacity:.16;}
+  .pod.p1{background:linear-gradient(180deg,#FFFBEB 0%,#fff 55%);border-color:#FDE68A;padding-top:24px;box-shadow:0 18px 36px -22px rgba(245,158,11,.55);}
+  .pod.p1{--pg:linear-gradient(90deg,#F59E0B,#FCD34D);}
+  .pod.p2{--pg:linear-gradient(90deg,#94A3B8,#CBD5E1);}
+  .pod.p3{--pg:linear-gradient(90deg,#C2410C,#FDBA74);}
+  .pod > *{position:relative;}
+  .pod-crown{position:absolute;top:8px;left:50%;transform:translateX(-50%);font-size:18px;line-height:1;}
+  .pod-medal{position:absolute;top:10px;left:12px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;background:var(--pg);box-shadow:0 4px 10px -4px rgba(0,0,0,.35);}
+  .pod-av{width:64px;height:64px;margin:6px auto 8px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px;position:relative;box-shadow:0 0 0 4px #fff,0 0 0 6px var(--ring,#E2E8F0);}
+  .pod.p1 .pod-av{width:76px;height:76px;font-size:23px;--ring:#FBBF24;}
+  .pod.p2 .pod-av{--ring:#CBD5E1;} .pod.p3 .pod-av{--ring:#FDBA74;}
+  .pod-av .face{width:100%;height:100%;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .pod-av .face img{width:100%;height:100%;object-fit:cover;}
+  .pod-av .st{position:absolute;right:2px;bottom:2px;width:14px;height:14px;border-radius:50%;border:3px solid #fff;}
+  .pod-name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pod-st{font-size:11.5px;font-weight:700;color:var(--ink-faint);margin-top:2px;}
+  .pod-st.on{color:#16A34A;}
+  .pod-big{font-size:30px;font-weight:800;letter-spacing:-.02em;margin-top:8px;line-height:1;}
+  .pod.p1 .pod-big{font-size:36px;}
+  .pod-big small{display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);margin-top:4px;}
+  .pod-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;}
+  .pod-stats div{background:#F8FAFC;border-radius:9px;padding:6px 4px;}
+  .pod-stats b{display:block;font-size:14px;font-weight:800;}
+  .pod-stats span{font-size:10px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.03em;}
+  .pod-stats .r b{color:#15803D;} .pod-stats .x b{color:#B42318;}
+  .pod-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;}
+  .pod-rate{flex:1;}
+  .pod-rate .ag-mix{min-width:0;}
+  .pod-rate small{display:block;text-align:left;font-size:10.5px;font-weight:700;color:var(--ink-faint);margin-top:4px;}
+  .ag-sec-lbl{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin:2px 0 6px;}
+  .ag-sec-lbl::after{content:'';flex:1;height:1px;background:var(--line);}
+  @media (max-width:900px){ .ag-podium{grid-template-columns:1fr;} .pod.p1{order:-1;} }
 </style>
 </head>
 <body>
@@ -768,6 +805,8 @@
     <div class="panel acc-purple" style="margin-bottom:14px;">
       <div class="panel-head"><h3><span class="ph-ic" style="background:var(--purple-tint,#F3EEFE);color:var(--purple,#8B5CF6);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>Agents Active <span style="color:var(--ink-faint);font-weight:600;">&middot; <span class="ticket-range-tag">Today</span></span></h3><a href="/reports" class="view-all">Full report &rarr;</a></div>
       <div class="ag-summary" id="agSummary"></div>
+      <div class="ag-podium" id="agPodium"></div>
+      <div class="ag-sec-lbl" id="agRestLbl">Iba pang agents</div>
       <div style="overflow-x:auto;">
         <table class="ag-table">
           <thead><tr>
@@ -2024,8 +2063,46 @@ function renderTeamTable(now, r) {
     <span class="ag-chip"><i style="--c:#16A34A"></i><b>${tRes.toLocaleString()}</b> resolved</span>
     <span class="ag-chip"><i style="--c:#EF4444"></i><b>${tRej.toLocaleString()}</b> rejected</span>`;
 
+  // ---- PODIUM: top 3 ayon sa volume (kapag default sort) ----
+  const isDefault = agSort.key === 'total';
+  const podEl = document.getElementById('agPodium');
+  const restLbl = document.getElementById('agRestLbl');
+  const top3 = [...list].sort((a, b) => a.rank - b.rank).slice(0, 3);
+  const showPod = isDefault && list.length >= 3;
+  podEl.style.display = showPod ? '' : 'none';
+  restLbl.style.display = showPod && list.length > 3 ? '' : 'none';
+  if (showPod) {
+    const card = (x, cls) => {
+      const minsAgo = (now - x.last) / 60000;
+      const on = minsAgo <= 60, idle = !on && minsAgo <= 8 * 60;
+      const avatar = avatarByName.get(nameKey(x.name));
+      const face = avatar ? `<div class="face"><img src="${avatar}" alt=""></div>` : `<div class="face">${escapeHtml(initialsForName(x.name))}</div>`;
+      const closed = x.resolved + x.rejected, pct = closed ? Math.round(x.resolved / closed * 100) : 0;
+      const hc = x.handle == null ? 'none' : x.handle <= 300 ? 'fast' : x.handle <= 1800 ? 'mid' : 'slow';
+      return `<div class="pod ${cls}">
+        ${cls === 'p1' ? '<span class="pod-crown">👑</span>' : ''}<span class="pod-medal">${x.rank}</span>
+        <div class="pod-av" style="background:${colorForName(x.name)};">${face}<span class="st" style="background:${on ? '#22C55E' : idle ? '#F59E0B' : '#94A3B8'}"></span></div>
+        <div class="pod-name" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</div>
+        <div class="pod-st ${on ? 'on' : ''}">${on ? '● Active now' : 'Last active ' + escapeHtml(relativeTime(x.last))}</div>
+        <div class="pod-big">${x.total.toLocaleString()}<small>tickets handled</small></div>
+        <div class="pod-stats">
+          <div><b>${x.acked.toLocaleString()}</b><span>Acked</span></div>
+          <div class="r"><b>${x.resolved.toLocaleString()}</b><span>Resolved</span></div>
+          <div class="x"><b>${x.rejected.toLocaleString()}</b><span>Rejected</span></div>
+        </div>
+        <div class="pod-foot">
+          <div class="pod-rate">${closed ? `<div class="ag-mix"><i style="width:${pct}%;background:#22C55E"></i><i style="width:${100 - pct}%;background:#F87171"></i></div><small>${pct}% resolved</small>` : '<small>Wala pang na-close</small>'}</div>
+          <span class="ag-handle ${hc}" title="Avg handle">⏱ ${fmtHandle(x.handle)}</span>
+        </div>
+      </div>`;
+    };
+    podEl.innerHTML = card(top3[1], 'p2') + card(top3[0], 'p1') + card(top3[2], 'p3');
+  }
+  const tableList = showPod ? list.filter(x => x.rank > 3) : list;
+  document.querySelector('.ag-table').style.display = tableList.length ? '' : 'none';
+
   const LIMIT = 10;
-  const shown = agShowAll ? list : list.slice(0, LIMIT);
+  const shown = agShowAll ? tableList : tableList.slice(0, LIMIT);
   tbody.innerHTML = shown.map(x => {
     const minsAgo = (now - x.last) / 60000;
     const st = minsAgo <= 60 ? 'on' : minsAgo <= 8 * 60 ? 'idle' : '';
@@ -2054,9 +2131,9 @@ function renderTeamTable(now, r) {
       <td class="num"><span class="ag-last ${st}"><i></i>${escapeHtml(lastTxt)}</span></td>
     </tr>`;
   }).join('');
-  if (list.length > LIMIT) {
+  if (tableList.length > LIMIT) {
     more.style.display = '';
-    more.textContent = agShowAll ? 'Ipakita ang top 10 lang ▲' : `Ipakita lahat (${list.length} agents) ▼`;
+    more.textContent = agShowAll ? 'Itago ▲' : `Ipakita lahat (${tableList.length} pa) ▼`;
   } else more.style.display = 'none';
 }
 document.querySelectorAll('.ag-table th.sortable').forEach(th => th.addEventListener('click', () => {
