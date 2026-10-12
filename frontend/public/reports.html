@@ -1018,6 +1018,31 @@ let chatsData = null;
 let allTickets = [];
 let ticketsData = null;
 let avatarByName = new Map();
+// ---- AVATAR MATCHING (2026-10-12) ----
+// Tinutugma ang profile picture ng dashboard account sa agent name sa
+// tickets/chats: (1) display name, (2) Aliases na naka-set sa Profile page
+// (hal. "csrrowell"), (3) pangalan na walang prefix na csr/tl/admin/agent
+// (hal. "tljersey" → "jersey" = account "Jersey"). Walang pakialam sa
+// malaki/maliit na titik, espasyo, underscore o tuldok.
+function buildAvatarIndex(users, wrap) {
+  const norm = n => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const strip = n => norm(n).replace(/^(csr|tl|admin|agent|support)+/, '').replace(/\d+$/, '');
+  const exact = new Map(), loose = new Map();
+  (users || []).filter(u => u.avatar).forEach(u => {
+    const src = wrap ? wrap(u.avatar) : u.avatar;
+    const keys = [u.name, ...String(u.aliases || '').split(',')].map(x => x.trim()).filter(Boolean);
+    keys.forEach(k => { const n = norm(k); if (n && !exact.has(n)) exact.set(n, src); });
+    const first = norm(String(u.name || '').trim().split(/\s+/)[0]);
+    [norm(u.name), first].forEach(k => { if (k.length >= 3 && !loose.has(k)) loose.set(k, src); });
+  });
+  return { get(name) {
+    const n = norm(name); if (!n) return undefined;
+    if (exact.has(n)) return exact.get(n);
+    const s = strip(name);
+    if (s.length >= 3 && loose.has(s)) return loose.get(s);
+    return undefined;
+  } };
+}
 let tkCharts = { status: null, brand: null, agent: null };
 
 // "3 PM" reads faster in a report than "15:00", and the hour block is what
@@ -2342,7 +2367,7 @@ function downloadCsv(text, filename) {
 async function loadAvatars() {
   try {
     const data = await apiGet('/auth/directory');
-    avatarByName = new Map((data.users || []).filter(u => u.avatar).map(u => [nameKey(u.name), u.avatar]));
+    avatarByName = buildAvatarIndex(data.users);
     if (allTickets.length) renderTicketResolution();
   } catch (e) { /* initials are a fine fallback */ }
 }
