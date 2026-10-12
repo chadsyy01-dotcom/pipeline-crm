@@ -360,7 +360,7 @@
     <div class="shift-banner" id="shiftBanner" style="display:none;">🕒 Naka-filter sa <b></b> shift — lahat ng numero sa ibaba ay para lang sa shift na ito. <button type="button" id="shiftBannerClear">Ipakita lahat ng shift ✕</button></div>
     <div class="ap-kpis">
       <div class="kc" style="--acc:#8B5CF6;--acc-t:#F3EEFE;"><div class="kh"><div class="kl">Active agents</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div><div class="kv" id="kAgents">—</div><div class="ks" id="kAgentsS">&nbsp;</div></div>
-      <div class="kc" style="--acc:#22C55E;--acc-t:#EAFBF1;"><div class="kh"><div class="kl">Done tickets</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div></div><div class="kv" id="kDone">—</div><div class="ks" id="kDoneS">&nbsp;</div></div>
+      <div class="kc" style="--acc:#22C55E;--acc-t:#EAFBF1;"><div class="kh"><div class="kl">Closed tickets</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div></div><div class="kv" id="kDone">—</div><div class="ks" id="kDoneS">&nbsp;</div></div>
       <div class="kc" style="--acc:#2563EB;--acc-t:#EFF4FF;"><div class="kh"><div class="kl">Team within SLA</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div></div><div class="kv" id="kSla">—</div><div class="ks" id="kSlaS">&nbsp;</div><div class="bar"><i id="kSlaBar" style="width:0"></i></div></div>
       <div class="kc" style="--acc:#F59E0B;--acc-t:#FEF6E7;"><div class="kh"><div class="kl">Concerns w/o benchmark</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div></div><div class="kv" id="kNoBench">—</div><div class="ks" id="kNoBenchS">&nbsp;</div></div>
     </div>
@@ -418,7 +418,7 @@
     </section>
 
     <section class="panel" id="lbSection" style="--acc:#F59E0B;">
-      <div class="p-head"><h3>🏆 Leaderboard <span class="sub" id="lbSub"></span></h3><span class="hint">Kailangan ng ≥3 Done tickets para mapasama sa ranking ng SLA / bilis</span></div>
+      <div class="p-head"><h3>🏆 Leaderboard <span class="sub" id="lbSub"></span></h3><span class="hint">Kailangan ng ≥3 closed tickets (Done + Rejected) para mapasama sa ranking ng SLA / bilis</span></div>
       <div class="ag-podium" id="podium"></div>
       <div class="sec-lbl" id="restLbl">Iba pang agents</div>
       <div style="overflow-x:auto;">
@@ -456,7 +456,7 @@
           <thead><tr>
             <th>Concern</th>
             <th class="num">Benchmark</th>
-            <th class="num">Done</th>
+            <th class="num" title="Done + Rejected">Closed</th>
             <th style="min-width:220px;">Pasok sa benchmark</th>
             <th id="csLastTh">Top agent</th>
           </tr></thead>
@@ -645,7 +645,7 @@
     if (!x.slaN) return '<span class="sla na" title="Walang Done ticket na may benchmark">—</span>';
     const p = Math.round(x.slaHit / x.slaN * 100);
     const c = p >= 90 ? 'good' : p >= 70 ? 'ok' : 'bad';
-    return `<span class="sla ${c}" title="${x.slaHit} sa ${x.slaN} Done tickets ang pasok sa benchmark">${p}% <small>(${x.slaHit}/${x.slaN})</small></span>`;
+    return `<span class="sla ${c}" title="${x.slaHit} sa ${x.slaN} closed tickets (Done + Rejected) ang pasok sa benchmark">${p}% <small>(${x.slaHit}/${x.slaN})</small></span>`;
   }
   function hdPill(sec, limSec) {
     const c = sec == null ? 'none' : sec <= limSec ? 'fast' : sec <= limSec * 3 ? 'mid' : 'slow';
@@ -678,13 +678,16 @@
         const a = get(t.acknowledgedBy); a.acked++; touch(a, t.acknowledgedAt);
       }
       if (t.resolvedBy && !isHidden(t.resolvedBy) && inRange(t.resolvedAt, r)) {
-        if (t.statusCls === 'done' && (!agentSel || t.resolvedBy === agentSel)) {
+        // CLOSED = Done + Rejected (2026-10-12, utos ni Chad): kahit Rejected,
+        // binibilang sa SLA — kapag natagalan bago na-close, bagsak pa rin.
+        const closed = t.statusCls === 'done' || t.statusCls === 'rejected';
+        if (closed && (!agentSel || t.resolvedBy === agentSel)) {
           // concern table: lahat ng concern (hindi apektado ng concern filter)
           if (agentSel && bench && t.resolveDurationSec != null && t.resolveDurationSec > bench.min * 60 && inConcern)
             misses.push({ t, issue, bench, dur: t.resolveDurationSec, over: t.resolveDurationSec - bench.min * 60 });
           let c = concerns.get(issue);
-          if (!c) { c = { issue, bench, done: 0, slaN: 0, slaHit: 0, dur: [], byAgent: new Map() }; concerns.set(issue, c); }
-          c.done++;
+          if (!c) { c = { issue, bench, done: 0, rej: 0, slaN: 0, slaHit: 0, dur: [], byAgent: new Map() }; concerns.set(issue, c); }
+          c.done++; if (t.statusCls === 'rejected') c.rej++;
           const d = t.resolveDurationSec;
           if (d != null) c.dur.push(d);
           let ca = c.byAgent.get(t.resolvedBy);
@@ -695,13 +698,13 @@
         }
         if (!inConcern) return;
         const a = get(t.resolvedBy); touch(a, t.resolvedAt);
-        if (t.statusCls === 'done') {
-          a.resolved++;
+        if (closed) {
+          if (t.statusCls === 'done') a.resolved++; else a.rejected++;
           const d = t.resolveDurationSec;
           if (d != null) a.dur.push(d);
           if (bench && d != null) { a.slaN++; if (d <= bench.min * 60) a.slaHit++; }
           a.byConcern.set(issue, (a.byConcern.get(issue) || 0) + 1);
-        } else if (t.statusCls === 'rejected') a.rejected++;
+        }
       }
     });
     const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
@@ -715,7 +718,7 @@
         topConcern: top ? top[0] : '', topConcernN: top ? top[1] : 0, lastMs: a.last ? +a.last : 0 };
     });
     const score = x => state.rank === 'sla' ? (x.slaN >= MIN_N ? x.sla * 1e6 + x.slaN : -1)
-      : state.rank === 'speed' ? (x.handle != null && x.resolved >= MIN_N ? -x.handle : -Infinity)
+      : state.rank === 'speed' ? (x.handle != null && (x.resolved + x.rejected) >= MIN_N ? -x.handle : -Infinity)
       : x.total;
     [...list].sort((a, b) => (score(b) - score(a)) || (b.resolved - a.resolved) || (b.total - a.total)).forEach((x, i) => { x.rank = i + 1; });
     const clist = [...concerns.values()].map(c => {
@@ -768,7 +771,8 @@
     bc.textContent = selBench ? `Benchmark: ≤ ${selBench.min} min` : 'Walang benchmark ang concern na ito';
 
     // KPIs
-    const done = list.reduce((s, x) => s + x.resolved, 0);
+    const done = list.reduce((s, x) => s + x.resolved + x.rejected, 0); // closed = Done + Rejected
+    const doneOnly = list.reduce((s, x) => s + x.resolved, 0);
     const slaN = list.reduce((s, x) => s + x.slaN, 0), slaHit = list.reduce((s, x) => s + x.slaHit, 0);
     const online = list.filter(x => (Date.now() - x.lastMs) / 60000 <= 60).length;
     document.getElementById('kAgents').textContent = list.length;
@@ -777,12 +781,12 @@
     if (state.shift) {
       // Malinaw na naka-filter sa isang shift: ipakita rin ang kabuuan ng lahat ng shift
       const keepS = state.shift; state.shift = '';
-      const allDone = compute({ agent: '' }).list.reduce((a, x) => a + x.resolved, 0);
+      const allDone = compute({ agent: '' }).list.reduce((a, x) => a + x.resolved + x.rejected, 0);
       state.shift = keepS;
       const shL = SHIFTS.find(x => x.key === state.shift).label;
       document.getElementById('kDoneS').innerHTML = `<b style="color:#4F46E5">${shL} shift lang</b> · sa ${allDone.toLocaleString()} kabuuan · ${r.label}`;
     } else {
-      document.getElementById('kDoneS').textContent = `${slaN.toLocaleString()} may benchmark · ${r.label} · lahat ng shift`;
+      document.getElementById('kDoneS').textContent = `${doneOnly.toLocaleString()} Done · ${(done - doneOnly).toLocaleString()} Rejected · ${r.label} · lahat ng shift`;
     }
     // Banner: aling shift ang naka-filter
     const fb = document.getElementById('shiftBanner');
@@ -798,7 +802,7 @@
     document.getElementById('kSlaBar').style.background = tp == null ? '' : slaColor(tp);
     const nob = clist.filter(c => !c.bench);
     document.getElementById('kNoBench').textContent = nob.length;
-    document.getElementById('kNoBenchS').textContent = nob.length ? `${nob.reduce((s, c) => s + c.done, 0).toLocaleString()} Done tickets na hindi nasusukat` : 'Lahat may benchmark';
+    document.getElementById('kNoBenchS').textContent = nob.length ? `${nob.reduce((s, c) => s + c.done, 0).toLocaleString()} closed tickets na hindi nasusukat` : 'Lahat may benchmark';
     document.getElementById('lbSub').textContent = `· ${r.label}${state.shift ? ' · ' + SHIFTS.find(x => x.key === state.shift).label + ' shift' : ''}${state.concern ? ' · ' + state.concern : ''}`;
     document.getElementById('ccSub').textContent = `· ${clist.length} concerns · ${r.label}`;
 
@@ -836,7 +840,7 @@
             <div class="pod-name" title="Tingnan ang breakdown ni ${escapeHtml(x.name)}"><a href="#" class="pick-ag" data-agent="${escapeHtml(x.name)}" style="color:inherit;">${escapeHtml(x.name)}</a></div>
             <div class="pod-big">${big(x)}<small>${bigLbl}</small></div>
             <div style="margin-top:8px;">${state.rank === 'sla'
-              ? `<span title="Average ng lahat ng Done tickets. Median: ${fmtDur(x.med)}${x.slowN ? ' · ' + x.slowN + ' ticket ang inabot ng 1 oras+' : ''}">${hdPill(x.handle, lim)}</span><div style="font-size:10.5px;font-weight:700;color:var(--ink-faint);margin-top:4px;">AVG RESOLVE · median ${fmtDur(x.med)}${x.slowN ? ` · <span style="color:#B42318">${x.slowN} na 1h+</span>` : ''}</div>`
+              ? `<span title="Average ng lahat ng closed tickets (Done + Rejected). Median: ${fmtDur(x.med)}${x.slowN ? ' · ' + x.slowN + ' ticket ang inabot ng 1 oras+' : ''}">${hdPill(x.handle, lim)}</span><div style="font-size:10.5px;font-weight:700;color:var(--ink-faint);margin-top:4px;">AVG RESOLVE · median ${fmtDur(x.med)}${x.slowN ? ` · <span style="color:#B42318">${x.slowN} na 1h+</span>` : ''}</div>`
               : slaPill(x)}</div>
             <div class="pod-stats"><div><b class="res">${x.resolved.toLocaleString()}</b><span>Done</span></div><div><b class="rej">${x.rejected.toLocaleString()}</b><span>Rejected</span></div><div><b>${x.acked.toLocaleString()}</b><span>Acked</span></div></div>
             <div class="pod-tc">${x.topConcern ? `Top: <b>${escapeHtml(x.topConcern)}</b> (${x.topConcernN})` : '&nbsp;'}</div></div>`;
@@ -848,9 +852,9 @@
       body.innerHTML = shown.map(x => {
         const mins = (Date.now() - x.lastMs) / 60000;
         const st = mins <= 60 ? '#22C55E' : mins <= 480 ? '#F59E0B' : '#94A3B8';
-        const notRanked = (state.rank === 'sla' && x.slaN < MIN_N) || (state.rank === 'speed' && x.resolved < MIN_N);
+        const notRanked = (state.rank === 'sla' && x.slaN < MIN_N) || (state.rank === 'speed' && (x.resolved + x.rejected) < MIN_N);
         return `<tr>
-          <td><span class="rank" title="${notRanked ? 'Kulang sa 3 Done tickets — nasa dulo ng ranking' : ''}">${x.rank}</span></td>
+          <td><span class="rank" title="${notRanked ? 'Kulang sa 3 closed tickets — nasa dulo ng ranking' : ''}">${x.rank}</span></td>
           <td><div class="who"><div class="av" style="background:${colorForName(x.name)}">${avatarHtml(x.name)}<span class="st" style="background:${st}"></span></div>
             <div style="min-width:0;"><div class="nm"><a href="#" class="pick-ag" data-agent="${escapeHtml(x.name)}" style="color:inherit;">${escapeHtml(x.name)}</a></div><div class="nm-sub">Last active ${escapeHtml(relativeTime(x.last))}</div></div></div></td>
           <td class="num res">${x.resolved.toLocaleString()}</td>
@@ -884,7 +888,7 @@
         <td><span style="font-size:12px;">Walang benchmark</span></td><td>—</td></tr>`;
     document.getElementById('csBody').innerHTML = (withB.map(rowB).join('')
       + (noB.length ? `<tr class="grp"><td colspan="5">Walang benchmark — hindi nasusukat (${noB.length})</td></tr>` + noB.map(rowN).join('') : ''))
-      || '<tr><td colspan="5"><div class="empty-note">Walang Done tickets sa range na ito.</div></td></tr>';
+      || '<tr><td colspan="5"><div class="empty-note">Walang closed tickets sa range na ito.</div></td></tr>';
     document.getElementById('ccSub').textContent = agentMode ? `· ${state.agent} · ${r.label}` : `· ${clist.length} concerns · ${r.label}`;
     if (agentMode) {
       const meR = list.find(x => x.name === state.agent), meD = det.list[0];
@@ -917,7 +921,7 @@
       const LIM = 30, shownM = state.missAll ? misses : misses.slice(0, LIM);
       const fmtWhen = d => d && !isNaN(d) ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }) : '—';
       document.getElementById('missBody').innerHTML = shownM.map(m => `<tr>
-          <td>${m.t.sheetLink ? `<a class="tid" href="${escapeHtml(m.t.sheetLink)}" target="_blank" rel="noopener" title="Buksan sa sheet">${escapeHtml(m.t.id)}</a>` : `<span class="tid">${escapeHtml(m.t.id)}</span>`}</td>
+          <td>${m.t.statusCls === 'rejected' ? '<span title="Rejected" style="font-size:10px;font-weight:800;color:#B42318;background:#FDECEC;border-radius:6px;padding:1px 6px;margin-right:6px;">REJ</span>' : ''}${m.t.sheetLink ? `<a class="tid" href="${escapeHtml(m.t.sheetLink)}" target="_blank" rel="noopener" title="Buksan sa sheet">${escapeHtml(m.t.id)}</a>` : `<span class="tid">${escapeHtml(m.t.id)}</span>`}</td>
           <td style="font-weight:600;">${escapeHtml(m.issue)}</td>
           <td class="num">≤ ${m.bench.min}m</td>
           <td style="white-space:nowrap;color:var(--ink-soft);">${fmtWhen(m.t.submitted)}</td>
@@ -962,7 +966,7 @@
     const r = rangeOf(state.range);
     const T = allTickets.filter(t => (!state.brand || t.brandCode === state.brand) && !isHidden(t.acknowledgedBy) && !isHidden(t.resolvedBy));
     const ack = T.filter(t => t.acknowledgedBy && inRange(t.acknowledgedAt, r) && t.ackDurationSec != null && isFinite(t.ackDurationSec)).map(t => t.ackDurationSec);
-    const res = T.filter(t => t.statusCls === 'done' && t.resolvedBy && inRange(t.resolvedAt, r) && t.resolveDurationSec != null && isFinite(t.resolveDurationSec)).map(t => t.resolveDurationSec);
+    const res = T.filter(t => (t.statusCls === 'done' || t.statusCls === 'rejected') && t.resolvedBy && inRange(t.resolvedAt, r) && t.resolveDurationSec != null && isFinite(t.resolveDurationSec)).map(t => t.resolveDurationSec);
     const avgA = ack.length ? ack.reduce((a, b) => a + b, 0) / ack.length : null;
     const avgR = res.length ? res.reduce((a, b) => a + b, 0) / res.length : null;
     // Individual average count: Done + Rejected bawat agent vs average ng team
@@ -983,7 +987,7 @@
       ack.length ? `${ack.length.toLocaleString()} tickets · median <b>${fmtDur(median(ack))}</b> · <b>${pctWithin(ack, 180)}%</b> ang ≤ 3m` : 'Walang na-ack na ticket');
     row('Team Performance – Ticket Average Time to Resolved', 'Lahat ng ticket category at brand', '≤ 5 minutes',
       `<span style="color:${actCol(avgR, 300)}">${fmtDur(avgR)}</span>`, stHtml(avgR, 300),
-      res.length ? `${res.length.toLocaleString()} Done · median <b>${fmtDur(median(res))}</b> · <b>${pctWithin(res, 300)}%</b> ang ≤ 5m` : 'Walang Done ticket');
+      res.length ? `${res.length.toLocaleString()} closed (Done + Rejected) · median <b>${fmtDur(median(res))}</b> · <b>${pctWithin(res, 300)}%</b> ang ≤ 5m` : 'Walang closed ticket');
     row('Individual Performance – Average count of ticket', 'Lahat ng ticket category at brand', 'Average count',
       avgC == null ? '—' : `${Math.round(avgC).toLocaleString()} <span style="font-size:11px;color:var(--ink-faint);font-weight:700;">/ agent</span>`,
       avgC == null ? '<span class="st man">—</span>' : `<span class="st info">${counts.length - below.length}/${counts.length} ≥ avg</span>`,
@@ -1106,8 +1110,10 @@
         { Item: 'Concern filter', Value: state.concern || 'All concerns' },
         { Item: 'Rank by', Value: rankLbl },
         { Item: 'Active agents', Value: L.length },
-        { Item: 'Done tickets', Value: done },
-        { Item: 'Done tickets na may benchmark', Value: sN },
+        { Item: 'Closed tickets (Done + Rejected)', Value: L.reduce((a, x) => a + x.resolved + x.rejected, 0) },
+        { Item: 'Done', Value: done },
+        { Item: 'Rejected', Value: L.reduce((a, x) => a + x.rejected, 0) },
+        { Item: 'Closed tickets na may benchmark', Value: sN },
         { Item: 'Team within SLA %', Value: sN ? Math.round(sH / sN * 1000) / 10 : '' },
         { Item: 'Hidden agents (hindi kasama)', Value: AGENTS_HIDDEN_NAMES.join(', ') },
         { Item: 'Exported', Value: dt(new Date()) },
@@ -1126,15 +1132,15 @@
         'Fastest agent': c.fast ? c.fast.name : '', 'Fastest avg (min)': c.fast ? mins(c.fast.avg) : '',
       })));
       // Done tickets (detalye kada ticket)
-      const rows = base.scoped.filter(t => t.statusCls === 'done' && t.resolvedBy && inRange(t.resolvedAt, r) && (!state.concern || t.issue === state.concern))
+      const rows = base.scoped.filter(t => (t.statusCls === 'done' || t.statusCls === 'rejected') && t.resolvedBy && inRange(t.resolvedAt, r) && (!state.concern || t.issue === state.concern))
         .sort((a, b) => b.resolvedAt - a.resolvedAt)
         .map(t => { const b = benchmarkFor(t.issue), d = t.resolveDurationSec; return {
-          'Ticket ID': t.id, Agent: t.resolvedBy, Brand: t.brandLabel || t.brandCode || '', Concern: t.issue,
+          'Ticket ID': t.id, Status: t.statusCls === 'rejected' ? 'Rejected' : 'Done', Agent: t.resolvedBy, Brand: t.brandLabel || t.brandCode || '', Concern: t.issue,
           'Benchmark (min)': b ? b.min : '', 'Resolve (min)': mins(d),
           Resulta: !b ? 'Walang benchmark' : d == null ? 'Walang duration' : d <= b.min * 60 ? 'Pasok' : 'Lumampas',
           'Sobra (min)': b && d != null && d > b.min * 60 ? mins(d - b.min * 60) : '',
           'Ack (min)': mins(t.ackDurationSec), 'Acked by': t.acknowledgedBy || '', 'Submitted at': dt(t.submitted), 'Acknowledged at': dt(t.acknowledgedAt), 'Resolved at': dt(t.resolvedAt), 'Naitama': t.badTimes ? 'Hindi sinukat — Resolved bago Acknowledged (mali ang oras sa sheet)' : (t.durationFixed || t.submittedFixed ? 'Oo — Ack→Resolved ang ginamit' : ''), 'Sheet link': t.sheetLink || '' }; });
-      add('Done Tickets', rows);
+      add('Closed Tickets', rows);
       // Lumampas ng napiling agent
       if (state.agent) {
         const det = compute();
@@ -1204,7 +1210,7 @@
         <div class="sh-h"><div class="sh-t">${x.sh.label}</div>${lvl ? `<span class="sh-heavy ${lvl}" title="Batay sa average na benchmark ng mga concern na hinawakan">${lvlTxt}</span>` : ''}</div>
         <div class="sh-team">Team: ${x.sh.team.map(escapeHtml).join(', ')}</div>
         <div class="sh-stats">
-          <div><b>${x.done.toLocaleString()}</b><span>Done</span></div>
+          <div><b>${x.done.toLocaleString()}</b><span>Closed</span></div>
           <div><b style="color:${slaCol}">${x.sla == null ? '—' : x.sla + '%'}</b><span>Within SLA</span></div>
           <div><b>${x.avgBench == null ? '—' : x.avgBench.toFixed(1) + 'm'}</b><span>Avg benchmark</span></div>
         </div>
