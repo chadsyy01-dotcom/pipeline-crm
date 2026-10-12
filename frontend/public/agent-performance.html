@@ -432,7 +432,7 @@
       <div class="miss-sum" id="missSum"></div>
       <div style="overflow-x:auto;">
         <table class="ag-table">
-          <thead><tr><th>Ticket</th><th>Concern</th><th class="num">Benchmark</th><th class="num">Inabot</th><th class="num">Sobra</th><th>Resolved</th><th>Brand</th></tr></thead>
+          <thead><tr><th>Ticket</th><th>Concern</th><th class="num">Benchmark</th><th>Submitted</th><th>Acknowledged</th><th>Resolved</th><th class="num">Inabot</th><th class="num">Sobra</th><th>Brand</th></tr></thead>
           <tbody id="missBody"></tbody>
         </table>
       </div>
@@ -822,16 +822,18 @@
            <span>Average na sobra: <b>${fmtDur(avgOver)}</b></span>`
         : `<span style="background:#EAFBF1;border-color:#C9F0D8;color:#15803D;">✓ Walang lumampas — lahat ng ${me.slaN} tickets ay pasok sa benchmark</span>`;
       const LIM = 30, shownM = state.missAll ? misses : misses.slice(0, LIM);
-      const fmtWhen = d => d ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+      const fmtWhen = d => d && !isNaN(d) ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }) : '—';
       document.getElementById('missBody').innerHTML = shownM.map(m => `<tr>
           <td>${m.t.sheetLink ? `<a class="tid" href="${escapeHtml(m.t.sheetLink)}" target="_blank" rel="noopener" title="Buksan sa sheet">${escapeHtml(m.t.id)}</a>` : `<span class="tid">${escapeHtml(m.t.id)}</span>`}</td>
           <td style="font-weight:600;">${escapeHtml(m.issue)}</td>
           <td class="num">≤ ${m.bench.min}m</td>
+          <td style="white-space:nowrap;color:var(--ink-soft);">${fmtWhen(m.t.submitted)}</td>
+          <td style="white-space:nowrap;color:var(--ink-soft);">${fmtWhen(m.t.acknowledgedAt)}</td>
+          <td style="white-space:nowrap;color:var(--ink-soft);">${fmtWhen(m.t.resolvedAt)}</td>
           <td class="num">${fmtDur(m.dur)}</td>
           <td class="num over">+${fmtDur(m.over)}</td>
-          <td style="white-space:nowrap;color:var(--ink-soft);">${fmtWhen(m.t.resolvedAt)}</td>
           <td style="color:var(--ink-soft);">${escapeHtml(m.t.brandLabel || m.t.brandCode || '—')}</td></tr>`).join('')
-        || '<tr><td colspan="7"><div class="empty-note">Walang ticket na lumampas. 🎉</div></td></tr>';
+        || '<tr><td colspan="9"><div class="empty-note">Walang ticket na lumampas. 🎉</div></td></tr>';
       const mm = document.getElementById('missMore');
       if (misses.length > LIM) { mm.style.display = ''; mm.textContent = state.missAll ? 'Itago ▲' : `Ipakita lahat (${misses.length - LIM} pa) ▼`; } else mm.style.display = 'none';
     }
@@ -1037,14 +1039,14 @@
           'Benchmark (min)': b ? b.min : '', 'Resolve (min)': mins(d),
           Resulta: !b ? 'Walang benchmark' : d == null ? 'Walang duration' : d <= b.min * 60 ? 'Pasok' : 'Lumampas',
           'Sobra (min)': b && d != null && d > b.min * 60 ? mins(d - b.min * 60) : '',
-          'Ack (min)': mins(t.ackDurationSec), 'Acked by': t.acknowledgedBy || '', 'Resolved at': dt(t.resolvedAt), 'Sheet link': t.sheetLink || '' }; });
+          'Ack (min)': mins(t.ackDurationSec), 'Acked by': t.acknowledgedBy || '', 'Submitted at': dt(t.submitted), 'Acknowledged at': dt(t.acknowledgedAt), 'Resolved at': dt(t.resolvedAt), 'Naitama': t.durationFixed || t.submittedFixed ? 'Oo (mali ang oras sa sheet)' : '', 'Sheet link': t.sheetLink || '' }; });
       add('Done Tickets', rows);
       // Lumampas ng napiling agent
       if (state.agent) {
         const det = compute();
         add(('Lumampas - ' + state.agent.replace(/[\\\/?*\[\]:]/g, '')).slice(0, 31), det.misses.sort((a, b) => b.over - a.over).map(m => ({
           'Ticket ID': m.t.id, Concern: m.issue, 'Benchmark (min)': m.bench.min, 'Inabot (min)': mins(m.dur), 'Sobra (min)': mins(m.over),
-          'Resolved at': dt(m.t.resolvedAt), Brand: m.t.brandLabel || '', 'Sheet link': m.t.sheetLink || '' })));
+          'Submitted at': dt(m.t.submitted), 'Acknowledged at': dt(m.t.acknowledgedAt), 'Resolved at': dt(m.t.resolvedAt), Brand: m.t.brandLabel || '', 'Sheet link': m.t.sheetLink || '' })));
       }
       // Column widths
       wb.SheetNames.forEach(n => { const ws = wb.Sheets[n]; const json = X.utils.sheet_to_json(ws, { header: 1 });
@@ -1069,10 +1071,56 @@
     document.getElementById('liveChip').classList.add('ok');
     document.getElementById('liveTxt').textContent = `${allTickets.length.toLocaleString()} tickets · Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   }
+
+  // ---- DURATION SANITY CHECK (2026-10-12) ----
+  // May mga sheet (hal. HypePlay BD) na mali ang "Resolving Duration" —
+  // lumabas na 234 araw sa ticket na Oct 2 lang na-submit. Kaya sinusuri ang
+  // bawat duration laban sa mismong timestamps ng ticket:
+  //   • Resolve: hindi puwedeng mas mahaba sa (Resolved At − Submitted At).
+  //     Kapag lumampas, ginagamit ang (Resolved At − Acknowledged At), o
+  //     (Resolved At − Submitted At) kung walang ack.
+  //   • Ack: hindi puwedeng mas mahaba sa (Acknowledged At − Submitted At).
+  // Kapag walang duration sa sheet pero may timestamps, kinukuwenta rin.
+  const SLACK_SEC = 120;
+  // Submitted At: may sheet na DD/MM ang format ("02/10/2026" = Oct 2) pero
+  // nababasa bilang MM/DD (Feb 10). Kapag malayo nang sobra (>20 araw) o
+  // lampas pa sa ack/resolve ang submitted, sinusubukan ang pinagpalit na
+  // araw/buwan — ginagamit kung mas tugma ito sa Acknowledged/Resolved At.
+  function fixSubmitted(t) {
+    const d = t.submitted instanceof Date && !isNaN(t.submitted) ? t.submitted : null;
+    const refs = [t.acknowledgedAt, t.resolvedAt].filter(x => x instanceof Date && !isNaN(x)).map(Number);
+    if (!d || !refs.length) return t;
+    const ref = Math.min(...refs);
+    const gapOk = x => x <= ref + 60000 && ref - x <= 20 * 86400000;
+    if (gapOk(+d)) return t;
+    if (d.getDate() > 12) return t;
+    const alt = new Date(d.getFullYear(), d.getDate() - 1, d.getMonth() + 1, d.getHours(), d.getMinutes(), d.getSeconds());
+    if (isNaN(alt) || !gapOk(+alt)) return t;
+    return { ...t, submitted: alt, submittedFixed: true };
+  }
+  function fixDurations(t0) {
+    const t = fixSubmitted(t0);
+    const sub = t.submitted instanceof Date && !isNaN(t.submitted) ? +t.submitted : null;
+    const ack = t.acknowledgedAt ? +t.acknowledgedAt : null;
+    const res = t.resolvedAt ? +t.resolvedAt : null;
+    let rd = t.resolveDurationSec, ad = t.ackDurationSec, fixed = false;
+    if (res != null) {
+      const maxR = sub != null ? (res - sub) / 1000 : null;
+      const calcR = ack != null && ack <= res ? (res - ack) / 1000 : maxR;
+      const bad = rd == null || !isFinite(rd) || rd < 0 || (maxR != null && maxR >= 0 && rd > maxR + SLACK_SEC);
+      if (bad && calcR != null && calcR >= 0) { rd = calcR; fixed = true; }
+    }
+    if (ack != null && sub != null) {
+      const maxA = (ack - sub) / 1000;
+      const bad = ad == null || !isFinite(ad) || ad < 0 || ad > maxA + SLACK_SEC;
+      if (bad && maxA >= 0) { ad = maxA; fixed = true; }
+    }
+    return fixed ? { ...t, resolveDurationSec: rd, ackDurationSec: ad, durationFixed: true } : t;  // t ay may naitamang submitted na kung kailangan
+  }
   let loading = false;
   async function load(force) {
     if (loading) return; loading = true;
-    try { allTickets = await TicketData.fetchTickets(!!force); fillBrands(); render(); markUpdated(); }
+    try { allTickets = (await TicketData.fetchTickets(!!force)).map(fixDurations); fillBrands(); render(); markUpdated(); }
     catch (err) { console.error(err); document.getElementById('liveTxt').textContent = 'Hindi ma-load ang tickets — i-refresh'; }
     finally { loading = false; }
   }
