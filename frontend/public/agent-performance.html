@@ -420,6 +420,15 @@
   const RESOLVE_BENCHMARKS = [
   // Unang tinitingnan ang EXACT na pangalan; kung wala, ang keywords (re) —
   // naka-ayos mula sa pinaka-specific para hindi magkapalit.
+  // Dagdag 2026-10-12 (galing kay Chad — wala sa Core TL KPI doc)
+  { label: 'Cash In Delay (More than 24 Hours)',       min: 10, re: /cash\s*in\s*delay.*(24|more\s*than)/i },
+  { label: 'Cash Out Delay (More than 24 Hours)',      min: 10, re: /cash\s*out\s*delay.*(24|more\s*than)/i },
+  { label: 'Cash Out Delay',                           min: 5,  re: /^\s*cash\s*out\s*delay/i },
+  { label: 'Cash In Delay',                            min: 5,  re: /^\s*cash\s*in\s*delay/i },
+  { label: 'Cancel Withdrawal Request',                min: 5,  re: /cancel\w*\s*withdraw/i },
+  { label: 'Recall Balance / Force Chips Transfer',    min: 3,  re: /recall\s*balance|force\s*chips?\s*transfer/i },
+  { label: 'Follow-up (Ticket ID)',                    min: 3,  re: /follow-?\s*up\s*\(\s*ticket\s*id\s*\)/i },
+  // Core TL KPIs (2026 Standards)
   { label: 'Forfeited Chips (Fraud / KYC)',            min: 5,  re: /forfeit/i },
   { label: 'Received Fraud Notification in Account',   min: 5,  re: /fraud\s*notif/i },
   { label: 'Reset Player Payment PIN',                 min: 10, re: /\bpin\b/i },
