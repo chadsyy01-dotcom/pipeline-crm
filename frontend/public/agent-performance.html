@@ -1065,7 +1065,7 @@
           'Benchmark (min)': b ? b.min : '', 'Resolve (min)': mins(d),
           Resulta: !b ? 'Walang benchmark' : d == null ? 'Walang duration' : d <= b.min * 60 ? 'Pasok' : 'Lumampas',
           'Sobra (min)': b && d != null && d > b.min * 60 ? mins(d - b.min * 60) : '',
-          'Ack (min)': mins(t.ackDurationSec), 'Acked by': t.acknowledgedBy || '', 'Submitted at': dt(t.submitted), 'Acknowledged at': dt(t.acknowledgedAt), 'Resolved at': dt(t.resolvedAt), 'Naitama': t.durationFixed || t.submittedFixed ? 'Oo (mali ang oras sa sheet)' : '', 'Sheet link': t.sheetLink || '' }; });
+          'Ack (min)': mins(t.ackDurationSec), 'Acked by': t.acknowledgedBy || '', 'Submitted at': dt(t.submitted), 'Acknowledged at': dt(t.acknowledgedAt), 'Resolved at': dt(t.resolvedAt), 'Naitama': t.badTimes ? 'Hindi sinukat — Resolved bago Acknowledged (mali ang oras sa sheet)' : (t.durationFixed || t.submittedFixed ? 'Oo — Ack→Resolved ang ginamit' : ''), 'Sheet link': t.sheetLink || '' }; });
       add('Done Tickets', rows);
       // Lumampas ng napiling agent
       if (state.agent) {
@@ -1129,19 +1129,29 @@
     const sub = t.submitted instanceof Date && !isNaN(t.submitted) ? +t.submitted : null;
     const ack = t.acknowledgedAt ? +t.acknowledgedAt : null;
     const res = t.resolvedAt ? +t.resolvedAt : null;
-    let rd = t.resolveDurationSec, ad = t.ackDurationSec, fixed = false;
+    let rd = t.resolveDurationSec, ad = t.ackDurationSec, fixed = false, badTimes = false;
     if (res != null) {
-      const maxR = sub != null ? (res - sub) / 1000 : null;
-      const calcR = ack != null && ack <= res ? (res - ack) / 1000 : maxR;
-      const bad = rd == null || !isFinite(rd) || rd < 0 || (maxR != null && maxR >= 0 && rd > maxR + SLACK_SEC);
-      if (bad && calcR != null && calcR >= 0) { rd = calcR; fixed = true; }
+      // Mali ang pagkakasunod (na-Done BAGO pa na-Acknowledge, hal. Ack Oct 7
+      // pero Resolved Oct 5) → hindi mapagkakatiwalaan ang oras: HINDI isasama
+      // sa SLA / average (rd = null) at mamarkahan bilang "data error".
+      if (ack != null && ack > res + 60000) { rd = null; badTimes = true; fixed = true; }
+      else {
+        // Resolve = oras ng paghawak ng agent: Acknowledged → Resolved.
+        // Kapag mas mahaba ang nasa sheet kaysa doon (hal. binilang mula
+        // Submitted, kaya 40 araw sa lumang ticket), ginagamit ang Ack→Resolved.
+        const ackToRes = ack != null ? (res - ack) / 1000 : null;
+        const maxR = sub != null ? (res - sub) / 1000 : null;
+        const limit = ackToRes != null ? ackToRes : maxR;
+        const bad = rd == null || !isFinite(rd) || rd < 0 || (limit != null && limit >= 0 && rd > limit + SLACK_SEC);
+        if (bad && limit != null && limit >= 0) { rd = limit; fixed = true; }
+      }
     }
     if (ack != null && sub != null) {
       const maxA = (ack - sub) / 1000;
       const bad = ad == null || !isFinite(ad) || ad < 0 || ad > maxA + SLACK_SEC;
       if (bad && maxA >= 0) { ad = maxA; fixed = true; }
     }
-    return fixed ? { ...t, resolveDurationSec: rd, ackDurationSec: ad, durationFixed: true } : t;  // t ay may naitamang submitted na kung kailangan
+    return fixed ? { ...t, resolveDurationSec: rd, ackDurationSec: ad, durationFixed: true, badTimes } : t;  // t ay may naitamang submitted na kung kailangan
   }
   let loading = false;
   async function load(force) {
