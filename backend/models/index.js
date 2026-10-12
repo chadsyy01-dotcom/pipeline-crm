@@ -45,6 +45,12 @@ const User = sequelize.define('User', {
   // picture (name/password are admin-only — see routes/auth.js). NULL = fall
   // back to the initials circle the UI already draws.
   avatar: { type: DataTypes.TEXT, allowNull: true },
+  // Ibang pangalan ng account sa Google Sheets / Chatwoot (added 2026-10-12),
+  // comma-separated, hal. "csrrowell, Admin Rowell". Dito tinutugma ang
+  // profile picture sa agent names ng tickets at chats. Ang column ay
+  // ginagawa ng routes/auth.js (ALTER TABLE ... IF NOT EXISTS) dahil
+  // sequelize.sync() na walang alter ang gamit ng server.
+  aliases: { type: DataTypes.TEXT, allowNull: true },
 });
 
 const Company = sequelize.define('Company', {
