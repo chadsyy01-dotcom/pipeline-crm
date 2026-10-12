@@ -579,6 +579,7 @@
 .ho-divider::before,.ho-divider::after{content:'';flex:1;height:1px;background:#F5C37A;}
 .ho-divider span{background:#FFF1DC;padding:4px 12px;border-radius:999px;white-space:nowrap;}
 .msg-row.msg-missed .msg-bubble{background:#FFF0F1;box-shadow:0 0 0 2px #E5484D;}
+.req-tag{display:inline-block;margin-top:5px;font-size:9.5px;font-weight:800;letter-spacing:.02em;color:#475569;background:#E2E8F0;padding:2px 8px;border-radius:999px;}
 .miss-tag{display:inline-block;margin-top:5px;font-size:10px;font-weight:800;letter-spacing:.02em;color:#fff;background:#C8283A;padding:2px 8px;border-radius:999px;}
 .bot-tag{display:inline-block;font-size:9.5px;font-weight:800;background:#EEEBFF;color:#4A35D6;padding:1px 6px;border-radius:6px;vertical-align:1px;}
 </style>
@@ -1589,9 +1590,15 @@
   // Oct 7) at 10 minutong katahimikan ang auto-close. Kapag nag-message
   // ulit ang player, umuusad ang lastActivityAt kaya bumabalik sa Ongoing.
   const MISSED_SLA_SEC = 180, AUTO_CLOSE_MIN = 10;
+  // HUMINGI NG REAL AGENT (2026-10-12, utos ni Chad): kapag ang customer ang
+  // humingi ng real agent pero HINDI pa naipapasa ng AI (walang bot message
+  // pagkatapos ng request), hindi ito bilang sa Missed Chats / MISSED 3MIN.
+  // Kapareho ng AGENT_REQ_RE sa backend/routes/chatwoot.js.
+  const AGENT_REQ_RE = /\b(real|live|human|actual|totoong)\s*(agent|person|tao|representative|rep|staff|support|cs|csr)\b|\b(speak|talk|chat|connect|transfer)\w*\s+(me\s+)?(directly\s+)?(with|to)\s+(a|an|the|your)?\s*(real\s+|live\s+|human\s+|custom\w*\s+(service\s+)?)?(agent|human|person|representative|rep|staff|cs|csr|admin|support)\b|\b(kausap(in)?|makausap|ka-?chat)\b[\s\S]{0,25}\b(tao|agent|csr|admin|cs)\b|\b(gusto|pwede|paki|need|want)\b[\s\S]{0,25}\b(agent|live\s*agent|csr)\b|\bnot\s+(a\s+)?bot\b|\bhindi\s+(ka\s+)?bot\b|^\s*(agent|live\s*agent|human|csr)\s*[?.!]*\s*$/i;
+  const isAgentRequest = t => !!t && AGENT_REQ_RE.test(String(t).slice(0, 400));
   function chatStatusKey(c) {
     const idleMin = c.lastActivityAt ? (Date.now() - new Date(c.lastActivityAt).getTime()) / 60000 : Infinity;
-    const late = c.ftr != null && c.ftr > MISSED_SLA_SEC;
+    const late = c.ftr != null && c.ftr > MISSED_SLA_SEC && !c.ftrExempt;
     // "May sumagot" = may FTR (unang human reply) o stage 'opened'. Ang
     // 'closed' ay HINDI katibayan na may sumagot — maraming lumang chats
     // ang nag-closed na walang human reply (deactivated habang pending),
@@ -1602,7 +1609,7 @@
     // Ang bot na "Rate our support" ay hindi bilang na agent reply.
     const agentSpokeLast = c.lastMessageSenderType === 'user' && c.lastMessageSender
       && !isBotClient(c.brand, c.lastMessageSender);
-    if (c.handoffStage && !answered && !agentSpokeLast) {
+    if (c.handoffStage && !answered && !agentSpokeLast && !c.waitExempt) {
       if (idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
       return { cls: 'waiting', label: 'Waiting', late };
     }
@@ -1611,7 +1618,9 @@
   }
   function chatStatusHtml(c) {
     const k = chatStatusKey(c);
-    const tag = (k.late && k.cls !== 'missed') ? '<br><span class="late-tag" title="Lumagpas sa 3 minuto bago nakasagot ang agent">MISSED 3MIN</span>' : '';
+    const tag = (k.late && k.cls !== 'missed') ? '<br><span class="late-tag" title="Lumagpas sa 3 minuto bago nakasagot ang agent">MISSED 3MIN</span>'
+      : (c.ftrExempt && c.ftr > MISSED_SLA_SEC) || (c.waitExempt && c.handoffStage && !(c.ftr != null || c.handoffStage === 'opened'))
+        ? '<br><span class="req-tag" title="Humingi ng real agent ang player pero hindi pa naipasa ng AI — hindi bilang sa Missed Chats">HUMINGI NG AGENT</span>' : '';
     return `<span class="status ${k.cls}">${k.label}</span>${tag}`;
   }
 
@@ -2211,31 +2220,38 @@
       if (ho == null) return;   // walang handoff sa session na ito -> bot lang, walang i-flag
       hoAt = ho;
       let runIdx = null, runAt = null;
+      // reqIdx = player message na humingi ng real agent at WALA pang bot
+      // message pagkatapos nito (hindi pa naipapasa ng AI) — hindi bilang
+      // na missed (2026-10-12, utos ni Chad).
+      let reqIdx = null;
       // Kung may player message bago ang handoff na hindi pa nasasagot, ang
       // timer ay mula sa handoff mismo.
       for (const i of idxs) {
         const m = withContent[i], at = tOf(m);
+        if (m.senderType === 'contact' && isAgentRequest(m.content)) reqIdx = i;
+        else if (isBotMsg(m)) reqIdx = null;
         if (at < ho) {
           if (m.senderType === 'contact') { runIdx = i; runAt = ho; }
-          else if (isHumanAgent(m)) { runIdx = null; runAt = null; }
+          else if (isHumanAgent(m)) { runIdx = null; runAt = null; reqIdx = null; }
           continue;
         }
         if (m.senderType === 'contact' && runIdx == null) { runIdx = i; runAt = at; }
         else if (isHumanAgent(m) && runIdx != null) {
           const waited = (at - runAt) / 1000;
-          if (waited > 180) missInfo.set(runIdx, { late: true, mins: Math.round(waited / 60) });
-          runIdx = null; runAt = null;
-        }
+          if (waited > 180) missInfo.set(runIdx, reqIdx != null ? { req: true, mins: Math.round(waited / 60) } : { late: true, mins: Math.round(waited / 60) });
+          runIdx = null; runAt = null; reqIdx = null;
+        } else if (isHumanAgent(m)) reqIdx = null;
       }
       if (runIdx != null) {
         const isLastSession = idxs === sessions[sessions.length - 1];
         const until = isLastSession ? Date.now() : sEnd;
-        if ((until - runAt) / 1000 > 180) missInfo.set(runIdx, { late: false });
+        if ((until - runAt) / 1000 > 180) missInfo.set(runIdx, reqIdx != null ? { req: true, waiting: true } : { late: false });
       }
     });
     let dividerDone = false;
-    const missBanner = missInfo.size
-      ? `<div class="miss-banner">⚠ ${missInfo.size} pagkakataon na hindi nasagot ng human agent ang player sa loob ng 3 minuto. Naka-highlight sa pula sa ibaba.</div>`
+    const realMiss = [...missInfo.values()].filter(x => !x.req).length;
+    const missBanner = realMiss
+      ? `<div class="miss-banner">⚠ ${realMiss} pagkakataon na hindi nasagot ng human agent ang player sa loob ng 3 minuto. Naka-highlight sa pula sa ibaba.</div>`
       : '';
 
     body.innerHTML = missBanner + withContent.map((m, idx) => {
@@ -2269,12 +2285,14 @@
         divider = `<div class="ho-divider"><span>Handoff sa human agent · ${escapeHtml(hoWhen)}</span></div>`;
       }
       const mi = missInfo.get(idx);
-      const missTag = mi ? `<br><span class="miss-tag">${mi.late ? `MISSED 3MIN · nasagot after ${mi.mins}m` : 'WALANG SAGOT'}</span>` : '';
+      const missTag = !mi ? ''
+        : mi.req ? `<br><span class="req-tag" title="Humingi ng real agent pero hindi pa naipasa ng AI — hindi bilang sa Missed Chats">HUMINGI NG AGENT · ${mi.waiting ? 'hindi pa naipasa ni AI' : `nasagot after ${mi.mins}m`} · hindi bilang sa MC</span>`
+        : `<br><span class="miss-tag">${mi.late ? `MISSED 3MIN · nasagot after ${mi.mins}m` : 'WALANG SAGOT'}</span>`;
       const SUPERADMIN_NAMES = new Set(['Love', 'Admin Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi']);
       const botTag = (m.senderType === 'user' && isBotClient(m.brand, m.senderName))
         ? ` <span class="bot-tag">${SUPERADMIN_NAMES.has(m.senderName) ? 'SUPERADMIN' : 'AI'}</span>` : '';
       return `${divider}
-        <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${mi ? ' msg-missed' : ''}">
+        <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${mi && !mi.req ? ' msg-missed' : ''}">
           <div class="msg-meta">${escapeHtml(who)}${botTag} · ${escapeHtml(when)}</div>
           <div class="msg-bubble">${bubbleHtml}</div>${missTag}
         </div>
