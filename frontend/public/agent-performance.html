@@ -332,7 +332,7 @@
   // Hindi kasama sa LAHAT ng numbers dito (agents, tickets, SLA, by concern).
   // Maluwag ang pagtutugma: walang pakialam sa malaki/maliit na titik,
   // espasyo, underscore o tuldok (hal. "CSR_JONEEL" = "csr joneel").
-  const AGENTS_HIDDEN_NAMES = ['csrarabela', 'csr_joneel', 'csredriann'];
+  const AGENTS_HIDDEN_NAMES = ['csrarabela', 'csr_joneel', 'csredriann', 'csrlloyd'];
   const normName = n => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const AGENTS_HIDDEN = new Set(AGENTS_HIDDEN_NAMES.map(normName));
   const isHidden = n => AGENTS_HIDDEN.has(normName(n));
