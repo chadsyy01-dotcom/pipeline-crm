@@ -51,7 +51,25 @@ const accountLimiter = rateLimit({
 // ---------------------------------------------------------------------------
 const MIN_PASSWORD = 8;
 const MAX_AVATAR_CHARS = 300_000;   // ~220 kB of image; a 256px JPEG is ~40 kB
-const PUBLIC_FIELDS = ['id', 'name', 'email', 'role', 'avatar'];
+const PUBLIC_FIELDS = ['id', 'name', 'email', 'role', 'avatar', 'aliases'];
+const MAX_ALIASES_CHARS = 300;
+
+// ALIASES column (added 2026-10-12): ibang pangalan ng agent sa sheets/chat.
+// Ginagawa ang column dito kung wala pa, para hindi na kailangan ng manual
+// migration sa Railway. Ligtas patakbuhin nang paulit-ulit (IF NOT EXISTS).
+User.sequelize
+  .query(`ALTER TABLE "${User.getTableName()}" ADD COLUMN IF NOT EXISTS "aliases" TEXT`)
+  .then(() => console.log('[auth] Users.aliases column ready'))
+  .catch(err => console.error('[auth] could not add Users.aliases column:', err.message));
+
+function cleanAliases(v) {
+  if (v === null) return { value: null };
+  if (typeof v !== 'string') return { error: 'aliases must be text (comma-separated) or null' };
+  const list = [...new Set(v.split(',').map(x => x.trim()).filter(Boolean))];
+  const joined = list.join(', ');
+  if (joined.length > MAX_ALIASES_CHARS) return { error: `Aliases are too long (max ${MAX_ALIASES_CHARS} characters)` };
+  return { value: joined || null };
+}
 
 // ---------------------------------------------------------------------------
 // WHO IS SIGNED IN (fix 2026-09-22)
@@ -149,7 +167,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, avatar: user.avatar, aliases: user.aliases || null } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -187,9 +205,18 @@ router.patch('/me', requireAuth, accountLimiter, async (req, res) => {
     const user = await findSelf(req);
     if (!user) return res.status(401).json({ error: SESSION_MISMATCH });
 
-    const { avatar, name, currentPassword, newPassword } = req.body || {};
+    const { avatar, name, currentPassword, newPassword, aliases } = req.body || {};
     const isAdmin = user.role === 'admin';
     const changes = [];
+
+    // Aliases — kahit sino, sa sariling account lang (para tumugma ang picture
+    // nila sa pangalan nila sa tickets/chats).
+    if (aliases !== undefined) {
+      const r = cleanAliases(aliases);
+      if (r.error) return res.status(400).json({ error: r.error });
+      user.aliases = r.value;
+      changes.push('aliases');
+    }
 
     if (avatar !== undefined) {
       const problem = validateAvatar(avatar);
@@ -222,7 +249,7 @@ router.patch('/me', requireAuth, accountLimiter, async (req, res) => {
 
     await user.save();
     console.log(`Account update: ${user.email} changed their own ${changes.join(' + ')}.`);
-    res.json({ ok: true, updated: changes, user: { id: user.id, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
+    res.json({ ok: true, updated: changes, user: { id: user.id, name: user.name, email: user.email, role: user.role, avatar: user.avatar, aliases: user.aliases || null } });
   } catch (err) {
     console.error('Account update error:', err);
     res.status(500).json({ error: err.message });
@@ -236,7 +263,7 @@ router.patch('/me', requireAuth, accountLimiter, async (req, res) => {
 // is not a reason to hand every member the staff list.
 router.get('/directory', requireAuth, async (req, res) => {
   try {
-    const users = await User.findAll({ attributes: ['name', 'avatar'], order: [['name', 'ASC']] });
+    const users = await User.findAll({ attributes: ['name', 'avatar', 'aliases'], order: [['name', 'ASC']] });
     res.json({ users });
   } catch (err) {
     console.error('Directory error:', err);
@@ -279,8 +306,15 @@ router.patch('/users/:id', requireAuth, accountLimiter, async (req, res) => {
     const target = await User.findByPk(req.params.id);
     if (!target) return res.status(404).json({ error: 'User not found' });
 
-    const { name, newPassword } = req.body || {};
+    const { name, newPassword, aliases } = req.body || {};
     const changes = [];
+
+    if (aliases !== undefined) {
+      const r = cleanAliases(aliases);
+      if (r.error) return res.status(400).json({ error: r.error });
+      target.aliases = r.value;
+      changes.push('aliases');
+    }
 
     if (name !== undefined) {
       const trimmed = String(name).trim();
@@ -301,7 +335,7 @@ router.patch('/users/:id', requireAuth, accountLimiter, async (req, res) => {
 
     await target.save();
     console.log(`Admin account edit: ${me.email} updated ${target.email}'s ${changes.join(' + ')}.`);
-    res.json({ ok: true, updated: changes, user: { id: target.id, name: target.name, email: target.email, role: target.role, avatar: target.avatar } });
+    res.json({ ok: true, updated: changes, user: { id: target.id, name: target.name, email: target.email, role: target.role, avatar: target.avatar, aliases: target.aliases || null } });
   } catch (err) {
     console.error('Admin account edit error:', err);
     res.status(500).json({ error: err.message });
