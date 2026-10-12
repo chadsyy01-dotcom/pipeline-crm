@@ -466,7 +466,8 @@
         <div class="f-group">
           <span class="f-label">Status</span>
           <select id="statusFilter" class="issue-select">
-            <option value="all" selected>All statuses (0)</option>
+            <option value="open" selected>New + In Progress (0)</option>
+            <option value="all">All statuses (0)</option>
             <option value="pending">New (0)</option>
             <option value="checking">In Progress (0)</option>
             <option value="backlog">Backlog (0)</option>
@@ -588,7 +589,7 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
-  let currentFilter = 'all'; // default view: All statuses (2026-10-11 hapon, utos ni Chad; dati New lang)
+  let currentFilter = 'open'; // default view: New + In Progress (2026-10-12, utos ni Chad; dati All statuses)
   let currentBrand = 'all';
   let currentIssue = 'all';
   let currentDateFilter = 'today'; // default: Today (2026-10-10, utos ni Chad)
@@ -1074,7 +1075,7 @@
       // DEFAULT na "New" pa ang dropdown, huwag itago ang
       // Done/Rejected — ang hinahanap ay dapat mahanap anuman ang status.
       // Kapag SADYANG pumili ng specific na status, nirerespeto pa rin.
-      const effFilter = currentFilter; // default na 'all', kaya hindi na kailangan ang search override
+      const effFilter = currentFilter; // default 'open' = New + In Progress
       if (effFilter === 'backlog') {
         const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
         const isToday = TicketData.isSameLocalDay(t.submitted, new Date());
@@ -1297,13 +1298,13 @@
     document.body.appendChild(bg);
   }
 
-  // CLEAR FILTERS (2026-10-10): ibalik sa default view (All statuses,
+  // CLEAR FILTERS (2026-10-10): ibalik sa default view (New + In Progress,
   // lahat ng brand/category, any time, walang search).
   function clearAllTicketFilters() {
-    currentFilter = 'all'; currentBrand = 'all'; currentIssue = 'all';
+    currentFilter = 'open'; currentBrand = 'all'; currentIssue = 'all';
     currentDateFilter = 'all'; currentSearch = '';
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-    set('statusFilter', 'all'); set('brandFilter', 'all'); set('issueFilter', 'all'); set('dateFilter', 'all');
+    set('statusFilter', 'open'); set('brandFilter', 'all'); set('issueFilter', 'all'); set('dateFilter', 'all');
     const si = document.querySelector('.topbar-right .search input'); if (si) si.value = '';
     applyFilters();
   }
@@ -1321,7 +1322,7 @@
         const by = {};
         scopeAny.forEach(t => { const k = SL[t.statusCls] || t.statusCls; by[k] = (by[k] || 0) + 1; });
         const parts = Object.keys(by).map(k => `<b>${by[k].toLocaleString()}</b> ${k}`).join(' · ');
-        const curLabel = { pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected', open: 'open' }[currentFilter] || currentFilter;
+        const curLabel = { pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected', open: 'New / In Progress' }[currentFilter] || currentFilter;
         body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:36px;">
           <div style="font-weight:800;font-size:15px;color:var(--ink);">Walang ${curLabel} ticket sa filters mo</div>
           <div style="color:var(--ink-faint);margin:6px 0 14px;">Pero may ${scopeAny.length.toLocaleString()} ticket sa ibang status: ${parts}</div>
@@ -1517,7 +1518,7 @@
         if (!TicketData.isSameLocalDay(t.submitted, now)) counts.backlog++;
       }
     });
-    const STATUS_LABELS = { open: 'All open statuses', all: 'All statuses', pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected' };
+    const STATUS_LABELS = { open: 'New + In Progress', all: 'All statuses', pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected' };
     const select = document.getElementById('statusFilter');
     if (!select) return;
     Array.from(select.options).forEach(opt => {
@@ -1526,11 +1527,11 @@
   }
 
   // Done / Rejected card click (2026-10-10): i-filter sa status na iyon;
-  // i-click ulit para bumalik sa default na "All statuses".
+  // i-click ulit para bumalik sa default na "New + In Progress".
   document.querySelectorAll('#resDoneBtn, #resRejBtn').forEach(btn => {
     btn.addEventListener('click', () => {
       const s = btn.dataset.status;
-      currentFilter = (currentFilter === s) ? 'all' : s;
+      currentFilter = (currentFilter === s) ? 'open' : s;
       const sel = document.getElementById('statusFilter');
       if (sel) sel.value = currentFilter;
       applyFilters();
