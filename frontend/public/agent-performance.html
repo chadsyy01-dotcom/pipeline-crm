@@ -586,7 +586,8 @@
     const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
     const list = [...agents.values()].map(a => {
       const top = [...a.byConcern.entries()].sort((x, y) => y[1] - x[1])[0];
-      return { ...a, handle: avg(a.dur), sla: a.slaN ? a.slaHit / a.slaN : null, total: a.acked + a.resolved + a.rejected,
+      const sd = [...a.dur].sort((p, q) => p - q), med = sd.length ? (sd.length % 2 ? sd[sd.length >> 1] : (sd[sd.length / 2 - 1] + sd[sd.length / 2]) / 2) : null;
+      return { ...a, handle: avg(a.dur), med, slowN: a.dur.filter(d => d > 3600).length, sla: a.slaN ? a.slaHit / a.slaN : null, total: a.acked + a.resolved + a.rejected,
         topConcern: top ? top[0] : '', topConcernN: top ? top[1] : 0, lastMs: a.last ? +a.last : 0 };
     });
     const score = x => state.rank === 'sla' ? (x.slaN >= MIN_N ? x.sla * 1e6 + x.slaN : -1)
@@ -694,7 +695,9 @@
             <div class="av" style="background:${colorForName(x.name)}">${avatarHtml(x.name)}<span class="st" style="background:${st}"></span></div>
             <div class="pod-name" title="Tingnan ang breakdown ni ${escapeHtml(x.name)}"><a href="#" class="pick-ag" data-agent="${escapeHtml(x.name)}" style="color:inherit;">${escapeHtml(x.name)}</a></div>
             <div class="pod-big">${big(x)}<small>${bigLbl}</small></div>
-            <div style="margin-top:8px;">${state.rank === 'sla' ? hdPill(x.handle, lim) : slaPill(x)}</div>
+            <div style="margin-top:8px;">${state.rank === 'sla'
+              ? `<span title="Average ng lahat ng Done tickets. Median: ${fmtDur(x.med)}${x.slowN ? ' · ' + x.slowN + ' ticket ang inabot ng 1 oras+' : ''}">${hdPill(x.handle, lim)}</span><div style="font-size:10.5px;font-weight:700;color:var(--ink-faint);margin-top:4px;">AVG RESOLVE · median ${fmtDur(x.med)}${x.slowN ? ` · <span style="color:#B42318">${x.slowN} na 1h+</span>` : ''}</div>`
+              : slaPill(x)}</div>
             <div class="pod-stats"><div><b class="res">${x.resolved.toLocaleString()}</b><span>Done</span></div><div><b class="rej">${x.rejected.toLocaleString()}</b><span>Rejected</span></div><div><b>${x.acked.toLocaleString()}</b><span>Acked</span></div></div>
             <div class="pod-tc">${x.topConcern ? `Top: <b>${escapeHtml(x.topConcern)}</b> (${x.topConcernN})` : '&nbsp;'}</div></div>`;
         };
@@ -714,7 +717,7 @@
           <td class="num rej">${x.rejected.toLocaleString()}</td>
           <td class="num">${x.acked.toLocaleString()}</td>
           <td class="num">${slaPill(x)}</td>
-          <td class="num">${hdPill(x.handle, lim)}</td>
+          <td class="num" title="Average ng lahat ng Done. Median: ${fmtDur(x.med)}">${hdPill(x.handle, lim)}<div style="font-size:10.5px;font-weight:600;color:var(--ink-faint);margin-top:3px;">median ${fmtDur(x.med)}</div></td>
           <td><div class="tc" title="${escapeHtml(x.topConcern)}">${x.topConcern ? `<b>${escapeHtml(x.topConcern)}</b> · ${x.topConcernN}` : '—'}</div></td>
         </tr>`;
       }).join('') || '<tr><td colspan="8"><div class="empty-note">Nasa podium na ang lahat ng agents.</div></td></tr>';
