@@ -573,8 +573,38 @@ function isAgentRequest(text) {
   return !!text && AGENT_REQ_RE.test(String(text).slice(0, 400));
 }
 
+// TOTOONG HANDOFF SA SESSION (2026-10-13, utos ni Chad): ang bot label na
+// "pending_humanhandoff" ay HINDI natatanggal ng Chatwoot — dala-dala ito ng
+// conversation kahit bumalik ang customer sa ibang araw, kaya bawat bagong
+// "Hello" ay may handoffStage 'pending' at lumalabas na Missed Chat kahit AI
+// lang ang kausap (hal. 09696021061, Oct 12 5:22 PM). Itinuturing lang na
+// may handoff ang session kapag:
+//   (a) UNANG lumabas ang 'pending' sa session na ito (ang naunang row ay
+//       walang handoff label) — bagong label talaga, hindi lumang dala;
+//   (b) may handoff/transfer message ang bot ("connect you", "agent",
+//       "specialist", "endorse", …); o
+//   (c) may sumagot na human agent.
+const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your)|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|endors|i-?forward|ipapasa|ikokonekta|i-?connect|(agent|specialist)\s+will\s+(be|assist|attend|get)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
+function isHandoffBotMessage(text) {
+  return !!text && HANDOFF_MSG_RE.test(String(text).slice(0, 400));
+}
+function sessionHasHandoff(allMessages, session, brand) {
+  const startIdx = allMessages.length - session.length;
+  let prev = startIdx > 0 ? (allMessages[startIdx - 1].handoffStage || null) : null;
+  for (const m of session) {
+    const st = m.handoffStage || null;
+    if (st === 'pending' && !prev) return true;                     // (a)
+    if (m.senderType === 'user' && isBotSender(brand, m.senderName)) {
+      if (isHandoffBotMessage(m.content)) return true;               // (b)
+    } else if (m.senderType === 'user' && m.senderName) return true; // (c)
+    prev = st;
+  }
+  return false;
+}
+
 function computeArtFtr(allMessages, brand) {
   const messages = latestSession(allMessages);
+  const sessionHandoff = sessionHasHandoff(allMessages, messages, brand);
   let lastCustomerMsgTime = null;
   let lastBotMsgTime = null;      // huling bot message mula noong huling customer message
   let firstAgentGap = null;
@@ -625,6 +655,7 @@ function computeArtFtr(allMessages, brand) {
     ftr: firstAgentGap,
     ftrExempt,                    // MISSED 3MIN hindi bilang (request na hindi naipasa ng AI)
     waitExempt: reqPending,       // naghihintay pa, pero request lang — hindi pa naipapasa ng AI
+    sessionHandoff,               // false = lumang label lang ang dala; AI lang ang kausap sa session na ito
   };
 }
 
@@ -877,7 +908,7 @@ router.get('/conversations', requireAuth, async (req, res) => {
     const handoffIds = conversations.filter(c => c.handoffStage).map(c => c.conversationId);
     if (handoffIds.length > 0) {
       const allMessages = await sequelize.query(`
-        SELECT "conversationId", "brand", "senderType", "senderName", "createdAt", LEFT(content, 400) AS content
+        SELECT "conversationId", "brand", "senderType", "senderName", "createdAt", "handoffStage", LEFT(content, 400) AS content
         FROM "ChatwootEvents"
         WHERE event = 'message_created' AND content IS NOT NULL
           AND "conversationId" IN (:handoffIds)
@@ -893,7 +924,8 @@ router.get('/conversations', requireAuth, async (req, res) => {
         if (!c.handoffStage) return;
         const msgs = byConversation[ck(c.brand, c.conversationId)];
         if (!msgs) return;
-        const { art, ftr, ftrExempt, waitExempt } = computeArtFtr(msgs, c.brand);
+        const { art, ftr, ftrExempt, waitExempt, sessionHandoff } = computeArtFtr(msgs, c.brand);
+        c.sessionHandoff = sessionHandoff;
         c.art = art;
         c.ftr = ftr;
         c.ftrExempt = ftrExempt;
