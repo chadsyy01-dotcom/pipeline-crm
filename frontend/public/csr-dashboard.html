@@ -801,29 +801,7 @@
       </div>
     </div>
 
-    <!-- TEAM (redesign 2026-10-12) -->
-    <div class="panel acc-purple" style="margin-bottom:14px;">
-      <div class="panel-head"><h3><span class="ph-ic" style="background:var(--purple-tint,#F3EEFE);color:var(--purple,#8B5CF6);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>Agents Active <span style="color:var(--ink-faint);font-weight:600;">&middot; <span class="ticket-range-tag">Today</span></span></h3><a href="/reports" class="view-all">Full report &rarr;</a></div>
-      <div class="ag-summary" id="agSummary"></div>
-      <div class="ag-podium" id="agPodium"></div>
-      <div class="ag-sec-lbl" id="agRestLbl">Iba pang agents</div>
-      <div style="overflow-x:auto;">
-        <table class="ag-table">
-          <thead><tr>
-            <th style="width:44px;">#</th>
-            <th>Agent</th>
-            <th class="num sortable" data-sort="acked">Acked</th>
-            <th class="num sortable" data-sort="resolved">Resolved</th>
-            <th class="num sortable" data-sort="rejected">Rejected</th>
-            <th class="ag-hide-sm sortable" data-sort="rate" style="min-width:150px;">Outcome mix</th>
-            <th class="num sortable" data-sort="handle">Avg handle</th>
-            <th class="num sortable" data-sort="last">Last active</th>
-          </tr></thead>
-          <tbody id="teamTableBody"><tr><td colspan="8"><div class="empty-note">Loading…</div></td></tr></tbody>
-        </table>
-      </div>
-      <button type="button" class="ag-more" id="agMore" style="display:none;"></button>
-    </div>
+    <!-- Agents Active: TINANGGAL 2026-10-12 (nasa Tickets → Agent Performance na) -->
 
   </main>
 
@@ -2011,6 +1989,7 @@ function fmtHandle(sec) {
 // Lowercase; idagdag dito ang iba pang pangalan kung kailangan.
 const AGENTS_HIDDEN = new Set(['csrarabela', 'csr_joneel', 'csredriann']);
 function renderTeamTable(now, r) {
+  if (!document.getElementById('teamTableBody')) return; // Agents Active panel tinanggal (2026-10-12)
   agLastArgs = [now, r];
   const agents = new Map(); // name -> { acked, resolved, rejected, handle: [], last }
   const bump = (name, field, when, dur) => {
@@ -2144,7 +2123,7 @@ document.querySelectorAll('.ag-table th.sortable').forEach(th => th.addEventList
   agSort = agSort.key === key ? { key, dir: -agSort.dir } : { key, dir: key === 'handle' ? 1 : -1 };
   if (agLastArgs) renderTeamTable(...agLastArgs);
 }));
-document.getElementById('agMore').addEventListener('click', () => {
+document.getElementById('agMore')?.addEventListener('click', () => {
   agShowAll = !agShowAll;
   if (agLastArgs) renderTeamTable(...agLastArgs);
 });
