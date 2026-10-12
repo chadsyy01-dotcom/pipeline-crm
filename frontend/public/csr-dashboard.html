@@ -2007,11 +2007,14 @@ function fmtHandle(sec) {
   if (m) return `${m}m ${s2}s`;
   return `${s2}s`;
 }
+// HIDDEN AGENTS (2026-10-12, utos ni Chad): hindi isasama sa Agents Active.
+// Lowercase; idagdag dito ang iba pang pangalan kung kailangan.
+const AGENTS_HIDDEN = new Set(['csrarabela', 'csr_joneel', 'csredriann']);
 function renderTeamTable(now, r) {
   agLastArgs = [now, r];
   const agents = new Map(); // name -> { acked, resolved, rejected, handle: [], last }
   const bump = (name, field, when, dur) => {
-    if (!name) return;
+    if (!name || AGENTS_HIDDEN.has(String(name).trim().toLowerCase())) return;
     const a = agents.get(name) || { acked: 0, resolved: 0, rejected: 0, handle: [], last: null };
     a[field]++;
     if (dur != null) a.handle.push(dur);
