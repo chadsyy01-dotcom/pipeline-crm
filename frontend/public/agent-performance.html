@@ -329,8 +329,13 @@
     return b;
   }
   // KEEP IN SYNC sa csr-dashboard.html
-  const AGENTS_HIDDEN = new Set(['csrarabela', 'csr_joneel', 'csredriann']);
-  const isHidden = n => AGENTS_HIDDEN.has(String(n || '').trim().toLowerCase());
+  // Hindi kasama sa LAHAT ng numbers dito (agents, tickets, SLA, by concern).
+  // Maluwag ang pagtutugma: walang pakialam sa malaki/maliit na titik,
+  // espasyo, underscore o tuldok (hal. "CSR_JONEEL" = "csr joneel").
+  const AGENTS_HIDDEN_NAMES = ['csrarabela', 'csr_joneel', 'csredriann'];
+  const normName = n => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const AGENTS_HIDDEN = new Set(AGENTS_HIDDEN_NAMES.map(normName));
+  const isHidden = n => AGENTS_HIDDEN.has(normName(n));
   const MIN_N = 3;
 
   let allTickets = [];
@@ -379,7 +384,9 @@
   // ---- Aggregation ----
   function compute() {
     const r = rangeOf(state.range);
-    const scoped = allTickets.filter(t => !state.brand || t.brandCode === state.brand);
+    // Tinatanggal ang BUONG ticket kapag hinawakan (ack o resolve) ng hidden agent
+    const scoped = allTickets.filter(t => (!state.brand || t.brandCode === state.brand)
+      && !isHidden(t.acknowledgedBy) && !isHidden(t.resolvedBy));
     const agents = new Map();
     const concerns = new Map(); // issue -> { done, slaN, slaHit, dur:[], byAgent: Map }
     const get = n => {
@@ -448,7 +455,7 @@
     // Filters (options)
     const cOpts = new Map();
     scoped.forEach(t => {
-      if ((t.resolvedBy && inRange(t.resolvedAt, r)) || (t.acknowledgedBy && inRange(t.acknowledgedAt, r))) {
+      if ((t.resolvedBy && !isHidden(t.resolvedBy) && inRange(t.resolvedAt, r)) || (t.acknowledgedBy && !isHidden(t.acknowledgedBy) && inRange(t.acknowledgedAt, r))) {
         const k = t.issue || '—'; cOpts.set(k, (cOpts.get(k) || 0) + 1);
       }
     });
