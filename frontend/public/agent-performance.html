@@ -284,6 +284,10 @@
   .sh-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed #E2E8F0;font-size:12px;font-weight:700;}
   .sh-top .k{font-size:10px;font-weight:800;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;}
   @media (max-width:1000px){ .sh-grid{grid-template-columns:1fr;} }
+
+  .shift-banner{position:relative;z-index:3;margin:-72px 0 14px;background:#EEF0FF;border:1px solid #C7CCFB;color:#3730A3;border-radius:12px;padding:9px 14px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .shift-banner button{margin-left:auto;border:0;background:#4F46E5;color:#fff;font:inherit;font-size:12px;font-weight:800;border-radius:8px;padding:6px 11px;cursor:pointer;}
+  .shift-banner + .ap-kpis{margin-top:0;}
 </style>
 </head>
 <body>
@@ -353,6 +357,7 @@
       </div>
     </div>
 
+    <div class="shift-banner" id="shiftBanner" style="display:none;">🕒 Naka-filter sa <b></b> shift — lahat ng numero sa ibaba ay para lang sa shift na ito. <button type="button" id="shiftBannerClear">Ipakita lahat ng shift ✕</button></div>
     <div class="ap-kpis">
       <div class="kc" style="--acc:#8B5CF6;--acc-t:#F3EEFE;"><div class="kh"><div class="kl">Active agents</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div><div class="kv" id="kAgents">—</div><div class="ks" id="kAgentsS">&nbsp;</div></div>
       <div class="kc" style="--acc:#22C55E;--acc-t:#EAFBF1;"><div class="kh"><div class="kl">Done tickets</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div></div><div class="kv" id="kDone">—</div><div class="ks" id="kDoneS">&nbsp;</div></div>
@@ -700,6 +705,9 @@
       }
     });
     const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+    // (Home-shift filter INALIS 2026-10-12 — utos ni Chad: kapag nag-cover ang
+    // agent sa ibang shift at mas marami/mas magaling ang na-process niya
+    // roon, dapat kasama pa rin siya sa ranking ng shift na iyon.)
     const list = [...agents.values()].map(a => {
       const top = [...a.byConcern.entries()].sort((x, y) => y[1] - x[1])[0];
       const sd = [...a.dur].sort((p, q) => p - q), med = sd.length ? (sd.length % 2 ? sd[sd.length >> 1] : (sd[sd.length / 2 - 1] + sd[sd.length / 2]) / 2) : null;
@@ -766,7 +774,22 @@
     document.getElementById('kAgents').textContent = list.length;
     document.getElementById('kAgentsS').textContent = `${online} active sa nakaraang oras`;
     document.getElementById('kDone').textContent = done.toLocaleString();
-    document.getElementById('kDoneS').textContent = `${slaN.toLocaleString()} may benchmark · ${r.label}`;
+    if (state.shift) {
+      // Malinaw na naka-filter sa isang shift: ipakita rin ang kabuuan ng lahat ng shift
+      const keepS = state.shift; state.shift = '';
+      const allDone = compute({ agent: '' }).list.reduce((a, x) => a + x.resolved, 0);
+      state.shift = keepS;
+      const shL = SHIFTS.find(x => x.key === state.shift).label;
+      document.getElementById('kDoneS').innerHTML = `<b style="color:#4F46E5">${shL} shift lang</b> · sa ${allDone.toLocaleString()} kabuuan · ${r.label}`;
+    } else {
+      document.getElementById('kDoneS').textContent = `${slaN.toLocaleString()} may benchmark · ${r.label} · lahat ng shift`;
+    }
+    // Banner: aling shift ang naka-filter
+    const fb = document.getElementById('shiftBanner');
+    if (fb) {
+      fb.style.display = state.shift ? '' : 'none';
+      if (state.shift) fb.querySelector('b').textContent = SHIFTS.find(x => x.key === state.shift).label;
+    }
     const tp = slaN ? Math.round(slaHit / slaN * 100) : null;
     document.getElementById('kSla').textContent = tp == null ? '—' : tp + '%';
     document.getElementById('kSla').style.color = tp == null ? '' : slaColor(tp);
@@ -1130,6 +1153,26 @@
   document.getElementById('exportBtn').addEventListener('click', exportXlsx);
 
 
+
+  // Bilang ng aksyon (ack + done/rejected) ng bawat agent kada shift sa range;
+  // ang shift na may pinakamaraming aksyon = home shift niya.
+  const homeCache = { key: '', map: null };
+  function homeShifts(r) {
+    const key = `${+r.from}|${+r.to}|${state.brand}|${allTickets.length}`;
+    if (homeCache.key === key) return homeCache.map;
+    const cnt = new Map();
+    const bump = (n, d) => { if (!n || isHidden(n) || !d || d < r.from || d > r.to) return; const k = shiftOf(d); const m = cnt.get(n) || { s1: 0, s2: 0, s3: 0 }; m[k]++; cnt.set(n, m); };
+    allTickets.forEach(t => {
+      if (state.brand && t.brandCode !== state.brand) return;
+      bump(t.acknowledgedBy, t.acknowledgedAt);
+      if (t.statusCls === 'done' || t.statusCls === 'rejected') bump(t.resolvedBy, t.resolvedAt);
+    });
+    const map = new Map();
+    cnt.forEach((m, n) => { map.set(n, Object.entries(m).sort((a, b) => b[1] - a[1])[0][0]); });
+    homeCache.key = key; homeCache.map = map; homeCache.cnt = cnt;
+    return map;
+  }
+
   // ===== Per Shift panel =====
   function renderShifts() {
     if (!allTickets.length) return;
@@ -1139,8 +1182,9 @@
       const c = compute({ agent: '' });
       state.shift = keep;
       const L = c.list;
-      const done = L.reduce((a, x) => a + x.resolved, 0);
-      const sN = L.reduce((a, x) => a + x.slaN, 0), sH = L.reduce((a, x) => a + x.slaHit, 0);
+      // Done / SLA / bigat: lahat ng ticket na na-Done SA ORAS ng shift (kahit sinong agent)
+      const done = c.clist.reduce((a, x) => a + x.done, 0);
+      const sN = c.clist.reduce((a, x) => a + x.slaN, 0), sH = c.clist.reduce((a, x) => a + x.slaHit, 0);
       // Bigat ng concern: average na benchmark (minuto) ng Done tickets na may benchmark
       let wSum = 0, wN = 0, heavy = 0;
       c.clist.forEach(cc => { if (cc.bench) { wSum += cc.bench.min * cc.slaN; wN += cc.slaN; if (cc.bench.min >= 10) heavy += cc.slaN; } });
@@ -1165,7 +1209,7 @@
           <div><b>${x.avgBench == null ? '—' : x.avgBench.toFixed(1) + 'm'}</b><span>Avg benchmark</span></div>
         </div>
         <div class="sh-mix">${x.heavyPct == null ? '' : `<b>${x.heavyPct}%</b> ng tickets ay ≥10m benchmark · `}Top: ${x.top3.length ? x.top3.map(t => `<b>${escapeHtml(t.issue)}</b> (${t.done})`).join(', ') : '—'}</div>
-        <div class="sh-top"><span class="k">🥇 Top agent</span><span>${x.best ? escapeHtml(x.best.name) : '—'}</span></div>
+        <div class="sh-top"><span class="k">🥇 Top agent · ${x.agents} agent${x.agents === 1 ? '' : 's'}</span><span>${x.best ? escapeHtml(x.best.name) : '—'}</span></div>
       </div>`;
     }).join('');
   }
@@ -1176,6 +1220,7 @@
     state.sort = { key: 'rank', dir: 1 }; state.showAll = false; render();
     document.getElementById('lbSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+  document.getElementById('shiftBannerClear').addEventListener('click', () => { state.shift = ''; document.getElementById('fShift').value = ''; state.sort = { key: 'rank', dir: 1 }; render(); });
   document.getElementById('fShift').addEventListener('change', e => { state.shift = e.target.value; state.sort = { key: 'rank', dir: 1 }; state.showAll = false; render(); });
 
   // ---- Load ----
