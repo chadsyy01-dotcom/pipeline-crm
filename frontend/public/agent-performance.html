@@ -831,7 +831,6 @@
       cs && cs.total ? `<span style="color:#7C3AED">${cs.csatPercent}%</span>` : (csatCache.loading ? '…' : '—'),
       cs && cs.total ? '<span class="st info">Info</span>' : '<span class="st man">—</span>',
       cs && cs.total ? `${cs.total.toLocaleString()} rated chats · DSAT <b>${cs.dsatPercent}%</b>${cs.avgRating != null ? ` · avg <b>${Number(cs.avgRating).toFixed(2)}</b>/5` : ''}` : 'Walang rated chat sa range');
-    row('Team Performance – Leadership Output', 'Output Accuracy', '100%', 'Manual', '<span class="st man">Manual</span>', 'Walang data source pa sa dashboard', true);
     document.getElementById('scBody').innerHTML = rows.map((x, i) => {
       let catCell = `<td class="cat">${escapeHtml(x.cat)}</td>`;
       return `<tr class="${x.man ? 'man' : ''}">${catCell}<td class="kpi">${escapeHtml(x.kpi)}</td><td class="c">${x.bench}</td><td class="c act">${x.act}</td><td class="c">${x.st}</td><td class="det">${x.det}</td></tr>`;
