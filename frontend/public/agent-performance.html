@@ -257,6 +257,12 @@
   #customDateCancel{background:#fff;color:var(--ink-soft);}
   #customDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
   .date-err{color:#B42318;font-size:11.5px;font-weight:700;margin-top:8px;display:none;}
+
+  .export-btn{align-self:center;display:inline-flex;align-items:center;gap:7px;border:0;background:#16A34A;color:#fff;font:inherit;font-size:12.5px;font-weight:800;border-radius:10px;padding:9px 15px;cursor:pointer;}
+  .export-btn:hover{background:#15803D;}
+  .export-btn:disabled{opacity:.6;cursor:wait;}
+  .export-btn svg{width:15px;height:15px;}
+  .clear-btn{margin-left:auto;}
 </style>
 </head>
 <body>
@@ -367,6 +373,10 @@
         </select></div>
       <span class="bench-chip" id="benchChip" style="display:none;"></span>
       <button type="button" class="clear-btn" id="clearBtn">Clear</button>
+      <button type="button" class="export-btn" id="exportBtn" title="I-download bilang Excel (.xlsx)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        Export
+      </button>
     </div>
 
     <section class="panel" id="lbSection" style="--acc:#F59E0B;">
@@ -963,6 +973,88 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   document.getElementById('csBody').addEventListener('click', pickConcern);
+
+
+  // ===== EXPORT (2026-10-12): Excel (.xlsx) na may ilang sheet =====
+  // Sumusunod sa kasalukuyang Date / Concern / Brand / Rank by filter.
+  // Sheets: Summary, Leaderboard, By Concern, Done Tickets, at (kung may
+  // napiling agent sa ibaba) Lumampas.
+  function loadXlsxLib() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      sc.onload = () => res(window.XLSX); sc.onerror = () => rej(new Error('Hindi ma-load ang Excel library'));
+      document.head.appendChild(sc);
+    });
+  }
+  const mins = sec => sec == null || !isFinite(sec) ? '' : Math.round(sec / 6) / 10; // minuto, 1 decimal
+  const dt = d => d ? d.toLocaleString('en-PH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+  async function exportXlsx() {
+    const btn = document.getElementById('exportBtn');
+    btn.disabled = true; const old = btn.innerHTML; btn.lastChild.textContent = ' Exporting…';
+    try {
+      const X = await loadXlsxLib();
+      const r = rangeOf(state.range);
+      const base = compute({ agent: '' });
+      const brandLbl = state.brand ? (document.getElementById('fBrand').selectedOptions[0] || {}).textContent : 'All brands';
+      const rankLbl = (document.getElementById('fRank').selectedOptions[0] || {}).textContent;
+      const wb = X.utils.book_new();
+      const add = (name, rows) => { const ws = X.utils.json_to_sheet(rows.length ? rows : [{ Note: 'Walang data' }]); X.utils.book_append_sheet(wb, ws, name); };
+
+      // Summary
+      const L = base.list, done = L.reduce((a, x) => a + x.resolved, 0), sN = L.reduce((a, x) => a + x.slaN, 0), sH = L.reduce((a, x) => a + x.slaHit, 0);
+      add('Summary', [
+        { Item: 'Range', Value: `${r.label} (${dt(r.from)} – ${dt(r.to)})` },
+        { Item: 'Brand', Value: brandLbl },
+        { Item: 'Concern filter', Value: state.concern || 'All concerns' },
+        { Item: 'Rank by', Value: rankLbl },
+        { Item: 'Active agents', Value: L.length },
+        { Item: 'Done tickets', Value: done },
+        { Item: 'Done tickets na may benchmark', Value: sN },
+        { Item: 'Team within SLA %', Value: sN ? Math.round(sH / sN * 1000) / 10 : '' },
+        { Item: 'Hidden agents (hindi kasama)', Value: AGENTS_HIDDEN_NAMES.join(', ') },
+        { Item: 'Exported', Value: dt(new Date()) },
+      ]);
+      // Leaderboard
+      add('Leaderboard', [...L].sort((a, b) => a.rank - b.rank).map(x => ({
+        Rank: x.rank, Agent: x.name, Done: x.resolved, Rejected: x.rejected, Acked: x.acked,
+        'Within SLA %': x.slaN ? Math.round(x.slaHit / x.slaN * 1000) / 10 : '', 'Pasok': x.slaHit, 'May benchmark': x.slaN, 'Lumampas': x.slaN - x.slaHit,
+        'Avg resolve (min)': mins(x.handle), 'Median resolve (min)': mins(x.med), 'Top concern': x.topConcern, 'Last active': dt(x.last),
+      })));
+      // By concern (buong team)
+      add('By Concern', base.clist.map(c => ({
+        Concern: c.issue, 'Benchmark (min)': c.bench ? c.bench.min : '', Done: c.done,
+        'Within SLA %': c.slaN ? Math.round(c.slaHit / c.slaN * 1000) / 10 : '', Pasok: c.slaHit, Lumampas: c.slaN - c.slaHit,
+        'Avg resolve (min)': mins(c.avg), 'Best agent (SLA)': c.best ? c.best.name : '', 'Best agent SLA %': c.best ? Math.round(c.best.sla * 1000) / 10 : '',
+        'Fastest agent': c.fast ? c.fast.name : '', 'Fastest avg (min)': c.fast ? mins(c.fast.avg) : '',
+      })));
+      // Done tickets (detalye kada ticket)
+      const rows = base.scoped.filter(t => t.statusCls === 'done' && t.resolvedBy && inRange(t.resolvedAt, r) && (!state.concern || t.issue === state.concern))
+        .sort((a, b) => b.resolvedAt - a.resolvedAt)
+        .map(t => { const b = benchmarkFor(t.issue), d = t.resolveDurationSec; return {
+          'Ticket ID': t.id, Agent: t.resolvedBy, Brand: t.brandLabel || t.brandCode || '', Concern: t.issue,
+          'Benchmark (min)': b ? b.min : '', 'Resolve (min)': mins(d),
+          Resulta: !b ? 'Walang benchmark' : d == null ? 'Walang duration' : d <= b.min * 60 ? 'Pasok' : 'Lumampas',
+          'Sobra (min)': b && d != null && d > b.min * 60 ? mins(d - b.min * 60) : '',
+          'Ack (min)': mins(t.ackDurationSec), 'Acked by': t.acknowledgedBy || '', 'Resolved at': dt(t.resolvedAt), 'Sheet link': t.sheetLink || '' }; });
+      add('Done Tickets', rows);
+      // Lumampas ng napiling agent
+      if (state.agent) {
+        const det = compute();
+        add(('Lumampas - ' + state.agent.replace(/[\\\/?*\[\]:]/g, '')).slice(0, 31), det.misses.sort((a, b) => b.over - a.over).map(m => ({
+          'Ticket ID': m.t.id, Concern: m.issue, 'Benchmark (min)': m.bench.min, 'Inabot (min)': mins(m.dur), 'Sobra (min)': mins(m.over),
+          'Resolved at': dt(m.t.resolvedAt), Brand: m.t.brandLabel || '', 'Sheet link': m.t.sheetLink || '' })));
+      }
+      // Column widths
+      wb.SheetNames.forEach(n => { const ws = wb.Sheets[n]; const json = X.utils.sheet_to_json(ws, { header: 1 });
+        ws['!cols'] = (json[0] || []).map((_, ci) => ({ wch: Math.min(48, Math.max(10, ...json.slice(0, 200).map(rw => String(rw[ci] ?? '').length + 2))) })); });
+      const stamp = state.range === 'custom' && customRange ? `${customRange.from}_to_${customRange.to}` : `${state.range}_${isoDay(new Date())}`;
+      X.writeFile(wb, `agent-performance_${stamp}${state.brand ? '_' + state.brand : ''}.xlsx`);
+    } catch (e) { alert('Hindi ma-export: ' + e.message); }
+    finally { btn.disabled = false; btn.innerHTML = old; }
+  }
+  document.getElementById('exportBtn').addEventListener('click', exportXlsx);
 
   // ---- Load ----
   function fillBrands() {
