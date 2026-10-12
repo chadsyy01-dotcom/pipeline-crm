@@ -562,12 +562,26 @@ function latestSession(messages) {
 // kahit agad sumagot ang agent. Ngayon: 0 min. Kapag walang bot message bago
 // ang unang human reply (hal. LiveChat brands na walang bot), ang huling
 // mensahe ng customer pa rin ang simula (dating patakaran).
+// HUMINGI NG REAL AGENT (2026-10-12, utos ni Chad): kapag ang customer mismo
+// ang humingi ng real/live agent ("I would like to speak directly with the
+// agent") pero HINDI pa ito naipapasa ng AI (walang bot message pagkatapos ng
+// request), HINDI ito bilang sa Missed Chats / MISSED 3MIN — wala pang handoff.
+// Kapag sumagot ang AI pagkatapos ng request (nag-transfer), doon nagsisimula
+// ang timer gaya ng dati.
+const AGENT_REQ_RE = /\b(real|live|human|actual|totoong)\s*(agent|person|tao|representative|rep|staff|support|cs|csr)\b|\b(speak|talk|chat|connect|transfer)\w*\s+(me\s+)?(directly\s+)?(with|to)\s+(a|an|the|your)?\s*(real\s+|live\s+|human\s+|custom\w*\s+(service\s+)?)?(agent|human|person|representative|rep|staff|cs|csr|admin|support)\b|\b(kausap(in)?|makausap|ka-?chat)\b[\s\S]{0,25}\b(tao|agent|csr|admin|cs)\b|\b(gusto|pwede|paki|need|want)\b[\s\S]{0,25}\b(agent|live\s*agent|csr)\b|\bnot\s+(a\s+)?bot\b|\bhindi\s+(ka\s+)?bot\b|^\s*(agent|live\s*agent|human|csr)\s*[?.!]*\s*$/i;
+function isAgentRequest(text) {
+  return !!text && AGENT_REQ_RE.test(String(text).slice(0, 400));
+}
+
 function computeArtFtr(allMessages, brand) {
   const messages = latestSession(allMessages);
   let lastCustomerMsgTime = null;
   let lastBotMsgTime = null;      // huling bot message mula noong huling customer message
   let firstAgentGap = null;
   let firstAgentMsgTime = null;
+  let reqPending = false;          // humingi ng agent ang customer, wala pang bot message pagkatapos
+  let reqAt = null;                // oras ng request na iyon
+  let ftrExempt = false;           // ang unang human reply ay sagot sa request na hindi naipasa ng AI
 
   for (const m of messages) {
     const t = new Date(m.createdAt).getTime();
@@ -578,17 +592,25 @@ function computeArtFtr(allMessages, brand) {
       // Kapag nag-message ang customer PAGKATAPOS mag-handoff ang bot (hal.
       // "hello?" habang naghihintay), ang handoff pa rin ang simula ng timer.
       if (lastBotMsgTime === null) lastCustomerMsgTime = t;
+      if (isAgentRequest(m.content) && !reqPending) { reqPending = true; reqAt = t; }
     } else if (m.senderType === 'user' && isBotSender(brand, m.senderName)) {
       if (lastCustomerMsgTime !== null) lastBotMsgTime = t; // handoff/transfer point ng bot
+      reqPending = false; // sumagot/nag-transfer na ang AI pagkatapos ng request
       continue; // bot reply — not a human response
     } else if (m.senderType === 'user' && lastCustomerMsgTime !== null) {
       if (firstAgentGap === null) {
-        const timerStart = lastBotMsgTime !== null ? lastBotMsgTime : lastCustomerMsgTime;
+        // Request na hindi naipasa ng AI: sukat mula sa request mismo (hindi
+        // sa lumang bot reply bago pa ito), at exempt sa MISSED 3MIN.
+        const timerStart = reqPending && reqAt !== null ? reqAt : lastBotMsgTime !== null ? lastBotMsgTime : lastCustomerMsgTime;
         firstAgentGap = Math.max(0, (t - timerStart) / 1000);
         firstAgentMsgTime = t; // handoff point = first genuine reply
+        ftrExempt = reqPending;
       }
       lastCustomerMsgTime = null;
       lastBotMsgTime = null;
+      reqPending = false;
+    } else if (m.senderType === 'user') {
+      reqPending = false;
     }
   }
 
@@ -601,6 +623,8 @@ function computeArtFtr(allMessages, brand) {
   return {
     art: chattingTime,
     ftr: firstAgentGap,
+    ftrExempt,                    // MISSED 3MIN hindi bilang (request na hindi naipasa ng AI)
+    waitExempt: reqPending,       // naghihintay pa, pero request lang — hindi pa naipapasa ng AI
   };
 }
 
@@ -853,7 +877,7 @@ router.get('/conversations', requireAuth, async (req, res) => {
     const handoffIds = conversations.filter(c => c.handoffStage).map(c => c.conversationId);
     if (handoffIds.length > 0) {
       const allMessages = await sequelize.query(`
-        SELECT "conversationId", "brand", "senderType", "senderName", "createdAt"
+        SELECT "conversationId", "brand", "senderType", "senderName", "createdAt", LEFT(content, 400) AS content
         FROM "ChatwootEvents"
         WHERE event = 'message_created' AND content IS NOT NULL
           AND "conversationId" IN (:handoffIds)
@@ -869,9 +893,11 @@ router.get('/conversations', requireAuth, async (req, res) => {
         if (!c.handoffStage) return;
         const msgs = byConversation[ck(c.brand, c.conversationId)];
         if (!msgs) return;
-        const { art, ftr } = computeArtFtr(msgs, c.brand);
+        const { art, ftr, ftrExempt, waitExempt } = computeArtFtr(msgs, c.brand);
         c.art = art;
         c.ftr = ftr;
+        c.ftrExempt = ftrExempt;
+        c.waitExempt = waitExempt;
       });
     }
 
