@@ -263,6 +263,27 @@
   .export-btn:disabled{opacity:.6;cursor:wait;}
   .export-btn svg{width:15px;height:15px;}
   .clear-btn{margin-left:auto;}
+
+  /* Per Shift (2026-10-12) */
+  .sh-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  .sh{border:1px solid #E8EDF5;border-radius:14px;padding:14px 16px;cursor:pointer;background:#fff;position:relative;overflow:hidden;transition:box-shadow .15s,border-color .15s,transform .15s;}
+  .sh:hover{transform:translateY(-2px);box-shadow:0 14px 28px -18px rgba(15,23,42,.35);}
+  .sh.sel{border-color:#6366F1;box-shadow:0 0 0 3px #EEF0FF;}
+  .sh::before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:var(--c);}
+  .sh-h{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .sh-t{font-size:15px;font-weight:800;}
+  .sh-heavy{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:99px;white-space:nowrap;}
+  .sh-heavy.h3{background:#FDECEC;color:#B42318;} .sh-heavy.h2{background:#FEF6E7;color:#B45309;} .sh-heavy.h1{background:#EAFBF1;color:#15803D;}
+  .sh-team{font-size:11.5px;font-weight:600;color:var(--ink-faint);margin-top:3px;line-height:1.45;}
+  .sh-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;}
+  .sh-stats div{background:#F8FAFC;border-radius:9px;padding:7px 6px;text-align:center;}
+  .sh-stats b{display:block;font-size:16px;font-weight:800;}
+  .sh-stats span{font-size:9.5px;font-weight:800;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;}
+  .sh-mix{margin-top:10px;font-size:11.5px;color:var(--ink-soft);line-height:1.6;}
+  .sh-mix b{color:var(--ink);}
+  .sh-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed #E2E8F0;font-size:12px;font-weight:700;}
+  .sh-top .k{font-size:10px;font-weight:800;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;}
+  @media (max-width:1000px){ .sh-grid{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
@@ -363,6 +384,13 @@
           </div>
         </div>
       </div>
+      <div class="tg"><label for="fShift">Shift</label>
+        <select id="fShift">
+          <option value="">All shifts</option>
+          <option value="s1">12 AM – 8 AM</option>
+          <option value="s2">8 AM – 4 PM</option>
+          <option value="s3">4 PM – 12 AM</option>
+        </select></div>
       <div class="tg"><label for="fConcern">Concern</label><select id="fConcern"><option value="">All concerns</option></select></div>
       <div class="tg"><label for="fBrand">Brand</label><select id="fBrand"><option value="">All brands</option></select></div>
       <div class="tg"><label for="fRank">Rank by</label>
@@ -378,6 +406,11 @@
         Export
       </button>
     </div>
+
+    <section class="panel" id="shiftSection" style="--acc:#6366F1;">
+      <div class="p-head"><h3>🕒 Per Shift <span class="sub" id="shSub"></span></h3><span class="hint">Magkakaiba ang bigat ng concern bawat shift — i-click ang shift para makita ang sariling ranking nito</span></div>
+      <div class="sh-grid" id="shGrid"><div class="empty-note">Loading…</div></div>
+    </section>
 
     <section class="panel" id="lbSection" style="--acc:#F59E0B;">
       <div class="p-head"><h3>🏆 Leaderboard <span class="sub" id="lbSub"></span></h3><span class="hint">Kailangan ng ≥3 Done tickets para mapasama sa ranking ng SLA / bilis</span></div>
@@ -523,7 +556,7 @@
   // Hindi kasama sa LAHAT ng numbers dito (agents, tickets, SLA, by concern).
   // Maluwag ang pagtutugma: walang pakialam sa malaki/maliit na titik,
   // espasyo, underscore o tuldok (hal. "CSR_JONEEL" = "csr joneel").
-  const AGENTS_HIDDEN_NAMES = ['csrarabela', 'csr_joneel', 'csredriann', 'csrlloyd'];
+  const AGENTS_HIDDEN_NAMES = ['csrarabela', 'csr_joneel', 'csredriann', 'csrlloyd', 'maxpein2', 'mary_marishu', 'elrssu012', 'Rubyfey'];
   const normName = n => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const AGENTS_HIDDEN = new Set(AGENTS_HIDDEN_NAMES.map(normName));
   const isHidden = n => AGENTS_HIDDEN.has(normName(n));
@@ -558,7 +591,7 @@
     } };
   }
     const nameKey = n => String(n || '').trim().toLowerCase();
-  const state = { range: 'today', agent: '', missConcern: '', concern: '', brand: '', missAll: false, rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false };
+  const state = { range: 'today', shift: '', agent: '', missConcern: '', concern: '', brand: '', missAll: false, rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false };
 
   function fmtDur(sec) {
     if (sec == null || !isFinite(sec)) return '—';
@@ -586,7 +619,17 @@
     if (key === 'lastmonth') return { from: new Date(now.getFullYear(), now.getMonth() - 1, 1), to: new Date(new Date(now.getFullYear(), now.getMonth(), 1).getTime() - 1), label: 'Last month' };
     return { from: today, to: now, label: 'Today' };
   }
-  const inRange = (d, r) => d && d >= r.from && d <= r.to;
+  // ---- SHIFTS (2026-10-12) ----
+  // Ang shift ng isang aksyon ay batay sa ORAS nito (PH time): 12AM–8AM,
+  // 8AM–4PM, 4PM–12AM. Hindi pinaghahalo ang ranking ng magkaibang shift dahil
+  // magkaiba ang bigat ng concern (hal. mas mabibigat sa 4PM–12AM).
+  const SHIFTS = [
+    { key: 's1', label: '12 AM – 8 AM', from: 0,  to: 8,  color: '#6366F1', team: ['Ralph Sagario', 'Patrick Externon'] },
+    { key: 's2', label: '8 AM – 4 PM',  from: 8,  to: 16, color: '#F59E0B', team: ['Jersey Alcantara', 'Marian Dawn Vigo'] },
+    { key: 's3', label: '4 PM – 12 AM', from: 16, to: 24, color: '#0EA5E9', team: ['John Lloyd Sallan', 'Rowell Ramos', 'Manilyn Castillo'] },
+  ];
+  const shiftOf = d => { const h = d.getHours(); return h < 8 ? 's1' : h < 16 ? 's2' : 's3'; };
+  const inRange = (d, r) => d && d >= r.from && d <= r.to && (!state.shift || shiftOf(d) === state.shift);
 
   function avatarHtml(name, size) {
     const src = avatarByName.get(nameKey(name));
@@ -678,6 +721,7 @@
 
   // ---- Render ----
   function render() {
+    try { renderShifts(); } catch (e) { console.warn('shifts', e); }
     try { renderScorecard(); } catch (e) { console.warn('scorecard', e); }
     // Itaas (KPIs + leaderboard): buong team. Ibaba (By concern + lumampas): agent filter.
     const { r, list, scoped } = compute({ agent: '' });
@@ -732,7 +776,7 @@
     const nob = clist.filter(c => !c.bench);
     document.getElementById('kNoBench').textContent = nob.length;
     document.getElementById('kNoBenchS').textContent = nob.length ? `${nob.reduce((s, c) => s + c.done, 0).toLocaleString()} Done tickets na hindi nasusukat` : 'Lahat may benchmark';
-    document.getElementById('lbSub').textContent = `· ${r.label}${state.concern ? ' · ' + state.concern : ''}`;
+    document.getElementById('lbSub').textContent = `· ${r.label}${state.shift ? ' · ' + SHIFTS.find(x => x.key === state.shift).label + ' shift' : ''}${state.concern ? ' · ' + state.concern : ''}`;
     document.getElementById('ccSub').textContent = `· ${clist.length} concerns · ${r.label}`;
 
     // Leaderboard
@@ -972,8 +1016,8 @@
   document.getElementById('fBrand').addEventListener('change', e => { state.brand = e.target.value; render(); });
   document.getElementById('fRank').addEventListener('change', e => { state.rank = e.target.value; state.sort = { key: 'rank', dir: 1 }; render(); });
   document.getElementById('clearBtn').addEventListener('click', () => {
-    Object.assign(state, { agent: '', missConcern: '', missAll: false, concern: '', brand: '', rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false });
-    document.getElementById('fBrand').value = ''; document.getElementById('fRank').value = 'sla'; render();
+    Object.assign(state, { shift: '', agent: '', missConcern: '', missAll: false, concern: '', brand: '', rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false });
+    document.getElementById('fBrand').value = ''; document.getElementById('fShift').value = ''; document.getElementById('fRank').value = 'sla'; render();
   });
   document.querySelectorAll('#agTable th.sortable').forEach(th => th.addEventListener('click', () => {
     const key = th.dataset.sort, first = key === 'handle' || key === 'topConcern' ? 1 : -1;
@@ -1035,6 +1079,7 @@
       add('Summary', [
         { Item: 'Range', Value: `${r.label} (${dt(r.from)} – ${dt(r.to)})` },
         { Item: 'Brand', Value: brandLbl },
+        { Item: 'Shift', Value: state.shift ? SHIFTS.find(x => x.key === state.shift).label : 'All shifts' },
         { Item: 'Concern filter', Value: state.concern || 'All concerns' },
         { Item: 'Rank by', Value: rankLbl },
         { Item: 'Active agents', Value: L.length },
@@ -1083,6 +1128,55 @@
     finally { btn.disabled = false; btn.innerHTML = old; }
   }
   document.getElementById('exportBtn').addEventListener('click', exportXlsx);
+
+
+  // ===== Per Shift panel =====
+  function renderShifts() {
+    if (!allTickets.length) return;
+    const keep = state.shift, r = rangeOf(state.range);
+    const cards = SHIFTS.map(sh => {
+      state.shift = sh.key;
+      const c = compute({ agent: '' });
+      state.shift = keep;
+      const L = c.list;
+      const done = L.reduce((a, x) => a + x.resolved, 0);
+      const sN = L.reduce((a, x) => a + x.slaN, 0), sH = L.reduce((a, x) => a + x.slaHit, 0);
+      // Bigat ng concern: average na benchmark (minuto) ng Done tickets na may benchmark
+      let wSum = 0, wN = 0, heavy = 0;
+      c.clist.forEach(cc => { if (cc.bench) { wSum += cc.bench.min * cc.slaN; wN += cc.slaN; if (cc.bench.min >= 10) heavy += cc.slaN; } });
+      const avgBench = wN ? wSum / wN : null;
+      const top3 = [...c.clist].sort((a, b) => b.done - a.done).slice(0, 3);
+      const best = [...L].sort((a, b) => a.rank - b.rank)[0];
+      return { sh, done, agents: L.length, sla: sN ? Math.round(sH / sN * 100) : null, avgBench, heavyPct: wN ? Math.round(heavy / wN * 100) : null, top3, best };
+    });
+    const benches = cards.map(x => x.avgBench).filter(x => x != null);
+    const maxB = Math.max(...benches, 0), minB = Math.min(...benches, Infinity);
+    document.getElementById('shSub').textContent = `· ${r.label}`;
+    document.getElementById('shGrid').innerHTML = cards.map(x => {
+      const lvl = x.avgBench == null ? '' : x.avgBench === maxB && benches.length > 1 ? 'h3' : x.avgBench === minB && benches.length > 1 ? 'h1' : 'h2';
+      const lvlTxt = { h3: 'Pinakamabigat', h2: 'Katamtaman', h1: 'Pinakamagaan' }[lvl] || '—';
+      const slaCol = x.sla == null ? 'var(--ink-faint)' : slaColor(x.sla);
+      return `<div class="sh${state.shift === x.sh.key ? ' sel' : ''}" style="--c:${x.sh.color}" data-shift="${x.sh.key}">
+        <div class="sh-h"><div class="sh-t">${x.sh.label}</div>${lvl ? `<span class="sh-heavy ${lvl}" title="Batay sa average na benchmark ng mga concern na hinawakan">${lvlTxt}</span>` : ''}</div>
+        <div class="sh-team">Team: ${x.sh.team.map(escapeHtml).join(', ')}</div>
+        <div class="sh-stats">
+          <div><b>${x.done.toLocaleString()}</b><span>Done</span></div>
+          <div><b style="color:${slaCol}">${x.sla == null ? '—' : x.sla + '%'}</b><span>Within SLA</span></div>
+          <div><b>${x.avgBench == null ? '—' : x.avgBench.toFixed(1) + 'm'}</b><span>Avg benchmark</span></div>
+        </div>
+        <div class="sh-mix">${x.heavyPct == null ? '' : `<b>${x.heavyPct}%</b> ng tickets ay ≥10m benchmark · `}Top: ${x.top3.length ? x.top3.map(t => `<b>${escapeHtml(t.issue)}</b> (${t.done})`).join(', ') : '—'}</div>
+        <div class="sh-top"><span class="k">🥇 Top agent</span><span>${x.best ? escapeHtml(x.best.name) : '—'}</span></div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('shGrid').addEventListener('click', e => {
+    const el = e.target.closest('[data-shift]'); if (!el) return;
+    state.shift = state.shift === el.dataset.shift ? '' : el.dataset.shift;
+    document.getElementById('fShift').value = state.shift;
+    state.sort = { key: 'rank', dir: 1 }; state.showAll = false; render();
+    document.getElementById('lbSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  document.getElementById('fShift').addEventListener('change', e => { state.shift = e.target.value; state.sort = { key: 'rank', dir: 1 }; state.showAll = false; render(); });
 
   // ---- Load ----
   function fillBrands() {
