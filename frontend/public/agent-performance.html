@@ -376,27 +376,48 @@
 
   // KEEP IN SYNC sa csr-dashboard.html (Agents Active)
   const RESOLVE_BENCHMARKS = [
-  { label: 'Forfeited Chips (Fraud / KYC)',           min: 5,  re: /forfeit/i },
-  { label: 'Reset Player Payment PIN',                min: 10, re: /(payment|withdraw\w*)\s*pin|reset.*pin/i },
-  { label: 'Reset Player Login Password',             min: 10, re: /password/i },
-  { label: 'Force Complete Turnover',                 min: 5,  re: /turnover/i },
-  { label: 'Delete / Close Account',                  min: 3,  re: /(delete|close|deactivat)\w*\s*(player\s*)?account/i },
-  { label: 'Open / Reactivate Account',               min: 3,  re: /(open|reactivat|unlock|activat)\w*\s*(player\s*)?account/i },
-  { label: 'Modify Mobile Phone Number',              min: 10, re: /(mobile|phone)\s*(number|no)/i },
-  { label: 'Cannot Receive OTP / Verification Issue', min: 5,  re: /otp|verification/i },
-  { label: 'Edit Payee / Withdrawal Name',            min: 10, re: /payee|withdrawal\s*name/i },
-  { label: 'Create E-Wallet or Bank Account',         min: 10, re: /(create|add)\w*\s*(e-?wallet|bank)/i },
-  { label: 'Delete Player Bank Card',                 min: 10, re: /(delete|remove)\w*\s*(player\s*)?bank\s*card/i },
-  { label: 'Modify Player ID Type',                   min: 10, re: /id\s*type/i },
-  { label: 'Unfreeze Bank Card / E-Wallet',           min: 10, re: /unfreeze/i },
-  { label: 'Freeze Bank Card / E-Wallet',             min: 10, re: /freeze/i },
+  // Unang tinitingnan ang EXACT na pangalan; kung wala, ang keywords (re) —
+  // naka-ayos mula sa pinaka-specific para hindi magkapalit.
+  { label: 'Forfeited Chips (Fraud / KYC)',            min: 5,  re: /forfeit/i },
+  { label: 'Received Fraud Notification in Account',   min: 5,  re: /fraud\s*notif/i },
+  { label: 'Reset Player Payment PIN',                 min: 10, re: /\bpin\b/i },
+  { label: 'Reset Player Login Password',              min: 10, re: /password/i },
+  { label: 'Force Complete Turnover',                  min: 5,  re: /turnover/i },
+  { label: 'Delete Player Bank Card',                  min: 10, re: /(delete|remove)\w*\s*(player\s*)?bank\s*card/i },
+  { label: 'Delete / Close Account',                   min: 3,  re: /(delete|close|deactivat)\w*[\s\/]*(close\s*)?(player\s*)?account/i },
+  { label: 'Game Cannot Be Accessed',                  min: 3,  re: /game\s*(cannot|can'?t)/i },
+  { label: 'Cannot Access / Open Gaming Account',      min: 3,  re: /gaming\s*account|cannot\s*access/i },
+  { label: 'Open / Reactivate Account',                min: 3,  re: /(open|reactivat|unlock)\w*[\s\/]*(reactivate\s*)?(player\s*)?account/i },
+  { label: 'Modify Mobile Phone Number',               min: 10, re: /(mobile|phone)\s*(number|no)/i },
+  { label: 'Cannot Receive OTP / Verification Issue',  min: 5,  re: /otp|verification/i },
+  { label: 'Edit Payee / Withdrawal Name',             min: 10, re: /payee|withdrawal\s*name/i },
+  { label: 'Create E-Wallet or Bank Account',          min: 10, re: /(create|add)\w*\s*(an?\s*)?(e-?wallet|bank)/i },
+  { label: 'Modify Player ID Type',                    min: 10, re: /id\s*type/i },
+  { label: 'Unfreeze Bank Card / E-Wallet',            min: 10, re: /unfreeze/i },
+  { label: 'Freeze Bank Card / E-Wallet',              min: 10, re: /freeze/i },
+  { label: "Didn't Receive Birthday Bonus",            min: 5,  re: /birthday\s*bonus/i },
+  { label: 'Modify Birthday',                          min: 10, re: /birth/i },
+  { label: 'Edit Player Email',                        min: 10, re: /e-?mail/i },
+  { label: 'Modify Address',                           min: 5,  re: /address/i },
+  { label: "Didn't Receive Daily Login Bonus",         min: 5,  re: /daily\s*login/i },
+  { label: "Didn't Receive Expected Cashback",         min: 5,  re: /cash\s*back/i },
+  { label: "Didn't Receive VIP Upgrade Bonus",         min: 5,  re: /vip\s*upgrade\s*bonus/i },
+  { label: "Didn't Upgrade VIP Level Automatically",   min: 5,  re: /vip\s*level|upgrade\s*vip/i },
+  { label: "Didn't Receive Other Expected Bonus",      min: 5,  re: /other\s*(expected\s*)?bonus/i },
+  { label: "Didn't Receive Expected Rebates",          min: 5,  re: /rebate/i },
+  { label: 'App Download Bonus',                       min: 5,  re: /app\s*download/i },
+  { label: 'Remove / Cancel Credited Reward',          min: 5,  re: /(remove|cancel)\w*.*(credited|reward)/i },
+  { label: 'Website is Lagging / Slow',                min: 3,  re: /lag+ing|\bslow\b|website/i },
+  { label: 'Free Spin Error',                          min: 5,  re: /free\s*spin/i },
 ];
 
   const benchCache = new Map();
   function benchmarkFor(issue) {
     const k = String(issue || '');
     if (benchCache.has(k)) return benchCache.get(k);
-    const b = RESOLVE_BENCHMARKS.find(x => x.re.test(k)) || null;
+    const nk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const b = RESOLVE_BENCHMARKS.find(x => x.label.toLowerCase().replace(/[^a-z0-9]/g, '') === nk)
+      || RESOLVE_BENCHMARKS.find(x => x.re.test(k)) || null;
     benchCache.set(k, b);
     return b;
   }
