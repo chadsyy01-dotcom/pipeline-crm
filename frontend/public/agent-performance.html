@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Performance — CSR Dashboard</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js?v=19"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Agent Performance (2026-10-12) — sub-tab sa ilalim ng Tickets. */
+  :root{
+    --primary:#2563EB; --primary-tint:#EFF4FF; --primary-dark:#1D4ED8;
+    --danger:#EF4444; --danger-tint:#FDECEC;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6; --radius-md:14px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;}
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;overflow:hidden;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;white-space:nowrap;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-group{margin-bottom:6px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;margin-bottom:2px;white-space:nowrap;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .nav-chev{margin-left:auto;width:14px !important;height:14px !important;transition:transform .18s ease;flex-shrink:0;}
+  .nav-chev.open{transform:rotate(180deg);}
+  .nav-sub{display:none;padding-left:16px;}
+  .nav-sub.open{display:block;}
+  .nav-sub .nav-item{font-size:12.5px;padding:8px 12px;}
+  .nav-sub .nav-item svg{width:15px;height:15px;}
+
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .hero-band{position:relative;overflow:hidden;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);margin:-26px -32px 0;padding:26px 32px 92px;border-radius:0 0 20px 20px;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;color:#fff;}
+  .greeting p{margin:0;color:#9FB2D8;font-size:13.5px;max-width:620px;line-height:1.55;}
+  .live-chip{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;font-weight:700;color:#C7D5F0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:4px 10px;border-radius:99px;}
+  .live-chip i{width:7px;height:7px;border-radius:50%;background:#F59E0B;}
+  .live-chip.ok i{background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.25);}
+  .tabs{display:flex;gap:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:4px;flex-wrap:wrap;}
+  .tab{border:0;background:transparent;color:#C7D5F0;font:inherit;font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:8px;cursor:pointer;}
+  .tab:hover{color:#fff;} .tab.active{background:#fff;color:var(--primary);}
+
+  .ap-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:-66px;position:relative;z-index:2;margin-bottom:14px;}
+  .kc{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);border:1px solid #E8EDF5;padding:18px 20px;position:relative;overflow:hidden;}
+  .kc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc);}
+  .kh{display:flex;align-items:center;justify-content:space-between;}
+  .kl{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);}
+  .ki{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--acc-t);color:var(--acc);}
+  .ki svg{width:16px;height:16px;}
+  .kv{font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.01em;}
+  .ks{font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:2px;}
+  .bar{height:6px;border-radius:99px;background:#EEF1F6;overflow:hidden;margin-top:10px;}
+  .bar i{display:block;height:100%;border-radius:99px;background:var(--primary);transition:width .4s;}
+
+  .ap-toolbar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid #E8EDF5;border-radius:var(--radius-md);box-shadow:var(--shadow);padding:12px 14px;margin-bottom:14px;}
+  .tg{display:flex;flex-direction:column;gap:5px;}
+  .tg label{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);}
+  .tg select{font:inherit;font-size:13px;font-weight:700;color:var(--ink);background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:8px 30px 8px 11px;max-width:360px;cursor:pointer;}
+  .tg select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+  .bench-chip{font-size:12.5px;font-weight:800;color:#6D28D9;background:#F3EEFE;border-radius:99px;padding:7px 13px;align-self:center;}
+  .clear-btn{margin-left:auto;align-self:center;border:1px solid #E2E8F0;background:#fff;color:var(--ink-soft);font:inherit;font-size:12.5px;font-weight:700;border-radius:10px;padding:8px 14px;cursor:pointer;}
+  .clear-btn:hover{color:var(--primary);border-color:var(--primary);}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);border:1px solid #E8EDF5;padding:18px 20px;margin-bottom:14px;position:relative;overflow:hidden;}
+  .panel::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;background:var(--acc);}
+  .p-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .p-head h3{margin:0;font-size:15px;font-weight:800;}
+  .p-head .sub{font-weight:600;color:var(--ink-faint);font-size:12.5px;margin-left:4px;}
+  .hint{font-size:11.5px;color:var(--ink-faint);font-weight:600;}
+  .empty-note{color:var(--ink-faint);font-size:12.5px;padding:18px 4px;text-align:center;}
+  .sec-lbl{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin:2px 0 6px;}
+  .sec-lbl::after{content:'';flex:1;height:1px;background:var(--line);}
+
+  .ag-table{width:100%;border-collapse:separate;border-spacing:0;}
+  .ag-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:700;padding:0 10px 10px;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none;}
+  .ag-table th.sortable{cursor:pointer;} .ag-table th.sortable:hover{color:var(--ink-soft);} .ag-table th.sorted{color:var(--primary);}
+  .ag-table td{padding:10px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  .ag-table tbody tr:hover td{background:#F8FAFF;}
+  .ag-table tr:last-child td{border-bottom:none;}
+  .ag-table .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .ag-table td.num{font-weight:700;}
+  .cc-table tbody tr{cursor:pointer;}
+  .cc-table tbody tr.sel td{background:#EFF4FF;}
+  .cc-table tr.nob td{color:var(--ink-faint);}
+  .rank{width:26px;height:26px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--ink-faint);background:#F1F5F9;}
+  .who{display:flex;align-items:center;gap:11px;min-width:0;}
+  .av{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12.5px;position:relative;}
+  .av .face{width:100%;height:100%;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .av .face img{width:100%;height:100%;object-fit:cover;}
+  .av .st{position:absolute;bottom:-1px;right:-1px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;}
+  .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+  .nm-sub{font-size:11.5px;font-weight:600;color:var(--ink-faint);margin-top:1px;}
+  .res{color:#15803D;} .rej{color:#B42318;}
+  .sla{display:inline-flex;align-items:center;gap:5px;font-weight:800;font-size:12px;padding:3px 9px;border-radius:8px;white-space:nowrap;}
+  .sla.good{background:#EAFBF1;color:#15803D;} .sla.ok{background:#FEF6E7;color:#B45309;} .sla.bad{background:#FDECEC;color:#B42318;} .sla.na{color:var(--ink-faint);font-weight:600;}
+  .sla small{font-weight:600;opacity:.8;}
+  .hd{display:inline-flex;font-weight:700;padding:3px 9px;border-radius:8px;font-size:12px;white-space:nowrap;}
+  .hd.fast{background:#EAFBF1;color:#15803D;} .hd.mid{background:#FEF6E7;color:#B45309;} .hd.slow{background:#FDECEC;color:#B42318;} .hd.none{color:var(--ink-faint);}
+  .tc{font-size:12px;font-weight:600;color:var(--ink-soft);max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tc b{color:var(--ink);}
+  .slabar{display:flex;align-items:center;gap:8px;}
+  .slabar .t{flex:1;height:7px;border-radius:99px;background:#EEF1F6;overflow:hidden;min-width:80px;}
+  .slabar .t i{display:block;height:100%;border-radius:99px;}
+  .slabar b{font-size:12px;min-width:38px;text-align:right;}
+  .mini{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;white-space:nowrap;}
+  .mini .av{width:26px;height:26px;font-size:10px;}
+  .mini small{color:var(--ink-faint);font-weight:600;}
+  .more-btn{display:block;width:100%;margin-top:10px;border:1px dashed #D6DEEA;background:#fff;color:var(--ink-soft);font:inherit;font-size:12.5px;font-weight:700;border-radius:10px;padding:9px;cursor:pointer;}
+  .more-btn:hover{background:#F8FAFC;color:var(--primary);border-color:var(--primary);}
+
+  /* Podium */
+  .ag-podium{display:grid;grid-template-columns:1fr 1.12fr 1fr;gap:14px;align-items:end;margin:6px 0 18px;}
+  .pod{position:relative;border-radius:16px;padding:18px 16px 14px;text-align:center;border:1px solid #E8EDF5;background:#fff;overflow:hidden;transition:transform .15s,box-shadow .15s;}
+  .pod:hover{transform:translateY(-3px);box-shadow:0 16px 30px -18px rgba(15,23,42,.35);}
+  .pod::before{content:'';position:absolute;inset:0 0 auto 0;height:64px;background:var(--pg);opacity:.16;}
+  .pod.p1{background:linear-gradient(180deg,#FFFBEB 0%,#fff 55%);border-color:#FDE68A;padding-top:24px;box-shadow:0 18px 36px -22px rgba(245,158,11,.55);--pg:linear-gradient(90deg,#F59E0B,#FCD34D);}
+  .pod.p2{--pg:linear-gradient(90deg,#94A3B8,#CBD5E1);} .pod.p3{--pg:linear-gradient(90deg,#C2410C,#FDBA74);}
+  .pod > *{position:relative;}
+  .pod-crown{position:absolute;top:8px;left:50%;transform:translateX(-50%);font-size:18px;line-height:1;}
+  .pod-medal{position:absolute;top:10px;left:12px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;background:var(--pg);}
+  .pod .av{width:64px;height:64px;margin:6px auto 8px;font-size:20px;box-shadow:0 0 0 4px #fff,0 0 0 6px var(--ring,#E2E8F0);}
+  .pod.p1 .av{width:76px;height:76px;font-size:23px;--ring:#FBBF24;} .pod.p2 .av{--ring:#CBD5E1;} .pod.p3 .av{--ring:#FDBA74;}
+  .pod .av .st{width:14px;height:14px;border-width:3px;right:2px;bottom:2px;}
+  .pod-name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pod-big{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-top:8px;line-height:1;}
+  .pod.p1 .pod-big{font-size:38px;}
+  .pod-big small{display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);margin-top:4px;}
+  .pod-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;}
+  .pod-stats div{background:#F8FAFC;border-radius:9px;padding:6px 4px;}
+  .pod-stats b{display:block;font-size:14px;font-weight:800;}
+  .pod-stats span{font-size:10px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.03em;}
+  .pod-tc{margin-top:10px;font-size:11.5px;font-weight:600;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pod-tc b{color:var(--ink-soft);}
+  @media (max-width:1100px){ .ap-kpis{grid-template-columns:1fr 1fr;} }
+  @media (max-width:900px){ .ag-podium{grid-template-columns:1fr;} .pod.p1{order:-1;} }
+  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .hero-band{margin:-20px -16px 0;padding:20px 16px 88px;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <div class="nav-group">
+      <a href="csr-dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="tickets.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+        Tickets
+      </a>
+      <div class="nav-sub open" id="ticketsSub">
+        <a href="agent-performance.html" class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"/><path d="M17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/></svg>
+          Agent Performance
+        </a>
+      </div>
+      <a href="customers.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Customers
+      </a>
+      <a href="qa.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        Quality Assurance
+        <svg class="nav-chev open" id="qaChev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" title="Expand/collapse"><path d="M6 9l6 6 6-6"/></svg>
+      </a>
+      <div class="nav-sub open" id="qaSub">
+        <a href="social-media-monitoring.html" class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a3 3 0 100-6 3 3 0 000 6z"/><path d="M6 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M18 22a3 3 0 100-6 3 3 0 000 6z"/><path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/></svg>
+          Social Media Monitoring
+        </a>
+      </div>
+      <a href="kb.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Knowledge Base
+      </a>
+      <a href="reports.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Reports
+      </a>
+      <a href="openai.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        OpenAI
+      </a>
+      <a href="settings.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
+      </a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="hero-band">
+      <div class="topbar">
+        <div class="greeting">
+          <h1>Agent Performance</h1>
+          <p>Top agents per ticket concern — bawat ticket ay sinusukat laban sa sariling benchmark ng concern nito (Core TL KPIs 2026).</p>
+          <span class="live-chip" id="liveChip"><i></i><span id="liveTxt">Loading tickets…</span></span>
+        </div>
+        <div class="tabs" id="rangeTabs">
+          <button class="tab active" data-r="today">Today</button>
+          <button class="tab" data-r="yesterday">Yesterday</button>
+          <button class="tab" data-r="7d">7 Days</button>
+          <button class="tab" data-r="month">This Month</button>
+          <button class="tab" data-r="lastmonth">Last Month</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ap-kpis">
+      <div class="kc" style="--acc:#8B5CF6;--acc-t:#F3EEFE;"><div class="kh"><div class="kl">Active agents</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div><div class="kv" id="kAgents">—</div><div class="ks" id="kAgentsS">&nbsp;</div></div>
+      <div class="kc" style="--acc:#22C55E;--acc-t:#EAFBF1;"><div class="kh"><div class="kl">Done tickets</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div></div><div class="kv" id="kDone">—</div><div class="ks" id="kDoneS">&nbsp;</div></div>
+      <div class="kc" style="--acc:#2563EB;--acc-t:#EFF4FF;"><div class="kh"><div class="kl">Team within SLA</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div></div><div class="kv" id="kSla">—</div><div class="ks" id="kSlaS">&nbsp;</div><div class="bar"><i id="kSlaBar" style="width:0"></i></div></div>
+      <div class="kc" style="--acc:#F59E0B;--acc-t:#FEF6E7;"><div class="kh"><div class="kl">Concerns w/o benchmark</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div></div><div class="kv" id="kNoBench">—</div><div class="ks" id="kNoBenchS">&nbsp;</div></div>
+    </div>
+
+    <div class="ap-toolbar">
+      <div class="tg"><label for="fConcern">Concern</label><select id="fConcern"><option value="">All concerns</option></select></div>
+      <div class="tg"><label for="fBrand">Brand</label><select id="fBrand"><option value="">All brands</option></select></div>
+      <div class="tg"><label for="fRank">Rank by</label>
+        <select id="fRank">
+          <option value="sla">Within SLA %</option>
+          <option value="speed">Fastest avg resolve</option>
+          <option value="total">Volume (tickets handled)</option>
+        </select></div>
+      <span class="bench-chip" id="benchChip" style="display:none;"></span>
+      <button type="button" class="clear-btn" id="clearBtn">Clear</button>
+    </div>
+
+    <section class="panel" style="--acc:#F59E0B;">
+      <div class="p-head"><h3>🏆 Leaderboard <span class="sub" id="lbSub"></span></h3><span class="hint">Kailangan ng ≥3 Done tickets para mapasama sa ranking ng SLA / bilis</span></div>
+      <div class="ag-podium" id="podium"></div>
+      <div class="sec-lbl" id="restLbl">Iba pang agents</div>
+      <div style="overflow-x:auto;">
+        <table class="ag-table" id="agTable">
+          <thead><tr>
+            <th style="width:44px;">#</th><th>Agent</th>
+            <th class="num sortable" data-sort="resolved">Done</th>
+            <th class="num sortable" data-sort="rejected">Rejected</th>
+            <th class="num sortable" data-sort="acked">Acked</th>
+            <th class="num sortable" data-sort="sla">Within SLA</th>
+            <th class="num sortable" data-sort="handle">Avg resolve</th>
+            <th class="sortable" data-sort="topConcern">Top concern</th>
+          </tr></thead>
+          <tbody id="agBody"><tr><td colspan="8"><div class="empty-note">Loading…</div></td></tr></tbody>
+        </table>
+      </div>
+      <button type="button" class="more-btn" id="moreBtn" style="display:none;"></button>
+    </section>
+
+    <section class="panel" style="--acc:#2563EB;">
+      <div class="p-head"><h3>📋 By concern <span class="sub" id="ccSub"></span></h3><span class="hint">I-click ang row para makita ang ranking sa concern na iyon</span></div>
+      <div style="overflow-x:auto;">
+        <table class="ag-table cc-table">
+          <thead><tr>
+            <th>Concern</th><th class="num">Benchmark</th><th class="num">Done</th>
+            <th style="min-width:170px;">Team within SLA</th><th class="num">Avg resolve</th>
+            <th>🥇 Best agent</th><th>⚡ Fastest</th>
+          </tr></thead>
+          <tbody id="ccBody"><tr><td colspan="7"><div class="empty-note">Loading…</div></td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  // ===== Agent Performance (2026-10-12) =====
+  // Hiwalay na tab sa ilalim ng Tickets. Top agents PER CONCERN: bawat Done
+  // ticket ay sinusukat laban sa benchmark ng sarili nitong concern
+  // (Core TL KPIs 2026). Data: TicketData (Google Sheets), parehong source
+  // ng Tickets at Dashboard.
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  const token = () => localStorage.getItem('pipeline_token');
+  if (!token()) window.location.href = LOGIN_PATH;
+  fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token()}` } })
+    .then(r => { if (!r.ok) throw new Error('auth'); })
+    .catch(() => { localStorage.removeItem('pipeline_token'); window.location.href = LOGIN_PATH; });
+
+  const { escapeHtml, relativeTime, colorForName, initialsForName } = TicketData;
+
+  // KEEP IN SYNC sa csr-dashboard.html (Agents Active)
+  const RESOLVE_BENCHMARKS = [
+  { label: 'Forfeited Chips (Fraud / KYC)',           min: 5,  re: /forfeit/i },
+  { label: 'Reset Player Payment PIN',                min: 10, re: /(payment|withdraw\w*)\s*pin|reset.*pin/i },
+  { label: 'Reset Player Login Password',             min: 10, re: /password/i },
+  { label: 'Force Complete Turnover',                 min: 5,  re: /turnover/i },
+  { label: 'Delete / Close Account',                  min: 3,  re: /(delete|close|deactivat)\w*\s*(player\s*)?account/i },
+  { label: 'Open / Reactivate Account',               min: 3,  re: /(open|reactivat|unlock|activat)\w*\s*(player\s*)?account/i },
+  { label: 'Modify Mobile Phone Number',              min: 10, re: /(mobile|phone)\s*(number|no)/i },
+  { label: 'Cannot Receive OTP / Verification Issue', min: 5,  re: /otp|verification/i },
+  { label: 'Edit Payee / Withdrawal Name',            min: 10, re: /payee|withdrawal\s*name/i },
+  { label: 'Create E-Wallet or Bank Account',         min: 10, re: /(create|add)\w*\s*(e-?wallet|bank)/i },
+  { label: 'Delete Player Bank Card',                 min: 10, re: /(delete|remove)\w*\s*(player\s*)?bank\s*card/i },
+  { label: 'Modify Player ID Type',                   min: 10, re: /id\s*type/i },
+  { label: 'Unfreeze Bank Card / E-Wallet',           min: 10, re: /unfreeze/i },
+  { label: 'Freeze Bank Card / E-Wallet',             min: 10, re: /freeze/i },
+];
+
+  const benchCache = new Map();
+  function benchmarkFor(issue) {
+    const k = String(issue || '');
+    if (benchCache.has(k)) return benchCache.get(k);
+    const b = RESOLVE_BENCHMARKS.find(x => x.re.test(k)) || null;
+    benchCache.set(k, b);
+    return b;
+  }
+  // KEEP IN SYNC sa csr-dashboard.html
+  const AGENTS_HIDDEN = new Set(['csrarabela', 'csr_joneel', 'csredriann']);
+  const isHidden = n => AGENTS_HIDDEN.has(String(n || '').trim().toLowerCase());
+  const MIN_N = 3;
+
+  let allTickets = [];
+  let avatarByName = new Map();
+  const nameKey = n => String(n || '').trim().toLowerCase();
+  const state = { range: 'today', concern: '', brand: '', rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false };
+
+  function fmtDur(sec) {
+    if (sec == null || !isFinite(sec)) return '—';
+    sec = Math.round(sec);
+    const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60), s2 = sec % 60;
+    if (d) return `${d}d ${h}h`;
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m ${s2}s`;
+    return `${s2}s`;
+  }
+  function rangeOf(key) {
+    const now = new Date();
+    const sod = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const today = sod(now);
+    if (key === 'yesterday') { const f = new Date(today); f.setDate(f.getDate() - 1); return { from: f, to: new Date(today.getTime() - 1), label: 'Yesterday' }; }
+    if (key === '7d') { const f = new Date(today); f.setDate(f.getDate() - 6); return { from: f, to: now, label: 'Last 7 days' }; }
+    if (key === 'month') return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now, label: 'This month' };
+    if (key === 'lastmonth') return { from: new Date(now.getFullYear(), now.getMonth() - 1, 1), to: new Date(new Date(now.getFullYear(), now.getMonth(), 1).getTime() - 1), label: 'Last month' };
+    return { from: today, to: now, label: 'Today' };
+  }
+  const inRange = (d, r) => d && d >= r.from && d <= r.to;
+
+  function avatarHtml(name, size) {
+    const src = avatarByName.get(nameKey(name));
+    const face = src ? `<div class="face"><img src="${src}" alt=""></div>` : `<div class="face">${escapeHtml(initialsForName(name))}</div>`;
+    return face;
+  }
+  function slaPill(x) {
+    if (!x.slaN) return '<span class="sla na" title="Walang Done ticket na may benchmark">—</span>';
+    const p = Math.round(x.slaHit / x.slaN * 100);
+    const c = p >= 90 ? 'good' : p >= 70 ? 'ok' : 'bad';
+    return `<span class="sla ${c}" title="${x.slaHit} sa ${x.slaN} Done tickets ang pasok sa benchmark">${p}% <small>(${x.slaHit}/${x.slaN})</small></span>`;
+  }
+  function hdPill(sec, limSec) {
+    const c = sec == null ? 'none' : sec <= limSec ? 'fast' : sec <= limSec * 3 ? 'mid' : 'slow';
+    return `<span class="hd ${c}">${fmtDur(sec)}</span>`;
+  }
+  const slaColor = p => p >= 90 ? '#22C55E' : p >= 70 ? '#F59E0B' : '#EF4444';
+
+  // ---- Aggregation ----
+  function compute() {
+    const r = rangeOf(state.range);
+    const scoped = allTickets.filter(t => !state.brand || t.brandCode === state.brand);
+    const agents = new Map();
+    const concerns = new Map(); // issue -> { done, slaN, slaHit, dur:[], byAgent: Map }
+    const get = n => {
+      let a = agents.get(n);
+      if (!a) { a = { name: n, acked: 0, resolved: 0, rejected: 0, dur: [], slaN: 0, slaHit: 0, last: null, byConcern: new Map() }; agents.set(n, a); }
+      return a;
+    };
+    const touch = (a, when) => { if (when && (!a.last || when > a.last)) a.last = when; };
+    scoped.forEach(t => {
+      const issue = t.issue || '—';
+      const inConcern = !state.concern || issue === state.concern;
+      const bench = benchmarkFor(issue);
+      if (t.acknowledgedBy && !isHidden(t.acknowledgedBy) && inRange(t.acknowledgedAt, r) && inConcern) {
+        const a = get(t.acknowledgedBy); a.acked++; touch(a, t.acknowledgedAt);
+      }
+      if (t.resolvedBy && !isHidden(t.resolvedBy) && inRange(t.resolvedAt, r)) {
+        if (t.statusCls === 'done') {
+          // concern table: lahat ng concern (hindi apektado ng concern filter)
+          let c = concerns.get(issue);
+          if (!c) { c = { issue, bench, done: 0, slaN: 0, slaHit: 0, dur: [], byAgent: new Map() }; concerns.set(issue, c); }
+          c.done++;
+          const d = t.resolveDurationSec;
+          if (d != null) c.dur.push(d);
+          let ca = c.byAgent.get(t.resolvedBy);
+          if (!ca) { ca = { name: t.resolvedBy, n: 0, slaN: 0, slaHit: 0, dur: [] }; c.byAgent.set(t.resolvedBy, ca); }
+          ca.n++;
+          if (d != null) ca.dur.push(d);
+          if (bench && d != null) { c.slaN++; ca.slaN++; if (d <= bench.min * 60) { c.slaHit++; ca.slaHit++; } }
+        }
+        if (!inConcern) return;
+        const a = get(t.resolvedBy); touch(a, t.resolvedAt);
+        if (t.statusCls === 'done') {
+          a.resolved++;
+          const d = t.resolveDurationSec;
+          if (d != null) a.dur.push(d);
+          if (bench && d != null) { a.slaN++; if (d <= bench.min * 60) a.slaHit++; }
+          a.byConcern.set(issue, (a.byConcern.get(issue) || 0) + 1);
+        } else if (t.statusCls === 'rejected') a.rejected++;
+      }
+    });
+    const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+    const list = [...agents.values()].map(a => {
+      const top = [...a.byConcern.entries()].sort((x, y) => y[1] - x[1])[0];
+      return { ...a, handle: avg(a.dur), sla: a.slaN ? a.slaHit / a.slaN : null, total: a.acked + a.resolved + a.rejected,
+        topConcern: top ? top[0] : '', topConcernN: top ? top[1] : 0, lastMs: a.last ? +a.last : 0 };
+    });
+    const score = x => state.rank === 'sla' ? (x.slaN >= MIN_N ? x.sla * 1e6 + x.slaN : -1)
+      : state.rank === 'speed' ? (x.handle != null && x.resolved >= MIN_N ? -x.handle : -Infinity)
+      : x.total;
+    [...list].sort((a, b) => (score(b) - score(a)) || (b.resolved - a.resolved) || (b.total - a.total)).forEach((x, i) => { x.rank = i + 1; });
+    const clist = [...concerns.values()].map(c => {
+      const ags = [...c.byAgent.values()].map(x => ({ ...x, avg: avg(x.dur), sla: x.slaN ? x.slaHit / x.slaN : null }));
+      const best = ags.filter(x => x.slaN >= MIN_N).sort((a, b) => (b.sla - a.sla) || (b.slaN - a.slaN))[0] || null;
+      const fast = ags.filter(x => x.avg != null && x.n >= MIN_N).sort((a, b) => a.avg - b.avg)[0] || null;
+      return { ...c, avg: avg(c.dur), best, fast };
+    }).sort((a, b) => (!!b.bench - !!a.bench) || b.done - a.done);
+    return { r, list, clist, scoped };
+  }
+
+  // ---- Render ----
+  function render() {
+    const { r, list, clist, scoped } = compute();
+    const selBench = state.concern ? benchmarkFor(state.concern) : null;
+    const lim = selBench ? selBench.min * 60 : 600;
+
+    // Filters (options)
+    const cOpts = new Map();
+    scoped.forEach(t => {
+      if ((t.resolvedBy && inRange(t.resolvedAt, r)) || (t.acknowledgedBy && inRange(t.acknowledgedAt, r))) {
+        const k = t.issue || '—'; cOpts.set(k, (cOpts.get(k) || 0) + 1);
+      }
+    });
+    if (state.concern && !cOpts.has(state.concern)) cOpts.set(state.concern, 0);
+    const cHtml = '<option value="">All concerns</option>' + [...cOpts.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => {
+      const b = benchmarkFor(k);
+      return `<option value="${escapeHtml(k)}">${escapeHtml(k)}${b ? ' · ≤' + b.min + 'm' : ''} (${n.toLocaleString()})</option>`;
+    }).join('');
+    const cs = document.getElementById('fConcern');
+    if (cs.dataset.sig !== cHtml) { cs.innerHTML = cHtml; cs.dataset.sig = cHtml; }
+    cs.value = state.concern;
+    const bc = document.getElementById('benchChip');
+    bc.style.display = state.concern ? '' : 'none';
+    bc.textContent = selBench ? `Benchmark: ≤ ${selBench.min} min` : 'Walang benchmark ang concern na ito';
+
+    // KPIs
+    const done = list.reduce((s, x) => s + x.resolved, 0);
+    const slaN = list.reduce((s, x) => s + x.slaN, 0), slaHit = list.reduce((s, x) => s + x.slaHit, 0);
+    const online = list.filter(x => (Date.now() - x.lastMs) / 60000 <= 60).length;
+    document.getElementById('kAgents').textContent = list.length;
+    document.getElementById('kAgentsS').textContent = `${online} active sa nakaraang oras`;
+    document.getElementById('kDone').textContent = done.toLocaleString();
+    document.getElementById('kDoneS').textContent = `${slaN.toLocaleString()} may benchmark · ${r.label}`;
+    const tp = slaN ? Math.round(slaHit / slaN * 100) : null;
+    document.getElementById('kSla').textContent = tp == null ? '—' : tp + '%';
+    document.getElementById('kSla').style.color = tp == null ? '' : slaColor(tp);
+    document.getElementById('kSlaS').textContent = slaN ? `${slaHit.toLocaleString()} sa ${slaN.toLocaleString()} pasok sa benchmark` : 'Walang Done ticket na may benchmark';
+    document.getElementById('kSlaBar').style.width = (tp || 0) + '%';
+    document.getElementById('kSlaBar').style.background = tp == null ? '' : slaColor(tp);
+    const nob = clist.filter(c => !c.bench);
+    document.getElementById('kNoBench').textContent = nob.length;
+    document.getElementById('kNoBenchS').textContent = nob.length ? `${nob.reduce((s, c) => s + c.done, 0).toLocaleString()} Done tickets na hindi nasusukat` : 'Lahat may benchmark';
+    document.getElementById('lbSub').textContent = `· ${r.label}${state.concern ? ' · ' + state.concern : ''}`;
+    document.getElementById('ccSub').textContent = `· ${clist.length} concerns · ${r.label}`;
+
+    // Leaderboard
+    const body = document.getElementById('agBody'), pod = document.getElementById('podium'), restLbl = document.getElementById('restLbl'), more = document.getElementById('moreBtn');
+    if (!list.length) {
+      pod.style.display = 'none'; restLbl.style.display = 'none'; more.style.display = 'none';
+      body.innerHTML = '<tr><td colspan="8"><div class="empty-note">Walang agent activity sa range/filter na ito.</div></td></tr>';
+    } else {
+      const k = state.sort.key === 'last' ? 'lastMs' : state.sort.key;
+      const sorted = [...list].sort((a, b) => {
+        if (k === 'topConcern') return String(a.topConcern).localeCompare(String(b.topConcern)) * state.sort.dir;
+        const av = a[k] == null ? -Infinity : a[k], bv = b[k] == null ? -Infinity : b[k];
+        return ((av - bv) * state.sort.dir) || (a.rank - b.rank);
+      });
+      document.querySelectorAll('#agTable th.sortable').forEach(th => {
+        const on = th.dataset.sort === state.sort.key;
+        th.classList.toggle('sorted', on);
+        th.querySelector('.arr')?.remove();
+        if (on) th.insertAdjacentHTML('beforeend', `<span class="arr"> ${state.sort.dir < 0 ? '▼' : '▲'}</span>`);
+      });
+      const showPod = state.sort.key === 'rank' && list.length >= 3;
+      pod.style.display = showPod ? '' : 'none';
+      const rest = showPod ? sorted.filter(x => x.rank > 3) : sorted;
+      restLbl.style.display = showPod && rest.length ? '' : 'none';
+      if (showPod) {
+        const top = [...list].sort((a, b) => a.rank - b.rank).slice(0, 3);
+        const big = x => state.rank === 'sla' ? (x.slaN ? Math.round(x.sla * 100) + '%' : '—') : state.rank === 'speed' ? fmtDur(x.handle) : x.total.toLocaleString();
+        const bigLbl = state.rank === 'sla' ? 'within SLA' : state.rank === 'speed' ? 'avg resolve' : 'tickets handled';
+        const card = (x, cls) => {
+          const mins = (Date.now() - x.lastMs) / 60000;
+          const st = mins <= 60 ? '#22C55E' : mins <= 480 ? '#F59E0B' : '#94A3B8';
+          return `<div class="pod ${cls}">${cls === 'p1' ? '<span class="pod-crown">👑</span>' : ''}<span class="pod-medal">${x.rank}</span>
+            <div class="av" style="background:${colorForName(x.name)}">${avatarHtml(x.name)}<span class="st" style="background:${st}"></span></div>
+            <div class="pod-name" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</div>
+            <div class="pod-big">${big(x)}<small>${bigLbl}</small></div>
+            <div style="margin-top:8px;">${state.rank === 'sla' ? hdPill(x.handle, lim) : slaPill(x)}</div>
+            <div class="pod-stats"><div><b class="res">${x.resolved.toLocaleString()}</b><span>Done</span></div><div><b class="rej">${x.rejected.toLocaleString()}</b><span>Rejected</span></div><div><b>${x.acked.toLocaleString()}</b><span>Acked</span></div></div>
+            <div class="pod-tc">${x.topConcern ? `Top: <b>${escapeHtml(x.topConcern)}</b> (${x.topConcernN})` : '&nbsp;'}</div></div>`;
+        };
+        pod.innerHTML = card(top[1], 'p2') + card(top[0], 'p1') + card(top[2], 'p3');
+      }
+      const LIMIT = 15;
+      const shown = state.showAll ? rest : rest.slice(0, LIMIT);
+      body.innerHTML = shown.map(x => {
+        const mins = (Date.now() - x.lastMs) / 60000;
+        const st = mins <= 60 ? '#22C55E' : mins <= 480 ? '#F59E0B' : '#94A3B8';
+        const notRanked = (state.rank === 'sla' && x.slaN < MIN_N) || (state.rank === 'speed' && x.resolved < MIN_N);
+        return `<tr>
+          <td><span class="rank" title="${notRanked ? 'Kulang sa 3 Done tickets — nasa dulo ng ranking' : ''}">${x.rank}</span></td>
+          <td><div class="who"><div class="av" style="background:${colorForName(x.name)}">${avatarHtml(x.name)}<span class="st" style="background:${st}"></span></div>
+            <div style="min-width:0;"><div class="nm">${escapeHtml(x.name)}</div><div class="nm-sub">Last active ${escapeHtml(relativeTime(x.last))}</div></div></div></td>
+          <td class="num res">${x.resolved.toLocaleString()}</td>
+          <td class="num rej">${x.rejected.toLocaleString()}</td>
+          <td class="num">${x.acked.toLocaleString()}</td>
+          <td class="num">${slaPill(x)}</td>
+          <td class="num">${hdPill(x.handle, lim)}</td>
+          <td><div class="tc" title="${escapeHtml(x.topConcern)}">${x.topConcern ? `<b>${escapeHtml(x.topConcern)}</b> · ${x.topConcernN}` : '—'}</div></td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="8"><div class="empty-note">Nasa podium na ang lahat ng agents.</div></td></tr>';
+      if (rest.length > LIMIT) { more.style.display = ''; more.textContent = state.showAll ? 'Itago ▲' : `Ipakita lahat (${rest.length - LIMIT} pa) ▼`; }
+      else more.style.display = 'none';
+    }
+
+    // By concern
+    const ccBody = document.getElementById('ccBody');
+    const mini = (x, val) => x ? `<div class="mini"><div class="av" style="background:${colorForName(x.name)}">${avatarHtml(x.name)}</div>${escapeHtml(x.name)} <small>${val}</small></div>` : '<span style="color:var(--ink-faint);font-size:12px;">—</span>';
+    ccBody.innerHTML = clist.map(c => {
+      const p = c.slaN ? Math.round(c.slaHit / c.slaN * 100) : null;
+      const bar = p == null ? '<span style="color:var(--ink-faint);font-size:12px;font-weight:600;">Walang benchmark</span>'
+        : `<div class="slabar"><div class="t"><i style="width:${p}%;background:${slaColor(p)}"></i></div><b style="color:${slaColor(p)}">${p}%</b></div>`;
+      return `<tr class="${c.issue === state.concern ? 'sel' : ''}${c.bench ? '' : ' nob'}" data-issue="${escapeHtml(c.issue)}">
+        <td style="font-weight:700;">${escapeHtml(c.issue)}</td>
+        <td class="num">${c.bench ? '≤ ' + c.bench.min + 'm' : '—'}</td>
+        <td class="num">${c.done.toLocaleString()}</td>
+        <td>${bar}</td>
+        <td class="num">${hdPill(c.avg, c.bench ? c.bench.min * 60 : 600)}</td>
+        <td>${c.bench ? mini(c.best, c.best ? Math.round(c.best.sla * 100) + '% (' + c.best.slaN + ')' : '') : '<span style="color:var(--ink-faint);font-size:12px;">—</span>'}</td>
+        <td>${mini(c.fast, c.fast ? fmtDur(c.fast.avg) : '')}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="7"><div class="empty-note">Walang Done tickets sa range na ito.</div></td></tr>';
+  }
+
+  // ---- Events ----
+  document.querySelectorAll('#rangeTabs .tab').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#rangeTabs .tab').forEach(x => x.classList.toggle('active', x === b));
+    state.range = b.dataset.r; state.showAll = false; render();
+  }));
+  document.getElementById('fConcern').addEventListener('change', e => { state.concern = e.target.value; state.sort = { key: 'rank', dir: 1 }; render(); });
+  document.getElementById('fBrand').addEventListener('change', e => { state.brand = e.target.value; render(); });
+  document.getElementById('fRank').addEventListener('change', e => { state.rank = e.target.value; state.sort = { key: 'rank', dir: 1 }; render(); });
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    Object.assign(state, { concern: '', brand: '', rank: 'sla', sort: { key: 'rank', dir: 1 }, showAll: false });
+    document.getElementById('fBrand').value = ''; document.getElementById('fRank').value = 'sla'; render();
+  });
+  document.querySelectorAll('#agTable th.sortable').forEach(th => th.addEventListener('click', () => {
+    const key = th.dataset.sort, first = key === 'handle' || key === 'topConcern' ? 1 : -1;
+    if (state.sort.key === key && state.sort.dir === -first) state.sort = { key: 'rank', dir: 1 };
+    else state.sort = state.sort.key === key ? { key, dir: -state.sort.dir } : { key, dir: first };
+    render();
+  }));
+  document.getElementById('moreBtn').addEventListener('click', () => { state.showAll = !state.showAll; render(); });
+  document.getElementById('ccBody').addEventListener('click', e => {
+    const tr = e.target.closest('tr[data-issue]'); if (!tr) return;
+    state.concern = state.concern === tr.dataset.issue ? '' : tr.dataset.issue;
+    state.sort = { key: 'rank', dir: 1 };
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // ---- Load ----
+  function fillBrands() {
+    const m = new Map();
+    allTickets.forEach(t => { if (t.brandCode) m.set(t.brandCode, t.brandLabel || t.brandCode); });
+    const sel = document.getElementById('fBrand');
+    const html = '<option value="">All brands</option>' + [...m.entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([c, l]) => `<option value="${escapeHtml(c)}">${escapeHtml(l)}</option>`).join('');
+    if (sel.dataset.sig !== html) { sel.innerHTML = html; sel.dataset.sig = html; }
+    sel.value = state.brand;
+  }
+  function markUpdated() {
+    document.getElementById('liveChip').classList.add('ok');
+    document.getElementById('liveTxt').textContent = `${allTickets.length.toLocaleString()} tickets · Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  let loading = false;
+  async function load(force) {
+    if (loading) return; loading = true;
+    try { allTickets = await TicketData.fetchTickets(!!force); fillBrands(); render(); markUpdated(); }
+    catch (err) { console.error(err); document.getElementById('liveTxt').textContent = 'Hindi ma-load ang tickets — i-refresh'; }
+    finally { loading = false; }
+  }
+  load(false);
+  setInterval(() => { if (!document.hidden) load(true); }, 60000);
+  fetch(`${API_BASE}/auth/directory`, { headers: { Authorization: `Bearer ${token()}` } })
+    .then(r => r.ok ? r.json() : { users: [] })
+    .then(d => { avatarByName = new Map((d.users || []).filter(u => u.avatar).map(u => [nameKey(u.name), u.avatar])); if (allTickets.length) render(); })
+    .catch(() => {});
+
+  // QA subgroup toggle
+  (function () {
+    const chev = document.getElementById('qaChev'), sub = document.getElementById('qaSub');
+    if (chev && sub) chev.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); sub.classList.toggle('open'); chev.classList.toggle('open', sub.classList.contains('open')); });
+  })();
+</script>
+</body>
+</html>
