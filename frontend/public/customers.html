@@ -1609,7 +1609,9 @@
     // Ang bot na "Rate our support" ay hindi bilang na agent reply.
     const agentSpokeLast = c.lastMessageSenderType === 'user' && c.lastMessageSender
       && !isBotClient(c.brand, c.lastMessageSender);
-    if (c.handoffStage && !answered && !agentSpokeLast && !c.waitExempt) {
+    // sessionHandoff === false: lumang label lang, AI lang ang kausap sa
+    // kasalukuyang session — hindi Missed (2026-10-13).
+    if (c.handoffStage && c.sessionHandoff !== false && !answered && !agentSpokeLast && !c.waitExempt) {
       if (idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
       return { cls: 'waiting', label: 'Waiting', late };
     }
@@ -2205,7 +2207,23 @@
       if (!cur || (prevAt != null && at - prevAt > SESSION_GAP_MS)) { cur = []; sessions.push(cur); }
       cur.push(i); prevAt = at;
     });
-    const pendingTimes = messages.filter(m => m.handoffStage === 'pending').map(tOf).filter(x => x != null);
+    // Lumang "pending" label na dala-dala ng conversation (hindi tinatanggal
+    // ng Chatwoot) ay HINDI handoff (2026-10-13). Bilang lang ang pending kapag
+    // BAGO — ang naunang row ay walang handoff label. Kasama rin bilang handoff
+    // ang transfer message ng bot ("connect you", "specialist", …).
+    // Kapareho ng HANDOFF_MSG_RE sa backend/routes/chatwoot.js.
+    const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your)|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|endors|i-?forward|ipapasa|ikokonekta|i-?connect|(agent|specialist)\s+will\s+(be|assist|attend|get)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
+    const pendingTimes = [];
+    {
+      let prevSt = null;
+      [...messages].sort((a, b) => (tOf(a) ?? 0) - (tOf(b) ?? 0)).forEach(m => {
+        const st = m.handoffStage || null;
+        if (st === 'pending' && !prevSt && tOf(m) != null) pendingTimes.push(tOf(m));
+        prevSt = st;
+      });
+    }
+    withContent.forEach(m => { if (isBotMsg(m) && HANDOFF_MSG_RE.test(String(m.content || '').slice(0, 400)) && tOf(m) != null) pendingTimes.push(tOf(m)); });
+    pendingTimes.sort((a, b) => a - b);
     let hoAt = null;   // para sa divider: handoff ng pinakahuling session na may handoff
     sessions.forEach(idxs => {
       const sStart = tOf(withContent[idxs[0]]), sEnd = tOf(withContent[idxs[idxs.length - 1]]);
