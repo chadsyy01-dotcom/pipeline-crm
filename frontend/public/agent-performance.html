@@ -428,6 +428,13 @@
   { label: 'Cancel Withdrawal Request',                min: 5,  re: /cancel\w*\s*withdraw/i },
   { label: 'Recall Balance / Force Chips Transfer',    min: 3,  re: /recall\s*balance|force\s*chips?\s*transfer/i },
   { label: 'Follow-up (Ticket ID)',                    min: 3,  re: /follow-?\s*up\s*\(\s*ticket\s*id\s*\)/i },
+  { label: 'Cash Out Error / System Error',            min: 5,  re: /cash\s*out\s*error/i },
+  { label: 'Cash In Error / System Error',             min: 5,  re: /cash\s*in\s*error/i },
+  { label: 'Follow-up (Username)',                     min: 3,  re: /follow-?\s*up\s*\(\s*user\s*name\s*\)/i },
+  { label: 'Reuse of QR Code for Cash In',             min: 5,  re: /qr\s*code/i },
+  { label: 'Refund Cash In',                           min: 5,  re: /refund/i },
+  { label: "Didn't Receive VIP Rank Up Bonus",         min: 5,  re: /vip\s*rank\s*up/i },
+  { label: 'Wrong Cash Out Amount Received',           min: 5,  re: /wrong\s*cash\s*out\s*amount|wrong.*amount/i },
   // Core TL KPIs (2026 Standards)
   { label: 'Forfeited Chips (Fraud / KYC)',            min: 5,  re: /forfeit/i },
   { label: 'Received Fraud Notification in Account',   min: 5,  re: /fraud\s*notif/i },
