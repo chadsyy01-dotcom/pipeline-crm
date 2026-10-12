@@ -212,6 +212,38 @@
 
   .tg-inline{flex-direction:row;align-items:center;gap:8px;}
   .tg-inline select{min-width:220px;}
+
+  /* Core TL KPI scorecard (2026-10-12) */
+  .sc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;}
+  .sc{border:1px solid #E8EDF5;border-radius:14px;padding:14px 16px;position:relative;overflow:hidden;background:#fff;}
+  .sc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c,#94A3B8);}
+  .sc-k{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);}
+  .sc-t{font-size:13.5px;font-weight:800;margin-top:3px;}
+  .sc-v{display:flex;align-items:baseline;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .sc-v b{font-size:26px;font-weight:800;letter-spacing:-.02em;color:var(--c,var(--ink));}
+  .sc-v span{font-size:12px;font-weight:700;color:var(--ink-faint);}
+  .sc-st{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;margin-top:8px;}
+  .sc-st.pass{background:#EAFBF1;color:#15803D;} .sc-st.fail{background:#FDECEC;color:#B42318;} .sc-st.info{background:#EFF4FF;color:var(--primary);}
+  .sc-n{font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-top:8px;line-height:1.5;}
+  .sc-n b{color:var(--ink);}
+  .sc-manual{display:flex;flex-wrap:wrap;gap:8px;}
+  .sc-manual span{font-size:12px;font-weight:700;color:var(--ink-soft);background:#F8FAFC;border:1px dashed #D6DEEA;border-radius:10px;padding:7px 11px;}
+  .sc-manual span small{color:var(--ink-faint);font-weight:600;margin-left:4px;}
+
+  /* KPI scorecard — table style (2026-10-12 v2, kahawig ng Core TL KPIs doc) */
+  .kpi-tbl{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;}
+  .kpi-tbl thead th{background:#1E3A5F;color:#fff;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;text-align:left;padding:12px 14px;white-space:nowrap;}
+  .kpi-tbl thead th.c,.kpi-tbl td.c{text-align:center;}
+  .kpi-tbl td{padding:12px 14px;border-top:1px solid #EEF1F6;font-size:13px;vertical-align:middle;}
+  .kpi-tbl td.cat{background:#F8FAFC;font-weight:800;color:#1E3A5F;width:260px;}
+  .kpi-tbl td.kpi{font-weight:600;}
+  .kpi-tbl td.act{font-size:16px;font-weight:800;white-space:nowrap;}
+  .kpi-tbl td.det{font-size:12px;color:var(--ink-soft);line-height:1.5;max-width:380px;}
+  .kpi-tbl td.det b{color:var(--ink);}
+  .kpi-tbl tr.man td{color:var(--ink-faint);}
+  .kpi-tbl tr.man td.cat{color:#64748B;}
+  .st{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:4px 10px;border-radius:99px;white-space:nowrap;}
+  .st.pass{background:#EAFBF1;color:#15803D;} .st.fail{background:#FDECEC;color:#B42318;} .st.info{background:#EFF4FF;color:var(--primary);} .st.man{background:#F1F5F9;color:#64748B;}
 </style>
 </head>
 <body>
@@ -326,6 +358,16 @@
         </table>
       </div>
       <button type="button" class="more-btn" id="moreBtn" style="display:none;"></button>
+    </section>
+
+    <section class="panel" id="kpiSection" style="--acc:#0EA5E9;">
+      <div class="p-head"><h3>📊 Core TL KPI Scorecard <span class="sub" id="scSub"></span></h3><span class="hint">Batay sa Core TL KPIs (2026 Standards) · sumusunod sa Range at Brand filter</span></div>
+      <div style="overflow-x:auto;">
+        <table class="kpi-tbl">
+          <thead><tr><th>Category</th><th>KPI</th><th class="c">Benchmark</th><th class="c">Actual</th><th class="c">Status</th><th>Detalye</th></tr></thead>
+          <tbody id="scBody"><tr><td colspan="6"><div class="empty-note">Loading…</div></td></tr></tbody>
+        </table>
+      </div>
     </section>
 
     <section class="panel" id="ccSection" style="--acc:#2563EB;">
@@ -546,6 +588,7 @@
 
   // ---- Render ----
   function render() {
+    try { renderScorecard(); } catch (e) { console.warn('scorecard', e); }
     // Itaas (KPIs + leaderboard): buong team. Ibaba (By concern + lumampas): agent filter.
     const { r, list, scoped } = compute({ agent: '' });
     const agentMode = !!state.agent;
@@ -687,7 +730,16 @@
     if (agentMode) {
       const meR = list.find(x => x.name === state.agent), meD = det.list[0];
       const pct = meD && meD.slaN ? Math.round(meD.slaHit / meD.slaN * 100) + '%' : '—';
-      document.getElementById('csHint').innerHTML = `<b style="color:var(--ink)">${escapeHtml(state.agent)}</b> · Rank <b style="color:var(--ink)">#${meR ? meR.rank : '—'}</b> sa ${list.length} agents · Within SLA <b style="color:var(--ink)">${pct}</b> · I-click ang row para i-filter ang listahan ng lumampas.`;
+      const handled = meR ? meR.resolved + meR.rejected : 0;
+      const teamAvgC = list.length ? list.reduce((s2, x) => s2 + x.resolved + x.rejected, 0) / list.length : 0;
+      const myAck = scoped.filter(t => t.acknowledgedBy === state.agent && inRange(t.acknowledgedAt, r) && t.ackDurationSec != null && isFinite(t.ackDurationSec)).map(t => t.ackDurationSec);
+      const myAckAvg = myAck.length ? myAck.reduce((a, b) => a + b, 0) / myAck.length : null;
+      const ackCol = myAckAvg == null ? 'var(--ink)' : myAckAvg <= 180 ? '#15803D' : '#B42318';
+      const cntCol = handled >= teamAvgC ? '#15803D' : '#B42318';
+      document.getElementById('csHint').innerHTML = `<b style="color:var(--ink)">${escapeHtml(state.agent)}</b> · Rank <b style="color:var(--ink)">#${meR ? meR.rank : '—'}</b> sa ${list.length} agents · Within SLA <b style="color:var(--ink)">${pct}</b>`
+        + ` · Avg ack <b style="color:${ackCol}">${fmtDur(myAckAvg)}</b> (≤3m)`
+        + ` · Tickets <b style="color:${cntCol}">${handled.toLocaleString()}</b> vs team avg ${Math.round(teamAvgC).toLocaleString()}`
+        + ` · I-click ang row para i-filter ang listahan ng lumampas.`;
     } else document.getElementById('csHint').textContent = 'Pumili ng agent para makita kung saang concern siya pasok o bumabagsak sa benchmark.';
 
     // Agent mode: listahan ng tickets na lumampas
@@ -717,6 +769,74 @@
       const mm = document.getElementById('missMore');
       if (misses.length > LIM) { mm.style.display = ''; mm.textContent = state.missAll ? 'Itago ▲' : `Ipakita lahat (${misses.length - LIM} pa) ▼`; } else mm.style.display = 'none';
     }
+  }
+
+
+  // ===== Core TL KPI Scorecard (2026-10-12) =====
+  // Team / Individual KPIs mula sa Core TL KPIs (2026 Standards). Ang mga
+  // nasusukat mula sa ticket sheets at chat CSAT ay kinukuwenta rito; ang iba
+  // (Task Checker, Assessment, Leadership Output, Compliance) ay manual pa.
+  const TEAM_KPI = { ackMin: 3, resolveMin: 5 };
+  const MANUAL_KPIS = [
+    ['Individual – Task Checker', 'On-time rate', '85%'],
+    ['Individual Assessment Score', 'Monthly overall assessment score', '85%'],
+    ['Team – Leadership Output', 'Output Accuracy', '100%'],
+    ['Individual – Compliance', 'Attendance Compliance', '100%'],
+    ['Individual – Compliance', 'Coaching Completion On-Time Rate', '100%'],
+    ['Individual – Compliance', 'Policy Violations', '100%'],
+  ];
+  let csatCache = { key: '', data: null, loading: false };
+  function loadCsat(r) {
+    const key = r.from.toISOString() + '|' + r.to.toISOString();
+    if (csatCache.key === key || csatCache.loading) return;
+    csatCache.loading = true;
+    fetch(`${API_BASE}/chatwoot/csat?from=${encodeURIComponent(r.from.toISOString())}&to=${encodeURIComponent(r.to.toISOString())}`, { headers: { Authorization: `Bearer ${token()}` } })
+      .then(x => x.ok ? x.json() : null)
+      .then(d => { csatCache = { key, data: d, loading: false }; renderScorecard(); })
+      .catch(() => { csatCache = { key, data: null, loading: false }; renderScorecard(); });
+  }
+  const median = arr => { if (!arr.length) return null; const a = [...arr].sort((x, y) => x - y), m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+  function renderScorecard() {
+    if (!allTickets.length) return;
+    const r = rangeOf(state.range);
+    const T = allTickets.filter(t => (!state.brand || t.brandCode === state.brand) && !isHidden(t.acknowledgedBy) && !isHidden(t.resolvedBy));
+    const ack = T.filter(t => t.acknowledgedBy && inRange(t.acknowledgedAt, r) && t.ackDurationSec != null && isFinite(t.ackDurationSec)).map(t => t.ackDurationSec);
+    const res = T.filter(t => t.statusCls === 'done' && t.resolvedBy && inRange(t.resolvedAt, r) && t.resolveDurationSec != null && isFinite(t.resolveDurationSec)).map(t => t.resolveDurationSec);
+    const avgA = ack.length ? ack.reduce((a, b) => a + b, 0) / ack.length : null;
+    const avgR = res.length ? res.reduce((a, b) => a + b, 0) / res.length : null;
+    // Individual average count: Done + Rejected bawat agent vs average ng team
+    const cnt = new Map();
+    T.forEach(t => { if (t.resolvedBy && inRange(t.resolvedAt, r) && (t.statusCls === 'done' || t.statusCls === 'rejected')) cnt.set(t.resolvedBy, (cnt.get(t.resolvedBy) || 0) + 1); });
+    const counts = [...cnt.entries()];
+    const avgC = counts.length ? counts.reduce((s2, [, n]) => s2 + n, 0) / counts.length : null;
+    const below = counts.filter(([, n]) => avgC != null && n < avgC).sort((a, b) => a[1] - b[1]);
+    const stHtml = (val, limSec) => val == null ? '<span class="st man">—</span>' : val <= limSec ? '<span class="st pass">✓ Pasado</span>' : '<span class="st fail">✕ Hindi pasado</span>';
+    const actCol = (val, limSec) => val == null ? 'var(--ink-faint)' : val <= limSec ? '#15803D' : '#B42318';
+    const cs = csatCache.data;
+    loadCsat(r);
+    const pctWithin = (arr, lim) => arr.length ? Math.round(arr.filter(x => x <= lim).length / arr.length * 100) : 0;
+    const rows = [];
+    const row = (cat, kpi, bench, act, st, det, man) => rows.push({ cat, kpi, bench, act, st, det, man });
+    row('Team Performance – Ticket Average Time to Acknowledgement', 'Lahat ng ticket category at brand', '≤ 3 minutes',
+      `<span style="color:${actCol(avgA, 180)}">${fmtDur(avgA)}</span>`, stHtml(avgA, 180),
+      ack.length ? `${ack.length.toLocaleString()} tickets · median <b>${fmtDur(median(ack))}</b> · <b>${pctWithin(ack, 180)}%</b> ang ≤ 3m` : 'Walang na-ack na ticket');
+    row('Team Performance – Ticket Average Time to Resolved', 'Lahat ng ticket category at brand', '≤ 5 minutes',
+      `<span style="color:${actCol(avgR, 300)}">${fmtDur(avgR)}</span>`, stHtml(avgR, 300),
+      res.length ? `${res.length.toLocaleString()} Done · median <b>${fmtDur(median(res))}</b> · <b>${pctWithin(res, 300)}%</b> ang ≤ 5m` : 'Walang Done ticket');
+    row('Individual Performance – Average count of ticket', 'Lahat ng ticket category at brand', 'Average count',
+      avgC == null ? '—' : `${Math.round(avgC).toLocaleString()} <span style="font-size:11px;color:var(--ink-faint);font-weight:700;">/ agent</span>`,
+      avgC == null ? '<span class="st man">—</span>' : `<span class="st info">${counts.length - below.length}/${counts.length} ≥ avg</span>`,
+      below.length ? 'Mababa sa average: ' + below.slice(0, 5).map(([nm, n]) => `<b>${escapeHtml(nm)}</b> (${n})`).join(', ') + (below.length > 5 ? ` +${below.length - 5} pa` : '') : 'Lahat ay nasa o lampas sa average');
+    row('Team Performance – Quality Control', 'Team overall CSAT', '—',
+      cs && cs.total ? `<span style="color:#7C3AED">${cs.csatPercent}%</span>` : (csatCache.loading ? '…' : '—'),
+      cs && cs.total ? '<span class="st info">Info</span>' : '<span class="st man">—</span>',
+      cs && cs.total ? `${cs.total.toLocaleString()} rated chats · DSAT <b>${cs.dsatPercent}%</b>${cs.avgRating != null ? ` · avg <b>${Number(cs.avgRating).toFixed(2)}</b>/5` : ''}` : 'Walang rated chat sa range');
+    row('Team Performance – Leadership Output', 'Output Accuracy', '100%', 'Manual', '<span class="st man">Manual</span>', 'Walang data source pa sa dashboard', true);
+    document.getElementById('scBody').innerHTML = rows.map((x, i) => {
+      let catCell = `<td class="cat">${escapeHtml(x.cat)}</td>`;
+      return `<tr class="${x.man ? 'man' : ''}">${catCell}<td class="kpi">${escapeHtml(x.kpi)}</td><td class="c">${x.bench}</td><td class="c act">${x.act}</td><td class="c">${x.st}</td><td class="det">${x.det}</td></tr>`;
+    }).join('');
+    document.getElementById('scSub').textContent = `· ${r.label}${state.brand ? ' · ' + (document.getElementById('fBrand').selectedOptions[0] || {}).textContent : ''}`;
   }
 
   // ---- Events ----
