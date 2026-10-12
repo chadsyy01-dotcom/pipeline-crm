@@ -244,6 +244,19 @@
   .kpi-tbl tr.man td.cat{color:#64748B;}
   .st{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:4px 10px;border-radius:99px;white-space:nowrap;}
   .st.pass{background:#EAFBF1;color:#15803D;} .st.fail{background:#FDECEC;color:#B42318;} .st.info{background:#EFF4FF;color:var(--primary);} .st.man{background:#F1F5F9;color:#64748B;}
+
+  /* Date filter + Custom Date (2026-10-12, kapareho ng Customers page) */
+  .date-wrap{position:relative;}
+  .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);left:0;background:#fff;border:1px solid #E2E8F0;border-radius:12px;box-shadow:0 14px 34px -14px rgba(15,23,42,.35);padding:14px;z-index:60;width:220px;}
+  .custom-date-pop.open{display:block;}
+  .custom-date-pop label{display:block;font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;}
+  .custom-date-pop label:first-child{margin-top:0;}
+  .custom-date-pop input[type="date"]{width:100%;padding:8px 9px;border-radius:8px;border:1px solid #E2E8F0;font-family:inherit;font-size:12.5px;color:var(--ink);background:#F8FAFC;}
+  .custom-date-actions{display:flex;gap:8px;margin-top:14px;}
+  .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid #E2E8F0;}
+  #customDateCancel{background:#fff;color:var(--ink-soft);}
+  #customDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .date-err{color:#B42318;font-size:11.5px;font-weight:700;margin-top:8px;display:none;}
 </style>
 </head>
 <body>
@@ -309,13 +322,7 @@
           <p>Top agents per ticket concern — bawat ticket ay sinusukat laban sa sariling benchmark ng concern nito (Core TL KPIs 2026).</p>
           <span class="live-chip" id="liveChip"><i></i><span id="liveTxt">Loading tickets…</span></span>
         </div>
-        <div class="tabs" id="rangeTabs">
-          <button class="tab active" data-r="today">Today</button>
-          <button class="tab" data-r="yesterday">Yesterday</button>
-          <button class="tab" data-r="7d">7 Days</button>
-          <button class="tab" data-r="month">This Month</button>
-          <button class="tab" data-r="lastmonth">Last Month</button>
-        </div>
+
       </div>
     </div>
 
@@ -327,6 +334,29 @@
     </div>
 
     <div class="ap-toolbar">
+      <div class="tg"><label for="fDate">Date</label>
+        <div class="date-wrap">
+          <select id="fDate">
+            <option value="today" selected>Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="month">This Month</option>
+            <option value="lastmonth">Last Month</option>
+            <option value="custom" id="customDateOption">Custom Date</option>
+          </select>
+          <div class="custom-date-pop" id="customDatePop">
+            <label for="customDateFrom">From</label>
+            <input type="date" id="customDateFrom">
+            <label for="customDateTo">To</label>
+            <input type="date" id="customDateTo">
+            <div class="custom-date-actions">
+              <button type="button" id="customDateCancel">Cancel</button>
+              <button type="button" id="customDateApply">Apply</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="tg"><label for="fConcern">Concern</label><select id="fConcern"><option value="">All concerns</option></select></div>
       <div class="tg"><label for="fBrand">Brand</label><select id="fBrand"><option value="">All brands</option></select></div>
       <div class="tg"><label for="fRank">Rank by</label>
@@ -503,12 +533,19 @@
     if (m) return `${m}m ${s2}s`;
     return `${s2}s`;
   }
+  let customRange = null; // { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }
   function rangeOf(key) {
     const now = new Date();
     const sod = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const today = sod(now);
     if (key === 'yesterday') { const f = new Date(today); f.setDate(f.getDate() - 1); return { from: f, to: new Date(today.getTime() - 1), label: 'Yesterday' }; }
     if (key === '7d') { const f = new Date(today); f.setDate(f.getDate() - 6); return { from: f, to: now, label: 'Last 7 days' }; }
+    if (key === '30d') { const f = new Date(today); f.setDate(f.getDate() - 29); return { from: f, to: now, label: 'Last 30 days' }; }
+    if (key === 'custom' && customRange) {
+      const f = new Date(customRange.from + 'T00:00:00'), t = new Date(customRange.to + 'T23:59:59.999');
+      const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return { from: f, to: t, label: customRange.from === customRange.to ? fmt(f) : `${fmt(f)} – ${fmt(t)}` };
+    }
     if (key === 'month') return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now, label: 'This month' };
     if (key === 'lastmonth') return { from: new Date(now.getFullYear(), now.getMonth() - 1, 1), to: new Date(new Date(now.getFullYear(), now.getMonth(), 1).getTime() - 1), label: 'Last month' };
     return { from: today, to: now, label: 'Today' };
@@ -858,10 +895,39 @@
   }
 
   // ---- Events ----
-  document.querySelectorAll('#rangeTabs .tab').forEach(b => b.addEventListener('click', () => {
-    document.querySelectorAll('#rangeTabs .tab').forEach(x => x.classList.toggle('active', x === b));
-    state.range = b.dataset.r; state.showAll = false; render();
-  }));
+  // Date filter (kapareho ng Customers page): Custom Date → popover na From/To
+  const dSel = document.getElementById('fDate'), dPop = document.getElementById('customDatePop');
+  let prevDate = 'today';
+  const isoDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  dSel.addEventListener('change', e => {
+    if (e.target.value === 'custom') {
+      const t = new Date();
+      document.getElementById('customDateFrom').value = customRange ? customRange.from : isoDay(new Date(t.getFullYear(), t.getMonth(), 1));
+      document.getElementById('customDateTo').value = customRange ? customRange.to : isoDay(t);
+      document.getElementById('customDateTo').max = isoDay(t);
+      dPop.classList.add('open');
+      return;
+    }
+    dPop.classList.remove('open');
+    prevDate = e.target.value; state.range = e.target.value; state.showAll = false; state.missAll = false; render();
+  });
+  document.getElementById('customDateApply').addEventListener('click', () => {
+    let f = document.getElementById('customDateFrom').value, t = document.getElementById('customDateTo').value;
+    if (!f || !t) { alert('Pumili ng From at To na petsa.'); return; }
+    if (f > t) [f, t] = [t, f];
+    customRange = { from: f, to: t };
+    const opt = document.getElementById('customDateOption');
+    const fmt = v => new Date(v + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    opt.textContent = f === t ? fmt(f) : `${fmt(f)} – ${fmt(t)}`;
+    dPop.classList.remove('open');
+    prevDate = 'custom'; state.range = 'custom'; state.showAll = false; state.missAll = false; render();
+  });
+  document.getElementById('customDateCancel').addEventListener('click', () => {
+    dPop.classList.remove('open'); dSel.value = prevDate;
+  });
+  document.addEventListener('click', e => {
+    if (dPop.classList.contains('open') && !e.target.closest('.date-wrap')) { dPop.classList.remove('open'); dSel.value = prevDate; }
+  });
   document.getElementById('fAgent').addEventListener('change', e => { state.agent = e.target.value; state.missConcern = ''; state.missAll = false; render(); });
   document.getElementById('missMore').addEventListener('click', () => { state.missAll = !state.missAll; render(); });
   document.getElementById('fConcern').addEventListener('change', e => { state.concern = e.target.value; state.sort = { key: 'rank', dir: 1 }; render(); });
