@@ -409,6 +409,20 @@ table.rt tfoot td{background:#F2F4F7;font-weight:700;border-top:1px solid var(--
 .note{font-size:12px;padding:14px 4px;}
 .reason-item{border-radius:5px;padding:5px 7px;}
 
+.pie-wrap{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:28px;align-items:center;padding:6px 0;}
+.pie-box{position:relative;height:280px;}
+.pie-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;}
+.pie-center .num{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;}
+.pie-center .lab{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);}
+.pie-legend{display:grid;grid-template-columns:1fr 1fr;column-gap:28px;}
+.pl-row{display:grid;grid-template-columns:10px 1fr auto 52px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #F2F4F7;font-size:12.5px;}
+.pl-row .sw{width:10px;height:10px;border-radius:3px;}
+.pl-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pl-val{font-weight:700;font-variant-numeric:tabular-nums;text-align:right;}
+.pl-pct{color:var(--ink-faint);font-size:11px;text-align:right;font-variant-numeric:tabular-nums;}
+.pl-total{font-weight:700;border-bottom:none;border-top:1px solid var(--rule);margin-top:2px;}
+@media (max-width:900px){ .pie-wrap{grid-template-columns:1fr;} .pie-legend{grid-template-columns:1fr;} }
+
 /* --- Billing --- */
 .cb-title h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
 .cb-cards{gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;}
@@ -1174,6 +1188,7 @@ const nameKey = n => String(n || '').trim().toLowerCase();
 
 let chartMode = 'total';
 let brandChart = null;
+let brandPie = null;   // Total chats by brand — pie (2026-10-13)
 let chatsData = null;
 
 let allTickets = [];
@@ -1670,7 +1685,35 @@ function renderChatsComparison() {
         <div class="bar-sub">100%</div>
       </div>`;
   };
-  brandTotals('brandTotalsBars', 'brandTotalsTitle', MONTH_B, 'b', '#2563EB');
+  // PIE (2026-10-13, utos ni Chad): ang "Total chats by brand" ng report
+  // period ay pie chart na + listahan (brand, bilang, %) sa tabi.
+  (function brandTotalsPie(info) {
+    document.getElementById('brandTotalsTitle').textContent = `Total chats by brand · ${info.short}`;
+    const el = document.getElementById('brandTotalsBars');
+    const list = rows.filter(r => r.b != null && r.b > 0).sort((x, y) => y.b - x.b);
+    const sum = list.reduce((t, r) => t + r.b, 0);
+    if (brandPie) { brandPie.destroy(); brandPie = null; }
+    if (!list.length) { el.innerHTML = '<div class="note">No figures in the chat volume sheet for this period yet.</div>'; return; }
+    const COLORS = ['#1D4ED8','#0EA5E9','#14B8A6','#22C55E','#84CC16','#EAB308','#F59E0B','#F97316','#EF4444','#EC4899','#A855F7','#6366F1','#64748B','#94A3B8','#0F766E','#B45309'];
+    const col = i => COLORS[i % COLORS.length];
+    el.innerHTML = `<div class="pie-wrap">
+        <div class="pie-box"><canvas id="brandPieCanvas"></canvas>
+          <div class="pie-center"><div class="num">${fmtInt(sum)}</div><div class="lab">messages</div></div></div>
+        <div class="pie-side"><div class="pie-legend" style="grid-template-rows:repeat(${Math.ceil(list.length / 2)},auto);grid-auto-flow:column;">${list.map((r, i) => `
+          <div class="pl-row"><span class="sw" style="background:${col(i)}"></span>
+            <span class="pl-name" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</span>
+            <span class="pl-val">${fmtInt(r.b)}</span><span class="pl-pct">${(r.b / sum * 100).toFixed(1)}%</span></div>`).join('')}
+        </div>
+        <div class="pl-row pl-total"><span class="sw" style="background:transparent"></span><span class="pl-name">Total</span><span class="pl-val">${fmtInt(sum)}</span><span class="pl-pct">100%</span></div>
+        </div></div>`;
+    brandPie = new Chart(document.getElementById('brandPieCanvas'), {
+      type: 'doughnut',
+      data: { labels: list.map(r => r.label), datasets: [{ data: list.map(r => r.b), backgroundColor: list.map((_, i) => col(i)), borderColor: '#fff', borderWidth: 2 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '58%',
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: c => `${c.label}: ${c.parsed.toLocaleString()} (${(c.parsed / sum * 100).toFixed(1)}%)` } } } },
+    });
+  })(MONTH_B);
   brandTotals('brandTotalsBarsA', 'brandTotalsTitleA', MONTH_A, 'a', '#94A3B8');
 
   const movers = rows
