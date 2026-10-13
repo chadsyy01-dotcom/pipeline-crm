@@ -272,7 +272,8 @@
   #page-chats.no-compare table:has(#compareBody) td:nth-child(2),
   #page-chats.no-compare table:has(#compareBody) th:nth-child(4),
   #page-chats.no-compare table:has(#compareBody) td:nth-child(4){display:none;}
-  #page-chats.no-compare .kpi-row{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #page-chats.no-compare .kpi-row{grid-template-columns:repeat(4,minmax(0,1fr));}
+  @media (max-width:1000px){ #page-chats.no-compare .kpi-row{grid-template-columns:repeat(2,minmax(0,1fr));} }
   #page-chats.no-compare .cols-2{grid-template-columns:1fr;}
 </style>
 
@@ -601,6 +602,17 @@ body.presenting .panel-head h3{font-size:14px;}
           <div class="kpi-value" id="kpiPerDay">—</div>
           <div class="kpi-delta flat" id="kpiPerDaySub">Fairer read while the month runs</div>
         </div>
+        <!-- HH vs AI only (2026-10-13) — conversations, mula sa live chat data -->
+        <div class="kpi-card accent-b">
+          <div class="kpi-label">Handed to human (HH)</div>
+          <div class="kpi-value" id="kpiHH">—</div>
+          <div class="kpi-delta flat" id="kpiHHSub">Loading…</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">AI only — no handoff</div>
+          <div class="kpi-value" id="kpiAI">—</div>
+          <div class="kpi-delta flat" id="kpiAISub">Loading…</div>
+        </div>
       </div>
 
       <div class="panel">
@@ -651,8 +663,12 @@ body.presenting .panel-head h3{font-size:14px;}
                 <th class="num" id="thB">Sep</th>
                 <th class="num">Change</th>
                 <th class="num">Per day now</th>
+                <th class="num" title="Conversations na may customer message sa period">Chats</th>
+                <th class="num" title="Napunta sa human agent">HH</th>
+                <th class="num" title="AI lang ang kausap">AI only</th>
+                <th class="num">HH %</th>
               </tr></thead>
-              <tbody id="compareBody"><tr><td colspan="5"><div class="note">Loading…</div></td></tr></tbody>
+              <tbody id="compareBody"><tr><td colspan="9"><div class="note">Loading…</div></td></tr></tbody>
               <tfoot id="compareFoot"></tfoot>
             </table>
           </div>
@@ -1434,7 +1450,9 @@ async function loadChatsComparison() {
 
   const sheetRows = loadChatSheetRows();
   sheetRows.catch(() => {});   // each month handles a sheet failure itself
-  const [resA, resB] = await Promise.all([loadPeriodChats(A, sheetRows), loadPeriodChats(B, sheetRows)]);
+  // HH vs AI only (2026-10-13): conversations kada brand mula sa live chat data
+  const hhPromise = apiGet(`/chatwoot/handoff-split?from=${encodeURIComponent(B.start.toISOString())}&to=${encodeURIComponent(B.effEnd.toISOString())}`).catch(e => { console.warn('handoff-split', e.message); return null; });
+  const [resA, resB, hhSplit] = await Promise.all([loadPeriodChats(A, sheetRows), loadPeriodChats(B, sheetRows), hhPromise]);
   if (myToken !== chatsLoadToken) return;   // the pickers moved on while this was loading
 
   const byKey = new Map();
@@ -1473,6 +1491,7 @@ async function loadChatsComparison() {
   flag('chatsFlag', notes);
 
   chatsData = {
+    hh: hhSplit,
     rows,
     totalA: resA.ok ? resA.total : null,
     totalB: resB.ok ? resB.total : null,
@@ -1533,6 +1552,26 @@ function renderChatsComparison() {
     pdSub.className = 'kpi-delta flat';
   }
 
+  // ---- HH vs AI only ----
+  const hhd = chatsData.hh;
+  const hhOf = key => (hhd && hhd.byBrand && hhd.byBrand[key]) || null;
+  const pctTxt = (n, d) => d ? Math.round(n / d * 100) + '%' : '—';
+  if (hhd && hhd.total) {
+    const t = hhd.total;
+    document.getElementById('kpiHH').textContent = fmtInt(t.hh);
+    document.getElementById('kpiHHSub').textContent = `${pctTxt(t.hh, t.conversations)} ng ${fmtInt(t.conversations)} chats`;
+    document.getElementById('kpiAI').textContent = fmtInt(t.ai);
+    document.getElementById('kpiAISub').textContent = `${pctTxt(t.ai, t.conversations)} ng ${fmtInt(t.conversations)} chats`;
+  } else {
+    ['kpiHH', 'kpiAI'].forEach(id => { document.getElementById(id).textContent = '—'; });
+    ['kpiHHSub', 'kpiAISub'].forEach(id => { document.getElementById(id).textContent = 'Hindi makuha ang chat data'; });
+  }
+  const hhCells = key => {
+    const h = hhOf(key);
+    if (!h) return '<td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>';
+    return `<td class="num">${fmtInt(h.conversations)}</td><td class="num">${fmtInt(h.hh)}</td><td class="num" style="color:var(--ink-soft);">${fmtInt(h.ai)}</td><td class="num">${pctTxt(h.hh, h.conversations)}</td>`;
+  };
+
   // A log scale is deliberate: Buenas Cash and TMT Cash run in the tens of
   // thousands while several brands sit in the hundreds, and on a linear axis
   // the smaller brands would be invisible slivers in a report meant to be
@@ -1558,7 +1597,14 @@ function renderChatsComparison() {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString()}${perDay ? ' a day' : ' messages'}` } },
+        tooltip: { callbacks: {
+          label: c => `${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString()}${perDay ? ' a day' : ' messages'}`,
+          afterBody: items => {
+            const r = rows[items[0].dataIndex]; const h = r && hhOf(r.key);
+            if (!h) return [];
+            return [`Chats: ${fmtInt(h.conversations)}`, `HH: ${fmtInt(h.hh)} (${pctTxt(h.hh, h.conversations)})`, `AI only: ${fmtInt(h.ai)} (${pctTxt(h.ai, h.conversations)})`];
+          },
+        } },
       },
       scales: {
         x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 50, minRotation: 30, font: { size: 11 } } },
@@ -1575,7 +1621,7 @@ function renderChatsComparison() {
 
   const body = document.getElementById('compareBody');
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="5"><div class="note">No figures for either month yet.</div></td></tr>';
+    body.innerHTML = '<tr><td colspan="9"><div class="note">No figures for either month yet.</div></td></tr>';
     document.getElementById('compareFoot').innerHTML = '';
   } else {
     body.innerHTML = rows.map(r => `<tr>
@@ -1584,6 +1630,7 @@ function renderChatsComparison() {
       <td class="num">${fmtInt(r.b)}</td>
       <td class="num">${changeCell(r.bPerDay, r.aPerDay)}</td>
       <td class="num" style="font-weight:600;color:var(--ink-soft);">${r.bPerDay == null ? '—' : Math.round(r.bPerDay).toLocaleString()}</td>
+      ${hhCells(r.key)}
     </tr>`).join('');
     document.getElementById('compareFoot').innerHTML = `<tr>
       <td>All brands</td>
@@ -1591,6 +1638,7 @@ function renderChatsComparison() {
       <td class="num">${fmtInt(totalB)}</td>
       <td class="num">${changeCell(totalB == null ? null : totalB / daysB, totalA == null ? null : totalA / daysA)}</td>
       <td class="num">${totalB == null ? '—' : Math.round(totalB / daysB).toLocaleString()}</td>
+      ${hhd && hhd.total ? `<td class="num">${fmtInt(hhd.total.conversations)}</td><td class="num">${fmtInt(hhd.total.hh)}</td><td class="num">${fmtInt(hhd.total.ai)}</td><td class="num">${pctTxt(hhd.total.hh, hhd.total.conversations)}</td>` : '<td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>'}
     </tr>`;
   }
 
