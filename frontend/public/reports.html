@@ -734,13 +734,13 @@ body.presenting .panel-head h3{font-size:14px;}
         </div>
       </div>
 
-      <div class="cols-2">
+      <div class="cols-2" style="grid-template-columns:1fr;"><!-- 2026-10-13: tinanggal ang "How the month is closing out" (utos ni Chad) -->
         <div class="panel">
           <div class="panel-head"><h3>Top 5 ticket concerns</h3><span class="hint">Filed in this period</span></div>
           <div id="tkTopConcerns"><div class="note">Loading…</div></div>
         </div>
 
-        <div class="panel">
+        <div class="panel" style="display:none;"><!-- hidden 2026-10-13 -->
           <div class="panel-head"><h3>How the month is closing out</h3></div>
           <div class="donut-wrap">
             <canvas id="tkStatusDonut" width="190" height="190"></canvas>
@@ -769,7 +769,7 @@ body.presenting .panel-head h3{font-size:14px;}
         </div>
       </div>
 
-      <div class="cols-2">
+      <div class="cols-2" style="display:none;"><!-- hidden 2026-10-13: Ticket distribution by agent (utos ni Chad) -->
         <div class="panel">
           <div class="panel-head"><h3>Ticket distribution by agent</h3><span class="hint">Share of everything closed</span></div>
           <div class="donut-wrap">
