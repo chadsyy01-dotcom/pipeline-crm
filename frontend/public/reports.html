@@ -443,6 +443,14 @@ table.rt tfoot td{background:#F2F4F7;font-weight:700;border-top:1px solid var(--
 .dc-hint{font-size:10.5px;color:var(--ink-faint);}
 .dsat-card.on .dc-hint{visibility:hidden;}
 
+.pl-row-main{cursor:pointer;}
+.pl-row-main.on td{background:#F5F8FF !important;}
+.pl-sum{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.pl-toggle{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--primary);white-space:nowrap;}
+.pl-toggle svg{width:13px;height:13px;transition:transform .2s;}
+.pl-row-main.on .pl-toggle svg{transform:rotate(180deg);}
+.pl-row-detail td{background:#FAFBFF !important;padding-top:4px;padding-bottom:12px;}
+
 /* --- Billing --- */
 .cb-title h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
 .cb-cards{gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;}
@@ -945,7 +953,7 @@ body.presenting .panel-head h3{font-size:14px;}
 
       <div class="section-head" style="margin-top:26px;">
         <h2 style="font-size:17px;">Top 5 players who gave DSATs</h2>
-        <span class="lede">Same name on two brands counts as two players · click a reason to open the chat</span>
+        <span class="lede">I-click ang player para makita ang mga reason · i-click ang reason para buksan ang chat</span>
       </div>
 
       <div class="panel">
@@ -2394,15 +2402,26 @@ function renderTopPlayers() {
           </div>`
         : `<div class="reason-none">No reason written on any of the ${reasons.length}</div>`;
 
-      return `<tr>
-        <td style="vertical-align:top;"><div class="rank-badge" style="width:28px;height:28px;font-size:13px;background:${colour}22;color:${colour};">${i + 1}</div></td>
-        <td style="vertical-align:top;"><div class="agent-cell"><div class="c-av" style="background:${colorForName(p.name)};">${escapeHtml(initialsFor(p.name))}</div><span style="font-weight:700;">${escapeHtml(p.name)}</span></div></td>
-        <td style="vertical-align:top;white-space:nowrap;">${escapeHtml(chatBrandLabel(p.brand))}</td>
-        <td class="num" style="vertical-align:top;color:var(--danger);font-size:15px;font-weight:800;">${fmtInt(p.dsats.length)}</td>
-        <td class="num" style="vertical-align:top;font-weight:600;color:var(--ink-soft);white-space:nowrap;">${fmtInt(p.dsats.length)} of ${fmtInt(p.ratings)}</td>
-        <td style="vertical-align:top;min-width:320px;">${reasonHtml}</td>
-        <td class="num" style="vertical-align:top;font-weight:600;color:var(--ink-faint);white-space:nowrap;">${timeAgo(p.last)}</td>
-      </tr>`;
+      // COLLAPSED (2026-10-13, utos ni Chad): buod lang sa row; ang mga
+      // reason ay lalabas kapag kinlick ang row ng player.
+      const sevN = { high: 0, medium: 0 };
+      written.forEach(c => { if (sevN[c.severity] != null) sevN[c.severity]++; });
+      const summary = `<div class="pl-sum">
+          ${sevN.high ? `<span class="sev-pill high">HIGH ${sevN.high}</span>` : ''}
+          ${sevN.medium ? `<span class="sev-pill medium">MEDIUM ${sevN.medium}</span>` : ''}
+          ${silent ? `<span class="sev-pill low">NO REASON ${silent}</span>` : ''}
+          <span class="pl-toggle">${written.length ? `Tingnan ang ${written.length} reason${written.length === 1 ? '' : 's'}` : 'Walang nakasulat na reason'}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></span>
+        </div>`;
+      return `<tr class="pl-row-main" data-pl="${i}">
+        <td style="vertical-align:middle;"><div class="rank-badge" style="width:24px;height:24px;font-size:11.5px;background:${colour}22;color:${colour};">${i + 1}</div></td>
+        <td style="vertical-align:middle;"><div class="agent-cell"><div class="c-av" style="background:${colorForName(p.name)};">${escapeHtml(initialsFor(p.name))}</div><span style="font-weight:700;">${escapeHtml(p.name)}</span></div></td>
+        <td style="vertical-align:middle;white-space:nowrap;">${escapeHtml(chatBrandLabel(p.brand))}</td>
+        <td class="num" style="vertical-align:middle;color:var(--danger);font-size:14px;font-weight:700;">${fmtInt(p.dsats.length)}</td>
+        <td class="num" style="vertical-align:middle;font-weight:500;color:var(--ink-soft);white-space:nowrap;">${fmtInt(p.dsats.length)} of ${fmtInt(p.ratings)}</td>
+        <td style="vertical-align:middle;min-width:320px;">${summary}</td>
+        <td class="num" style="vertical-align:middle;font-weight:500;color:var(--ink-faint);white-space:nowrap;">${timeAgo(p.last)}</td>
+      </tr>
+      <tr class="pl-row-detail" data-pl-detail="${i}" hidden><td></td><td colspan="6">${reasonHtml}</td></tr>`;
     }).join('');
   }
 
@@ -2415,7 +2434,17 @@ function renderTopPlayers() {
 
 document.getElementById('csTopPlayers').addEventListener('click', (e) => {
   const item = e.target.closest('.reason-item[data-conversation-id]');
-  if (!item) return;
+  if (!item) {
+    // I-click ang row ng player → buksan/isara ang mga reason niya
+    const main = e.target.closest('tr.pl-row-main');
+    if (!main) return;
+    const det = document.querySelector(`#csTopPlayers tr[data-pl-detail="${main.dataset.pl}"]`);
+    if (!det) return;
+    const open = det.hidden;
+    det.hidden = !open;
+    main.classList.toggle('on', open);
+    return;
+  }
   openConversationModal(item.dataset.conversationId, item.dataset.name, item.dataset.sub);
 });
 
