@@ -2272,7 +2272,7 @@
             const info = reqIdx != null ? { req: true, mins: fmtWait(waited) } : { late: true, mins: fmtWait(waited) };
             // Ang message ng player ay BAGO pa ang handoff (sinagot pa ng AI) —
             // ang tag ay ilalagay sa Handoff divider, hindi sa message niya.
-            if (waited > 180) { if (runAt === ho) hoEntry.miss = info; else missInfo.set(runIdx, info); }
+            if (waited > 180) { if (runAt === ho) { hoEntry.miss = info; hoEntry.tagBefore = i; } else missInfo.set(runIdx, info); }
           }
           runIdx = null; runAt = null; reqIdx = null;
           break;
@@ -2283,11 +2283,12 @@
         const until = isLastSession ? Date.now() : sEnd;
         if ((until - runAt) / 1000 > 180) {
           const info = reqIdx != null ? { req: true, waiting: true } : { late: false };
-          if (runAt === ho) hoEntry.miss = info; else missInfo.set(runIdx, info);
+          if (runAt === ho) { hoEntry.miss = info; hoEntry.tagAfter = idxs[idxs.length - 1]; } else missInfo.set(runIdx, info);
         }
       }
     });
     hoList.sort((a, b) => a.at - b.at);
+    const tagsBefore = new Map(), tagsAfter = new Map();
     let hoPtr = 0;
     const realMiss = [...missInfo.values(), ...hoList.map(h => h.miss).filter(Boolean)].filter(x => !x.req).length;
     const missBanner = realMiss
@@ -2326,8 +2327,12 @@
         const hTag = !hm ? ''
           : hm.req ? `<div class="ho-miss"><span class="req-tag">HUMINGI NG AGENT · ${hm.waiting ? 'hindi pa naipasa ni AI' : `nasagot after ${hm.mins}`} · hindi bilang sa MC</span></div>`
           : `<div class="ho-miss"><span class="miss-tag">${hm.late ? `MISSED 3MIN · unang sagot ng agent after ${hm.mins} mula handoff` : 'WALANG SAGOT mula handoff'}</span></div>`;
-        divider += `<div class="ho-divider${hm && !hm.req ? ' is-miss' : ''}"><span>Handoff sa human agent · ${escapeHtml(hoWhen)}</span></div>${hTag}`;
+        divider += `<div class="ho-divider${hm && !hm.req ? ' is-miss' : ''}"><span>Handoff sa human agent · ${escapeHtml(hoWhen)}</span></div>`;
+        // Ang tag ay ilalagay sa PAGITAN ng handoff at ng unang sagot ng real
+        // agent (o sa dulo ng session kung walang sumagot) — hindi sa divider.
+        if (hTag) { if (h.tagBefore != null) tagsBefore.set(h.tagBefore, hTag); else if (h.tagAfter != null) tagsAfter.set(h.tagAfter, hTag); else divider += hTag; }
       }
+      const tagB = tagsBefore.get(idx) || '', tagA = tagsAfter.get(idx) || '';
       const mi = missInfo.get(idx);
       const missTag = !mi ? ''
         : mi.req ? `<br><span class="req-tag" title="Humingi ng real agent pero hindi pa naipasa ng AI — hindi bilang sa Missed Chats">HUMINGI NG AGENT · ${mi.waiting ? 'hindi pa naipasa ni AI' : `nasagot after ${mi.mins}`} · hindi bilang sa MC</span>`
@@ -2335,11 +2340,11 @@
       const SUPERADMIN_NAMES = new Set(['Love', 'Admin Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi']);
       const botTag = (m.senderType === 'user' && isBotClient(m.brand, m.senderName))
         ? ` <span class="bot-tag">${SUPERADMIN_NAMES.has(m.senderName) ? 'SUPERADMIN' : 'AI'}</span>` : '';
-      return `${divider}
+      return `${divider}${tagB}
         <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${mi && !mi.req ? ' msg-missed' : ''}">
           <div class="msg-meta">${escapeHtml(who)}${botTag} · ${escapeHtml(when)}</div>
           <div class="msg-bubble">${bubbleHtml}</div>${missTag}
-        </div>
+        </div>${tagA}
       `;
     }).join('');
     // Kapag may search hit: diretso sa PINAKABAGONG tumamang mensahe
