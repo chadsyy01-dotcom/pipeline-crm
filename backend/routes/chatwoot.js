@@ -596,7 +596,10 @@ function sessionHasHandoff(allMessages, session, brand) {
     if (st === 'pending' && !prev) return true;                     // (a)
     if (m.senderType === 'user' && isBotSender(brand, m.senderName)) {
       if (isHandoffBotMessage(m.content)) return true;               // (b)
-    } else if (m.senderType === 'user' && m.senderName) return true; // (c)
+    }
+    // (c) INALIS 2026-10-13: ang kusang pagkuha ng agent (walang AI handoff)
+    // ay HINDI handoff — hal. hidden-sea-439, kinuha ni Admin Heart nang
+    // manual kinabukasan; hindi dapat Missed Chat.
     prev = st;
   }
   return false;
@@ -605,6 +608,9 @@ function sessionHasHandoff(allMessages, session, brand) {
 function computeArtFtr(allMessages, brand) {
   const messages = latestSession(allMessages);
   const sessionHandoff = sessionHasHandoff(allMessages, messages, brand);
+  // May human agent na nagsalita sa session na ito (kahit walang customer
+  // message bago nito) → may sumagot na, hindi Missed.
+  const humanReplied = messages.some(m => m.senderType === 'user' && m.senderName && !isBotSender(brand, m.senderName));
   let lastCustomerMsgTime = null;
   let lastBotMsgTime = null;      // huling bot message mula noong huling customer message
   let firstAgentGap = null;
@@ -674,7 +680,8 @@ function computeArtFtr(allMessages, brand) {
     ftrExempt,                    // MISSED 3MIN hindi bilang (request na hindi naipasa ng AI / walang AI handoff)
     ftrExemptWhy,                 // 'req' | 'noai'
     waitExempt: reqPending,       // naghihintay pa, pero request lang — hindi pa naipapasa ng AI
-    sessionHandoff,               // false = lumang label lang ang dala; AI lang ang kausap sa session na ito
+    sessionHandoff,               // false = walang AI handoff sa session (lumang label lang / kusang kinuha ng agent)
+    humanReplied,
   };
 }
 
@@ -943,9 +950,10 @@ router.get('/conversations', requireAuth, async (req, res) => {
         if (!c.handoffStage) return;
         const msgs = byConversation[ck(c.brand, c.conversationId)];
         if (!msgs) return;
-        const { art, ftr, ftrExempt, ftrExemptWhy, waitExempt, sessionHandoff } = computeArtFtr(msgs, c.brand);
+        const { art, ftr, ftrExempt, ftrExemptWhy, waitExempt, sessionHandoff, humanReplied } = computeArtFtr(msgs, c.brand);
         c.ftrExemptWhy = ftrExemptWhy;
         c.sessionHandoff = sessionHandoff;
+        c.humanReplied = humanReplied;
         c.art = art;
         c.ftr = ftr;
         c.ftrExempt = ftrExempt;
