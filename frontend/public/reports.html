@@ -261,6 +261,19 @@
   }
   /* PINNED SEPT (2026-10-08): nakatago ang date filter habang fixed sa September ang report */
   #rpWrap{display:none !important;}
+
+  /* NO-COMPARE MODE (2026-10-13): Oct 1–15 lang ang report — nakatago ang comparison */
+  #page-chats.no-compare .kpi-card.accent-a,
+  #page-chats.no-compare .kpi-card:has(#kpiChange),
+  #page-chats.no-compare .legend-row:has(#legendA),
+  #page-chats.no-compare .panel:has(#brandTotalsBarsA),
+  #page-chats.no-compare .panel:has(#moversBars){display:none !important;}
+  #page-chats.no-compare table:has(#compareBody) th:nth-child(2),
+  #page-chats.no-compare table:has(#compareBody) td:nth-child(2),
+  #page-chats.no-compare table:has(#compareBody) th:nth-child(4),
+  #page-chats.no-compare table:has(#compareBody) td:nth-child(4){display:none;}
+  #page-chats.no-compare .kpi-row{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #page-chats.no-compare .cols-2{grid-template-columns:1fr;}
 </style>
 
 <style>
@@ -430,7 +443,7 @@
       <!-- One sub-tab per report topic. Add the next topic here and give it a
            matching .report-page below. -->
       <nav class="subtabs" id="subtabs">
-        <button class="subtab active" data-page="chats">Chats Comparison</button>
+        <button class="subtab active" data-page="chats">Chats</button>
         <button class="subtab" data-page="tickets">Ticket Resolution</button>
         <button class="subtab" data-page="satisfaction">Customer Satisfaction</button>
         <button class="subtab" data-page="billing">Billing</button>
@@ -793,7 +806,7 @@
              naka-sync sa openai.html Billing page. -->
     <div class="report-page" id="page-billing">
       <div class="cb-title">
-        <h2>Consolidated Billing — September 2026</h2>
+        <h2>Consolidated Billing — Oct 1–15, 2026</h2>
         <div class="cb-right">
           <span class="cb-live" id="rbUpdated">Loading…</span>
           <button class="cb-btn" id="rbEditBtn" style="display:none;">Edit</button>
@@ -806,10 +819,10 @@
         <span class="cb-note">Amounts are in ₱. Leave a cell blank for "—". TOTALs compute automatically. (LiveChat and Open AI are not edited here.)</span>
       </div>
       <div class="cb-cards" id="rbCards" style="display:none;">
-        <div class="cb-card"><div class="cb-label">Grand Total / Month</div><div class="cb-value" id="rbGrand">—</div><div class="cb-sub" id="rbGrandSub"></div></div>
+        <div class="cb-card"><div class="cb-label">Grand Total</div><div class="cb-value" id="rbGrand">—</div><div class="cb-sub" id="rbGrandSub"></div></div>
         <div class="cb-card"><div class="cb-label">Highest Division</div><div class="cb-value" id="rbTopDiv" style="font-size:17px;">—</div><div class="cb-sub" id="rbTopDivSub"></div></div>
         <div class="cb-card"><div class="cb-label">Biggest Service Cost</div><div class="cb-value" id="rbTopSvc" style="font-size:17px;">—</div><div class="cb-sub" id="rbTopSvcSub"></div></div>
-        <div class="cb-card"><div class="cb-label">Open AI — Aug vs Sept</div><div class="cb-value" id="rbOaCmp" style="font-size:17px;">—</div><div class="cb-sub" id="rbOaCmpSub"></div></div>
+        <div class="cb-card"><div class="cb-label">Open AI — Oct 1–15</div><div class="cb-value" id="rbOaCmp" style="font-size:17px;">—</div><div class="cb-sub" id="rbOaCmpSub"></div></div>
       </div>
       <div class="cb-panel"><div id="rbTableWrap"><div class="cb-empty">Loading billing data…</div></div></div>
     </div>
@@ -930,14 +943,21 @@ const PRESET_LABELS = { today: 'Today', yesterday: 'Yesterday', '7d': 'Last 7 Da
 // Report + comparison ranges for a preset. Custom uses the dates held in
 // customRange; its comparison is the one the user gave, or the equal stretch
 // just before.
-let currentPreset = 'sep2026';   // PINNED (2026-10-08): buong page ay fixed sa September 2026 — tinanggal ang date filter sa UI
+let currentPreset = 'oct1h2026';   // PINNED (2026-10-13, utos ni Chad): report coverage = OCT 1–15, 2026 lang (walang comparison)
+// OLD/REPLACED (2026-10-08): 'sep2026' — September 2026 vs August 2026.
+// Kapag walang comparison, nakatago ang lahat ng "vs" na bahagi ng Chats tab.
+const NO_COMPARE = true;
 let customRange = null;   // { from, to, cFrom, cTo } as Date objects (cFrom/cTo optional)
 
 function buildPeriods(preset) {
   const today = startOfDay(new Date());
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   let bStart, bEnd, aStart, aEnd;
-  if (preset === 'sep2026') {   // PINNED September 2026 (comparison: August 2026)
+  if (preset === 'oct1h2026') {   // PINNED Oct 1–15, 2026 (A = Sep 1–15, kinukuwenta pero hindi ipinapakita)
+    bStart = new Date(2026, 9, 1); bEnd = new Date(2026, 9, 15);
+    aStart = new Date(2026, 8, 1); aEnd = new Date(2026, 8, 15);
+  }
+  else if (preset === 'sep2026') {   // OLD: September 2026 (comparison: August 2026)
     bStart = new Date(2026, 8, 1); bEnd = new Date(2026, 8, 30);
     aStart = new Date(2026, 7, 1); aEnd = new Date(2026, 7, 31);
   }
@@ -1283,7 +1303,8 @@ async function loadChatsComparison() {
   document.getElementById('legendB').textContent = B.label;
   document.getElementById('thA').textContent = A.short;
   document.getElementById('thB').textContent = B.short;
-  document.getElementById('sideBySideHint').textContent = `Sorted by ${A.short} volume`;
+  document.getElementById('sideBySideHint').textContent = `Sorted by ${(NO_COMPARE ? B : A).short} volume`;
+  document.getElementById('page-chats').classList.toggle('no-compare', NO_COMPARE);
   ['kpiATotal', 'kpiBTotal', 'kpiChange', 'kpiPerDay'].forEach(id => { document.getElementById(id).textContent = '…'; });
 
   const sheetRows = loadChatSheetRows();
@@ -1305,7 +1326,7 @@ async function loadChatsComparison() {
     ...r,
     aPerDay: r.a == null ? null : r.a / daysA,
     bPerDay: r.b == null ? null : r.b / daysB,
-  })).sort((x, y) => (y.a || 0) - (x.a || 0) || (y.b || 0) - (x.b || 0));
+  })).sort((x, y) => NO_COMPARE ? ((y.b || 0) - (x.b || 0)) : ((y.a || 0) - (x.a || 0) || (y.b || 0) - (x.b || 0)));
 
   const notes = [];
   if (!resA.ok) notes.push(resA.reason);
@@ -1340,7 +1361,9 @@ async function loadChatsComparison() {
 }
 
 function renderChatsComparison() {
-  const { rows, totalA, totalB, daysA, daysB } = chatsData;
+  const { totalA, totalB, daysA, daysB } = chatsData;
+  // Walang comparison: ang mga brand lang na may figure sa report period
+  const rows = NO_COMPARE ? chatsData.rows.filter(r => r.b != null) : chatsData.rows;
 
   document.getElementById('kpiATotal').textContent = fmtInt(totalA);
   const coverText = cov => {
@@ -1368,7 +1391,11 @@ function renderChatsComparison() {
 
   const pdEl = document.getElementById('kpiPerDay');
   const pdSub = document.getElementById('kpiPerDaySub');
-  if (totalA && totalB != null) {
+  if (NO_COMPARE) {
+    pdEl.textContent = totalB == null ? '—' : Math.round(totalB / daysB).toLocaleString();
+    pdSub.textContent = totalB == null ? 'No figures yet' : `Average over ${daysB} day${daysB === 1 ? '' : 's'} · ${MONTH_B.short}`;
+    pdSub.className = 'kpi-delta flat';
+  } else if (totalA && totalB != null) {
     const aPd = totalA / daysA, bPd = totalB / daysB;
     const pct = Math.round(((bPd - aPd) / aPd) * 100);
     pdEl.textContent = Math.round(bPd).toLocaleString();
@@ -1385,7 +1412,7 @@ function renderChatsComparison() {
   // the smaller brands would be invisible slivers in a report meant to be
   // read at a glance.
   const perDay = chartMode === 'perday';
-  const dataA = rows.map(r => (perDay ? r.aPerDay : r.a) ?? 0);
+  const dataA = NO_COMPARE ? [] : rows.map(r => (perDay ? r.aPerDay : r.a) ?? 0);
   const dataB = rows.map(r => (perDay ? r.bPerDay : r.b) ?? 0);
   const maxVal = Math.max(...dataA, ...dataB, 1);
   const minNonZero = Math.min(...[...dataA, ...dataB].filter(v => v > 0), maxVal);
@@ -1399,7 +1426,7 @@ function renderChatsComparison() {
       datasets: [
         { label: MONTH_A.label, data: dataA, backgroundColor: '#94A3B8', borderRadius: 5, maxBarThickness: 26 },
         { label: MONTH_B.label, data: dataB, backgroundColor: '#2563EB', borderRadius: 5, maxBarThickness: 26 },
-      ],
+      ].filter((_, i) => !(NO_COMPARE && i === 0)),
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -2211,7 +2238,7 @@ function applyPeriodChrome() {
   document.getElementById('reportPeriod').textContent = MONTH_B.label;
   // The comparison only means something on the Chats Comparison.
   document.getElementById('compareLine').textContent =
-    activePage() === 'chats' ? `Compared with ${MONTH_A.label} · ` : '';
+    (activePage() === 'chats' && !NO_COMPARE) ? `Compared with ${MONTH_A.label} · ` : '';
 }
 
 document.getElementById('subtabs').addEventListener('click', (e) => {
@@ -2744,6 +2771,10 @@ TicketData.fetchTickets()
   'use strict';
   const RB_API = API_BASE;
   const SEPT_START = '2026-09-01', SEPT_END = '2026-09-30';
+  // OCT 1–15 (2026-10-13, utos ni Chad): ang Open AI column ay LIVE pull ng
+  // spend sa Oct 1–15, 2026 (lahat ng account, USD→PHP live rate). Walang
+  // reference/comparison column. OLD/REPLACED: naka-paste na September figures.
+  const OA_START = '2026-10-01', OA_END = '2026-10-15', OA_LABEL = 'Oct 1–15, 2026';
   let rbData = null, rbEditing = false, rbMeta = {}, rbLoaded = false;
 
   const OPENAI_ACCOUNT_TO_DIVISION = {
@@ -2801,10 +2832,45 @@ TicketData.fetchTickets()
   const lcIdx = () => rbData ? rbData.services.findIndex(s => /live\s*chat/i.test(String(s || ''))) : -1;
   const visibleCols = () => rbData.services.map((_, k) => k).filter(k => k !== lcIdx());
 
-  const septOpenAi = { ok: true };
-  const augOpenAi = { ok: Object.keys(AUG_OPENAI_PHP).length > 0 };
-  septOpenAi.get = d => staticLookup(SEPT_OPENAI_PHP, d);
-  augOpenAi.get = d => staticLookup(AUG_OPENAI_PHP, d);
+  // Live na Open AI spend para sa OA_START..OA_END (pinupuno ng loadPeriodOpenAi)
+  const septOpenAi = { ok: false, loading: true, byDiv: new Map(), unmatched: [], rate: null };
+  const augOpenAi = { ok: false };   // reference column — nakatago (walang comparison)
+  septOpenAi.get = d => {
+    if (!septOpenAi.ok) return null;
+    const n = norm(d);
+    for (const [k, v] of septOpenAi.byDiv) if (norm(k) === n) return v;
+    return 0;
+  };
+  augOpenAi.get = () => null;
+  async function loadPeriodOpenAi() {
+    try {
+      const path = `/openai-billing/summary?range=custom&start=${OA_START}&end=${OA_END}&account=all&compare=false`;
+      const [sumRes, rateRes] = await Promise.all([
+        fetch(`${RB_API}${path}`, { headers: authHeaders() }),
+        fetch('https://open.er-api.com/v6/latest/USD').catch(() => null),
+      ]);
+      if (sumRes.status === 429) { septOpenAi.loading = true; setTimeout(() => loadPeriodOpenAi().then(() => { if (!rbEditing) rbRender(); }), 65000); return; }
+      if (!sumRes.ok) throw new Error('openai-billing HTTP ' + sumRes.status);
+      const sum = await sumRes.json();
+      let rate = null;
+      if (rateRes && rateRes.ok) { const r = await rateRes.json(); rate = r && r.rates && r.rates.PHP ? r.rates.PHP : null; }
+      if (!rate) throw new Error('no USD->PHP rate');
+      const accounts = (sum.byAccount && sum.byAccount.length) ? sum.byAccount : [{ name: sum.account || 'OpenAI', totalUsd: sum.totalUsd || 0 }];
+      const divs = rbData ? rbData.divisions.map(d => d.name) : [];
+      const byDiv = new Map(), unmatched = [];
+      for (const a of accounts) {
+        const target = norm(OPENAI_ACCOUNT_TO_DIVISION[a.name] || a.name);
+        let divName = divs.find(d => norm(d) === target) || divs.find(d => { const dn = norm(d); return dn && target && (dn.includes(target) || target.includes(dn)); });
+        const php = Math.round((a.totalUsd || 0) * rate * 100) / 100;
+        if (divName) byDiv.set(divName, (byDiv.get(divName) || 0) + php);
+        else if ((a.totalUsd || 0) > 0) unmatched.push(a.name + ' ($' + (a.totalUsd || 0).toFixed(2) + ')');
+      }
+      Object.assign(septOpenAi, { ok: true, loading: false, byDiv, unmatched, rate });
+    } catch (err) {
+      console.warn('Oct 1–15 Open AI unavailable:', err.message);
+      Object.assign(septOpenAi, { ok: false, loading: false, error: err.message });
+    }
+  }
 
   // vals na may Sept OpenAI overlay (render lang, hindi sine-save)
   function effectiveVals(div) {
@@ -2824,6 +2890,7 @@ TicketData.fetchTickets()
         rbData = body.data;
         rbMeta = { updatedAt: body.updatedAt, updatedBy: body.updatedBy };
         rbRender();
+        loadPeriodOpenAi().then(() => { if (!rbEditing) rbRender(); });
       } else {
         document.getElementById('rbTableWrap').innerHTML =
           '<div class="cb-empty">No saved billing data yet — i-set up muna ito sa OpenAI → Billing page.</div>';
@@ -2921,21 +2988,21 @@ TicketData.fetchTickets()
       let si = 0; svcTotals.forEach((v, i) => { if ((v || 0) > (svcTotals[si] || 0)) si = i; });
       document.getElementById('rbTopSvc').textContent = d.services[cols[si]] || '—';
       document.getElementById('rbTopSvcSub').textContent = (money(svcTotals[si]) || '—') + ' across all divisions';
-      // Open AI month-vs-month comparison (static Aug/Sept figures)
-      const augSum = Object.values(AUG_OPENAI_PHP).reduce((x, y) => x + y, 0);
-      const sepSum = Object.values(SEPT_OPENAI_PHP).reduce((x, y) => x + y, 0);
-      const chg = augSum > 0 ? Math.round(((sepSum - augSum) / augSum) * 100) : null;
+      // Open AI spend sa report period (Oct 1–15) — walang comparison
       const oaCmp = document.getElementById('rbOaCmp');
-      oaCmp.textContent = chg == null ? '—' : (chg >= 0 ? '↑ +' : '↓ ') + chg + '%';
-      oaCmp.style.color = chg == null ? '' : (chg >= 0 ? 'var(--danger,#EF4444)' : 'var(--success,#22C55E)');
-      document.getElementById('rbOaCmpSub').textContent = 'Aug ' + money(augSum) + ' → Sept ' + money(sepSum);
+      const oaSum = septOpenAi.ok ? [...septOpenAi.byDiv.values()].reduce((x, y) => x + y, 0) : null;
+      oaCmp.textContent = septOpenAi.ok ? money(oaSum) : (septOpenAi.loading ? 'Loading…' : '—');
+      oaCmp.style.color = '';
+      document.getElementById('rbOaCmpSub').textContent = septOpenAi.ok
+        ? OA_LABEL + ' · ₱' + septOpenAi.rate.toFixed(2) + '/USD'
+        : (septOpenAi.loading ? 'Kinukuha ang ' + OA_LABEL + ' mula sa OpenAI…' : 'Hindi makuha ang OpenAI spend ngayon');
     }
 
     const head = '<tr><th>Division</th>' + cols.map(k =>
       `<th>${esc(d.services[k])}${k === ok
-        ? `<span class="cb-date">September 2026</span>`
+        ? `<span class="cb-date">${OA_LABEL}</span>`
         : ((d.dates || [])[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : '')}</th>`
-      + (k === ok ? `<th style="color:var(--ink-faint,#94A3B8);">Open AI<span class="cb-date">${augOpenAi.ok ? 'August 2026 · reference' : 'Aug · pending data'}</span></th>` : '')).join('')
+      ).join('')
       + '<th>Total</th>' + (rbEditing ? '<th></th>' : '') + '</tr>';
 
     const order = d.divisions.map((_, i) => i);
@@ -2948,28 +3015,26 @@ TicketData.fetchTickets()
         return `<tr data-orig="${i}">
           <td><input class="cb-input cb-name" value="${esc(div.name)}"></td>
           ${cols.map(k => (k === ok
-            ? `<td style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(eff[k])}<br>auto (Sept)</td>`
-              + `<td style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(augOpenAi.get(div.name))}<br>auto (Aug)</td>`
+            ? `<td style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(eff[k])}<br>auto (${OA_LABEL})</td>`
             : `<td><input class="cb-input cb-val" data-k="${k}" inputmode="decimal" value="${div.vals[k] == null ? '' : div.vals[k]}"></td>`)).join('')}
           <td class="cb-total cb-rowtotal">${fmt(totals[i])}</td>
           <td><button class="cb-rowdel" title="Remove division" data-i="${i}">✕</button></td>
         </tr>`;
       }
-      return `<tr><td>${esc(div.name)}</td>${cols.map(k => `<td>${fmt(eff[k])}</td>`
-        + (k === ok ? `<td style="color:var(--ink-faint,#94A3B8);">${fmt(augOpenAi.get(div.name))}</td>` : '')).join('')}<td class="cb-total">${fmt(totals[i])}</td></tr>`;
+      return `<tr><td>${esc(div.name)}</td>${cols.map(k => `<td>${fmt(eff[k])}</td>`).join('')}<td class="cb-total">${fmt(totals[i])}</td></tr>`;
     }).join('');
 
     const augTotal = (() => {
       const vals = d.divisions.map(dv => augOpenAi.get(dv.name)).filter(v => v != null);
       return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
     })();
-    const foot = `<tr><td>ALL DIVISIONS</td>${svcTotals.map((v, ci) => `<td>${fmt(v)}</td>`
-      + (cols[ci] === ok ? `<td style="color:var(--ink-faint,#94A3B8);">${fmt(augTotal)}</td>` : '')).join('')}<td>${fmt(grand || null)}</td>${rbEditing ? '<td></td>' : ''}</tr>`;
+    const foot = `<tr><td>ALL DIVISIONS</td>${svcTotals.map((v, ci) => `<td>${fmt(v)}</td>`).join('')}<td>${fmt(grand || null)}</td>${rbEditing ? '<td></td>' : ''}</tr>`;
 
     const liveNote = '';
-    const augWait = !augOpenAi.ok
-      ? `<div class="cb-note" style="margin-top:6px;">Ang August Open AI column ay wala pang datos — ibibigay pa ang figures.</div>` : '';
-    const augNote = `<div class="cb-note" style="margin-top:6px;">Ang "Open AI — August 2026" column ay reference lang (comparison) — HINDI kasama sa Total at Grand Total.</div>`;
+    const augWait = septOpenAi.ok
+      ? (septOpenAi.unmatched.length ? `<div class="cb-note" style="margin-top:6px;">OpenAI account na walang katugmang division: ${esc(septOpenAi.unmatched.join(', '))}</div>` : '')
+      : `<div class="cb-note" style="margin-top:6px;">${septOpenAi.loading ? 'Kinukuha pa ang Open AI spend para sa ' + OA_LABEL + '…' : 'Hindi makuha ang Open AI spend ngayon — subukang i-refresh mamaya.'}</div>`;
+    const augNote = `<div class="cb-note" style="margin-top:6px;">Ang Open AI column ay live spend sa ${OA_LABEL} (USD→PHP live rate). Ang ibang services ay mula sa naka-save na buwanang record.</div>`;
     const noteHtml = rbEditing
       ? `<div style="margin-top:12px;"><input class="cb-input" id="rbNoteInput" style="width:100%;text-align:left;font-weight:500;" placeholder="Optional note shown under the table" value="${esc(d.note || '')}"></div>`
       : (d.note ? `<div class="cb-note" style="margin-top:12px;">${esc(d.note)}</div>` : '');
