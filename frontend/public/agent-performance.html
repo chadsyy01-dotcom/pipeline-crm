@@ -295,6 +295,13 @@
   .shift-banner{position:relative;z-index:3;margin:-72px 0 14px;background:#EEF0FF;border:1px solid #C7CCFB;color:#3730A3;border-radius:12px;padding:9px 14px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .shift-banner button{margin-left:auto;border:0;background:#4F46E5;color:#fff;font:inherit;font-size:12px;font-weight:800;border-radius:8px;padding:6px 11px;cursor:pointer;}
   .shift-banner + .ap-kpis{margin-top:0;}
+
+  /* Tabs sa itaas ng Tickets page (2026-10-13): Tickets | Agent Performance — wala na sa sidebar */
+  .page-tabs{display:inline-flex;gap:4px;padding:4px;margin:0 0 16px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);position:relative;z-index:2;}
+  .page-tabs a{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;color:rgba(255,255,255,.75);text-decoration:none;transition:background .15s,color .15s;}
+  .page-tabs a:hover{color:#fff;background:rgba(255,255,255,.1);}
+  .page-tabs a.active{background:#fff;color:#1E3A8A;box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  .page-tabs svg{width:15px;height:15px;}
 </style>
 </head>
 <body>
@@ -309,16 +316,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
         Dashboard
       </a>
-      <a href="tickets.html" class="nav-item">
+      <a href="tickets.html" class="nav-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
         Tickets
       </a>
-      <div class="nav-sub open" id="ticketsSub">
-        <a href="agent-performance.html" class="nav-item active">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"/><path d="M17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/></svg>
-          Agent Performance
-        </a>
-      </div>
       <a href="customers.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
         Customers
@@ -354,6 +355,10 @@
   </aside>
   <main class="main">
     <div class="hero-band">
+      <nav class="page-tabs" aria-label="Tickets">
+        <a href="tickets.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>Tickets</a>
+        <a href="agent-performance.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"/><path d="M17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/></svg>Agent Performance</a>
+      </nav>
       <div class="topbar">
         <div class="greeting">
           <h1>Agent Performance</h1>
@@ -1353,5 +1358,6 @@
     if (chev && sub) chev.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); sub.classList.toggle('open'); chev.classList.toggle('open', sub.classList.contains('open')); });
   })();
 </script>
+<script src="sidebar-topnav.js?v=1"></script>
 </body>
 </html>
