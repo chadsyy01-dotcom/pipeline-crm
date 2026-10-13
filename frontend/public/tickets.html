@@ -266,6 +266,13 @@
   .nav-sub.open{display:block;}
   .nav-sub .nav-item{font-size:12.5px;padding:8px 12px;}
   .nav-sub .nav-item svg{width:15px;height:15px;}
+
+  /* Tabs sa itaas ng Tickets page (2026-10-13): Tickets | Agent Performance — wala na sa sidebar */
+  .page-tabs{display:inline-flex;gap:4px;padding:4px;margin:0 0 16px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);position:relative;z-index:2;}
+  .page-tabs a{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;color:rgba(255,255,255,.75);text-decoration:none;transition:background .15s,color .15s;}
+  .page-tabs a:hover{color:#fff;background:rgba(255,255,255,.1);}
+  .page-tabs a.active{background:#fff;color:#1E3A8A;box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  .page-tabs svg{width:15px;height:15px;}
 </style>
 <!-- Redesign 2026-10-10: bagong itsura (hero band, queue cards, row highlights) -->
 <link rel="stylesheet" href="redesign.css?v=4">
@@ -342,12 +349,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
         Tickets
       </a>
-      <div class="nav-sub open">
-        <a href="agent-performance.html" class="nav-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"/><path d="M17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/></svg>
-          Agent Performance
-        </a>
-      </div>
       <a href="customers.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
         Customers
@@ -376,6 +377,10 @@
   <!-- MAIN -->
   <main class="main">
     <div class="hero">
+      <nav class="page-tabs" aria-label="Tickets">
+        <a href="tickets.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>Tickets</a>
+        <a href="agent-performance.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"/><path d="M17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/></svg>Agent Performance</a>
+      </nav>
     <div class="topbar">
       <div class="greeting">
         <h1>Tickets</h1>
@@ -1831,5 +1836,6 @@
   ind.addEventListener('click', open);
 })();
 </script>
+<script src="sidebar-topnav.js?v=1"></script>
 </body>
 </html>
