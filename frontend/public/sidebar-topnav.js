@@ -4,7 +4,7 @@
    ang menu sa ITAAS ng page bilang pahalang na top bar. Ang "☰ Sidebar"
    button sa kanan ng top bar ang magbabalik ng sidebar.
    - Iisang file para sa LAHAT ng page — isama lang sa dulo ng <body>:
-       <script src="sidebar-topnav.js?v=1"></script>
+       <script src="sidebar-topnav.js?v=2"></script>
    - Kinokopya ang mga link mula mismo sa sidebar ng page, kaya kapag
      may binago sa sidebar, kasama na agad sa top bar.
    - Naaalala ang pinili (localStorage 'csr_sidebar_hidden'), pareho ng
@@ -13,6 +13,37 @@
 (function () {
   if (window.__sbTopNav) return; window.__sbTopNav = true;
   const KEY = 'csr_sidebar_hidden';
+  const SV = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${d}</svg>`;
+  const ICON = {
+    dash: SV('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'),
+    ticket: SV('<path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/>'),
+    trophy: SV('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"/><path d="M17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/>'),
+    users: SV('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>'),
+    shield: SV('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>'),
+    share: SV('<path d="M18 8a3 3 0 100-6 3 3 0 000 6z"/><path d="M6 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M18 22a3 3 0 100-6 3 3 0 000 6z"/><path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>'),
+    book: SV('<path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>'),
+    bars: SV('<path d="M18 20V10M12 20V4M6 20v-6"/>'),
+    clock: SV('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'),
+    card: SV('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>'),
+    chat: SV('<path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>'),
+    bank: SV('<path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M9 21v-6h6v6"/>'),
+    gear: SV('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>'),
+  };
+  // Kapag may bagong page: idagdag lang dito.
+  const MENU = [
+    { label: 'Dashboard', href: 'csr-dashboard.html', icon: 'dash' },
+    { label: 'Tickets', href: 'tickets.html', icon: 'ticket', kids: [
+      { label: 'Agent Performance', href: 'agent-performance.html', icon: 'trophy' } ] },
+    { label: 'Customers', href: 'customers.html', icon: 'users' },
+    { label: 'Quality Assurance', href: 'qa.html', icon: 'shield', kids: [
+      { label: 'Social Media Monitoring', href: 'social-media-monitoring.html', icon: 'share' } ] },
+    { label: 'Knowledge Base', href: 'kb.html', icon: 'book' },
+    { label: 'Reports', href: 'reports.html', icon: 'bars' },
+    { label: 'OpenAI', mainLabel: 'Billing', mainIcon: 'card', href: 'openai.html', icon: 'clock', kids: [
+      { label: 'SMS Monitoring', href: 'sms-monitoring.html', icon: 'chat' },
+      { label: 'Division Billing', href: 'division-billing.html', icon: 'bank' } ] },
+    { label: 'Settings', href: 'settings.html', icon: 'gear' },
+  ];
   const getHidden = () => { try { return localStorage.getItem(KEY) === 'true'; } catch (e) { return false; } };
   const setHidden = v => { try { localStorage.setItem(KEY, v ? 'true' : 'false'); } catch (e) {} };
 
@@ -35,6 +66,19 @@
   .sb-topnav .tn-links a.tn-sub{font-size:12px;font-weight:500;color:#8DA2C0;}
   .sb-topnav .tn-links a.tn-sub.active{color:#fff;}
   .sb-topnav .tn-links svg{width:16px;height:16px;flex-shrink:0;}
+  .sb-topnav .tn-drop{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border-radius:9px;color:#AEBBD1;background:none;border:none;cursor:pointer;
+    font-size:13px;font-weight:600;white-space:nowrap;font-family:inherit;transition:background .15s,color .15s;}
+  .sb-topnav .tn-drop:hover{background:#151E30;color:#fff;}
+  .sb-topnav .tn-drop.active{background:#2563EB;color:#fff;}
+  .sb-topnav .tn-drop svg{width:16px;height:16px;flex-shrink:0;}
+  .sb-topnav .tn-drop svg.caret{width:12px;height:12px;opacity:.75;margin-left:-2px;}
+  .tn-menu{display:none;position:fixed;top:52px;z-index:95;min-width:220px;padding:6px;border-radius:12px;background:#0F1729;
+    border:1px solid rgba(255,255,255,.1);box-shadow:0 16px 36px -12px rgba(0,0,0,.6);font-family:inherit;}
+  .tn-menu.open{display:block;}
+  .tn-menu a{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:8px;color:#C5D0E2;text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap;}
+  .tn-menu a:hover{background:#1C273B;color:#fff;}
+  .tn-menu a.active{background:#2563EB;color:#fff;}
+  .tn-menu svg{width:16px;height:16px;flex-shrink:0;}
   .sb-topnav .tn-show{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;margin-left:6px;padding:8px 12px;border-radius:9px;border:none;cursor:pointer;
     background:#151E30;color:#AEBBD1;font-size:12.5px;font-weight:600;font-family:inherit;}
   .sb-topnav .tn-show:hover{background:#1C273B;color:#fff;}
@@ -59,14 +103,49 @@
     nav.innerHTML = `<a class="tn-brand" href="csr-dashboard.html">${logo ? `<img src="${logo.getAttribute('src')}" alt="">` : ''}<span>${brandName}</span></a><div class="tn-links"></div>
       <button type="button" class="tn-show" title="Ibalik ang sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg><span>Sidebar</span></button>`;
     const links = nav.querySelector('.tn-links');
-    sidebar.querySelectorAll('.nav-group a.nav-item, nav a.nav-item').forEach(a => {
-      if (!a.getAttribute('href')) return;
-      const c = a.cloneNode(true);
-      c.removeAttribute('id'); c.removeAttribute('onclick');
-      c.querySelectorAll('.nav-chev, .badge, [id]').forEach(x => { if (x.classList.contains('nav-chev')) x.remove(); else x.removeAttribute('id'); });
-      c.className = (a.classList.contains('active') ? 'active ' : '') + (a.closest('.nav-sub') ? 'tn-sub' : '');
-      links.appendChild(c);
+    // IISANG MENU PARA SA LAHAT NG PAGE (v2, 2026-10-13): hindi na kinokopya
+    // ang sidebar ng page (magkakaiba pala ang sidebar ng bawat page — hal.
+    // walang laman ang top bar sa KB, at nawawala ang sub-pages ng OpenAI).
+    // May dropdown (▾) ang item na may sub-pages.
+    const here = (location.pathname.split('/').pop() || 'csr-dashboard').replace(/\.html$/, '') || 'csr-dashboard';
+    const isHere = h => h.replace(/\.html$/, '') === here;
+    MENU.forEach(item => {
+      const kids = item.kids || [];
+      const groupActive = isHere(item.href) || kids.some(k => isHere(k.href));
+      if (!kids.length) {
+        const a = document.createElement('a');
+        a.href = item.href; a.innerHTML = ICON[item.icon] + item.label;
+        if (groupActive) a.className = 'active';
+        links.appendChild(a); return;
+      }
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'tn-drop' + (groupActive ? ' active' : '');
+      b.innerHTML = ICON[item.icon] + item.label + '<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>';
+      const menu = document.createElement('div');
+      menu.className = 'tn-menu';
+      [{ label: item.mainLabel || item.label, href: item.href, icon: item.mainIcon || item.icon }, ...kids].forEach(k => {
+        const a = document.createElement('a');
+        a.href = k.href; a.innerHTML = ICON[k.icon] + k.label;
+        if (isHere(k.href)) a.className = 'active';
+        menu.appendChild(a);
+      });
+      document.body.appendChild(menu);
+      let closeT = null;
+      const open = () => {
+        clearTimeout(closeT);
+        document.querySelectorAll('.tn-menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
+        const r = b.getBoundingClientRect();
+        menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 240)) + 'px';
+        menu.classList.add('open');
+      };
+      const close = () => { closeT = setTimeout(() => menu.classList.remove('open'), 180); };
+      b.addEventListener('mouseenter', open); b.addEventListener('mouseleave', close);
+      menu.addEventListener('mouseenter', () => clearTimeout(closeT)); menu.addEventListener('mouseleave', close);
+      b.addEventListener('click', e => { e.stopPropagation(); menu.classList.contains('open') ? menu.classList.remove('open') : open(); });
+      links.appendChild(b);
     });
+    document.addEventListener('click', () => document.querySelectorAll('.tn-menu.open').forEach(m => m.classList.remove('open')));
+    links.addEventListener('scroll', () => document.querySelectorAll('.tn-menu.open').forEach(m => m.classList.remove('open')));
     document.body.insertBefore(nav, document.body.firstChild);
 
     // ---- "Hide sidebar" button sa ibaba ng sidebar ----
