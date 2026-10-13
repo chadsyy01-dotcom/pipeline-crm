@@ -1621,7 +1621,7 @@
   function chatStatusHtml(c) {
     const k = chatStatusKey(c);
     const tag = (k.late && k.cls !== 'missed') ? '<br><span class="late-tag" title="Lumagpas sa 3 minuto bago nakasagot ang agent">MISSED 3MIN</span>'
-      : (c.ftrExempt && c.ftr > MISSED_SLA_SEC) || (c.waitExempt && c.handoffStage && !(c.ftr != null || c.handoffStage === 'opened'))
+      : (c.ftrExempt && c.ftrExemptWhy !== 'noai' && c.ftr > MISSED_SLA_SEC) || (c.waitExempt && c.handoffStage && !(c.ftr != null || c.handoffStage === 'opened'))
         ? '<br><span class="req-tag" title="Humingi ng real agent ang player pero hindi pa naipasa ng AI — hindi bilang sa Missed Chats">HUMINGI NG AGENT</span>' : '';
     return `<span class="status ${k.cls}">${k.label}</span>${tag}`;
   }
@@ -2229,12 +2229,11 @@
       const sStart = tOf(withContent[idxs[0]]), sEnd = tOf(withContent[idxs[idxs.length - 1]]);
       const firstHumanPos = idxs.findIndex(i => isHumanAgent(withContent[i]));
       let ho = pendingTimes.find(t => t >= sStart - 5000 && t <= sEnd + SESSION_GAP_MS) ?? null;
-      if (firstHumanPos >= 0) {
-        // huling bot message bago ang unang human reply = transfer point
-        for (let k = firstHumanPos - 1; k >= 0; k--) {
-          if (isBotMsg(withContent[idxs[k]])) { const bt = tOf(withContent[idxs[k]]); if (ho == null || bt < ho) ho = bt; break; }
-        }
-      }
+      // (INALIS 2026-10-13: ang "huling bot message bago ang unang human
+      // reply" ay hindi na itinuturing na handoff — normal na sagot lang iyon
+      // ng AI, hal. "Wala pa rin pong update…". Handoff lang kapag may
+      // transfer message ang AI o BAGONG pending label. Kapag kusang pumasok
+      // ang agent nang walang AI handoff, hindi MC.)
       if (ho == null) return;   // walang handoff sa session na ito -> bot lang, walang i-flag
       hoAt = ho;
       let runIdx = null, runAt = null;
