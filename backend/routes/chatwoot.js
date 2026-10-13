@@ -612,9 +612,20 @@ function computeArtFtr(allMessages, brand) {
   let reqPending = false;          // humingi ng agent ang customer, wala pang bot message pagkatapos
   let reqAt = null;                // oras ng request na iyon
   let ftrExempt = false;           // ang unang human reply ay sagot sa request na hindi naipasa ng AI
+  // WALANG HANDOFF NG AI (2026-10-13, utos ni Chad): kapag AI lang ang
+  // sumasagot (walang transfer message at walang BAGONG 'pending' label) at
+  // kusang pumasok ang human agent, hindi iyon handoff — hindi MC, at ang
+  // FTR ay mula sa huling message ng customer (hindi sa lumang bot reply,
+  // hal. 09099963296: AI 8:12 → agent 9:09 = "57m" na mali).
+  const sIdx = allMessages.length - messages.length;
+  let prevStage = sIdx > 0 ? (allMessages[sIdx - 1].handoffStage || null) : null;
+  let handoffSeen = false, botSeen = false, lastCustAny = null, ftrExemptWhy = null;
 
   for (const m of messages) {
     const t = new Date(m.createdAt).getTime();
+    const st = m.handoffStage || null;
+    if (st === 'pending' && !prevStage) handoffSeen = true;   // bagong label, hindi lumang dala
+    prevStage = st;
     // NULL senderType na may pangalan = customer message (luma, bago ang
     // resolveSenderType fallback); ang agent/bot ay laging 'user'.
     const isCustomer = m.senderType === 'contact' || (m.senderType == null && !!m.senderName);
@@ -622,19 +633,26 @@ function computeArtFtr(allMessages, brand) {
       // Kapag nag-message ang customer PAGKATAPOS mag-handoff ang bot (hal.
       // "hello?" habang naghihintay), ang handoff pa rin ang simula ng timer.
       if (lastBotMsgTime === null) lastCustomerMsgTime = t;
+      lastCustAny = t;
       if (isAgentRequest(m.content) && !reqPending) { reqPending = true; reqAt = t; }
     } else if (m.senderType === 'user' && isBotSender(brand, m.senderName)) {
       if (lastCustomerMsgTime !== null) lastBotMsgTime = t; // handoff/transfer point ng bot
       reqPending = false; // sumagot/nag-transfer na ang AI pagkatapos ng request
+      botSeen = true;
+      if (isHandoffBotMessage(m.content)) handoffSeen = true;
       continue; // bot reply — not a human response
     } else if (m.senderType === 'user' && lastCustomerMsgTime !== null) {
       if (firstAgentGap === null) {
         // Request na hindi naipasa ng AI: sukat mula sa request mismo (hindi
         // sa lumang bot reply bago pa ito), at exempt sa MISSED 3MIN.
-        const timerStart = reqPending && reqAt !== null ? reqAt : lastBotMsgTime !== null ? lastBotMsgTime : lastCustomerMsgTime;
+        const noAiHandoff = botSeen && !handoffSeen && !reqPending;
+        const timerStart = reqPending && reqAt !== null ? reqAt
+          : noAiHandoff && lastCustAny !== null ? lastCustAny
+          : lastBotMsgTime !== null ? lastBotMsgTime : lastCustomerMsgTime;
         firstAgentGap = Math.max(0, (t - timerStart) / 1000);
         firstAgentMsgTime = t; // handoff point = first genuine reply
-        ftrExempt = reqPending;
+        ftrExempt = reqPending || noAiHandoff;
+        ftrExemptWhy = reqPending ? 'req' : noAiHandoff ? 'noai' : null;
       }
       lastCustomerMsgTime = null;
       lastBotMsgTime = null;
@@ -653,7 +671,8 @@ function computeArtFtr(allMessages, brand) {
   return {
     art: chattingTime,
     ftr: firstAgentGap,
-    ftrExempt,                    // MISSED 3MIN hindi bilang (request na hindi naipasa ng AI)
+    ftrExempt,                    // MISSED 3MIN hindi bilang (request na hindi naipasa ng AI / walang AI handoff)
+    ftrExemptWhy,                 // 'req' | 'noai'
     waitExempt: reqPending,       // naghihintay pa, pero request lang — hindi pa naipapasa ng AI
     sessionHandoff,               // false = lumang label lang ang dala; AI lang ang kausap sa session na ito
   };
@@ -924,7 +943,8 @@ router.get('/conversations', requireAuth, async (req, res) => {
         if (!c.handoffStage) return;
         const msgs = byConversation[ck(c.brand, c.conversationId)];
         if (!msgs) return;
-        const { art, ftr, ftrExempt, waitExempt, sessionHandoff } = computeArtFtr(msgs, c.brand);
+        const { art, ftr, ftrExempt, ftrExemptWhy, waitExempt, sessionHandoff } = computeArtFtr(msgs, c.brand);
+        c.ftrExemptWhy = ftrExemptWhy;
         c.sessionHandoff = sessionHandoff;
         c.art = art;
         c.ftr = ftr;
