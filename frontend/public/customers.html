@@ -2254,11 +2254,18 @@
           continue;
         }
         if (m.senderType === 'contact' && runIdx == null) { runIdx = i; runAt = at; }
-        else if (isHumanAgent(m) && runIdx != null) {
-          const waited = (at - runAt) / 1000;
-          if (waited > 180) missInfo.set(runIdx, reqIdx != null ? { req: true, mins: Math.round(waited / 60) } : { late: true, mins: Math.round(waited / 60) });
+        else if (isHumanAgent(m)) {
+          // HARD RULE (2026-10-13, utos ni Chad): ang MC ay sa UNANG handoff
+          // lang. Kapag nakasagot na ang real agent pagkatapos ng handoff,
+          // tapos na ang pagsusuri sa session na ito — hindi na mata-tag na MC
+          // kahit matagal ang sagot sa mga susunod na message.
+          if (runIdx != null) {
+            const waited = (at - runAt) / 1000;
+            if (waited > 180) missInfo.set(runIdx, reqIdx != null ? { req: true, mins: Math.round(waited / 60) } : { late: true, mins: Math.round(waited / 60) });
+          }
           runIdx = null; runAt = null; reqIdx = null;
-        } else if (isHumanAgent(m)) reqIdx = null;
+          break;
+        }
       }
       if (runIdx != null) {
         const isLastSession = idxs === sessions[sessions.length - 1];
