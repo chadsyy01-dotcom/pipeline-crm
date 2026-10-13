@@ -423,6 +423,26 @@ table.rt tfoot td{background:#F2F4F7;font-weight:700;border-top:1px solid var(--
 .pl-total{font-weight:700;border-bottom:none;border-top:1px solid var(--rule);margin-top:2px;}
 @media (max-width:900px){ .pie-wrap{grid-template-columns:1fr;} .pie-legend{grid-template-columns:1fr;} }
 
+.dsat-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px;}
+@media (max-width:900px){ .dsat-cards{grid-template-columns:1fr;} }
+.dsat-card{all:unset;box-sizing:border-box;cursor:pointer;background:var(--card);border:1px solid var(--line);border-top:3px solid var(--c);border-radius:var(--radius-md);
+  padding:12px 14px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .15s,border-color .15s,background .15s;}
+.dsat-card:hover{box-shadow:0 4px 14px -8px rgba(16,24,40,.25);}
+.dsat-card.on{background:#FBFCFF;border-color:var(--c);box-shadow:0 0 0 1px var(--c) inset;}
+.dc-top{display:flex;align-items:center;gap:9px;}
+.dc-rank{width:22px;height:22px;border-radius:5px;background:color-mix(in srgb,var(--c) 14%,#fff);color:var(--c);font-weight:700;font-size:11.5px;display:flex;align-items:center;justify-content:center;}
+.dc-name{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dc-chev{width:15px;height:15px;color:var(--ink-faint);transition:transform .2s;}
+.dsat-card.on .dc-chev{transform:rotate(180deg);color:var(--c);}
+.dc-num{font-size:12px;color:var(--ink-soft);}
+.dc-num b{font-size:20px;color:var(--danger);font-weight:700;margin-right:2px;font-variant-numeric:tabular-nums;}
+.dc-num span{color:var(--ink-faint);}
+.dc-bar{height:4px;border-radius:2px;background:#F2F4F7;overflow:hidden;}
+.dc-bar i{display:block;height:100%;background:var(--danger);border-radius:2px;}
+.dc-sev{display:flex;gap:5px;flex-wrap:wrap;}
+.dc-hint{font-size:10.5px;color:var(--ink-faint);}
+.dsat-card.on .dc-hint{visibility:hidden;}
+
 /* --- Billing --- */
 .cb-title h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
 .cb-cards{gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;}
@@ -918,7 +938,7 @@ body.presenting .panel-head h3{font-size:14px;}
 
       <div class="section-head" style="margin-top:22px;">
         <h2 style="font-size:17px;">Top 3 brands by DSAT</h2>
-        <span class="lede">Every written reason is listed · click one to open the conversation</span>
+        <span class="lede">I-click ang brand para makita ang mga reason · i-click ang reason para buksan ang chat</span>
       </div>
 
       <div id="csTopBrands"><div class="panel"><div class="note">Loading…</div></div></div>
@@ -2244,7 +2264,11 @@ function renderSatisfaction() {
   // that point at something fixable are the ones a reader needs to see first.
   const SEV_ORDER = { high: 0, medium: 1, low: 2 };
 
-  wrap.innerHTML = top3.map((b, i) => {
+  // FORMATION (2026-10-13, utos ni Chad): 3 compact na brand cards na
+  // magkakatabi; ang mga reason/message ng isang brand ay lalabas LANG kapag
+  // kinlick ang card niya (click ulit para isara).
+  const details = [];
+  const cards = top3.map((b, i) => {
     const sev = { high: 0, medium: 0, low: 0 };
     b.dsats.forEach(c => { sev[c.severity]++; });
     const withReason = b.dsats
@@ -2258,33 +2282,20 @@ function renderSatisfaction() {
       ? withReason.map(c => {
           const name = c.contactName || 'Unknown';
           return `<tr data-conversation-id="${c.conversationId}" data-name="${escapeHtml(name)}" data-sub="${escapeHtml(b.label)}">
-            <td style="width:34%;"><div class="remarks" style="max-width:none;color:var(--ink);font-weight:500;">${escapeHtml(c.feedback)}</div></td>
+            <td style="width:40%;"><div class="remarks" style="max-width:none;color:var(--ink);font-weight:500;">${escapeHtml(c.feedback)}</div></td>
             <td><span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span></td>
-            <td><span style="font-weight:800;color:var(--danger);">★ ${c.rating}/5</span></td>
+            <td><span style="font-weight:700;color:var(--danger);">★ ${c.rating}/5</span></td>
             <td><div class="agent-cell"><div class="c-av" style="background:${colorForName(name)};">${escapeHtml(initialsFor(name))}</div><span style="font-weight:600;">${escapeHtml(name)}</span></div></td>
-            <td class="num" style="font-weight:600;color:var(--ink-faint);white-space:nowrap;">${timeAgo(c.createdAt)}</td>
+            <td class="num" style="font-weight:500;color:var(--ink-faint);white-space:nowrap;">${timeAgo(c.createdAt)}</td>
           </tr>`;
         }).join('')
       : '<tr><td colspan="5"><div class="note">No written reasons — every DSAT for this brand was a rating only.</div></td></tr>';
 
-    return `
-      <div class="panel" style="border-top:4px solid ${colour};">
-        <div class="panel-head" style="align-items:flex-start;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div class="rank-badge" style="background:${colour}22;color:${colour};">${i + 1}</div>
-            <div>
-              <h3 style="font-size:16px;">${escapeHtml(b.label)}</h3>
-              <div style="font-size:12.5px;color:var(--ink-soft);margin-top:3px;">
-                <b style="color:var(--danger);font-size:15px;">${fmtInt(b.dsats.length)}</b> DSATs ·
-                ${rate}% of ${fmtInt(b.rated)} ratings
-              </div>
-            </div>
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <span class="sev-pill high">HIGH ${fmtInt(sev.high)}</span>
-            <span class="sev-pill medium">MEDIUM ${fmtInt(sev.medium)}</span>
-            <span class="sev-pill low">NO REASON ${fmtInt(sev.low)}</span>
-          </div>
+    details[i] = `
+      <div class="panel dsat-detail-panel" style="border-top:3px solid ${colour};">
+        <div class="panel-head">
+          <h3>${escapeHtml(b.label)} — reasons given <span style="color:var(--ink-faint);font-weight:600;">(${fmtInt(withReason.length)})</span></h3>
+          <span class="hint">Click a row to open the conversation</span>
         </div>
         <div class="scroll tall">
           <table class="rt rowlink">
@@ -2292,11 +2303,40 @@ function renderSatisfaction() {
             <tbody>${rows}</tbody>
           </table>
         </div>
-        ${noReason ? `<div style="font-size:12px;color:var(--ink-faint);margin-top:10px;">
+        ${noReason ? `<div style="font-size:11.5px;color:var(--ink-faint);margin-top:10px;">
           Plus ${fmtInt(noReason)} customer${noReason === 1 ? '' : 's'} who rated 1–2★ without writing a reason.
         </div>` : ''}
       </div>`;
-  }).join('');
+
+    return `
+      <button type="button" class="dsat-card" data-i="${i}" style="--c:${colour};">
+        <div class="dc-top">
+          <span class="dc-rank">${i + 1}</span>
+          <span class="dc-name">${escapeHtml(b.label)}</span>
+          <svg class="dc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="dc-num"><b>${fmtInt(b.dsats.length)}</b> DSATs <span>· ${rate}% of ${fmtInt(b.rated)} ratings</span></div>
+        <div class="dc-bar"><i style="width:${Math.min(100, rate)}%;"></i></div>
+        <div class="dc-sev">
+          <span class="sev-pill high">HIGH ${fmtInt(sev.high)}</span>
+          <span class="sev-pill medium">MEDIUM ${fmtInt(sev.medium)}</span>
+          <span class="sev-pill low">NO REASON ${fmtInt(sev.low)}</span>
+        </div>
+        <div class="dc-hint">I-click para makita ang mga reason</div>
+      </button>`;
+  });
+
+  wrap.innerHTML = `<div class="dsat-cards">${cards.join('')}</div><div id="csBrandDetail"></div>`;
+  const detailEl = document.getElementById('csBrandDetail');
+  wrap.querySelectorAll('.dsat-card').forEach(btn => btn.addEventListener('click', () => {
+    const i = Number(btn.dataset.i);
+    const open = btn.classList.contains('on');
+    wrap.querySelectorAll('.dsat-card').forEach(x => x.classList.remove('on'));
+    if (open) { detailEl.innerHTML = ''; return; }
+    btn.classList.add('on');
+    detailEl.innerHTML = details[i];
+    detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }));
 
   csData.top3 = top3;
 
