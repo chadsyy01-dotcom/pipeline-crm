@@ -1607,7 +1607,7 @@
     // 'closed' ay HINDI katibayan na may sumagot — maraming lumang chats
     // ang nag-closed na walang human reply (deactivated habang pending),
     // at dapat MISSED pa rin ang mga iyon (2026-10-10 fix).
-    const answered = c.ftr != null || c.handoffStage === 'opened';
+    const answered = c.ftr != null || c.handoffStage === 'opened' || c.humanReplied === true;
     // Kung HUMAN agent ang huling nagsalita (hal. greeting na hindi sinagot
     // ng player), HINDI ito missed — walang customer message na na-miss.
     // Ang bot na "Rate our support" ay hindi bilang na agent reply.
