@@ -2268,7 +2268,9 @@
           continue;
         }
         if (m.senderType === 'contact' && runIdx == null) { runIdx = i; runAt = at; }
-        else if (isHumanAgent(m)) {
+        // LiveChat auto-greeting (handoffStage null) ay hindi tunay na sagot;
+        // ang greeting ng agent mismo ('opened') ay bilang na unang sagot.
+        else if (isHumanAgent(m) && !(LIVECHAT_BRANDS.has(m.brand) && !m.handoffStage)) {
           // HARD RULE (2026-10-13, utos ni Chad): ang MC ay sa UNANG handoff
           // lang. Kapag nakasagot na ang real agent pagkatapos ng handoff,
           // tapos na ang pagsusuri sa session na ito — hindi na mata-tag na MC
