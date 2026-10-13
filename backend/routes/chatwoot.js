@@ -1142,6 +1142,60 @@ router.get('/stats', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/chatwoot/handoff-split?from=...&to=...
+// (2026-10-13, utos ni Chad — Reports › Chats) Ilan ang conversations kada
+// brand sa window, ilan ang napunta sa HUMAN (HH) at ilan ang AI lang.
+//   conversations = may customer message sa window
+//   HH            = sa window: may sagot ang human agent (hindi bot persona)
+//                   O nag-transfer ang bot (HANDOFF_MSG_RE — kasama ang
+//                   naipasa pero hindi nasagot). LiveChat brands: lahat HH.
+//   AI only       = conversations − HH
+// Hindi umaasa sa handoff label (dala-dala ng Chatwoot kahit lumang usapan).
+router.get('/handoff-split', requireAuth, async (req, res) => {
+  try {
+    const from = req.query.from, to = req.query.to;
+    if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
+    const repl = { from, to };
+    const [custRows, humanRows, botHoRows] = await Promise.all([
+      sequelize.query(`
+        SELECT DISTINCT "brand", "conversationId" FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND "senderType" = 'contact' AND "isPrivate" = false
+          AND "conversationId" IS NOT NULL AND "createdAt" BETWEEN :from AND :to
+      `, { replacements: repl, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT DISTINCT "brand", "conversationId", "senderName" FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND "senderType" = 'user' AND "isPrivate" = false
+          AND "senderName" IS NOT NULL AND "conversationId" IS NOT NULL
+          AND "createdAt" BETWEEN :from AND :to
+      `, { replacements: repl, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT DISTINCT "brand", "conversationId" FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND "senderType" = 'user' AND "isPrivate" = false
+          AND "conversationId" IS NOT NULL AND "createdAt" BETWEEN :from AND :to
+          AND "content" ~* :re
+      `, { replacements: { ...repl, re: HANDOFF_MSG_RE.source }, type: QueryTypes.SELECT }),
+    ]);
+    const key = (b, c) => b + '|' + c;
+    const hh = new Set();
+    humanRows.forEach(r => { if (!isBotSender(r.brand, r.senderName)) hh.add(key(r.brand, r.conversationId)); });
+    botHoRows.forEach(r => hh.add(key(r.brand, r.conversationId)));
+    const byBrand = {};
+    custRows.forEach(r => {
+      const b = byBrand[r.brand] ??= { conversations: 0, hh: 0, ai: 0 };
+      b.conversations++;
+      if (LIVECHAT_BRAND_SET.has(r.brand) || hh.has(key(r.brand, r.conversationId))) b.hh++;
+      else b.ai++;
+    });
+    const total = Object.values(byBrand).reduce((t, b) => ({
+      conversations: t.conversations + b.conversations, hh: t.hh + b.hh, ai: t.ai + b.ai,
+    }), { conversations: 0, hh: 0, ai: 0 });
+    res.json({ from, to, byBrand, total });
+  } catch (err) {
+    console.error('Chatwoot handoff-split error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/chatwoot/messages-received?from=...&to=...
 // Incoming customer messages per brand for the window (added 2026-09-21).
 // Powers the Reports page's Chats Comparison, whose historical months come
