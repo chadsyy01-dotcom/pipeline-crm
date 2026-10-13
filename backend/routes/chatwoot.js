@@ -588,7 +588,12 @@ const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your)|(l
 function isHandoffBotMessage(text) {
   return !!text && HANDOFF_MSG_RE.test(String(text).slice(0, 400));
 }
+// LiveChat: walang AI — bawat chat ay human-handled mula simula (ang
+// conversation_created row ang 'pending', at wala iyon sa message query),
+// kaya laging may handoff ang session.
+const LIVECHAT_BRAND_SET = new Set(['casinyeam', 'manilacasino', 'superscatterph', 'livechat-general']);
 function sessionHasHandoff(allMessages, session, brand) {
+  if (LIVECHAT_BRAND_SET.has(brand)) return true;
   const startIdx = allMessages.length - session.length;
   let prev = startIdx > 0 ? (allMessages[startIdx - 1].handoffStage || null) : null;
   for (const m of session) {
@@ -664,6 +669,19 @@ function computeArtFtr(allMessages, brand) {
       lastBotMsgTime = null;
       reqPending = false;
     } else if (m.senderType === 'user') {
+      // NAUNANG BUMATI ANG AGENT (2026-10-13, utos ni Chad — LiveChat): kapag
+      // ang human agent ang unang nagsalita sa session (greeting) bago pa
+      // mag-message ang customer, iyon na ang unang sagot — FTR = 0. Ang mga
+      // susunod niyang reply ay HINDI na sinusukat para sa MC (first-reply
+      // rule), hal. 09627190074: Admin - Eve bumati 1:19, customer 1:20,
+      // agent 1:23 → dati "MISSED 3MIN", ngayon hindi.
+      // Auto-greeting ng LiveChat ("Welcome to your 24/7 support") ay naka-
+      // store na handoffStage null — hindi iyon bilang; ang tunay na human
+      // message ay 'opened'/'closed'.
+      if (firstAgentGap === null && m.senderName && (m.handoffStage === 'opened' || m.handoffStage === 'closed')) {
+        firstAgentGap = 0;
+        firstAgentMsgTime = t;
+      }
       reqPending = false;
     }
   }
