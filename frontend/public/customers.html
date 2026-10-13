@@ -577,6 +577,12 @@
 .miss-banner{background:#FDE8EA;color:#7A1020;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55;}
 .ho-divider{display:flex;align-items:center;gap:10px;margin:4px 0;font-size:11.5px;font-weight:800;color:#9A5200;}
 .ho-divider::before,.ho-divider::after{content:'';flex:1;height:1px;background:#F5C37A;}
+.res-pill{text-align:center;margin:6px 0;}
+.res-pill span{display:inline-block;font-size:11.5px;font-weight:600;color:#065F46;background:#ECFDF5;border:1px solid #A7F3D0;padding:4px 12px;border-radius:999px;}
+.res-pill b{font-weight:800;}
+.csat-in-thread{margin-top:8px;padding-top:7px;border-top:1px dashed rgba(100,116,139,.35);font-style:normal;font-size:12.5px;}
+.csat-in-thread .k{display:block;font-size:10.5px;font-weight:700;color:var(--ink-faint);font-style:italic;margin-bottom:2px;}
+.csat-in-thread .fb{margin-top:3px;color:var(--ink-soft);}
 .ho-divider.is-miss{color:#B91C1C;}
 .ho-divider.is-miss::before,.ho-divider.is-miss::after{background:#FCA5A5;}
 .ho-divider.is-miss span{background:#FEE2E2;}
@@ -2295,6 +2301,33 @@
       ? `<div class="miss-banner">⚠ ${realMiss} pagkakataon na hindi nasagot ng human agent ang player sa loob ng 3 minuto. Naka-highlight sa pula sa ibaba.</div>`
       : '';
 
+    // ---- RESOLVED + RATING (2026-10-13) ----
+    // Hindi ipinapadala ng Chatwoot sa webhook ang activity message na
+    // "Conversation was resolved by X", kaya binubuo ito mula sa
+    // conversation_status_changed (status = resolved). Ang pangalan ay ang
+    // naka-assign na agent (payload.meta.assignee, available lang ~3 araw);
+    // kapag wala, ang huling human agent na nagsalita bago ang resolve.
+    const resolvedEvents = [];
+    messages
+      .filter(m => m.event === 'conversation_status_changed' && m.status === 'resolved' && tOf(m) != null)
+      .sort((a, b) => tOf(a) - tOf(b))
+      .forEach(m => {
+        const at = tOf(m);
+        if (resolvedEvents.length && at - resolvedEvents[resolvedEvents.length - 1].at < 60000) return;
+        const p = m.payload || {};
+        const assignee = p.meta?.assignee?.name || p.conversation?.meta?.assignee?.name || null;
+        let lastHuman = null;
+        withContent.forEach(x => { const t = tOf(x); if (t != null && t <= at && isHumanAgent(x)) lastHuman = x.senderName; });
+        resolvedEvents.push({ at, by: assignee || lastHuman, guessed: !assignee && !!lastHuman });
+      });
+    let resPtr = 0;
+    const resolvedPill = r => {
+      const w = new Date(r.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return `<div class="res-pill"><span>✔ Conversation was resolved${r.by ? ` by <b>${escapeHtml(r.by)}</b>` : ''} · ${escapeHtml(w)}</span></div>`;
+    };
+    const resolvedBefore = at => { let h = ''; while (resPtr < resolvedEvents.length && at != null && resolvedEvents[resPtr].at <= at) h += resolvedPill(resolvedEvents[resPtr++]); return h; };
+    const CSAT_LBL = { 1: '😞 Very bad', 2: '😕 Bad', 3: '😐 Okay', 4: '😀 Good', 5: '😍 Excellent' };
+
     body.innerHTML = missBanner + withContent.map((m, idx) => {
       // Automated/system messages (auto-close notices, CSAT prompts, etc.)
       // have no real sender — senderType is null/missing, not 'contact' or
@@ -2318,6 +2351,11 @@
       let bubbleHtml = renderMessageContent(m.content);
       if (hit) bubbleHtml = highlightMatches(bubbleHtml, searchQ);
       bubbleHtml += renderAttachments(attachmentsOf(m), !!bubbleHtml);
+      if (m.csatRating != null) {
+        const r = Number(m.csatRating);
+        const col = r >= 4 ? 'var(--success)' : r <= 2 ? 'var(--danger)' : 'var(--warning)';
+        bubbleHtml += `<div class="csat-in-thread"><span class="k">Rating</span><b style="color:${col}">${CSAT_LBL[r] || ''} · ★ ${r}/5</b>${m.csatFeedback ? `<div class="fb">“${escapeHtml(m.csatFeedback)}”</div>` : ''}</div>`;
+      }
       const atMs = m.createdAt ? new Date(m.createdAt).getTime() : null;
       let divider = '';
       while (hoPtr < hoList.length && atMs != null && atMs >= hoList[hoPtr].at) {
@@ -2340,13 +2378,14 @@
       const SUPERADMIN_NAMES = new Set(['Love', 'Admin Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi']);
       const botTag = (m.senderType === 'user' && isBotClient(m.brand, m.senderName))
         ? ` <span class="bot-tag">${SUPERADMIN_NAMES.has(m.senderName) ? 'SUPERADMIN' : 'AI'}</span>` : '';
-      return `${divider}${tagB}
+      const resPills = resolvedBefore(atMs);
+      return `${resPills}${divider}${tagB}
         <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${mi && !mi.req ? ' msg-missed' : ''}">
           <div class="msg-meta">${escapeHtml(who)}${botTag} · ${escapeHtml(when)}</div>
           <div class="msg-bubble">${bubbleHtml}</div>${missTag}
         </div>${tagA}
       `;
-    }).join('');
+    }).join('') + resolvedBefore(Infinity);
     // Kapag may search hit: diretso sa PINAKABAGONG tumamang mensahe
     // (yun ang ipinakita sa snippet); kung wala, sa dulo gaya ng dati.
     const hits = body.querySelectorAll('.msg-row.msg-hit');
@@ -2499,11 +2538,28 @@
       return t + ' (' + url + ')';
     });
     s = escapeHtml(stripHtmlClient(s));
-    return s.replace(/https?:\/\/[^\s<]+/g, u => {
-      const clean = u.replace(/[.,)!?]+$/, '');
-      const tail = u.slice(clean.length);
-      return `<a href="${clean}" target="_blank" rel="noopener">${clean}</a>${tail}`;
+    // MARKDOWN + MAIKLING LINK (2026-10-13): gaya ng Chatwoot — ang
+    // [**text**](url) ay ipinapakita bilang link na "text" lang, at ang
+    // mahahabang URL (may ?fbclid=… atbp.) ay pinaiikli ang ipinapakita;
+    // buo pa rin ang href.
+    const shortUrl = u => {
+      let d = u.replace(/^https?:\/\//, '').replace(/[?#].*$/, '').replace(/\/$/, '');
+      if (d.length > 48) d = d.slice(0, 45) + '…';
+      return d;
+    };
+    const links = [];
+    const keep = (url, text) => { links.push(`<a href="${url}" target="_blank" rel="noopener" title="${url}">${text}</a>`); return `\u0000L${links.length - 1}\u0000`; };
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, text, url) => {
+      const t = text.replace(/\*\*|__/g, '').trim();
+      return keep(url, /^https?:\/\//.test(t) ? `<b>${shortUrl(t)}</b>` : (/\*\*/.test(text) ? `<b>${t}</b>` : t));
     });
+    s = s.replace(/https?:\/\/[^\s<\u0000]+/g, u => {
+      const clean = u.replace(/[.,)!?*]+$/, '');
+      const tail = u.slice(clean.length);
+      return keep(clean, shortUrl(clean)) + tail;
+    });
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+    return s.replace(/\u0000L(\d+)\u0000/g, (m, i) => links[+i]);
   }
 
   document.getElementById('backfillBtn').addEventListener('click', async () => {
