@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="ticket-data.js?v=15"></script>
@@ -312,6 +312,131 @@
   .cb-editbar.on{display:flex;}
   .cb-note{font-size:11.5px;color:var(--ink-faint,#94A3B8);}
 </style>
+
+<style>
+/* =====================================================================
+   PROFESSIONAL COMPACT THEME (2026-10-13, utos ni Chad)
+   Corporate report look: navy header band, manipis na border sa halip na
+   shadow, mas maliit na radius, masinsing spacing, uppercase labels,
+   tabular numbers. CSS lang — walang binagong data/logic.
+   ===================================================================== */
+:root{
+  --primary:#1D4ED8; --primary-dark:#1E3A8A; --primary-tint:#EEF2FF;
+  --bg:#F2F4F7; --card:#FFFFFF;
+  --ink:#0B1324; --ink-soft:#475467; --ink-faint:#8A94A6;
+  --line:#EAECF0; --rule:#D0D5DD;
+  --radius-sm:6px; --radius-md:8px; --radius-lg:10px;
+  --shadow:none;
+  --month-b:#1D4ED8; --month-a:#98A2B3;
+  --navy:#0F1E3D; --navy-2:#172B53; --navy-line:rgba(255,255,255,.12);
+}
+body{font-family:'Inter','Plus Jakarta Sans',system-ui,sans-serif;font-size:13px;background:var(--bg);-webkit-font-smoothing:antialiased;}
+.main{padding:18px 22px 32px;}
+
+/* --- Header band --- */
+.titlebar{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);color:#fff;border:none;border-radius:var(--radius-lg);
+  padding:16px 20px 0;margin-bottom:14px;box-shadow:0 1px 2px rgba(16,24,40,.08);}
+.titlebar-top{align-items:center;gap:14px;}
+.titlebar h1{font-size:17px;font-weight:700;letter-spacing:-.01em;color:#fff;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.titlebar h1::before{content:'REPORT';font-size:9.5px;font-weight:700;letter-spacing:.14em;color:#93C5FD;background:rgba(96,165,250,.14);
+  border:1px solid rgba(147,197,253,.35);padding:2px 7px;border-radius:4px;align-self:center;}
+.titlebar .period{display:inline;font-size:17px;font-weight:500;color:#BFD0EE;letter-spacing:-.01em;}
+.titlebar .period::before{content:'·';margin-right:10px;color:#5B7096;}
+.titlebar .meta{margin:4px 0 0;font-size:11.5px;color:#9FB0CF;}
+#compareLine{color:#E2E8F0;}
+.titlebar .btn.primary{background:rgba(255,255,255,.08);border:1px solid var(--navy-line);color:#fff;padding:7px 12px;font-size:12px;border-radius:6px;}
+.titlebar .btn.primary:hover{background:rgba(255,255,255,.16);}
+.subtabs{margin-top:12px;border-bottom:none;gap:0;}
+.subtab{font-size:12px;font-weight:600;padding:10px 14px;color:#9FB0CF;border-bottom:2px solid transparent;letter-spacing:.01em;}
+.subtab:hover{color:#fff;}
+.subtab.active{color:#fff;border-bottom-color:#60A5FA;}
+
+/* --- KPI strip --- */
+.kpi-row{gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr));}
+.kpi-card{border-radius:0;box-shadow:none;padding:12px 16px;border:none;box-shadow:inset -1px 0 0 var(--line);position:relative;}
+.kpi-card.accent-a,.kpi-card.accent-b,.kpi-card.accent-ok,.kpi-card.accent-bad{border-left:none;}
+.kpi-card.accent-a::before,.kpi-card.accent-b::before,.kpi-card.accent-ok::before,.kpi-card.accent-bad::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 2px 2px 0;}
+.kpi-card.accent-a::before{background:var(--month-a);} .kpi-card.accent-b::before{background:var(--month-b);}
+.kpi-card.accent-ok::before{background:var(--success);} .kpi-card.accent-bad::before{background:var(--danger);}
+.kpi-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);margin-bottom:6px;}
+.kpi-value{font-size:22px;font-weight:700;letter-spacing:-.02em;}
+.kpi-delta{font-size:11px;font-weight:500;margin-top:4px;}
+.kpi-card.clickable{border:none;}
+.kpi-card.clickable:hover{transform:none;background:#F9FAFB;}
+.kpi-card.clickable.on{box-shadow:inset 0 -2px 0 var(--primary),inset -1px 0 0 var(--line);background:var(--primary-tint);}
+.kpi-card.clickable.on.bad{box-shadow:inset 0 -2px 0 var(--danger),inset -1px 0 0 var(--line);}
+
+/* --- Panels --- */
+.panel{border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:none;padding:0 16px 14px;margin-bottom:12px;}
+.panel-head{margin:0 -16px 12px;padding:10px 16px;border-bottom:1px solid var(--line);background:#FAFBFC;border-radius:var(--radius-md) var(--radius-md) 0 0;}
+.panel-head h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink);}
+.panel-head .hint{font-size:11px;font-weight:500;}
+.cols-2{gap:12px;}
+.section-head{border-bottom:1px solid var(--ink);padding-bottom:8px;margin-bottom:12px;}
+.section-head h2{font-size:15px;font-weight:700;}
+.tabs{background:#F2F4F7;border-radius:6px;padding:2px;}
+.tab{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:5px;}
+.legend-row{font-size:11.5px;font-weight:500;}
+
+/* --- Tables --- */
+table.rt th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;color:var(--ink-faint);padding:8px 8px;background:#F9FAFB;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1;}
+table.rt td{padding:7px 8px;font-size:12.5px;border-bottom:1px solid #F2F4F7;}
+table.rt tbody tr:nth-child(even) td{background:#FCFCFD;}
+table.rt tbody tr:hover td{background:#F5F8FF;}
+table.rt td.num{font-weight:600;}
+table.rt tfoot td{background:#F2F4F7;font-weight:700;border-top:1px solid var(--rule);}
+.tall{max-height:400px;}
+
+/* --- Bars / ranks --- */
+.bar-row{padding:5px 0;gap:10px;border-bottom:1px solid #F2F4F7;}
+.bar-label{font-size:12px;font-weight:500;width:150px;}
+.bar-track{height:6px;border-radius:3px;background:#EEF1F5;}
+.bar-fill{border-radius:3px;}
+.bar-val{font-size:12px;font-weight:700;}
+.bar-sub{font-size:10.5px;}
+.rank-row{padding:7px 0;gap:10px;}
+.rank-badge{width:22px;height:22px;border-radius:5px;font-size:11px;}
+.rank-name{font-size:12.5px;font-weight:600;margin-bottom:4px;}
+.rank-track{height:4px;}
+.rank-count{font-size:13px;font-weight:700;}
+.av-xs{width:24px;height:24px;font-size:10px;}
+.tag,.sev-pill{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;}
+.speed-card{border-radius:var(--radius-md);padding:12px 14px;}
+.speed-card .kpi-value{font-size:24px;}
+.flag{border-radius:6px;padding:8px 12px;font-size:12px;font-weight:500;border:1px solid #FDE7B0;margin-bottom:12px;}
+.note{font-size:12px;padding:14px 4px;}
+.reason-item{border-radius:5px;padding:5px 7px;}
+
+/* --- Billing --- */
+.cb-title h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
+.cb-cards{gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;}
+.cb-card{border-radius:0;box-shadow:inset -1px 0 0 var(--line);padding:12px 16px;}
+.cb-card .cb-label{font-size:10.5px;letter-spacing:.06em;font-weight:600;}
+.cb-card .cb-value{font-size:19px;font-weight:700;}
+.cb-panel{border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:none;padding:0;}
+.cb-table th{background:#F9FAFB;padding:9px 10px;font-size:10px;letter-spacing:.06em;font-weight:600;}
+.cb-table td{padding:7px 10px;font-size:12.5px;border-bottom:1px solid #F2F4F7;}
+.cb-table tbody tr:nth-child(even) td{background:#FCFCFD;}
+.cb-table tfoot td{background:#F2F4F7;font-weight:700;border-top:1px solid var(--rule);}
+.cb-panel .cb-note{padding:0 12px 10px;}
+.cb-btn{border-radius:6px;padding:6px 12px;}
+
+/* --- Modal --- */
+.modal-panel{border-radius:var(--radius-lg);border:1px solid var(--line);box-shadow:0 20px 40px -16px rgba(16,24,40,.35);}
+
+/* --- Presentation: keep larger type --- */
+body.presenting .titlebar h1, body.presenting .titlebar .period{font-size:24px;}
+body.presenting .kpi-value{font-size:32px;}
+body.presenting .panel-head h3{font-size:14px;}
+
+@media print{
+  .titlebar{background:#fff !important;color:var(--ink);border-bottom:2px solid var(--ink);}
+  .titlebar h1,.titlebar .period{color:var(--ink) !important;}
+  .panel,.kpi-row{border:1px solid var(--rule);}
+}
+@media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
+</style>
 </head>
 <body>
 <script>
@@ -492,7 +617,7 @@
             </div>
           </div>
         </div>
-        <div style="position:relative;height:380px;"><canvas id="brandCompareChart"></canvas></div>
+        <div style="position:relative;height:320px;"><canvas id="brandCompareChart"></canvas></div>
       </div>
 
       <!-- Total chats by brand for the report period (added 2026-09-21).
@@ -1329,9 +1454,10 @@ async function loadChatsComparison() {
   })).sort((x, y) => NO_COMPARE ? ((y.b || 0) - (x.b || 0)) : ((y.a || 0) - (x.a || 0) || (y.b || 0) - (x.b || 0)));
 
   const notes = [];
-  if (!resA.ok) notes.push(resA.reason);
+  if (!resA.ok && !NO_COMPARE) notes.push(resA.reason);
   if (!resB.ok) notes.push(resB.reason);
   [resA, resB].forEach((r, i) => {
+    if (NO_COMPARE && !i) return;   // walang comparison — huwag nang banggitin
     const which = i ? 'Report period' : 'Comparison period';
     if (r.ok && r.coveredDays < r.expectedDays && r.lastFilled) {
       const upTo = r.lastFilled.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
