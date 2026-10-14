@@ -74,6 +74,7 @@
     card: SV('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>'),
     chat: SV('<path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>'),
     bank: SV('<path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M9 21v-6h6v6"/>'),
+    flag: SV('<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>'),
     gear: SV('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>'),
   };
   // Kapag may bagong page: idagdag lang dito.
@@ -82,6 +83,11 @@
     { label: 'Tickets', href: 'tickets.html', icon: 'ticket', kids: [
       { label: 'Agent Performance', href: 'agent-performance.html', icon: 'trophy' } ] },
     { label: 'Customers', href: 'customers.html', icon: 'users' },
+    // CSR TEAMS (2026-10-14): hiwalay na tab sa ibaba ng Customers
+    { label: 'BRAVO', href: 'customers.html?team=bravo', icon: 'flag' },
+    { label: 'DELTA', href: 'customers.html?team=delta', icon: 'flag' },
+    { label: 'FOXTROT', href: 'customers.html?team=foxtrot', icon: 'flag' },
+    { label: 'ECHO', href: 'customers.html?team=echo', icon: 'flag' },
     { label: 'Quality Assurance', href: 'qa.html', icon: 'shield', kids: [
       { label: 'Social Media Monitoring', href: 'social-media-monitoring.html', icon: 'share' } ] },
     { label: 'Knowledge Base', href: 'kb.html', icon: 'book' },
@@ -155,7 +161,26 @@
     // walang laman ang top bar sa KB, at nawawala ang sub-pages ng OpenAI).
     // May dropdown (▾) ang item na may sub-pages.
     const here = (location.pathname.split('/').pop() || 'csr-dashboard').replace(/\.html$/, '') || 'csr-dashboard';
-    const isHere = h => h.replace(/\.html$/, '') === here;
+    const hereTeam = (new URLSearchParams(location.search).get('team') || '').toLowerCase();
+    const isHere = h => {
+      const [path, q] = h.split('?');
+      if (path.replace(/\.html$/, '') !== here) return false;
+      return (new URLSearchParams(q || '').get('team') || '').toLowerCase() === hereTeam;
+    };
+    // Ilagay ang 4 na team tab sa sidebar ng page, sa ibaba ng Customers
+    (function addTeamsToSidebar() {
+      const cust = [...sidebar.querySelectorAll('a.nav-item')].find(a => pageKey(a.getAttribute('href')) === 'customers' && !/team=/.test(a.getAttribute('href') || ''));
+      if (!cust || sidebar.querySelector('a.nav-item[data-team]')) return;
+      if (hereTeam) cust.classList.remove('active');
+      let after = cust;
+      MENU.filter(m => /\?team=/.test(m.href)).forEach(m => {
+        const a = document.createElement('a');
+        a.href = m.href; a.className = 'nav-item' + (isHere(m.href) ? ' active' : '');
+        a.dataset.team = m.label.toLowerCase();
+        a.innerHTML = ICON[m.icon] + '<span>' + m.label + '</span>';
+        after.insertAdjacentElement('afterend', a); after = a;
+      });
+    })();
     MENU.forEach(item => {
       const kids = item.kids || [];
       const groupActive = isHere(item.href) || kids.some(k => isHere(k.href));
