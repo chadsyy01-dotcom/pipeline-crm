@@ -710,8 +710,8 @@
     <div class="hero">
     <div class="topbar">
       <div class="greeting">
-        <h1>Customers</h1>
-        <p>Customer conversations across brands, synced from Chatwoot and LiveChat.</p>
+        <h1 id="custTitle">Customers</h1>
+        <p id="custSub">Customer conversations across brands, synced from Chatwoot and LiveChat.</p>
       </div>
       <div class="topbar-right">
         <div class="search">
@@ -991,9 +991,33 @@
   // pormal na handoff stage.
   const LIVECHAT_BRANDS = new Set(['casinyeam', 'manilacasino', 'superscatterph', 'livechat-general']);
 
+  // ===== CSR TEAMS (2026-10-14, utos ni Chad) =====
+  // customers.html?team=bravo|delta|foxtrot|echo → ang page ay naka-scope sa
+  // mga brand ng team na iyon (lahat ng counts, stats, CSAT at listahan).
+  // Swabe Gaming: wala pang alam na slug — tinutugma rin ayon sa pangalan.
+  const CSR_TEAMS = {
+    bravo:   { label: 'BRAVO',   brands: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph'] },
+    delta:   { label: 'DELTA',   brands: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD', 'manilaplay', 'hypeplayph', 'hypeplaybd'] },
+    foxtrot: { label: 'FOXTROT', brands: ['MGK', 'Tmtplay', 'BuenasCredit', 'LuckystacksPH', 'mastergoldkey', 'luckystacksph', 'tmtplay', 'swabegaming', 'SwabeGaming', 'swabe'], match: /swabe/i },
+    echo:    { label: 'ECHO',    brands: ['buenasph'] },
+  };
+  const TEAM_KEY = (new URLSearchParams(location.search).get('team') || '').toLowerCase();
+  const TEAM = CSR_TEAMS[TEAM_KEY] || null;
+  const inTeam = slug => !TEAM || TEAM.brands.includes(slug) || (TEAM.match && TEAM.match.test(String(slug || '')));
+
   function brandLabel(slug) {
     if (!slug) return 'Unknown';
     return BRAND_LABELS[slug] || slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  if (TEAM) {
+    const setTeamTitle = () => {
+      const h = document.getElementById('custTitle'), sub = document.getElementById('custSub');
+      if (h) h.textContent = 'Team ' + TEAM.label;
+      if (sub) sub.textContent = 'Customers ng ' + TEAM.label + ': ' + TEAM.brands.filter((b, i, a) => BRAND_LABELS[b] && a.findIndex(x => BRAND_LABELS[x] === BRAND_LABELS[b]) === i).map(b => BRAND_LABELS[b]).join(' · ') + (TEAM.match ? ' · Swabe Gaming' : '');
+      document.title = 'Team ' + TEAM.label + ' — CSR Dashboard';
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setTeamTitle); else setTeamTitle();
   }
 
   function escapeHtml(str) {
@@ -1202,7 +1226,7 @@
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      allConversations = data.conversations || [];
+      allConversations = (data.conversations || []).filter(c => inTeam(c.brand));
       document.getElementById('liveIndicator').textContent = '● Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       document.getElementById('liveIndicator').style.color = 'var(--success)';
       renderBrandTabs();
@@ -1251,6 +1275,22 @@
     }
     const qs = params.toString();
     const url = `${API_BASE}/chatwoot/csat${qs ? '?' + qs : ''}`;
+    if (TEAM && currentBrand === 'all') {
+      // Team view: pagsamahin ang CSAT ng bawat brand ng team
+      try {
+        const slugs = [...new Set(allConversations.map(c => c.brand))].filter(inTeam);
+        const list = (slugs.length ? slugs : TEAM.brands.slice(0, 4));
+        const parts = await Promise.all(list.map(b => {
+          const pp = new URLSearchParams(params); pp.set('brand', b);
+          return fetch(`${API_BASE}/chatwoot/csat?${pp.toString()}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null).catch(() => null);
+        }));
+        let total = 0, csatCount = 0, dsatCount = 0, sum = 0;
+        parts.forEach(st => { if (!st || !st.total) return; total += st.total; csatCount += st.csatCount || 0; dsatCount += st.dsatCount || 0; sum += (Number(st.avgRating) || 0) * st.total; });
+        renderCsatStats(total ? { total, csatCount, dsatCount,
+          avgRating: (sum / total).toFixed(2), csatPercent: Math.round(csatCount / total * 100), dsatPercent: Math.round(dsatCount / total * 100) } : { total: 0 });
+      } catch (err) { console.error('Team CSAT failed:', err); }
+      return;
+    }
     try {
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1432,6 +1472,7 @@
   }
 
   function renderSearchResults(results, q) {
+    if (TEAM) results = results.filter(r => inTeam(r.brand));
     const tbody = document.getElementById('convBody');
     if (!results.length) {
       const scopeLabel = document.getElementById('dateFilter').selectedOptions[0]?.textContent || 'saklaw na napili';
@@ -2783,6 +2824,6 @@
 </script>
 <!-- ============== END TRANSLATE TO ENGLISH BLOCK ============== -->
 
-<script src="sidebar-topnav.js?v=1"></script>
+<script src="sidebar-topnav.js?v=3"></script>
 </body>
 </html>
