@@ -1092,7 +1092,9 @@
       // DEFAULT na "New" pa ang dropdown, huwag itago ang
       // Done/Rejected — ang hinahanap ay dapat mahanap anuman ang status.
       // Kapag SADYANG pumili ng specific na status, nirerespeto pa rin.
-      const effFilter = currentFilter; // default 'open' = New + In Progress
+      // (2026-10-14) Ipinatupad na: kapag may search at nasa default pa ang
+      // status ('open'), hinahanap sa LAHAT ng status.
+      const effFilter = (currentSearch && currentFilter === 'open') ? 'all' : currentFilter; // default 'open' = New + In Progress
       if (effFilter === 'backlog') {
         const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
         const isToday = TicketData.isSameLocalDay(t.submitted, new Date());
@@ -1105,10 +1107,20 @@
     }
     if (!skip.skipBrand && currentBrand !== 'all' && t.brandCode !== currentBrand) return false;
     if (!skip.skipIssue && currentIssue !== 'all' && t.issue !== currentIssue) return false;
-    if (!skip.skipDate && !matchesDateFilter(t)) return false;
+    // SEARCH (2026-10-14, utos ni Chad): kapag may hinahanap at nasa default
+    // pa ang Submitted ("Today"), hinahanap sa LAHAT ng petsa. Kapag sadyang
+    // pumili ng ibang petsa, nirerespeto pa rin.
+    const searchAllDates = currentSearch && currentDateFilter === 'today';
+    if (!skip.skipDate && !searchAllDates && !matchesDateFilter(t)) return false;
     if (!skip.skipSearch && currentSearch) {
       const q = currentSearch.toLowerCase();
-      if (!(t.id.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.issue.toLowerCase().includes(q))) return false;
+      // Hinahanap din sa lahat ng column ng row (username, phone, reference, atbp.)
+      if (t._hay == null) {
+        let raw = '';
+        try { raw = t.raw ? Object.values(t.raw).join(' ') : ''; } catch (e) {}
+        t._hay = [t.id, t.name, t.issue, t.category, t.brandLabel, raw].filter(Boolean).join(' \u0001 ').toLowerCase();
+      }
+      if (!t._hay.includes(q)) return false;
     }
     return true;
   }
