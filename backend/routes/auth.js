@@ -62,6 +62,25 @@ User.sequelize
   .then(() => console.log('[auth] Users.aliases column ready'))
   .catch(err => console.error('[auth] could not add Users.aliases column:', err.message));
 
+// TEAM LEADER ROLE (2026-10-14, utos ni Chad): idinagdag ang 'Team Leader'
+// sa role enum, at isang beses na migration:
+//   * lahat ng 'member' na naka-register BAGO mag Oct 15, 2026 (PH) → 'Team Leader'
+//   * jeielfaye.placios@888luxury.co → 'admin'
+// Ligtas ulit-ulitin (IF NOT EXISTS + may cutoff na petsa), kaya hindi
+// magagalaw ang mga bagong register pagkatapos ng Oct 14.
+(async () => {
+  const q = User.sequelize;
+  const table = User.getTableName();
+  try {
+    await q.query(`ALTER TYPE "enum_${table}_role" ADD VALUE IF NOT EXISTS 'Team Leader'`);
+    const [, m1] = await q.query(`UPDATE "${table}" SET "role" = 'Team Leader' WHERE "role" = 'member' AND "createdAt" < '2026-10-14T16:00:00Z'`);
+    const [, m2] = await q.query(`UPDATE "${table}" SET "role" = 'admin' WHERE LOWER("email") = 'jeielfaye.placios@888luxury.co' AND "role" <> 'admin'`);
+    console.log('[auth] Team Leader migration done', m1?.rowCount ?? '', m2?.rowCount ?? '');
+  } catch (err) {
+    console.error('[auth] Team Leader migration failed:', err.message);
+  }
+})();
+
 function cleanAliases(v) {
   if (v === null) return { value: null };
   if (typeof v !== 'string') return { error: 'aliases must be text (comma-separated) or null' };
