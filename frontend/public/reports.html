@@ -451,6 +451,24 @@ table.rt tfoot td{background:#F2F4F7;font-weight:700;border-top:1px solid var(--
 .pl-row-main.on .pl-toggle svg{transform:rotate(180deg);}
 .pl-row-detail td{background:#FAFBFF !important;padding-top:4px;padding-bottom:12px;}
 
+.cb-chips{display:flex;gap:4px;flex-wrap:wrap;}
+.cb-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 7px;border-radius:4px;background:#F2F4F7;color:var(--ink-soft);white-space:nowrap;}
+.cb-chip i{width:7px;height:7px;border-radius:2px;display:inline-block;}
+.cb-chip b{color:var(--ink);font-weight:700;}
+.cb-more{font-size:11px;color:var(--primary);font-weight:600;align-self:center;}
+tr.cc-row{cursor:pointer;}
+tr.cc-row.on td{background:#F5F8FF !important;}
+tr.cc-detail td{background:#FAFBFF !important;}
+.cc-brands{display:flex;flex-direction:column;gap:4px;padding:2px 0 6px;}
+.ccb{display:grid;grid-template-columns:170px 1fr 48px 46px 130px;gap:10px;align-items:center;font-size:12px;}
+.ccb-name{display:flex;align-items:center;gap:6px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.ccb-name i{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.ccb-bar{height:6px;background:#EEF1F5;border-radius:3px;overflow:hidden;}
+.ccb-bar i{display:block;height:100%;border-radius:3px;}
+.ccb-n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+.ccb-p{text-align:right;color:var(--ink-faint);font-size:11px;}
+.ccb-dr{color:var(--ink-faint);font-size:11px;text-align:right;}
+
 /* --- Billing --- */
 .cb-title h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
 .cb-cards{gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;}
@@ -901,7 +919,7 @@ body.presenting .panel-head h3{font-size:14px;}
         <div class="panel">
           <div class="panel-head">
             <h3>Top concerns</h3>
-            <div class="hint">What players filed tickets about</div>
+            <div class="hint">Naka-hati ayon sa brand · i-click ang concern para makita lahat ng brand</div>
           </div>
           <div style="position:relative;height:300px;margin-bottom:14px;"><canvas id="anConcernChart"></canvas></div>
           <div class="tall" style="max-height:300px;overflow-y:auto;"><table class="rt" id="anConcernTable"></table></div>
@@ -2868,20 +2886,26 @@ TicketData.fetchTickets()
   let anConcernChartObj = null, anRepeatChartObj = null;
   const truncate = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
 
+  // Kulay bawat brand — pare-pareho sa chart at sa table
+  const AN_BRAND_COLORS = ['#1D4ED8','#0EA5E9','#14B8A6','#22C55E','#EAB308','#F97316','#EF4444','#EC4899','#A855F7','#6366F1','#64748B','#84CC16','#0F766E','#B45309'];
+  const anBrandOrder = [];
+  const anBrandIndex = b => { let i = anBrandOrder.indexOf(b); if (i < 0) { anBrandOrder.push(b); i = anBrandOrder.length - 1; } return i; };
+
   function drawConcernChart(rows) {
-    // rows: [ [fullLabel, {n,d,r}], ... ] top 10
+    // rows: [ [fullLabel, {n,d,r,brands}], ... ] top 10 — naka-stack ayon sa brand
     const labels = rows.map(([k]) => truncate(k, 30));
     const full = rows.map(([k]) => k);
-    const doneD = rows.map(([,o]) => o.d);
-    const rejD  = rows.map(([,o]) => o.r);
-    const openD = rows.map(([,o]) => o.n - o.d - o.r);
+    const tot = new Map();
+    rows.forEach(([, o]) => o.brands.forEach((bo, b) => tot.set(b, (tot.get(b) || 0) + bo.n)));
+    const brandsSorted = Array.from(tot.entries()).sort((a, b) => b[1] - a[1]).map(([b]) => b);
+    brandsSorted.forEach(anBrandIndex);
+    const datasets = brandsSorted.map(b => ({
+      label: b, data: rows.map(([, o]) => (o.brands.get(b) || { n: 0 }).n),
+      backgroundColor: AN_BRAND_COLORS[anBrandIndex(b) % AN_BRAND_COLORS.length], borderColor: '#FFFFFF', borderWidth: 1, maxBarThickness: 18,
+    }));
     const cfg = {
       type: 'bar',
-      data: { labels, datasets: [
-        { label: 'Done',     data: doneD, backgroundColor: '#22C55E', borderColor: '#FFFFFF', borderWidth: 2, maxBarThickness: 18 },
-        { label: 'Rejected', data: rejD,  backgroundColor: '#EF4444', borderColor: '#FFFFFF', borderWidth: 2, maxBarThickness: 18, borderRadius: { topRight: 4, bottomRight: 4 } },
-        { label: 'Open',     data: openD, backgroundColor: '#CBD5E1', borderColor: '#FFFFFF', borderWidth: 2, maxBarThickness: 18, borderRadius: { topRight: 4, bottomRight: 4 } }
-      ]},
+      data: { labels, datasets },
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
         scales: {
@@ -2890,11 +2914,12 @@ TicketData.fetchTickets()
         },
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 12, boxHeight: 12, font: { size: 11 } } },
-          tooltip: { callbacks: { title: items => full[items[0].dataIndex] } }
+          tooltip: { mode: 'index', filter: it => it.parsed.x > 0, itemSort: (a, b) => b.parsed.x - a.parsed.x,
+            callbacks: { title: items => full[items[0].dataIndex] + ' — ' + rows[items[0].dataIndex][1].n + ' tickets' } }
         }
       }
     };
-    if (anConcernChartObj) { anConcernChartObj.data = cfg.data; anConcernChartObj.options.plugins.tooltip.callbacks.title = cfg.options.plugins.tooltip.callbacks.title; anConcernChartObj.update(); }
+    if (anConcernChartObj) { anConcernChartObj.data = cfg.data; anConcernChartObj.options.plugins.tooltip = cfg.options.plugins.tooltip; anConcernChartObj.update(); }
     else anConcernChartObj = new Chart(document.getElementById('anConcernChart'), cfg);
   }
 
@@ -2982,19 +3007,45 @@ TicketData.fetchTickets()
     document.getElementById('anBrandTable').innerHTML = h;
 
     // ---- top concerns ----
+    // TOP CONCERNS BY BRAND (2026-10-13, utos ni Chad): bawat concern ay may
+    // listahan ng mga brand na pinakamaraming nag-file nito. Ang chart ay
+    // naka-stack ayon sa brand; i-click ang row para makita ang lahat ng brand.
     const cc = new Map();
     list.forEach(t => {
       const k = concernOf(t);
-      if (!cc.has(k)) cc.set(k, { n: 0, d: 0, r: 0 });
+      if (!cc.has(k)) cc.set(k, { n: 0, d: 0, r: 0, brands: new Map() });
       const o = cc.get(k); o.n++; if (isDone(t)) o.d++; if (isRej(t)) o.r++;
+      const b = t.brandLabel || 'Unknown';
+      if (!o.brands.has(b)) o.brands.set(b, { n: 0, d: 0, r: 0 });
+      const bo = o.brands.get(b); bo.n++; if (isDone(t)) bo.d++; if (isRej(t)) bo.r++;
     });
-    drawConcernChart(Array.from(cc.entries()).sort((a, b) => b[1].n - a[1].n).slice(0, 10));
-    h = '<thead><tr><th>#</th><th>Concern</th><th class="num">Tickets</th><th class="num">%</th><th class="num">Done</th><th class="num">Rej</th></tr></thead><tbody>';
-    Array.from(cc.entries()).sort((a, b) => b[1].n - a[1].n).slice(0, 15).forEach(([k, o], i) => {
-      h += '<tr><td class="num">' + (i + 1) + '</td><td>' + escapeHtml(k) + '</td><td class="num">' + o.n + '</td><td class="num">' + pct(o.n, total) + '</td><td class="num">' + o.d + '</td><td class="num">' + o.r + '</td></tr>';
+    const ccSorted = Array.from(cc.entries()).sort((a, b) => b[1].n - a[1].n);
+    drawConcernChart(ccSorted.slice(0, 10));
+    const brandColor = b => AN_BRAND_COLORS[anBrandIndex(b) % AN_BRAND_COLORS.length];
+    h = '<thead><tr><th>#</th><th>Concern</th><th class="num">Tickets</th><th class="num">%</th><th>Top brands</th><th class="num">Done</th><th class="num">Rej</th></tr></thead><tbody>';
+    ccSorted.slice(0, 15).forEach(([k, o], i) => {
+      const bl = Array.from(o.brands.entries()).sort((a, b) => b[1].n - a[1].n);
+      const chips = bl.slice(0, 3).map(([b, bo]) => '<span class="cb-chip"><i style="background:' + brandColor(b) + '"></i>' + escapeHtml(b) + ' <b>' + bo.n + '</b></span>').join('')
+        + (bl.length > 3 ? '<span class="cb-more">+' + (bl.length - 3) + ' pa</span>' : '');
+      h += '<tr class="cc-row" data-cc="' + i + '"><td class="num">' + (i + 1) + '</td><td style="font-weight:600;">' + escapeHtml(k) + '</td><td class="num">' + o.n + '</td><td class="num">' + pct(o.n, total) + '</td><td><div class="cb-chips">' + chips + '</div></td><td class="num">' + o.d + '</td><td class="num">' + o.r + '</td></tr>';
+      h += '<tr class="cc-detail" data-cc-detail="' + i + '" hidden><td></td><td colspan="6"><div class="cc-brands">'
+        + bl.map(([b, bo]) => '<div class="ccb"><span class="ccb-name"><i style="background:' + brandColor(b) + '"></i>' + escapeHtml(b) + '</span>'
+          + '<span class="ccb-bar"><i style="width:' + Math.max(2, Math.round(bo.n / bl[0][1].n * 100)) + '%;background:' + brandColor(b) + '"></i></span>'
+          + '<span class="ccb-n">' + bo.n + '</span><span class="ccb-p">' + pct(bo.n, o.n) + '</span>'
+          + '<span class="ccb-dr"><b style="color:#16A34A">' + bo.d + '</b> done · <b style="color:#DC2626">' + bo.r + '</b> rej</span></div>').join('')
+        + '</div></td></tr>';
     });
     h += '</tbody>';
-    document.getElementById('anConcernTable').innerHTML = h;
+    const ccTable = document.getElementById('anConcernTable');
+    ccTable.innerHTML = h;
+    if (!ccTable.dataset.bound) {
+      ccTable.dataset.bound = '1';
+      ccTable.addEventListener('click', e => {
+        const row = e.target.closest('tr.cc-row'); if (!row) return;
+        const det = ccTable.querySelector('tr[data-cc-detail="' + row.dataset.cc + '"]'); if (!det) return;
+        det.hidden = !det.hidden; row.classList.toggle('on', !det.hidden);
+      });
+    }
 
     // ---- repeat players ----
     h = '<thead><tr><th>Username</th><th>Brand</th><th class="num">Tickets</th><th class="num">Days</th><th class="num">Avg/Day</th><th class="num">Done</th><th class="num">Rej</th><th>Top concern</th></tr></thead><tbody>';
