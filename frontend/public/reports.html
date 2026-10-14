@@ -484,6 +484,10 @@ tr.rp-rem td{background:#FFF7F7 !important;padding-top:2px;padding-bottom:10px;}
 .rp-rem-box span{display:inline-block;min-width:110px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);font-weight:600;margin-right:8px;}
 .rp-rem-box .none{color:var(--ink-faint);font-style:italic;}
 
+tr.rp-rej.ok:hover td,tr.rp-rej.ok.on td{background:#F0FDF4 !important;}
+tr.rp-rem.ok td{background:#F7FDF9 !important;}
+tr.rp-rem.ok .rp-rem-box{border-left-color:var(--success);}
+
 /* --- Billing --- */
 .cb-title h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
 .cb-cards{gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;}
@@ -3119,9 +3123,12 @@ TicketData.fetchTickets()
     const remarksOf = t => {
       const out = [], seen = new Set();
       const add = (label, val) => { const v = String(val || '').trim(); if (v && !seen.has(v)) { seen.add(v); out.push([label, v]); } };
-      add('Reject reason', t.rejectReason);
+      add(isRej(t) ? 'Reject reason' : 'Remarks', t.rejectReason);
       const raw = t.raw || {};
-      Object.keys(raw).forEach(k => { if (/reject|remark|note|reason|comment/i.test(k)) add(k, raw[k]); });
+      Object.keys(raw).forEach(k => {
+        if (/^[a-z_]/.test(k)) return;   // internal/automation column (camelCase/snake_case)
+        if (/reject|remark|note|reason|comment|resolution/i.test(k)) add(k, raw[k]);
+      });
       return out;
     };
     const stCls = t => isDone(t) ? 'good' : isRej(t) ? 'bad' : 'neutral';
@@ -3129,13 +3136,14 @@ TicketData.fetchTickets()
     document.getElementById('rpSub').textContent = list.length + ' tickets · ' + d + ' done · ' + r + ' rejected · ' + (list.length - d - r) + ' open — ' + MONTH_B.label;
     document.getElementById('rpBody').innerHTML = '<table class="rt"><thead><tr><th>Submitted</th><th>Ticket ID</th><th>Concern</th><th>Status</th><th>Handled by</th><th>Closed</th></tr></thead><tbody>'
       + list.map((t, idx) => {
-        const rej = isRej(t);
-        const rem = rej ? remarksOf(t) : [];
-        const detail = rej ? '<tr class="rp-rem" data-rem="' + idx + '" hidden><td></td><td colspan="5"><div class="rp-rem-box">'
+        // Rejected: laging clickable. Done (2026-10-14): clickable lang kapag may remarks.
+        const rem = (isRej(t) || isDone(t)) ? remarksOf(t) : [];
+        const rej = isRej(t) || (isDone(t) && rem.length > 0);
+        const detail = rej ? '<tr class="rp-rem' + (isDone(t) ? ' ok' : '') + '" data-rem="' + idx + '" hidden><td></td><td colspan="5"><div class="rp-rem-box">'
           + (rem.length ? rem.map(([k, v]) => '<div><span>' + escapeHtml(k) + '</span>' + escapeHtml(v) + '</div>').join('')
                         : '<div class="none">Walang nakasulat na remarks sa ticket na ito.</div>')
           + '</div></td></tr>' : '';
-        return '<tr' + (rej ? ' class="rp-rej" data-rej="' + idx + '" title="I-click para makita ang remarks"' : '') + '><td style="white-space:nowrap;">' + fmtDT(t.submitted) + '</td>'
+        return '<tr' + (rej ? ' class="rp-rej' + (isDone(t) ? ' ok' : '') + '" data-rej="' + idx + '" title="I-click para makita ang remarks"' : '') + '><td style="white-space:nowrap;">' + fmtDT(t.submitted) + '</td>'
           + '<td style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;white-space:nowrap;">' + escapeHtml(t.id || '—') + '</td>'
           + '<td>' + escapeHtml(concernOf(t)) + '</td>'
           + '<td><span class="tag ' + stCls(t) + '">' + escapeHtml(t.statusLabel || t.statusCls || '—') + (rej ? ' ▾' : '') + '</span></td>'
