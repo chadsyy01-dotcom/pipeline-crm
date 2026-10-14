@@ -12,6 +12,53 @@
    ===================================================================== */
 (function () {
   if (window.__sbTopNav) return; window.__sbTopNav = true;
+
+  // ===== ROLE GUARD (2026-10-14, utos ni Chad) =====
+  // Ang role na 'CSR' ay Customers at Settings lang ang makikita (pati sariling
+  // Profile). Ibang page → ililipat sa Customers. Ang role ay kinukuha sa
+  // /api/auth/me at sine-save sa localStorage para walang "flash" sa susunod.
+  // UI-level ito: itinatago ang menu at nire-redirect ang page.
+  const ROLE_KEY = 'csr_role';
+  const ROLE_API = (typeof window.API_BASE === 'string' && window.API_BASE) || 'https://pipeline-crm-production-412d.up.railway.app/api';
+  const CSR_ALLOWED = new Set(['customers', 'settings', 'profile']);
+  const pageKey = h => String(h || '').split(/[?#]/)[0].split('/').pop().replace(/\.html$/, '').toLowerCase();
+  const isLimited = r => String(r || '').toUpperCase() === 'CSR';
+  const getRole = () => { try { return localStorage.getItem(ROLE_KEY) || ''; } catch (e) { return ''; } };
+  const setRole = r => { try { localStorage.setItem(ROLE_KEY, r || ''); } catch (e) {} };
+  function guardPage(role) {
+    if (!isLimited(role)) return false;
+    const here = pageKey(location.pathname) || 'csr-dashboard';
+    if (!CSR_ALLOWED.has(here)) { location.replace('customers.html'); return true; }
+    return false;
+  }
+  function filterMenus(role) {
+    const limited = isLimited(role);
+    document.body.classList.toggle('role-csr', limited);
+    if (!limited) return;
+    document.querySelectorAll('aside.sidebar a.nav-item, .sb-topnav .tn-links > a, .sb-topnav .tn-links > .tn-drop').forEach(el => {
+      const k = pageKey(el.getAttribute('href') || el.dataset.href || '');
+      if (!CSR_ALLOWED.has(k)) el.style.display = 'none';
+    });
+    document.querySelectorAll('aside.sidebar .nav-sub, aside.sidebar .nav-chev, .page-tabs').forEach(el => { el.style.display = 'none'; });
+    const brand = document.querySelector('.sb-topnav .tn-brand'); if (brand) brand.setAttribute('href', 'customers.html');
+  }
+  // 1) agad, mula sa naka-save na role (walang hintay)
+  if (guardPage(getRole())) return;
+  // 2) i-verify sa server
+  (function refreshRole() {
+    let token = ''; try { token = localStorage.getItem('pipeline_token') || ''; } catch (e) {}
+    if (!token) return;
+    fetch(ROLE_API + '/auth/me', { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const role = d && d.user ? (d.user.role || '') : null;
+        if (role == null) return;
+        setRole(role);
+        if (guardPage(role)) return;
+        const run = () => filterMenus(role);
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+      }).catch(() => {});
+  })();
   const KEY = 'csr_sidebar_hidden';
   const SV = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${d}</svg>`;
   const ICON = {
@@ -119,7 +166,7 @@
         links.appendChild(a); return;
       }
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'tn-drop' + (groupActive ? ' active' : '');
+      b.type = 'button'; b.className = 'tn-drop' + (groupActive ? ' active' : ''); b.dataset.href = item.href;
       b.innerHTML = ICON[item.icon] + item.label + '<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>';
       const menu = document.createElement('div');
       menu.className = 'tn-menu';
@@ -170,6 +217,7 @@
       setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
     }
     apply(getHidden());
+    filterMenus(getRole());
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
