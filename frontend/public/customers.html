@@ -202,6 +202,8 @@
      Waiting (amber) = handoff, wala pang 3 min — hinihintay pa ang agent
      Late reply = Ongoing/Closed na pero may pulang "MISSED 3MIN" remark */
   .status.ongoing{background:var(--success-tint);color:var(--success);}
+  .status.aichat{background:#EEF2FF;color:#4F46E5;}
+  .status.aichat::before{background:#6366F1;}
   .status.ongoing::before{background:var(--success);}
   .status.closedx{background:#F1F5F9;color:var(--ink-soft);}
   .status.closedx::before{background:var(--ink-faint);}
@@ -459,6 +461,17 @@
 }
 .qtab:hover{background:var(--bg);}
 .qtab.active{background:var(--hero);color:#fff;border-color:var(--hero);}
+.qtab{position:relative;}
+.qcount{position:absolute;top:-8px;right:-6px;min-width:20px;height:20px;padding:0 6px;border-radius:999px;
+  background:#E5484D;color:#fff;font-size:11px;font-weight:800;line-height:20px;text-align:center;
+  box-shadow:0 0 0 2px var(--card),0 2px 6px rgba(15,23,42,.18);font-variant-numeric:tabular-nums;}
+.qtab[data-qs="all"] .qcount{background:#334155;}
+.qtab[data-qs="ongoing"] .qcount{background:#12A574;}
+.qtab[data-qs="waiting"] .qcount{background:#F5A524;}
+.qtab[data-qs="closedx"] .qcount{background:#8A8DA6;}
+.qtab[data-qs="late"] .qcount{background:#C8283A;}
+.qcount.zero{background:#CBD5E1 !important;color:#475569;}
+.quick-tabs{padding-top:8px;}
 .qdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .qdot.ongoing{background:#12A574;}
 .qdot.waiting{background:#F5A524;}
@@ -826,6 +839,7 @@
           <select id="handoffFilter" class="admin-select">
             <option value="all" selected>All status</option>
             <option value="ongoing">Ongoing Chats</option>
+            <option value="aichat">AI Chat (wala pang handoff)</option>
             <option value="waiting">Waiting</option>
             <option value="missed">Missed Chat</option>
             <option value="closedx">Closed</option>
@@ -1596,6 +1610,15 @@
     // ganoong status sa Chatwoot (open/pending/resolved lang), kaya laging
     // "No conversations found". Ang "active" ay default lang, hindi status.
     else if (currentStatus !== 'all' && currentStatus !== 'active') filtered = filtered.filter(c => (c.status || '').toLowerCase() === currentStatus);
+    filtered = otherFilters(filtered);
+    {
+      // Saklaw ng bilang = kapareho ng makikita kapag pinindot ang tab
+      // (walang "active" trimming; ang Resolved/HH Closed ay sakop din).
+      let scope = allConversations;
+      if (currentBrand !== 'all') scope = scope.filter(c => c.brand === currentBrand);
+      if (currentStatus !== 'all' && currentStatus !== 'active') scope = scope.filter(c => (c.status || '').toLowerCase() === currentStatus);
+      updateQuickCounts(otherFilters(scope));
+    }
     if (currentHandoff !== 'all') {
       // Bagong Chat Status filter (2026-10-10): derived status ang basehan,
       // hindi na ang raw handoffStage. 'late' = nasagot pero lampas 3 min.
@@ -1604,6 +1627,12 @@
         return currentHandoff === 'late' ? k.late : k.cls === currentHandoff;
       });
     }
+    renderConversations(filtered);
+  }
+
+  // Mga filter na hindi Brand/Status/Chat Status — pinaghiwalay (2026-10-14)
+  // para magamit din sa bilang ng quick tabs.
+  function otherFilters(filtered) {
     if (currentCater !== 'all') {
       // Human = LiveChat brand (laging real agent) O may handoff stage O ang
       // huling reply ay galing sa taong agent na wala sa bot-name list.
@@ -1626,7 +1655,30 @@
         (c.lastMessage || '').toLowerCase().includes(currentSearch)
       );
     }
-    renderConversations(filtered);
+    return filtered;
+  }
+
+  // FLOATING NUMBERS SA QUICK TABS (2026-10-14, utos ni Chad): bilang ng
+  // chats sa bawat status sa kasalukuyang saklaw (ACTIVITY = Today by default,
+  // pati Brand/Team, Catered by, Admin, Concern, Search). Ang bilang ay kapareho
+  // ng lalabas kapag pinindot ang tab. "All chats" = default view (walang
+  // Resolved / HH Closed).
+  function updateQuickCounts(scoped) {
+    const n = { ongoing: 0, waiting: 0, missed: 0, closedx: 0, late: 0, all: 0 };
+    scoped.forEach(c => {
+      const k = chatStatusKey(c);
+      if (n[k.cls] != null) n[k.cls]++;
+      if (k.late) n.late++;
+      const st = (c.status || '').toLowerCase();
+      if (currentStatus !== 'active' || (st !== 'resolved' && c.handoffStage !== 'closed')) n.all++;
+    });
+    document.querySelectorAll('#quickTabs .qtab').forEach(t => {
+      let b = t.querySelector('.qcount');
+      if (!b) { b = document.createElement('span'); b.className = 'qcount'; t.appendChild(b); }
+      const v = n[t.dataset.qs] || 0;
+      b.textContent = v > 999 ? '999+' : v;
+      b.classList.toggle('zero', !v);
+    });
   }
 
   function handoffPillHtml(stage) {
@@ -1667,6 +1719,12 @@
       return { cls: 'waiting', label: 'Waiting', late };
     }
     if (idleMin >= AUTO_CLOSE_MIN) return { cls: 'closedx', label: 'Closed', late };
+    // ONGOING = handoff na HAWAK NA ng real agent (2026-10-14, utos ni Chad).
+    // Ang aktibong chat na AI pa lang ang kausap (walang handoff sa session
+    // na ito at walang human reply) ay "AI Chat" — hindi Ongoing.
+    const humanNow = LIVECHAT_BRANDS.has(c.brand) || answered || agentSpokeLast
+      || (c.handoffStage && c.sessionHandoff !== false);
+    if (!humanNow) return { cls: 'aichat', label: 'AI Chat', late };
     return { cls: 'ongoing', label: 'Ongoing Chats', late };
   }
   function chatStatusHtml(c) {
