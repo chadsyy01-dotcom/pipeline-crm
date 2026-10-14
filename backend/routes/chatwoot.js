@@ -759,7 +759,37 @@ function classifyConcern(text) {
   return null;
 }
 
-router.get('/conversations', requireAuth, async (req, res) => {
+// MICRO-CACHE (2026-10-14): ang Customers page ay nagre-refresh kada 5s.
+// Iisang resulta kada URL sa loob ng 5s (at iisang query lang kapag sabay-sabay
+// ang request), kaya kahit 20 na nakabukas ang page, ~1 query lang kada 5s.
+const CONV_CACHE_MS = 5000;
+const convCache = new Map();   // key → { t, status, body }
+const convInflight = new Map(); // key → Promise<{status, body}>
+function conversationsMicroCache(req, res, next) {
+  const key = req.originalUrl.replace(/([?&])_=[^&]*/g, '$1');
+  const hit = convCache.get(key);
+  if (hit && Date.now() - hit.t < CONV_CACHE_MS) return res.status(hit.status).json(hit.body);
+  const pending = convInflight.get(key);
+  if (pending) return pending.then(r => res.status(r.status).json(r.body)).catch(() => next());
+  let resolveP;
+  const myP = new Promise(r => { resolveP = r; });
+  convInflight.set(key, myP);
+  const orig = res.json.bind(res);
+  res.json = body => {
+    const status = res.statusCode || 200;
+    if (convInflight.get(key) === myP) convInflight.delete(key);
+    resolveP({ status, body });
+    if (status < 400) {
+      convCache.set(key, { t: Date.now(), status, body });
+      if (convCache.size > 100) convCache.delete(convCache.keys().next().value);
+    }
+    return orig(body);
+  };
+  res.on('close', () => { if (convInflight.get(key) === myP) { convInflight.delete(key); resolveP({ status: 503, body: { error: 'retry' } }); } });
+  next();
+}
+
+router.get('/conversations', requireAuth, conversationsMicroCache, async (req, res) => {
   try {
     const brand = req.query.brand || null;
     const from = req.query.from || null;
