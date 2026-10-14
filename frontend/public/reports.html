@@ -471,6 +471,12 @@ tr.cc-detail td{background:#FAFBFF !important;}
 .ccb-p{text-align:right;color:var(--ink-faint);font-size:11px;}
 .ccb-dr{color:var(--ink-faint);font-size:11px;text-align:right;}
 
+tr.rp-row{cursor:pointer;}
+tr.rp-row:hover td{background:#EEF4FF !important;}
+.rp-panel{max-width:980px;max-height:84vh;}
+.rp-body{padding:12px 18px 18px;overflow:auto;flex:1;}
+.rp-body table.rt th{position:sticky;top:0;}
+
 /* --- Billing --- */
 .cb-title h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
 .cb-cards{gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;}
@@ -934,7 +940,7 @@ body.presenting .panel-head h3{font-size:14px;}
         <div class="panel">
           <div class="panel-head">
             <h3>Repeat players</h3>
-            <div class="hint">2+ tickets in the period · avg per active day</div>
+            <div class="hint">Top 10 · i-click ang player para makita lahat ng ticket niya</div>
           </div>
           <div style="position:relative;height:300px;margin-bottom:14px;"><canvas id="anRepeatChart"></canvas></div>
           <div class="tall" style="max-height:300px;overflow-y:auto;"><table class="rt" id="anRepeatTable"></table></div>
@@ -3056,7 +3062,10 @@ TicketData.fetchTickets()
 
     // ---- repeat players ----
     h = '<thead><tr><th>Username</th><th>Brand</th><th class="num">Tickets</th><th class="num">Days</th><th class="num">Avg/Day</th><th class="num">Done</th><th class="num">Rej</th><th>Top concern</th></tr></thead><tbody>';
-    const rows = Array.from(reps.values()).filter(v => v.length >= 2).sort((a, b) => b.length - a.length).slice(0, 50);
+    // TOP 10 lang (2026-10-14, utos ni Chad); i-click ang player para makita
+    // sa pop-up ang LAHAT ng ticket niya — hindi lilipat ng tab.
+    const rows = Array.from(reps.values()).filter(v => v.length >= 2).sort((a, b) => b.length - a.length).slice(0, 10);
+    anRepeatRows = rows;
     drawRepeatChart(rows.slice(0, 10).map(v => {
       const days = new Set(v.map(t => dayKey(t.submitted))).size;
       return { name: v[0].name, brand: v[0].brandLabel, n: v.length, days, avg: v.length / days };
@@ -3068,7 +3077,7 @@ TicketData.fetchTickets()
       const cm = new Map(); v.forEach(t => cm.set(concernOf(t), (cm.get(concernOf(t)) || 0) + 1));
       const top = Array.from(cm.entries()).sort((a, b) => b[1] - a[1])[0];
       const hot = avg >= 5 || v.length >= 20;
-      h += '<tr' + (hot ? ' style="background:var(--danger-tint,#FDECEC);"' : '') + '><td>' + escapeHtml(v[0].name) + '</td><td>' + escapeHtml(v[0].brandLabel) + '</td>'
+      h += '<tr class="rp-row" data-rp="' + rows.indexOf(v) + '" title="I-click para makita ang lahat ng ticket"' + (hot ? ' style="background:var(--danger-tint,#FDECEC);"' : '') + '><td style="font-weight:600;color:var(--primary);">' + escapeHtml(v[0].name) + '</td><td>' + escapeHtml(v[0].brandLabel) + '</td>'
         + '<td class="num">' + v.length + '</td><td class="num">' + days + '</td><td class="num">' + avg.toFixed(1) + '</td>'
         + '<td class="num">' + d + '</td><td class="num">' + (v.length - d) + '</td>'
         + '<td>' + escapeHtml(top ? top[0] + ' (' + top[1] + ')' : '—') + '</td></tr>';
@@ -3077,6 +3086,50 @@ TicketData.fetchTickets()
     h += '</tbody>';
     document.getElementById('anRepeatTable').innerHTML = h;
   };
+
+  // ---- Pop-up: lahat ng ticket ng isang repeat player ----
+  var anRepeatRows = [];
+  function rpOpen(v) {
+    let ov = document.getElementById('rpModal');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'rpModal'; ov.className = 'modal-overlay';
+      ov.innerHTML = '<div class="modal-panel rp-panel"><div class="modal-head"><div><div class="modal-title" id="rpTitle"></div><div class="modal-sub" id="rpSub"></div></div>'
+        + '<button class="modal-close" type="button" aria-label="Close" id="rpClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>'
+        + '<div class="rp-body" id="rpBody"></div></div>';
+      document.body.appendChild(ov);
+      const close = () => ov.classList.remove('open');
+      ov.addEventListener('click', e => { if (e.target === ov) close(); });
+      ov.querySelector('#rpClose').addEventListener('click', close);
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    }
+    const list = v.slice().sort((a, b) => (b.submitted || 0) - (a.submitted || 0));
+    const d = list.filter(isDone).length, r = list.filter(isRej).length;
+    const fmtDT = x => x instanceof Date && !isNaN(x) ? x.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+    const rejReason = t => {
+      const raw = t.raw || {};
+      const k = Object.keys(raw).find(k => /reject.*reason|reason.*reject/i.test(k));
+      return k && raw[k] ? String(raw[k]) : '';
+    };
+    const stCls = t => isDone(t) ? 'good' : isRej(t) ? 'bad' : 'neutral';
+    document.getElementById('rpTitle').textContent = v[0].name + ' · ' + v[0].brandLabel;
+    document.getElementById('rpSub').textContent = list.length + ' tickets · ' + d + ' done · ' + r + ' rejected · ' + (list.length - d - r) + ' open — ' + MONTH_B.label;
+    document.getElementById('rpBody').innerHTML = '<table class="rt"><thead><tr><th>Submitted</th><th>Ticket ID</th><th>Concern</th><th>Status</th><th>Handled by</th><th>Closed</th></tr></thead><tbody>'
+      + list.map(t => {
+        const rr = rejReason(t);
+        return '<tr><td style="white-space:nowrap;">' + fmtDT(t.submitted) + '</td>'
+          + '<td style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;white-space:nowrap;">' + escapeHtml(t.id || '—') + '</td>'
+          + '<td>' + escapeHtml(concernOf(t)) + (rr ? '<div style="font-size:11px;color:var(--danger);margin-top:2px;">' + escapeHtml(rr) + '</div>' : '') + '</td>'
+          + '<td><span class="tag ' + stCls(t) + '">' + escapeHtml(t.statusLabel || t.statusCls || '—') + '</span></td>'
+          + '<td style="white-space:nowrap;">' + escapeHtml(t.resolvedBy || t.acknowledgedBy || '—') + '</td>'
+          + '<td style="white-space:nowrap;color:var(--ink-soft);">' + fmtDT(t.resolvedAt) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    ov.classList.add('open');
+  }
+  document.getElementById('anRepeatTable').addEventListener('click', e => {
+    const tr = e.target.closest('tr.rp-row'); if (!tr) return;
+    const v = anRepeatRows[Number(tr.dataset.rp)]; if (v) rpOpen(v);
+  });
 
   // Re-render kasabay ng bawat Ticket Resolution render (range change,
   // auto-refresh, unang load) — wrap na lang ang existing function.
