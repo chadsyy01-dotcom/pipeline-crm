@@ -477,6 +477,13 @@ tr.rp-row:hover td{background:#EEF4FF !important;}
 .rp-body{padding:12px 18px 18px;overflow:auto;flex:1;}
 .rp-body table.rt th{position:sticky;top:0;}
 
+tr.rp-rej{cursor:pointer;}
+tr.rp-rej:hover td,tr.rp-rej.on td{background:#FEF2F2 !important;}
+tr.rp-rem td{background:#FFF7F7 !important;padding-top:2px;padding-bottom:10px;}
+.rp-rem-box{border-left:3px solid var(--danger);padding:6px 10px;background:#fff;border-radius:4px;font-size:12.5px;display:flex;flex-direction:column;gap:4px;}
+.rp-rem-box span{display:inline-block;min-width:110px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);font-weight:600;margin-right:8px;}
+.rp-rem-box .none{color:var(--ink-faint);font-style:italic;}
+
 /* --- Billing --- */
 .cb-title h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
 .cb-cards{gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;}
@@ -3106,24 +3113,41 @@ TicketData.fetchTickets()
     const list = v.slice().sort((a, b) => (b.submitted || 0) - (a.submitted || 0));
     const d = list.filter(isDone).length, r = list.filter(isRej).length;
     const fmtDT = x => x instanceof Date && !isNaN(x) ? x.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
-    const rejReason = t => {
+    // Remarks ng ticket (2026-10-14): t.rejectReason mula sa ticket-data.js
+    // (Reject Reason / Rejection Reason / Reject Remarks / Remarks / Notes),
+    // plus iba pang remark-like na column sa row.
+    const remarksOf = t => {
+      const out = [], seen = new Set();
+      const add = (label, val) => { const v = String(val || '').trim(); if (v && !seen.has(v)) { seen.add(v); out.push([label, v]); } };
+      add('Reject reason', t.rejectReason);
       const raw = t.raw || {};
-      const k = Object.keys(raw).find(k => /reject.*reason|reason.*reject/i.test(k));
-      return k && raw[k] ? String(raw[k]) : '';
+      Object.keys(raw).forEach(k => { if (/reject|remark|note|reason|comment/i.test(k)) add(k, raw[k]); });
+      return out;
     };
     const stCls = t => isDone(t) ? 'good' : isRej(t) ? 'bad' : 'neutral';
     document.getElementById('rpTitle').textContent = v[0].name + ' · ' + v[0].brandLabel;
     document.getElementById('rpSub').textContent = list.length + ' tickets · ' + d + ' done · ' + r + ' rejected · ' + (list.length - d - r) + ' open — ' + MONTH_B.label;
     document.getElementById('rpBody').innerHTML = '<table class="rt"><thead><tr><th>Submitted</th><th>Ticket ID</th><th>Concern</th><th>Status</th><th>Handled by</th><th>Closed</th></tr></thead><tbody>'
-      + list.map(t => {
-        const rr = rejReason(t);
-        return '<tr><td style="white-space:nowrap;">' + fmtDT(t.submitted) + '</td>'
+      + list.map((t, idx) => {
+        const rej = isRej(t);
+        const rem = rej ? remarksOf(t) : [];
+        const detail = rej ? '<tr class="rp-rem" data-rem="' + idx + '" hidden><td></td><td colspan="5"><div class="rp-rem-box">'
+          + (rem.length ? rem.map(([k, v]) => '<div><span>' + escapeHtml(k) + '</span>' + escapeHtml(v) + '</div>').join('')
+                        : '<div class="none">Walang nakasulat na remarks sa ticket na ito.</div>')
+          + '</div></td></tr>' : '';
+        return '<tr' + (rej ? ' class="rp-rej" data-rej="' + idx + '" title="I-click para makita ang remarks"' : '') + '><td style="white-space:nowrap;">' + fmtDT(t.submitted) + '</td>'
           + '<td style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;white-space:nowrap;">' + escapeHtml(t.id || '—') + '</td>'
-          + '<td>' + escapeHtml(concernOf(t)) + (rr ? '<div style="font-size:11px;color:var(--danger);margin-top:2px;">' + escapeHtml(rr) + '</div>' : '') + '</td>'
-          + '<td><span class="tag ' + stCls(t) + '">' + escapeHtml(t.statusLabel || t.statusCls || '—') + '</span></td>'
+          + '<td>' + escapeHtml(concernOf(t)) + '</td>'
+          + '<td><span class="tag ' + stCls(t) + '">' + escapeHtml(t.statusLabel || t.statusCls || '—') + (rej ? ' ▾' : '') + '</span></td>'
           + '<td style="white-space:nowrap;">' + escapeHtml(t.resolvedBy || t.acknowledgedBy || '—') + '</td>'
-          + '<td style="white-space:nowrap;color:var(--ink-soft);">' + fmtDT(t.resolvedAt) + '</td></tr>';
+          + '<td style="white-space:nowrap;color:var(--ink-soft);">' + fmtDT(t.resolvedAt) + '</td></tr>' + detail;
       }).join('') + '</tbody></table>';
+    const body = document.getElementById('rpBody');
+    body.onclick = e => {
+      const tr = e.target.closest('tr.rp-rej'); if (!tr) return;
+      const det = body.querySelector('tr[data-rem="' + tr.dataset.rej + '"]'); if (!det) return;
+      det.hidden = !det.hidden; tr.classList.toggle('on', !det.hidden);
+    };
     ov.classList.add('open');
   }
   document.getElementById('anRepeatTable').addEventListener('click', e => {
