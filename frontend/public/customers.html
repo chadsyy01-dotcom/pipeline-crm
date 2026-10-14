@@ -1217,9 +1217,17 @@
     return { from: from.toISOString(), to: to.toISOString() };
   }
 
-  async function loadConversations() {
+  // LIVE REFRESH 5s (2026-10-14, utos ni Chad): auto=true galing sa timer.
+  // - hindi sabay-sabay (may inFlight guard), at humihinto kapag nakatago ang tab
+  // - kapag walang nagbago sa data, hindi na nire-rebuild ang dropdowns
+  // - kapag may bukas na dropdown (naka-focus), hinihintay munang matapos
+  let convInFlight = false, lastConvSig = '';
+  async function loadConversations(auto) {
     const token = localStorage.getItem('pipeline_token');
     if (!token) return;
+    if (auto === true && (convInFlight || document.hidden || searchMode)) return;
+    if (auto === true && document.activeElement && document.activeElement.tagName === 'SELECT') return;
+    convInFlight = true;
     try {
       const params = new URLSearchParams();
       // No ?brand= → backend returns the most recent `perBrand` conversations
@@ -1239,10 +1247,18 @@
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      allConversations = (data.conversations || []).filter(c => inTeam(c.brand));
-      document.getElementById('liveIndicator').textContent = '● Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const raw = await res.text();
+      document.getElementById('liveIndicator').textContent = '● Live · ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       document.getElementById('liveIndicator').style.color = 'var(--success)';
+      if (auto === true && raw === lastConvSig) {
+        // walang bagong data — i-refresh lang ang oras-based na status
+        // (hal. Waiting → Missed pag lumampas sa 3 min) at ang mga bilang
+        applyFiltersAndRender();
+        return;
+      }
+      lastConvSig = raw;
+      const data = JSON.parse(raw);
+      allConversations = (data.conversations || []).filter(c => inTeam(c.brand));
       renderBrandTabs();
       renderAdminFilter();
       renderConcernFilter();
@@ -1252,6 +1268,8 @@
       console.error('Failed to load conversations:', err);
       document.getElementById('liveIndicator').textContent = '● Error loading';
       document.getElementById('liveIndicator').style.color = 'var(--danger)';
+    } finally {
+      convInFlight = false;
     }
   }
 
@@ -1842,8 +1860,11 @@
   // page, not a live monitor — the dashboard already watches for anything
   // urgent — so a slower poll means three times less load on the database
   // and less egress. The Refresh button covers "I want it now".
-  setInterval(loadConversations, 180000);
-  setInterval(loadCsatStats, 180000);
+  // 2026-10-14: ginawang 5 segundo (utos ni Chad) — may 5s server cache na
+  // ang /chatwoot/conversations kaya iisang query lang kahit maraming nakabukas.
+  setInterval(() => loadConversations(true), 5000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) loadConversations(true); });
+  setInterval(loadCsatStats, 60000);
 
   // Ticket sheet cache — used by the customer profile modal's Tickets stat
   // (opened by clicking a customer's name in the conversation table below).
