@@ -347,7 +347,9 @@ body{font-family:'Inter','Plus Jakarta Sans',system-ui,sans-serif;font-size:13px
 #compareLine{color:#E2E8F0;}
 .titlebar .btn.primary{background:rgba(255,255,255,.08);border:1px solid var(--navy-line);color:#fff;padding:7px 12px;font-size:12px;border-radius:6px;}
 .titlebar .btn.primary:hover{background:rgba(255,255,255,.16);}
-.subtabs{margin-top:12px;border-bottom:none;gap:0;}
+.subtabs{margin-top:12px;border-bottom:none;gap:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;}
+.subtabs::-webkit-scrollbar{display:none;}
+.subtab{margin-bottom:0;}
 .subtab{font-size:12px;font-weight:600;padding:10px 14px;color:#9FB0CF;border-bottom:2px solid transparent;letter-spacing:.01em;}
 .subtab:hover{color:#fff;}
 .subtab.active{color:#fff;border-bottom-color:#60A5FA;}
