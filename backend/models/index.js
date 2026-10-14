@@ -36,7 +36,8 @@ const User = sequelize.define('User', {
   name: { type: DataTypes.STRING, allowNull: false },
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   passwordHash: { type: DataTypes.STRING, allowNull: false },
-  role: { type: DataTypes.ENUM('admin', 'member'), defaultValue: 'member' },
+  // 'Team Leader' idinagdag 2026-10-14 (utos ni Chad) — tingnan ang migration sa routes/auth.js
+  role: { type: DataTypes.ENUM('admin', 'member', 'Team Leader'), defaultValue: 'member' },
   // Profile picture (added 2026-09-18). Stored as a data: URL (base64 JPEG),
   // NOT a file path — there's no object storage in this deployment. The
   // browser center-crops and resizes to 256x256 at quality 0.8 before
