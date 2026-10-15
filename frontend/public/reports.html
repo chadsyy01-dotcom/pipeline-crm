@@ -510,6 +510,61 @@ tr.rp-rem.ok .rp-rem-box{border-left-color:var(--success);}
 .cb-panel .cb-note{padding:0 12px 10px;}
 .cb-btn{border-radius:6px;padding:6px 12px;}
 
+
+/* --- PAYMENT REPORT (2026-10-15) --- */
+.pr-intro{margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);max-width:900px;}
+.pr-nav{min-width:30px;padding:4px 10px;font-size:15px;line-height:1;font-weight:700;}
+.pr-kpis{grid-template-columns:repeat(5,1fr);}
+@media (max-width:1100px){.pr-kpis{grid-template-columns:repeat(2,1fr);}}
+.pr-kpis .cb-card.red .cb-value{color:var(--danger);}
+.pr-kpis .cb-card.red{background:#FFF7F7;}
+.pr-kpis .cb-card.green .cb-value{color:var(--success);}
+.pr-panel{margin-top:12px;}
+.pr-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line);background:#F9FAFB;border-radius:var(--radius-md) var(--radius-md) 0 0;}
+.pr-head h3{margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:var(--ink-soft);}
+.pr-muted{color:var(--ink-faint);font-weight:600;text-transform:none;letter-spacing:0;}
+.pr-filters{display:flex;gap:8px;}
+.pr-filters select{height:30px;border:1px solid var(--line);border-radius:6px;padding:0 8px;font:inherit;font-size:12.5px;background:#fff;}
+.pr-scroll{overflow-x:auto;}
+.pr-table{width:100%;border-collapse:collapse;}
+.pr-table td,.pr-table th{text-align:left;white-space:nowrap;}
+.pr-table td b{font-weight:700;}
+.pr-time{color:var(--ink-faint);font-size:11.5px;margin-left:3px;}
+.pr-dim{color:var(--ink-faint);}
+.pr-tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;}
+.pr-tag.ok{background:#E7F7EF;color:#0F7B53;}
+.pr-tag.wait{background:#F1F5F9;color:#64748B;}
+.pr-tag.late{background:#FDECEC;color:#C8283A;border:1px solid #F7C5CA;}
+.pr-tag.over{background:#C8283A;color:#fff;box-shadow:0 0 0 3px #FDECEC;}
+.pr-table tr.red td{background:#FFF5F5 !important;}
+.pr-table tr.red td:first-child{box-shadow:inset 3px 0 0 #E5484D;}
+.pr-table tr.red.over td{background:#FFEDED !important;}
+/* Red flag box */
+.pr-flags{margin-top:12px;}
+.pr-flagbox{border:1px solid #F7C5CA;background:linear-gradient(180deg,#FFF5F5,#fff 70%);border-radius:var(--radius-md);overflow:hidden;}
+.pr-flaghd{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#C8283A;color:#fff;}
+.pr-flaghd h3{margin:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:800;}
+.pr-flaghd span{font-size:12px;opacity:.9;}
+.pr-flaggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;padding:12px;}
+.pr-flag{background:#fff;border:1px solid #F7C5CA;border-left:4px solid #E5484D;border-radius:8px;padding:10px 12px;}
+.pr-flag.over{border-left-color:#8E1B27;background:#FFF9F9;}
+.pr-flag .t{display:flex;justify-content:space-between;gap:8px;align-items:center;font-weight:800;font-size:13px;}
+.pr-flag .m{font-size:11.5px;color:var(--ink-soft);margin-top:5px;line-height:1.5;}
+.pr-okbox{border:1px solid #BFE9D3;background:#F3FBF7;color:#0F7B53;border-radius:var(--radius-md);padding:12px 14px;font-weight:600;font-size:13px;}
+/* Matrix */
+.pr-matrix{width:100%;border-collapse:collapse;}
+.pr-matrix th,.pr-matrix td{padding:7px 10px;border-bottom:1px solid #F2F4F7;font-size:12.5px;text-align:center;white-space:nowrap;}
+.pr-matrix th{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;background:#fff;}
+.pr-matrix th:first-child,.pr-matrix td:first-child{text-align:left;}
+.pr-matrix td:first-child{font-weight:700;}
+.pr-matrix tr.has-red td:first-child{color:#C8283A;}
+.pr-matrix tr.has-red td:first-child::before{content:"● ";color:#E5484D;}
+.pr-matrix .pr-score{font-weight:700;color:var(--ink-soft);}
+.pr-legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-soft);flex-wrap:wrap;}
+.pr-legend .lg{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:8px;}
+.lg.ok{background:#12A574;}.lg.late{background:#F7C5CA;border:1px solid #E5484D;}.lg.over{background:#C8283A;}.lg.wait{background:#CBD5E1;}
+@media print{.pr-filters,.pr-nav{display:none !important;}.pr-flaghd{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+
 /* --- Modal --- */
 .modal-panel{border-radius:var(--radius-lg);border:1px solid var(--line);box-shadow:0 20px 40px -16px rgba(16,24,40,.35);}
 
@@ -661,6 +716,7 @@ body.presenting .panel-head h3{font-size:14px;}
         <button class="subtab" data-page="analytics">Ticket Analytics</button>
         <button class="subtab" data-page="satisfaction">Customer Satisfaction</button>
         <button class="subtab" data-page="billing">Billing</button>
+        <button class="subtab" data-page="payments">Payment Report</button>
       </nav>
     </header>
 
@@ -1058,7 +1114,51 @@ body.presenting .panel-head h3{font-size:14px;}
         <div class="cb-card"><div class="cb-label">Open AI — Oct 1–15</div><div class="cb-value" id="rbOaCmp" style="font-size:17px;">—</div><div class="cb-sub" id="rbOaCmpSub"></div></div>
       </div>
       <div class="cb-panel"><div id="rbTableWrap"><div class="cb-empty">Loading billing data…</div></div></div>
+
     </div>
+
+
+      <!-- ============ PAYMENT REPORT (2026-10-15, utos ni Chad) ============
+           Galing sa Division Billing app (/api/divbilling/overview): per brand,
+           per bill — kailan unang nag-remind ang Telegram, kailan pumasok ang
+           bayad, ilang araw. Naka-highlight ang mga red tag (Delayed / Not paid). -->
+      <div class="report-page" id="page-payments"><section class="pr-wrap" id="payReport">
+        <div class="cb-title" >
+          <h2>Payment Report — <span id="prMonthLbl">October 2026</span></h2>
+          <div class="cb-right">
+            <button class="cb-btn pr-nav" id="prPrev" type="button" aria-label="Previous month">‹</button>
+            <button class="cb-btn pr-nav" id="prNext" type="button" aria-label="Next month">›</button>
+            <span class="cb-live" id="prUpdated">Loading…</span>
+          </div>
+        </div>
+        <p class="pr-intro">Per brand, per bill: kailan unang lumabas ang Telegram reminder, kailan pumasok ang bayad, at ilang araw ang inabot. <b>Delayed</b> = naipasa ang bayad pagkalipas ng due date.</p>
+        <div class="cb-cards pr-kpis" id="prKpis"></div>
+        <div class="pr-flags" id="prFlags"></div>
+        <div class="cb-panel pr-panel">
+          <div class="pr-head"><h3>Status per brand</h3><span class="pr-legend"><i class="lg ok"></i>On time <i class="lg late"></i>Delayed <i class="lg over"></i>Not paid · overdue <i class="lg wait"></i>Waiting</span></div>
+          <div id="prMatrix" class="pr-scroll"><div class="cb-empty">Loading…</div></div>
+        </div>
+        <div class="cb-panel pr-panel">
+          <div class="pr-head">
+            <h3>All bills <span id="prAllCount" class="pr-muted"></span></h3>
+            <div class="pr-filters">
+              <select id="prBill"><option value="all">All billings</option></select>
+              <select id="prStatus">
+                <option value="all">All statuses</option>
+                <option value="red">🔴 Red tags lang (Delayed + Not paid)</option>
+                <option value="over">Not paid · overdue</option>
+                <option value="late">Delayed</option>
+                <option value="wait">Waiting</option>
+                <option value="ok">On time</option>
+              </select>
+            </div>
+          </div>
+          <div class="pr-scroll"><table class="cb-table pr-table">
+            <thead><tr><th>Brand</th><th>Bill</th><th>Due</th><th>Reminder sent</th><th>Payment received</th><th>Days from reminder</th><th>Status</th></tr></thead>
+            <tbody id="prBody"><tr><td colspan="7"><div class="cb-empty">Loading…</div></td></tr></tbody>
+          </table></div>
+        </div>
+      </section></div>
 
   </main>
 
@@ -3551,6 +3651,174 @@ TicketData.fetchTickets()
       rbLoad();
     }
   });
+})();
+</script>
+<script>
+// =====================================================================
+// PAYMENT REPORT (2026-10-15, utos ni Chad) — nasa Billing tab.
+// Data: GET /api/divbilling/overview?month=YYYY-MM (backend/routes/divbilling.js,
+// proxy ng Division Billing app). Bawat row ng report = isang bill ng isang
+// brand (division × service): due, sentAt (unang Telegram reminder), flag.
+// Ang "Payment received" ay ang petsa ng payment submission (payments[].createdAt
+// na may bill na ganoong service at brand; hindi kasama ang rejected).
+//   On time   = naipasa sa o bago ang due date
+//   Delayed   = naipasa PAGKATAPOS ng due date            (RED TAG)
+//   Not paid  = wala pang bayad at lampas na sa due date  (RED TAG, solid)
+//   Waiting   = wala pang bayad, hindi pa due
+// =====================================================================
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  if (!$('payReport')) return;
+  const SVC = { netlify: 'Netlify', n8n: 'n8n', claude: 'Claude', host: 'Host server', supabase: 'Supabase', sms: 'SMS' };
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const TZ = 'Asia/Manila';
+  const dayKey = iso => { if (!iso) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso; const d = new Date(iso); return isNaN(d) ? null : new Date(d.getTime() + 8 * 3600e3).toISOString().slice(0, 10); };
+  const today = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+  const diffDays = (a, b) => Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400e3);
+  const fmtD = iso => { const k = dayKey(iso); if (!k) return '—'; return new Date(k + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }); };
+  const fmtT = iso => (!iso || /^\d{4}-\d{2}-\d{2}$/.test(iso)) ? '' : new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
+  const dateCell = iso => iso ? `<b>${fmtD(iso)}</b><span class="pr-time">${fmtT(iso)}</span>` : '<span class="pr-dim">—</span>';
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const svcLabel = r => SVC[r.service] || r.label || r.service || '—';
+
+  // Petsa ng bayad: unahin ang field ng row (kung meron), saka ang payments
+  const PAID_KEYS = ['paidAt', 'paymentAt', 'submittedAt', 'paid_on', 'paidOn', 'receivedAt', 'paymentDate', 'creditedAt'];
+  function paidAtFor(r, payments) {
+    for (const k of PAID_KEYS) if (r[k]) return r[k];
+    const norm = v => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const div = norm(r.division);
+    const hits = payments.filter(p => p.status !== 'rejected' && (p.bills || []).some(b =>
+      (b.key === r.service || norm(b.label) === norm(svcLabel(r))) &&
+      norm(b.division || p.division) === div &&
+      (!b.due || b.due === r.due) && (!b.month || !r.due || b.month === r.due.slice(0, 7))));
+    // pinakaunang payment na hindi masyadong luma (≤ 45 araw bago ang due)
+    const ok = hits.map(p => p.createdAt).filter(Boolean)
+      .filter(t => !r.due || diffDays(dayKey(t), r.due) <= 45)
+      .sort();
+    return ok[0] || null;
+  }
+
+  function classify(r, payments) {
+    const due = r.due;
+    const paidAt = paidAtFor(r, payments) || (r.paidStatus === 'credited' ? (r.updatedAt || null) : null);
+    const paid = !!paidAt || r.paidStatus === 'credited' || (r.paidStatus && r.paidStatus !== 'rejected');
+    const sent = r.sentAt || null;
+    let st, lateBy = 0, label;
+    const t = today();
+    if (paid) {
+      const pk = dayKey(paidAt);
+      lateBy = pk && due ? diffDays(due, pk) : (r.flag === 'late' ? (r.lateDays || 1) : 0);
+      if (lateBy > 0 || (!pk && r.flag === 'late')) { st = 'late'; lateBy = Math.max(lateBy, r.lateDays || 0, 1); label = `Delayed · ${plural(lateBy, 'day')} late`; }
+      else { st = 'ok'; label = 'On time'; }
+    } else if (due && diffDays(due, t) > 0) {
+      lateBy = diffDays(due, t); st = 'over'; label = `Not paid · ${plural(lateBy, 'day')} overdue`;
+    } else { st = 'wait'; label = due ? (due === t ? 'Due today' : 'Waiting') : 'Waiting'; }
+    let fromRem = null, fromRemTxt;
+    if (sent && paidAt && dayKey(paidAt) < dayKey(sent)) fromRemTxt = '<span class="pr-dim">paid before any reminder</span>';
+    else if (sent) { fromRem = diffDays(dayKey(sent), paidAt ? dayKey(paidAt) : t); fromRemTxt = `<b>${plural(fromRem, 'day')}</b>`; }
+    else fromRemTxt = paidAt ? '<span class="pr-dim">paid before any reminder</span>' : '<span class="pr-dim">—</span>';
+    return { r, brand: r.division || '—', bill: svcLabel(r), due, sent, paidAt, st, lateBy, label, fromRem, fromRemTxt };
+  }
+
+  let month = (window.MONTH_B && window.MONTH_B.start ? String(window.MONTH_B.start).slice(0, 7) : null) || '2026-10';
+  let items = [];
+
+  async function load() {
+    const token = localStorage.getItem('pipeline_token');
+    $('prMonthLbl').textContent = new Date(month + '-01T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    $('prUpdated').textContent = 'Loading…';
+    try {
+      const res = await fetch(`${API_BASE}/divbilling/overview?month=${month}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const d = await res.json();
+      const payments = d.payments || [];
+      items = (d.report && d.report.rows || []).map(r => classify(r, payments));
+      $('prUpdated').textContent = (d.stale ? '⚠ lumang data · ' : '') + 'Updated ' + new Date(d.fetchedAt || Date.now()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
+      render();
+    } catch (e) {
+      console.error('Payment report:', e);
+      $('prUpdated').textContent = 'Hindi ma-load';
+      $('prKpis').innerHTML = ''; $('prFlags').innerHTML = '';
+      $('prMatrix').innerHTML = `<div class="cb-empty">Hindi ma-load ang Division Billing data (${esc(e.message)}).</div>`;
+      $('prBody').innerHTML = '<tr><td colspan="7"><div class="cb-empty">—</div></td></tr>';
+    }
+  }
+
+  const ORDER = { over: 0, late: 1, wait: 2, ok: 3 };
+  function render() {
+    const n = { ok: 0, late: 0, over: 0, wait: 0 };
+    items.forEach(i => n[i.st]++);
+    const settled = n.ok + n.late;
+    const remDays = items.filter(i => i.paidAt && i.fromRem != null).map(i => i.fromRem);
+    const avg = remDays.length ? (remDays.reduce((a, b) => a + b, 0) / remDays.length) : null;
+    const card = (cls, lbl, val, sub) => `<div class="cb-card ${cls}"><div class="cb-label">${lbl}</div><div class="cb-value">${val}</div><div class="cb-sub">${sub}</div></div>`;
+    $('prKpis').innerHTML =
+      card('', 'Bills this month', items.length, `${new Set(items.map(i => i.brand)).size} brands`) +
+      card('green', 'On time', n.ok, settled ? `${Math.round(n.ok / settled * 100)}% ng nabayaran na` : '—') +
+      card(n.late ? 'red' : '', 'Delayed', n.late, 'nabayaran pero lampas sa due') +
+      card(n.over ? 'red' : '', 'Not paid · overdue', n.over, 'wala pang bayad, lampas na') +
+      card('', 'Avg days reminder → bayad', avg == null ? '—' : avg.toFixed(1), `${n.wait} bill${n.wait === 1 ? '' : 's'} waiting`);
+
+    // ---- RED FLAGS ----
+    const reds = items.filter(i => i.st === 'over' || i.st === 'late')
+      .sort((a, b) => ORDER[a.st] - ORDER[b.st] || b.lateBy - a.lateBy || a.brand.localeCompare(b.brand));
+    $('prFlags').innerHTML = reds.length ? `<div class="pr-flagbox">
+        <div class="pr-flaghd"><h3>⚠ Red tags — ${reds.length}</h3><span>${n.over} hindi pa bayad · ${n.late} delayed</span></div>
+        <div class="pr-flaggrid">${reds.map(i => `<div class="pr-flag ${i.st}">
+            <div class="t"><span>${esc(i.brand)} · ${esc(i.bill)}</span><span class="pr-tag ${i.st}">${i.st === 'over' ? 'NOT PAID' : 'DELAYED'}</span></div>
+            <div class="m">Due <b>${fmtD(i.due)}</b> · ${i.st === 'over' ? `<b style="color:#C8283A">${plural(i.lateBy, 'day')} overdue</b>` : `bayad <b>${fmtD(i.paidAt)}</b> · <b style="color:#C8283A">${plural(i.lateBy, 'day')} late</b>`}<br>
+            Reminder: ${i.sent ? fmtD(i.sent) + ' ' + fmtT(i.sent) : 'walang reminder'}${i.fromRem != null ? ` · ${plural(i.fromRem, 'day')} mula reminder` : ''}</div>
+          </div>`).join('')}</div></div>`
+      : `<div class="pr-okbox">✓ Walang red tag — lahat ng bill ay on time o hindi pa due.</div>`;
+
+    // ---- MATRIX brand × bill ----
+    const svcs = [...new Set(items.map(i => i.bill))];
+    const SVC_ORDER = ['Netlify', 'n8n', 'Claude', 'Host server', 'Supabase', 'SMS'];
+    svcs.sort((a, b) => (SVC_ORDER.indexOf(a) + 1 || 99) - (SVC_ORDER.indexOf(b) + 1 || 99));
+    const brands = [...new Set(items.map(i => i.brand))].sort((a, b) => {
+      const ra = items.filter(i => i.brand === a && (i.st === 'over' || i.st === 'late')).length;
+      const rb = items.filter(i => i.brand === b && (i.st === 'over' || i.st === 'late')).length;
+      return rb - ra || a.localeCompare(b);
+    });
+    const short = i => i.st === 'ok' ? '✓ On time' : i.st === 'late' ? `Late ${i.lateBy}d` : i.st === 'over' ? `Unpaid ${i.lateBy}d` : (i.label === 'Due today' ? 'Due today' : `Due ${fmtD(i.due)}`);
+    $('prMatrix').innerHTML = `<table class="pr-matrix"><thead><tr><th>Brand</th>${svcs.map(s => `<th>${esc(s)}</th>`).join('')}<th>On time</th></tr></thead><tbody>${
+      brands.map(b => {
+        const mine = items.filter(i => i.brand === b);
+        const red = mine.some(i => i.st === 'over' || i.st === 'late');
+        const done = mine.filter(i => i.st === 'ok' || i.st === 'late');
+        return `<tr class="${red ? 'has-red' : ''}"><td>${esc(b)}</td>${svcs.map(s => {
+          const c = mine.filter(i => i.bill === s);
+          return `<td>${c.length ? c.map(i => `<span class="pr-tag ${i.st}" title="${esc(i.label)} · due ${fmtD(i.due)}">${short(i)}</span>`).join(' ') : '<span class="pr-dim">·</span>'}</td>`;
+        }).join('')}<td class="pr-score">${done.length ? `${done.filter(i => i.st === 'ok').length}/${done.length}` : '—'}</td></tr>`;
+      }).join('')}</tbody></table>`;
+
+    // ---- BILL dropdown ----
+    const sel = $('prBill'), cur = sel.value;
+    sel.innerHTML = '<option value="all">All billings</option>' + svcs.map(s => `<option>${esc(s)}</option>`).join('');
+    sel.value = svcs.includes(cur) ? cur : 'all';
+    renderTable();
+  }
+
+  function renderTable() {
+    const bill = $('prBill').value, st = $('prStatus').value;
+    const list = items.filter(i => (bill === 'all' || i.bill === bill) &&
+      (st === 'all' || (st === 'red' ? (i.st === 'over' || i.st === 'late') : i.st === st)))
+      .sort((a, b) => ORDER[a.st] - ORDER[b.st] || b.lateBy - a.lateBy || a.brand.localeCompare(b.brand) || String(a.due).localeCompare(String(b.due)));
+    $('prAllCount').textContent = `(${list.length} of ${items.length})`;
+    $('prBody').innerHTML = list.length ? list.map(i => `<tr class="${i.st === 'over' || i.st === 'late' ? 'red ' + i.st : ''}">
+        <td><b>${esc(i.brand)}</b></td><td>${esc(i.bill)}</td><td>${fmtD(i.due)}</td>
+        <td>${dateCell(i.sent)}</td><td>${dateCell(i.paidAt)}</td><td>${i.fromRemTxt}</td>
+        <td><span class="pr-tag ${i.st}">${esc(i.label)}</span></td></tr>`).join('')
+      : '<tr><td colspan="7"><div class="cb-empty">Walang bill sa filter na ito.</div></td></tr>';
+  }
+
+  $('prBill').addEventListener('change', renderTable);
+  $('prStatus').addEventListener('change', renderTable);
+  const shift = k => { const [y, m] = month.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); month = d.toISOString().slice(0, 7); load(); };
+  $('prPrev').addEventListener('click', () => shift(-1));
+  $('prNext').addEventListener('click', () => shift(1));
+  load();
 })();
 </script>
 <script src="sidebar-topnav.js?v=1"></script>
