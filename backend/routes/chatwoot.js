@@ -1980,7 +1980,10 @@ router.post('/reply', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Masyadong mahaba ang mensahe (max 5000 characters).' });
     }
 
-    const cfg = REPLY_CONFIG[brand];
+    // Case-insensitive (2026-10-15): "swabegaming" sa config = "SwabeGaming" na slug
+    const cfgKey = Object.prototype.hasOwnProperty.call(REPLY_CONFIG, brand) ? brand
+      : Object.keys(REPLY_CONFIG).find(k => k.toLowerCase() === brand.toLowerCase());
+    const cfg = cfgKey ? REPLY_CONFIG[cfgKey] : null;
     if (!cfg || !cfg.baseUrl || !cfg.accountId || !cfg.token) {
       return res.status(400).json({
         error: `Hindi pa naka-configure ang replies para sa "${brand}". Idagdag ito sa CHATWOOT_REPLY_CONFIG sa Railway (baseUrl, accountId, token) at i-redeploy.`,
