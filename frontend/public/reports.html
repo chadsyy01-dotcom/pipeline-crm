@@ -538,6 +538,11 @@ tr.rp-rem.ok .rp-rem-box{border-left-color:var(--success);}
 .oa-bar i{display:block;height:8px;border-radius:4px;background:linear-gradient(90deg,#10A37F,#34D399);min-width:2px;}
 .oa-bar span{font-size:11.5px;color:var(--ink-soft);font-weight:600;white-space:nowrap;}
 .pr-tag.wait{background:#F1F5F9;color:#64748B;}
+.pr-tag.nosub{background:#C8283A;color:#fff;box-shadow:0 0 0 3px #FDECEC;}
+.pr-flag.nosub{border-left-color:#8E1B27;}
+.pr-table tr.red.nosub td{background:#FFEDED !important;}
+.pr-note{font-size:11px;color:#C8283A;margin-top:3px;white-space:normal;max-width:320px;}
+.lg.nosub{background:#C8283A;}
 .pr-tag.late{background:#FDECEC;color:#C8283A;border:1px solid #F7C5CA;}
 .pr-tag.over{background:#C8283A;color:#fff;box-shadow:0 0 0 3px #FDECEC;}
 .pr-table tr.red td{background:#FFF5F5 !important;}
@@ -1139,7 +1144,7 @@ body.presenting .panel-head h3{font-size:14px;}
         <div class="cb-cards pr-kpis" id="prKpis"></div>
         <div class="pr-flags" id="prFlags"></div>
         <div class="cb-panel pr-panel">
-          <div class="pr-head"><h3>Status per brand</h3><span class="pr-legend"><i class="lg ok"></i>On time <i class="lg late"></i>Delayed <i class="lg over"></i>Not paid · overdue <i class="lg wait"></i>Waiting</span></div>
+          <div class="pr-head"><h3>Status per brand</h3><span class="pr-legend"><i class="lg ok"></i>On time <i class="lg late"></i>Delayed <i class="lg over"></i>Not paid · overdue <i class="lg wait"></i>Waiting <i class="lg nosub"></i>PAID · hindi sumunod</span></div>
           <div id="prMatrix" class="pr-scroll"><div class="cb-empty">Loading…</div></div>
         </div>
         <div class="cb-panel pr-panel">
@@ -1149,10 +1154,11 @@ body.presenting .panel-head h3{font-size:14px;}
               <select id="prBill"><option value="all">All billings</option></select>
               <select id="prStatus">
                 <option value="all">All statuses</option>
-                <option value="red">🔴 Red tags lang (Delayed + Not paid)</option>
+                <option value="red">🔴 Red tags lang (Delayed + Not paid + hindi sumunod)</option>
                 <option value="over">Not paid · overdue</option>
                 <option value="late">Delayed</option>
                 <option value="wait">Waiting</option>
+                <option value="nosub">PAID · hindi sumunod sa instructions</option>
                 <option value="ok">On time</option>
               </select>
             </div>
@@ -3738,6 +3744,17 @@ TicketData.fetchTickets()
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   const svcLabel = r => SVC[r.service] || r.label || r.service || '—';
 
+  // HINDI KASAMA sa report (2026-10-15, utos ni Chad)
+  const EXCLUDE_BRAND = /swabe/i;
+  // BAYAD PERO HINDI SUMUNOD SA INSTRUCTIONS (2026-10-15, utos ni Chad):
+  // bayad na pero hindi nag-submit ng billing sa portal → "PAID" pero RED TAG.
+  // key = "brand|service|due" (lowercase, letters/numbers lang).
+  const PAID_NO_SUBMIT = {
+    'casinyeam|supabase|2026-10-09': 'Bayad na pero hindi nag-submit ng billing sa portal — hindi sumunod sa instructions',
+  };
+  const normKey = v => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const manualKey = r => `${normKey(r.division)}|${normKey(r.service)}|${r.due || ''}`;
+
   // Petsa ng bayad: unahin ang field ng row (kung meron), saka ang payments
   const PAID_KEYS = ['paidAt', 'paymentAt', 'submittedAt', 'paid_on', 'paidOn', 'receivedAt', 'paymentDate', 'creditedAt'];
   function paidAtFor(r, payments) {
@@ -3757,6 +3774,13 @@ TicketData.fetchTickets()
 
   function classify(r, payments) {
     const due = r.due;
+    const manual = PAID_NO_SUBMIT[manualKey(r)];
+    if (manual) {
+      const pa = paidAtFor(r, payments);
+      return { r, brand: r.division || '—', bill: svcLabel(r), due, sent: r.sentAt || null, paidAt: pa, st: 'nosub', lateBy: 0,
+        label: 'PAID · hindi sumunod sa instructions', note: manual, fromRem: null,
+        fromRemTxt: pa ? '<span class="pr-dim">late submission sa portal</span>' : '<span class="pr-dim">walang submission sa portal</span>' };
+    }
     const paidAt = paidAtFor(r, payments) || (r.paidStatus === 'credited' ? (r.updatedAt || null) : null);
     const paid = !!paidAt || r.paidStatus === 'credited' || (r.paidStatus && r.paidStatus !== 'rejected');
     const sent = r.sentAt || null;
@@ -3789,7 +3813,7 @@ TicketData.fetchTickets()
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const d = await res.json();
       const payments = d.payments || [];
-      items = (d.report && d.report.rows || []).map(r => classify(r, payments));
+      items = (d.report && d.report.rows || []).filter(r => !EXCLUDE_BRAND.test(r.division || '')).map(r => classify(r, payments));
       $('prUpdated').textContent = (d.stale ? '⚠ lumang data · ' : '') + 'Updated ' + new Date(d.fetchedAt || Date.now()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
       render();
     } catch (e) {
@@ -3801,9 +3825,10 @@ TicketData.fetchTickets()
     }
   }
 
-  const ORDER = { over: 0, late: 1, wait: 2, ok: 3 };
+  const ORDER = { over: 0, nosub: 1, late: 2, wait: 3, ok: 4 };
+  const isRed = i => i.st === 'over' || i.st === 'late' || i.st === 'nosub';
   function render() {
-    const n = { ok: 0, late: 0, over: 0, wait: 0 };
+    const n = { ok: 0, late: 0, over: 0, wait: 0, nosub: 0 };
     items.forEach(i => n[i.st]++);
     const settled = n.ok + n.late;
     const remDays = items.filter(i => i.paidAt && i.fromRem != null).map(i => i.fromRem);
@@ -3812,19 +3837,19 @@ TicketData.fetchTickets()
     $('prKpis').innerHTML =
       card('', 'Bills this month', items.length, `${new Set(items.map(i => i.brand)).size} brands`) +
       card('green', 'On time', n.ok, settled ? `${Math.round(n.ok / settled * 100)}% ng nabayaran na` : '—') +
-      card(n.late ? 'red' : '', 'Delayed', n.late, 'nabayaran pero lampas sa due') +
+      card(n.late || n.nosub ? 'red' : '', 'Delayed', n.late, 'nabayaran pero lampas sa due' + (n.nosub ? ` · +${n.nosub} paid pero hindi sumunod` : '')) +
       card(n.over ? 'red' : '', 'Not paid · overdue', n.over, 'wala pang bayad, lampas na') +
       card('', 'Avg days reminder → bayad', avg == null ? '—' : avg.toFixed(1), `${n.wait} bill${n.wait === 1 ? '' : 's'} waiting`);
 
     // ---- RED FLAGS ----
-    const reds = items.filter(i => i.st === 'over' || i.st === 'late')
+    const reds = items.filter(isRed)
       .sort((a, b) => ORDER[a.st] - ORDER[b.st] || b.lateBy - a.lateBy || a.brand.localeCompare(b.brand));
     $('prFlags').innerHTML = reds.length ? `<div class="pr-flagbox">
-        <div class="pr-flaghd"><h3>⚠ Red tags — ${reds.length}</h3><span>${n.over} hindi pa bayad · ${n.late} delayed</span></div>
+        <div class="pr-flaghd"><h3>⚠ Red tags — ${reds.length}</h3><span>${n.over} hindi pa bayad · ${n.late} delayed${n.nosub ? ` · ${n.nosub} paid pero hindi sumunod sa instructions` : ''}</span></div>
         <div class="pr-flaggrid">${reds.map(i => `<div class="pr-flag ${i.st}">
-            <div class="t"><span>${esc(i.brand)} · ${esc(i.bill)}</span><span class="pr-tag ${i.st}">${i.st === 'over' ? 'NOT PAID' : 'DELAYED'}</span></div>
-            <div class="m">Due <b>${fmtD(i.due)}</b> · ${i.st === 'over' ? `<b style="color:#C8283A">${plural(i.lateBy, 'day')} overdue</b>` : `bayad <b>${fmtD(i.paidAt)}</b> · <b style="color:#C8283A">${plural(i.lateBy, 'day')} late</b>`}<br>
-            Reminder: ${i.sent ? fmtD(i.sent) + ' ' + fmtT(i.sent) : 'walang reminder'}${i.fromRem != null ? ` · ${plural(i.fromRem, 'day')} mula reminder` : ''}</div>
+            <div class="t"><span>${esc(i.brand)} · ${esc(i.bill)}</span><span class="pr-tag ${i.st}">${i.st === 'over' ? 'NOT PAID' : i.st === 'nosub' ? 'PAID' : 'DELAYED'}</span></div>
+            <div class="m">${i.st === 'nosub' ? `Due <b>${fmtD(i.due)}</b> · <b style="color:#C8283A">hindi sumunod sa instructions</b><br>Bayad na pero hindi nag-submit ng billing sa portal${i.paidAt ? ` (na-submit ${fmtD(i.paidAt)})` : ''}</div>` : `Due <b>${fmtD(i.due)}</b> · ${i.st === 'over' ? `<b style="color:#C8283A">${plural(i.lateBy, 'day')} overdue</b>` : `bayad <b>${fmtD(i.paidAt)}</b> · <b style="color:#C8283A">${plural(i.lateBy, 'day')} late</b>`}<br>
+            Reminder: ${i.sent ? fmtD(i.sent) + ' ' + fmtT(i.sent) : 'walang reminder'}${i.fromRem != null ? ` · ${plural(i.fromRem, 'day')} mula reminder` : ''}</div>`}
           </div>`).join('')}</div></div>`
       : `<div class="pr-okbox">✓ Walang red tag — lahat ng bill ay on time o hindi pa due.</div>`;
 
@@ -3833,19 +3858,19 @@ TicketData.fetchTickets()
     const SVC_ORDER = ['Netlify', 'n8n', 'Claude', 'Host server', 'Supabase', 'SMS'];
     svcs.sort((a, b) => (SVC_ORDER.indexOf(a) + 1 || 99) - (SVC_ORDER.indexOf(b) + 1 || 99));
     const brands = [...new Set(items.map(i => i.brand))].sort((a, b) => {
-      const ra = items.filter(i => i.brand === a && (i.st === 'over' || i.st === 'late')).length;
-      const rb = items.filter(i => i.brand === b && (i.st === 'over' || i.st === 'late')).length;
+      const ra = items.filter(i => i.brand === a && isRed(i)).length;
+      const rb = items.filter(i => i.brand === b && isRed(i)).length;
       return rb - ra || a.localeCompare(b);
     });
-    const short = i => i.st === 'ok' ? '✓ On time' : i.st === 'late' ? `Late ${i.lateBy}d` : i.st === 'over' ? `Unpaid ${i.lateBy}d` : (i.label === 'Due today' ? 'Due today' : `Due ${fmtD(i.due)}`);
+    const short = i => i.st === 'nosub' ? 'PAID ⚠' : i.st === 'ok' ? '✓ On time' : i.st === 'late' ? `Late ${i.lateBy}d` : i.st === 'over' ? `Unpaid ${i.lateBy}d` : (i.label === 'Due today' ? 'Due today' : `Due ${fmtD(i.due)}`);
     $('prMatrix').innerHTML = `<table class="pr-matrix"><thead><tr><th>Brand</th>${svcs.map(s => `<th>${esc(s)}</th>`).join('')}<th>On time</th></tr></thead><tbody>${
       brands.map(b => {
         const mine = items.filter(i => i.brand === b);
-        const red = mine.some(i => i.st === 'over' || i.st === 'late');
+        const red = mine.some(isRed);
         const done = mine.filter(i => i.st === 'ok' || i.st === 'late');
         return `<tr class="${red ? 'has-red' : ''}"><td>${esc(b)}</td>${svcs.map(s => {
           const c = mine.filter(i => i.bill === s);
-          return `<td>${c.length ? c.map(i => `<span class="pr-tag ${i.st}" title="${esc(i.label)} · due ${fmtD(i.due)}">${short(i)}</span>`).join(' ') : '<span class="pr-dim">·</span>'}</td>`;
+          return `<td>${c.length ? c.map(i => `<span class="pr-tag ${i.st}" title="${esc(i.note || i.label)} · due ${fmtD(i.due)}">${short(i)}</span>`).join(' ') : '<span class="pr-dim">·</span>'}</td>`;
         }).join('')}<td class="pr-score">${done.length ? `${done.filter(i => i.st === 'ok').length}/${done.length}` : '—'}</td></tr>`;
       }).join('')}</tbody></table>`;
 
@@ -3859,13 +3884,13 @@ TicketData.fetchTickets()
   function renderTable() {
     const bill = $('prBill').value, st = $('prStatus').value;
     const list = items.filter(i => (bill === 'all' || i.bill === bill) &&
-      (st === 'all' || (st === 'red' ? (i.st === 'over' || i.st === 'late') : i.st === st)))
+      (st === 'all' || (st === 'red' ? isRed(i) : i.st === st)))
       .sort((a, b) => ORDER[a.st] - ORDER[b.st] || b.lateBy - a.lateBy || a.brand.localeCompare(b.brand) || String(a.due).localeCompare(String(b.due)));
     $('prAllCount').textContent = `(${list.length} of ${items.length})`;
-    $('prBody').innerHTML = list.length ? list.map(i => `<tr class="${i.st === 'over' || i.st === 'late' ? 'red ' + i.st : ''}">
+    $('prBody').innerHTML = list.length ? list.map(i => `<tr class="${isRed(i) ? 'red ' + i.st : ''}">
         <td><b>${esc(i.brand)}</b></td><td>${esc(i.bill)}</td><td>${fmtD(i.due)}</td>
         <td>${dateCell(i.sent)}</td><td>${dateCell(i.paidAt)}</td><td>${i.fromRemTxt}</td>
-        <td><span class="pr-tag ${i.st}">${esc(i.label)}</span></td></tr>`).join('')
+        <td><span class="pr-tag ${i.st}" ${i.note ? `title="${esc(i.note)}"` : ''}>${esc(i.label)}</span>${i.note ? `<div class="pr-note">${esc(i.note)}</div>` : ''}</td></tr>`).join('')
       : '<tr><td colspan="7"><div class="cb-empty">Walang bill sa filter na ito.</div></td></tr>';
   }
 
