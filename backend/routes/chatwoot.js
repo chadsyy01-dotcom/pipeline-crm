@@ -166,6 +166,13 @@ const AI_BOT_SENDER_NAMES = new Set([
   // handoff/FTR, gaya ng bots.
   'Love', 'OM - AOM', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'Admin Bogchi',
 ]);
+// SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad — "SUPERADMIN consider as
+// real agent", hal. Buenas88 Admin sa Buenas Credit na sumagot pagkatapos ng
+// handoff). Tinatanggal sila sa bot list. Exception: ang automated na
+// mensahe nila (survey / "Rate our support") ay hindi pa rin human reply.
+const SUPERADMIN_NAMES = new Set(['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi']);
+SUPERADMIN_NAMES.forEach(n => AI_BOT_SENDER_NAMES.delete(n));
+const AUTOMATED_MSG_RE = /rate\s+(our|your|the)\s+(support|conversation|chat|experience|service)|please\s+rate|how\s+would\s+you\s+rate|customer\s+satisfaction\s+survey|i-?rate\s+ang/i;
 
 // Brand-scoped bot personas (2026-09-24): iisang display name, magkaibang
 // identity sa magkaibang brand. Keys = brand slug sa LOWERCASE (ang lookup
@@ -178,15 +185,16 @@ const BRAND_BOT_SENDER_NAMES = {
 
 // ANG opisyal na tanong na "bot ba ito?" — brand-aware. Gamitin ito sa lahat
 // ng bagong code sa halip na AI_BOT_SENDER_NAMES.has() nang diretso.
-function isBotSender(brand, senderName) {
+function isBotSender(brand, senderName, content) {
   if (!senderName) return false;
+  if (SUPERADMIN_NAMES.has(senderName)) return !!content && AUTOMATED_MSG_RE.test(String(content).slice(0, 400));
   if (AI_BOT_SENDER_NAMES.has(senderName)) return true;
   const scoped = BRAND_BOT_SENDER_NAMES[String(brand || '').toLowerCase()];
   return !!(scoped && scoped.has(senderName));
 }
 
-function isRealHumanAgentReply(senderName, senderType, brand) {
-  return senderType === 'user' && !!senderName && !isBotSender(brand, senderName);
+function isRealHumanAgentReply(senderName, senderType, brand, content) {
+  return senderType === 'user' && !!senderName && !isBotSender(brand, senderName, content);
 }
 
 // ---------------------------------------------------------------------------
@@ -425,7 +433,7 @@ function extractFields(payload, brand) {
   // 'pending' and the chat gets stuck in Waiting-for-Agent.
   const convStatus = conversation?.status ?? payload.status ?? null;
   let handoffStage;
-  if (isRealHumanAgentReply(payload.sender?.name, payload.sender?.type, brand)) {
+  if (isRealHumanAgentReply(payload.sender?.name, payload.sender?.type, brand, payload.content)) {
     handoffStage = convStatus === 'resolved' ? 'closed' : 'opened';
   } else {
     const labelStage = normalizeHandoffStage(labels);
@@ -599,7 +607,7 @@ function sessionHasHandoff(allMessages, session, brand) {
   for (const m of session) {
     const st = m.handoffStage || null;
     if (st === 'pending' && !prev) return true;                     // (a)
-    if (m.senderType === 'user' && isBotSender(brand, m.senderName)) {
+    if (m.senderType === 'user' && isBotSender(brand, m.senderName, m.content)) {
       if (isHandoffBotMessage(m.content)) return true;               // (b)
     }
     // (c) INALIS 2026-10-13: ang kusang pagkuha ng agent (walang AI handoff)
@@ -615,7 +623,7 @@ function computeArtFtr(allMessages, brand) {
   const sessionHandoff = sessionHasHandoff(allMessages, messages, brand);
   // May human agent na nagsalita sa session na ito (kahit walang customer
   // message bago nito) → may sumagot na, hindi Missed.
-  const humanReplied = messages.some(m => m.senderType === 'user' && m.senderName && !isBotSender(brand, m.senderName));
+  const humanReplied = messages.some(m => m.senderType === 'user' && m.senderName && !isBotSender(brand, m.senderName, m.content));
   let lastCustomerMsgTime = null;
   let lastBotMsgTime = null;      // huling bot message mula noong huling customer message
   let firstAgentGap = null;
@@ -646,7 +654,7 @@ function computeArtFtr(allMessages, brand) {
       if (lastBotMsgTime === null) lastCustomerMsgTime = t;
       lastCustAny = t;
       if (isAgentRequest(m.content) && !reqPending) { reqPending = true; reqAt = t; }
-    } else if (m.senderType === 'user' && isBotSender(brand, m.senderName)) {
+    } else if (m.senderType === 'user' && isBotSender(brand, m.senderName, m.content)) {
       if (lastCustomerMsgTime !== null) lastBotMsgTime = t; // handoff/transfer point ng bot
       reqPending = false; // sumagot/nag-transfer na ang AI pagkatapos ng request
       botSeen = true;
