@@ -215,6 +215,13 @@ function fileEventContent(ev) {
   const name = ev.name ? ` (${ev.name})` : '';
   return (isImage ? '📷 [Nagpadala ng larawan]' : '📎 [Nagpadala ng file]') + name;
 }
+// 2026-10-15: kunin ang url mula sa iba't ibang posibleng field, at i-log ang
+// hugis ng file event (para makita sa Railway logs kapag walang url).
+function lcFileUrl(ev) {
+  const u = ev.url || ev.file?.url || ev.thumbnail2x_url || ev.thumbnail_url || null;
+  if (!u) console.warn('[livechat] file event WALANG url:', JSON.stringify(ev).slice(0, 600));
+  return u || undefined;
+}
 function isStorableEvent(ev) {
   return (ev.type === 'message' && ev.text) || (ev.type === 'file' && (ev.url || ev.name));
 }
@@ -337,7 +344,7 @@ async function normalize(body) {
         senderName: st === 'user' ? agentDisplayName(ev.author_id) : (customer.name || null),
         senderType: st,
         handoffStage: st === 'user' && !greeting ? 'opened' : null,
-        payload: { source: 'livechat', action, lc_chat_id: chat.id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined, lc_file_url: ev.type === 'file' ? ev.url : undefined, lc_file_type: ev.type === 'file' ? ev.content_type : undefined },
+        payload: { source: 'livechat', action, lc_chat_id: chat.id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined, lc_file_url: ev.type === 'file' ? lcFileUrl(ev) : undefined, lc_file_type: ev.type === 'file' ? ev.content_type : undefined },
       });
     }
     return rows;
@@ -376,7 +383,7 @@ async function normalize(body) {
       isPrivate: false,
       handoffStage: st === 'user' && !greeting ? 'opened' : null,
       event: 'message_created',
-      payload: { source: 'livechat', action, lc_chat_id: p.chat_id, lc_thread_id: p.thread_id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined, lc_file_url: ev.type === 'file' ? ev.url : undefined, lc_file_type: ev.type === 'file' ? ev.content_type : undefined },
+      payload: { source: 'livechat', action, lc_chat_id: p.chat_id, lc_thread_id: p.thread_id, lc_event_id: ev.id, author_id: ev.author_id, created_at: ev.created_at, auto_greeting: greeting || undefined, lc_file_url: ev.type === 'file' ? lcFileUrl(ev) : undefined, lc_file_type: ev.type === 'file' ? ev.content_type : undefined },
     }];
   }
 
