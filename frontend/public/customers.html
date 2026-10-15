@@ -1762,6 +1762,12 @@ body.team-view #exportBtn{display:none !important;}
       return { cls: 'waiting', label: 'Waiting', late };
     }
     if (idleMin >= AUTO_CLOSE_MIN) return { cls: 'closedx', label: 'Closed', late };
+    // RESOLVED = CLOSED (2026-10-15): ang chat na na-resolve na (hal. may
+    // "Rate our support" na) o HH Closed ay hindi na Ongoing kahit wala pang
+    // 10 min. Dati, Ongoing pa ito kaya mas marami ang Ongoing (5) kaysa sa
+    // All chats (2) — ang All chats ay hindi nagpapakita ng resolved.
+    // Kapag nag-reply ulit ang player, nire-reopen ng Chatwoot (open/opened).
+    if ((c.status || '').toLowerCase() === 'resolved' || c.handoffStage === 'closed') return { cls: 'closedx', label: 'Closed', late };
     // ONGOING = handoff na HAWAK NA ng real agent (2026-10-14, utos ni Chad).
     // Ang aktibong chat na AI pa lang ang kausap (walang handoff sa session
     // na ito at walang human reply) ay "AI Chat" — hindi Ongoing.
