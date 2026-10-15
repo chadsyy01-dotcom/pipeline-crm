@@ -1014,6 +1014,7 @@ body.team-view #exportBtn{display:none !important;}
     BuenasCredit: 'Buenas Credit',
     LuckystacksPH: 'LuckyStacks PH',
     swabegaming: 'Swabe Gaming',
+    SwabeGaming: 'Swabe Gaming',   // aktuwal na webhook slug
     // ---- LiveChat.com brands (resolved from originating domain) ----
     casinyeam: 'Casinyeam',
     manilacasino: 'Manila Casino',
@@ -1040,7 +1041,7 @@ body.team-view #exportBtn{display:none !important;}
   const CSR_TEAMS = {
     bravo:   { label: 'BRAVO',   show: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph'], brands: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph'] },
     delta:   { label: 'DELTA',   show: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD'], brands: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD', 'manilaplay', 'hypeplayph', 'hypeplaybd'] },
-    foxtrot: { label: 'FOXTROT', show: ['Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH', 'swabegaming'], brands: ['MGK', 'Tmtplay', 'BuenasCredit', 'LuckystacksPH', 'mastergoldkey', 'luckystacksph', 'tmtplay', 'swabegaming', 'SwabeGaming', 'swabe'], match: /swabe/i },
+    foxtrot: { label: 'FOXTROT', show: ['Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH', 'SwabeGaming'], brands: ['MGK', 'Tmtplay', 'BuenasCredit', 'LuckystacksPH', 'mastergoldkey', 'luckystacksph', 'tmtplay', 'swabegaming', 'SwabeGaming', 'swabe'], match: /swabe/i },
     echo:    { label: 'ECHO',    show: ['buenasph'], brands: ['buenasph'] },
   };
   const TEAM_KEY = (new URLSearchParams(location.search).get('team') || '').toLowerCase();
@@ -2601,6 +2602,10 @@ body.team-view #exportBtn{display:none !important;}
   const BRAND_BOT_CLIENT = {
     hypleplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
     hypeplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
+    // Swabe Gaming (2026-10-15): si 'Admin Bea' ang nagpapadala ng AI messages sa
+    // Swabe (hal. "Let me connect you now with our team") — BOT doon lang; TAO
+    // pa rin si Admin Bea sa Buenas Cash.
+    swabegaming: new Set(['Admin Bea', 'Agent Bea', 'Bea']),
   };
   function isBotClient(brand, senderName) {
     if (!senderName) return false;
