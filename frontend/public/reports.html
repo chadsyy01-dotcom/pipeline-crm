@@ -3749,9 +3749,10 @@ TicketData.fetchTickets()
   // BAYAD PERO HINDI SUMUNOD SA INSTRUCTIONS (2026-10-15, utos ni Chad):
   // bayad na pero hindi nag-submit ng billing sa portal → "PAID" pero RED TAG.
   // key = "brand|service|due" (lowercase, letters/numbers lang).
-  const PAID_NO_SUBMIT = {
-    'casinyeam|supabase|2026-10-09': 'Bayad na pero hindi nag-submit ng billing sa portal — hindi sumunod sa instructions',
-  };
+  // Hal.: 'casinyeam|supabase|2026-10-09': 'Bayad na pero hindi nag-submit…'
+  // (Casinyeam Supabase — tinanggal 2026-10-15: nag-submit na sa portal, kaya
+  //  normal na rule na: Delayed · 6 days late, kapareho ng Billing app.)
+  const PAID_NO_SUBMIT = {};
   const normKey = v => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const manualKey = r => `${normKey(r.division)}|${normKey(r.service)}|${r.due || ''}`;
 
