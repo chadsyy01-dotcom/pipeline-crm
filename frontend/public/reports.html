@@ -443,6 +443,14 @@ table.rt tfoot td{background:#F2F4F7;font-weight:700;border-top:1px solid var(--
 .dc-bar i{display:block;height:100%;background:var(--danger);border-radius:2px;}
 .dc-sev{display:flex;gap:5px;flex-wrap:wrap;}
 .dc-hint{font-size:10.5px;color:var(--ink-faint);}
+.sev-click{cursor:pointer;transition:box-shadow .12s,transform .12s;}
+.sev-click:hover{box-shadow:0 0 0 1.5px currentColor inset;transform:translateY(-1px);}
+.sev-click.sel{box-shadow:0 0 0 1.5px currentColor inset;}
+.dd-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;}
+.dd-tab{all:unset;cursor:pointer;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);background:var(--card);}
+.dd-tab b{font-weight:800;margin-left:2px;}
+.dd-tab:hover{background:var(--bg);}
+.dd-tab.on{background:var(--ink);border-color:var(--ink);color:#fff;}
 .dsat-card.on .dc-hint{visibility:hidden;}
 
 .pl-row-main{cursor:pointer;}
@@ -2317,49 +2325,64 @@ function renderSatisfaction() {
   // FORMATION (2026-10-13, utos ni Chad): 3 compact na brand cards na
   // magkakatabi; ang mga reason/message ng isang brand ay lalabas LANG kapag
   // kinlick ang card niya (click ulit para isara).
-  const details = [];
-  const cards = top3.map((b, i) => {
+  // CLICKABLE NA SEVERITY PILLS (2026-10-15, utos ni Chad): ang HIGH /
+  // MEDIUM / NO REASON sa card ay pwedeng i-click — lalabas ang listahan ng
+  // DSAT na iyon lang. Ang click sa ibang bahagi ng card = lahat ng may reason.
+  const SEV_TITLE = { all: 'reasons given', high: 'HIGH — legit complaints', medium: 'MEDIUM — venting / walang actionable', low: 'NO REASON — 1–2★ na walang isinulat' };
+  const cardData = top3.map(b => {
+    const sorted = b.dsats.slice().sort((x, y) => SEV_ORDER[x.severity] - SEV_ORDER[y.severity] || new Date(y.createdAt) - new Date(x.createdAt));
     const sev = { high: 0, medium: 0, low: 0 };
     b.dsats.forEach(c => { sev[c.severity]++; });
-    const withReason = b.dsats
-      .filter(c => c.feedback && c.feedback.trim())
-      .sort((x, y) => SEV_ORDER[x.severity] - SEV_ORDER[y.severity] || new Date(y.createdAt) - new Date(x.createdAt));
-    const noReason = b.dsats.length - withReason.length;
-    const rate = b.rated ? Math.round((b.dsats.length / b.rated) * 100) : 0;
+    return { b, sorted, sev, withReason: sorted.filter(c => c.feedback && c.feedback.trim()) };
+  });
+  function detailHtml(i, mode) {
+    const { b, sorted, withReason } = cardData[i];
     const colour = RANK_COLORS[i];
-
-    const rows = withReason.length
-      ? withReason.map(c => {
+    const list = mode === 'all' ? withReason : sorted.filter(c => c.severity === mode);
+    const noReason = b.dsats.length - withReason.length;
+    const rows = list.length
+      ? list.map(c => {
           const name = c.contactName || 'Unknown';
+          const txt = c.feedback && c.feedback.trim()
+            ? `<div class="remarks" style="max-width:none;color:var(--ink);font-weight:500;">${escapeHtml(c.feedback)}</div>`
+            : `<div class="remarks" style="max-width:none;color:var(--ink-faint);font-style:italic;">— walang nakasulat na reason (rating lang)</div>`;
           return `<tr data-conversation-id="${c.conversationId}" data-name="${escapeHtml(name)}" data-sub="${escapeHtml(b.label)}">
-            <td style="width:40%;"><div class="remarks" style="max-width:none;color:var(--ink);font-weight:500;">${escapeHtml(c.feedback)}</div></td>
-            <td><span class="sev-pill ${c.severity}">${SEV_LABEL[c.severity]}</span></td>
+            <td style="width:40%;">${txt}</td>
+            <td><span class="sev-pill ${c.severity}">${c.severity === 'low' ? 'NO REASON' : SEV_LABEL[c.severity]}</span></td>
             <td><span style="font-weight:700;color:var(--danger);">★ ${c.rating}/5</span></td>
             <td><div class="agent-cell"><div class="c-av" style="background:${colorForName(name)};">${escapeHtml(initialsFor(name))}</div><span style="font-weight:600;">${escapeHtml(name)}</span></div></td>
             <td class="num" style="font-weight:500;color:var(--ink-faint);white-space:nowrap;">${timeAgo(c.createdAt)}</td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="5"><div class="note">No written reasons — every DSAT for this brand was a rating only.</div></td></tr>';
-
-    details[i] = `
+      : `<tr><td colspan="5"><div class="note">${mode === 'all' ? 'No written reasons — every DSAT for this brand was a rating only.' : 'Walang DSAT sa kategoryang ito.'}</div></td></tr>`;
+    const tabs = ['all', 'high', 'medium', 'low'].map(m => {
+      const n = m === 'all' ? withReason.length : cardData[i].sev[m];
+      const lbl = m === 'all' ? 'May reason' : m === 'low' ? 'No reason' : SEV_LABEL[m];
+      return `<button type="button" class="dd-tab${m === mode ? ' on' : ''}" data-i="${i}" data-sev="${m}">${lbl} <b>${fmtInt(n)}</b></button>`;
+    }).join('');
+    return `
       <div class="panel dsat-detail-panel" style="border-top:3px solid ${colour};">
         <div class="panel-head">
-          <h3>${escapeHtml(b.label)} — reasons given <span style="color:var(--ink-faint);font-weight:600;">(${fmtInt(withReason.length)})</span></h3>
+          <h3>${escapeHtml(b.label)} — ${SEV_TITLE[mode]} <span style="color:var(--ink-faint);font-weight:600;">(${fmtInt(list.length)})</span></h3>
           <span class="hint">Click a row to open the conversation</span>
         </div>
+        <div class="dd-tabs">${tabs}</div>
         <div class="scroll tall">
           <table class="rt rowlink">
             <thead><tr><th>Reason given</th><th>Severity</th><th>Rating</th><th>Customer</th><th class="num">When</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
-        ${noReason ? `<div style="font-size:11.5px;color:var(--ink-faint);margin-top:10px;">
-          Plus ${fmtInt(noReason)} customer${noReason === 1 ? '' : 's'} who rated 1–2★ without writing a reason.
+        ${mode === 'all' && noReason ? `<div style="font-size:11.5px;color:var(--ink-faint);margin-top:10px;">
+          Plus ${fmtInt(noReason)} customer${noReason === 1 ? '' : 's'} who rated 1–2★ without writing a reason — i-click ang “No reason” para makita.
         </div>` : ''}
       </div>`;
-
+  }
+  const cards = cardData.map(({ b, sev }, i) => {
+    const rate = b.rated ? Math.round((b.dsats.length / b.rated) * 100) : 0;
+    const colour = RANK_COLORS[i];
     return `
-      <button type="button" class="dsat-card" data-i="${i}" style="--c:${colour};">
+      <div role="button" tabindex="0" class="dsat-card" data-i="${i}" style="--c:${colour};">
         <div class="dc-top">
           <span class="dc-rank">${i + 1}</span>
           <span class="dc-name">${escapeHtml(b.label)}</span>
@@ -2368,25 +2391,42 @@ function renderSatisfaction() {
         <div class="dc-num"><b>${fmtInt(b.dsats.length)}</b> DSATs <span>· ${rate}% of ${fmtInt(b.rated)} ratings</span></div>
         <div class="dc-bar"><i style="width:${Math.min(100, rate)}%;"></i></div>
         <div class="dc-sev">
-          <span class="sev-pill high">HIGH ${fmtInt(sev.high)}</span>
-          <span class="sev-pill medium">MEDIUM ${fmtInt(sev.medium)}</span>
-          <span class="sev-pill low">NO REASON ${fmtInt(sev.low)}</span>
+          <span class="sev-pill high sev-click" data-sev="high" title="Ipakita ang HIGH">HIGH ${fmtInt(sev.high)}</span>
+          <span class="sev-pill medium sev-click" data-sev="medium" title="Ipakita ang MEDIUM">MEDIUM ${fmtInt(sev.medium)}</span>
+          <span class="sev-pill low sev-click" data-sev="low" title="Ipakita ang walang reason">NO REASON ${fmtInt(sev.low)}</span>
         </div>
-        <div class="dc-hint">I-click para makita ang mga reason</div>
-      </button>`;
+        <div class="dc-hint">I-click ang card o ang HIGH / MEDIUM / NO REASON</div>
+      </div>`;
   });
 
   wrap.innerHTML = `<div class="dsat-cards">${cards.join('')}</div><div id="csBrandDetail"></div>`;
   const detailEl = document.getElementById('csBrandDetail');
-  wrap.querySelectorAll('.dsat-card').forEach(btn => btn.addEventListener('click', () => {
-    const i = Number(btn.dataset.i);
-    const open = btn.classList.contains('on');
-    wrap.querySelectorAll('.dsat-card').forEach(x => x.classList.remove('on'));
-    if (open) { detailEl.innerHTML = ''; return; }
-    btn.classList.add('on');
-    detailEl.innerHTML = details[i];
+  let openState = null; // { i, mode }
+  const show = (i, mode) => {
+    const same = openState && openState.i === i && openState.mode === mode;
+    wrap.querySelectorAll('.dsat-card').forEach(x => { x.classList.remove('on'); x.querySelectorAll('.sev-click').forEach(p => p.classList.remove('sel')); });
+    if (same) { openState = null; detailEl.innerHTML = ''; return; }
+    openState = { i, mode };
+    const card = wrap.querySelector(`.dsat-card[data-i="${i}"]`);
+    card.classList.add('on');
+    if (mode !== 'all') card.querySelector(`.sev-click[data-sev="${mode}"]`)?.classList.add('sel');
+    detailEl.innerHTML = detailHtml(i, mode);
     detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }));
+  };
+  wrap.querySelectorAll('.dsat-card').forEach(card => {
+    const i = Number(card.dataset.i);
+    card.addEventListener('click', e => {
+      const pill = e.target.closest('.sev-click');
+      show(i, pill ? pill.dataset.sev : 'all');
+    });
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(i, 'all'); } });
+  });
+  detailEl.addEventListener('click', e => {
+    const t = e.target.closest('.dd-tab');
+    if (!t) return;
+    e.stopPropagation();
+    if (!openState || openState.mode !== t.dataset.sev) show(Number(t.dataset.i), t.dataset.sev);
+  });
 
   csData.top3 = top3;
 
