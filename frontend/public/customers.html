@@ -876,8 +876,8 @@ body.team-view #exportBtn{display:none !important;}
         <div class="f-group">
           <span class="f-label">Catered By</span>
           <select id="caterFilter" class="admin-select">
-            <option value="all">All</option>
-            <option value="human" selected>🧑 Live Agent (Handoff + LiveChat)</option>
+            <option value="all" selected>All</option>
+            <option value="human">🧑 Live Agent (Handoff + LiveChat)</option>
             <option value="bot">🤖 Bot / AI</option>
           </select>
         </div>
@@ -1153,7 +1153,7 @@ body.team-view #exportBtn{display:none !important;}
   let currentBrand = 'all';
   let currentStatus = 'active'; // DEFAULT: itago ang Resolved — lalabas lang kapag pinili sa dropdown (2026-09-23)
   let currentHandoff = 'all';
-  let currentCater = 'human'; // DEFAULT: live-agent view (handoff + LiveChat) — 2026-09-23; all | human | bot
+  let currentCater = 'all'; // DEFAULT: All (2026-10-15, utos ni Chad; dati 'human' mula 2026-09-23); all | human | bot
   let currentAdmin = 'all';
   let currentCsatFilter = 'all';
   // CATEGORY filter (2026-09-28): concern galing sa backend classifier —
