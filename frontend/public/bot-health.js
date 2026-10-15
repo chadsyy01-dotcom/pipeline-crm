@@ -29,7 +29,7 @@
   const BRAND_LABELS = {
     buenasph: 'Buenas PH', tmtcash: 'TMTCash', mcp: 'Mobile Casino Play', manilaplayph: 'Manila Play PH',
     HypleplayPH: 'HypePlay PH', HypeplayBD: 'HypePlay BD', Tmtplay: 'TMTPLAY', MGK: '88MGK',
-    BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH', swabegaming: 'Swabe Gaming',
+    BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH', swabegaming: 'Swabe Gaming', SwabeGaming: 'Swabe Gaming',
     casinyeam: 'Casinyeam', manilacasino: 'Manila Casino', superscatterph: 'SuperScatter PH',
     'livechat-general': 'LC General',
   };
