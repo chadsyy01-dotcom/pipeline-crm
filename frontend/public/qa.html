@@ -504,6 +504,10 @@
     // hindi HH agent — hindi kasama sa Agent Conduct scan, gaya ng bots.
     'Love', 'OM - AOM', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'Admin Bogchi',
   ]);
+  // SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad): ang mga superadmin
+  // login (Love, Buenas88 Admin, OM - AOM, …) ay tao na — HINDI bot.
+  const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi'];
+  SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_NAMES_CLIENT.delete(n));
   // 'Admin Hanna' ay BOT sa Hype PH pero TUNAY NA TAO sa TMTCash — brand-scoped.
   const BRAND_BOT_CLIENT = {
     hypleplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
