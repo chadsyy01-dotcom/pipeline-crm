@@ -1691,7 +1691,7 @@ body.team-view #exportBtn{display:none !important;}
       // huling reply ay galing sa taong agent na wala sa bot-name list.
       // Bot = lahat ng hindi pasok doon (AI persona pa rin ang humahawak).
       filtered = filtered.filter(c => {
-        const humanHandled = LIVECHAT_BRANDS.has(c.brand) || !!c.handoffStage ||
+        const humanHandled = LIVECHAT_BRANDS.has(c.brand) || !!c.handoffStage || c.sessionHandoff === true ||
           (c.lastMessageSenderType === 'user' && c.lastMessageSender && !isBotClient(c.brand, c.lastMessageSender));
         return currentCater === 'human' ? humanHandled : !humanHandled;
       });
@@ -1767,7 +1767,12 @@ body.team-view #exportBtn{display:none !important;}
       && !isBotClient(c.brand, c.lastMessageSender);
     // sessionHandoff === false: lumang label lang, AI lang ang kausap sa
     // kasalukuyang session — hindi Missed (2026-10-13).
-    if (c.handoffStage && c.sessionHandoff !== false && !answered && !agentSpokeLast && !c.waitExempt) {
+    // HANDOFF KAHIT WALANG LABEL (2026-10-15, Swabe): kapag nag-transfer
+    // message na ang AI ("Let me connect you now with our team…") pero wala
+    // pang handoff label (hal. sgpending_humanhandoff), handoff na rin ito —
+    // backend: sessionHandoff === true (rule (b) sa sessionHasHandoff).
+    const handedOff = (c.handoffStage && c.sessionHandoff !== false) || (c.sessionHandoff === true && !LIVECHAT_BRANDS.has(c.brand));
+    if (handedOff && !answered && !agentSpokeLast && !c.waitExempt) {
       if (idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
       return { cls: 'waiting', label: 'Waiting', late };
     }
@@ -1782,7 +1787,7 @@ body.team-view #exportBtn{display:none !important;}
     // Ang aktibong chat na AI pa lang ang kausap (walang handoff sa session
     // na ito at walang human reply) ay "AI Chat" — hindi Ongoing.
     const humanNow = LIVECHAT_BRANDS.has(c.brand) || answered || agentSpokeLast
-      || (c.handoffStage && c.sessionHandoff !== false);
+      || handedOff;
     if (!humanNow) return { cls: 'aichat', label: 'AI Chat', late };
     return { cls: 'ongoing', label: 'Ongoing Chats', late };
   }
