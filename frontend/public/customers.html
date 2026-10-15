@@ -647,7 +647,7 @@ body.team-view #exportBtn{display:none !important;}
       const res = await fetch(`${API_BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error("Invalid session");
+      if (!res.ok) throw Object.assign(new Error("Invalid session"), { authFail: res.status === 401 });
       const data = await res.json();
       const user = data.user || data;
       if (user) {
@@ -671,6 +671,9 @@ body.team-view #exportBtn{display:none !important;}
         }
       }
     } catch (err) {
+      // LOGIN LOOP FIX (2026-10-15): logout lang kapag 401 talaga. Ang network/abort
+      // error (hal. CSR na nire-redirect ng role guard habang naglo-load pa) ay hindi logout.
+      if (!err || !err.authFail) return;
       localStorage.removeItem("pipeline_token");
       window.location.href = LOGIN_PATH;
     }
@@ -2940,6 +2943,6 @@ body.team-view #exportBtn{display:none !important;}
 </script>
 <!-- ============== END TRANSLATE TO ENGLISH BLOCK ============== -->
 
-<script src="sidebar-topnav.js?v=3"></script>
+<script src="sidebar-topnav.js?v=4"></script>
 </body>
 </html>
