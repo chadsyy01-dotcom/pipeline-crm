@@ -1013,6 +1013,7 @@ body.team-view #exportBtn{display:none !important;}
     MGK: '88MGK',
     BuenasCredit: 'Buenas Credit',
     LuckystacksPH: 'LuckyStacks PH',
+    swabegaming: 'Swabe Gaming',
     // ---- LiveChat.com brands (resolved from originating domain) ----
     casinyeam: 'Casinyeam',
     manilacasino: 'Manila Casino',
@@ -2531,7 +2532,7 @@ body.team-view #exportBtn{display:none !important;}
       const missTag = !mi ? ''
         : mi.req ? `<br><span class="req-tag" title="Humingi ng real agent pero hindi pa naipasa ng AI — hindi bilang sa Missed Chats">HUMINGI NG AGENT · ${mi.waiting ? 'hindi pa naipasa ni AI' : `nasagot after ${mi.mins}`} · hindi bilang sa MC</span>`
         : `<br><span class="miss-tag">${mi.late ? `MISSED 3MIN · nasagot after ${mi.mins}` : 'WALANG SAGOT'}</span>`;
-      const SUPERADMIN_NAMES = new Set(['Love', 'Admin Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi']);
+      const SUPERADMIN_NAMES = new Set(['Love', 'Admin Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin']);
       // 2026-10-15: SUPERADMIN = real agent na (tag lang, hindi bot)
       const botTag = (m.senderType === 'user' && SUPERADMIN_NAMES.has(m.senderName))
         ? ` <span class="bot-tag" title="Superadmin — bilang na real agent">SUPERADMIN</span>`
@@ -2577,6 +2578,7 @@ body.team-view #exportBtn{display:none !important;}
     'Admin Tala', 'Agent Tala', 'Tala',
     'TMTPlay Admin',
     'Admin Mim', 'Agent Mim', 'Mim',
+  'Admin Kim', 'Agent Kim', 'Kim',   // Swabe Gaming AI (2026-10-15)
     'Bogchi',
     // SUPERADMIN accounts (opisyal na roster ni Chad, 2026-10-10): hindi
     // sila HH agent — owner/system logins na nagpapadala ng automated
@@ -2586,7 +2588,7 @@ body.team-view #exportBtn{display:none !important;}
   ]);
   // SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad): ang mga superadmin
   // login (Love, Buenas88 Admin, OM - AOM, …) ay tao na — HINDI bot.
-  const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi'];
+  const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin'];
   SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_NAMES_CLIENT.delete(n));
 
   // Brand-scoped bot personas — sync sa chatwoot.js. 'Admin Hanna' ay BOT
