@@ -2523,8 +2523,10 @@ body.team-view #exportBtn{display:none !important;}
         : mi.req ? `<br><span class="req-tag" title="Humingi ng real agent pero hindi pa naipasa ng AI — hindi bilang sa Missed Chats">HUMINGI NG AGENT · ${mi.waiting ? 'hindi pa naipasa ni AI' : `nasagot after ${mi.mins}`} · hindi bilang sa MC</span>`
         : `<br><span class="miss-tag">${mi.late ? `MISSED 3MIN · nasagot after ${mi.mins}` : 'WALANG SAGOT'}</span>`;
       const SUPERADMIN_NAMES = new Set(['Love', 'Admin Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi']);
-      const botTag = (m.senderType === 'user' && isBotClient(m.brand, m.senderName))
-        ? ` <span class="bot-tag">${SUPERADMIN_NAMES.has(m.senderName) ? 'SUPERADMIN' : 'AI'}</span>` : '';
+      // 2026-10-15: SUPERADMIN = real agent na (tag lang, hindi bot)
+      const botTag = (m.senderType === 'user' && SUPERADMIN_NAMES.has(m.senderName))
+        ? ` <span class="bot-tag" title="Superadmin — bilang na real agent">SUPERADMIN</span>`
+        : (m.senderType === 'user' && isBotClient(m.brand, m.senderName)) ? ` <span class="bot-tag">AI</span>` : '';
       const resPills = resolvedBefore(atMs);
       return `${resPills}${divider}${tagB}
         <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${mi && !mi.req ? ' msg-missed' : ''}">
@@ -2573,6 +2575,10 @@ body.team-view #exportBtn{display:none !important;}
     // handoff/FTR, gaya ng bots.
     'Love', 'OM - AOM', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'Admin Bogchi',
   ]);
+  // SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad): ang mga superadmin
+  // login (Love, Buenas88 Admin, OM - AOM, …) ay tao na — HINDI bot.
+  const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi'];
+  SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_NAMES_CLIENT.delete(n));
 
   // Brand-scoped bot personas — sync sa chatwoot.js. 'Admin Hanna' ay BOT
   // sa Hype PH pero TUNAY NA TAO sa TMTCash (2026-09-24).
