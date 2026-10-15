@@ -423,6 +423,30 @@
 .split-bar .s-mid{background:#C9CBD9;}
 .split-bar .s-bad{background:#E5484D;}
 .split-note{font-size:12px;color:var(--ink-faint);}
+
+/* ---------- COMPACT HEADER SA TEAM TABS (2026-10-15, utos ni Chad) ----------
+   BRAVO / DELTA / FOXTROT / ECHO: mas maliit ang header at cards para mas
+   malaki ang espasyo ng chats list. Customers (walang team) = dati pa rin. */
+body.team-view .hero{padding:14px 22px 62px;margin-bottom:-48px;border-radius:18px;}
+body.team-view .hero .greeting h1{font-size:26px;margin:0 0 3px;}
+body.team-view .hero .greeting p{font-size:12.5px;}
+body.team-view .hero .search,body.team-view .hero .icon-btn{height:38px;}
+body.team-view .hero .icon-btn{width:38px;}
+body.team-view .hero .avatar{width:36px;height:36px;}
+body.team-view .csat-panel{gap:10px;margin-bottom:14px;}
+body.team-view .csat-panel > .csat-stat,body.team-view .csat-split{padding:12px 16px;border-radius:14px;}
+body.team-view .csat-stat-label{font-size:10.5px;margin-bottom:4px;}
+body.team-view .csat-stat-label .kpi-ico{width:24px;height:24px;margin:-4px 0;}
+body.team-view .csat-stat-label .kpi-ico svg{width:13px;height:13px;}
+body.team-view .csat-stat-value{font-size:24px;}
+body.team-view .csat-split .csat-stat-value{font-size:21px;}
+body.team-view .csat-stat-sub,body.team-view .csat-split .csat-stat-sub{font-size:11px;margin-top:3px;}
+body.team-view .stars{font-size:13px;letter-spacing:2px;margin-top:4px;}
+body.team-view .csat-split{gap:7px;}
+body.team-view .split-bar{height:8px;}
+body.team-view .split-note{display:none;}
+/* Export CSV: tanggal sa team tabs (2026-10-15, utos ni Chad) */
+body.team-view #exportBtn{display:none !important;}
 @media (max-width:1280px){
   .csat-panel{grid-template-columns:repeat(2,minmax(0,1fr));}
   .csat-split{grid-column:span 2;}
@@ -1027,6 +1051,7 @@
   if (TEAM) {
     const setTeamTitle = () => {
       const h = document.getElementById('custTitle'), sub = document.getElementById('custSub');
+      document.body.classList.add('team-view');
       if (h) h.textContent = 'Team ' + TEAM.label;
       if (sub) sub.textContent = 'Customers ng ' + TEAM.label + ': ' + TEAM.brands.filter((b, i, a) => BRAND_LABELS[b] && a.findIndex(x => BRAND_LABELS[x] === BRAND_LABELS[b]) === i).map(b => BRAND_LABELS[b]).join(' · ') + (TEAM.match ? ' · Swabe Gaming' : '');
       document.title = 'Team ' + TEAM.label + ' — CSR Dashboard';
