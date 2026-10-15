@@ -501,8 +501,9 @@
   const token = () => localStorage.getItem('pipeline_token');
   if (!token()) window.location.href = LOGIN_PATH;
   fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token()}` } })
-    .then(r => { if (!r.ok) throw new Error('auth'); })
-    .catch(() => { localStorage.removeItem('pipeline_token'); window.location.href = LOGIN_PATH; });
+    .then(r => { if (!r.ok) throw Object.assign(new Error('auth'), { authFail: r.status === 401 }); })
+    // LOGIN LOOP FIX (2026-10-15): logout lang kapag 401 talaga
+    .catch(e => { if (!e || !e.authFail) return; localStorage.removeItem('pipeline_token'); window.location.href = LOGIN_PATH; });
 
   const { escapeHtml, relativeTime, colorForName, initialsForName } = TicketData;
 
@@ -1358,6 +1359,6 @@
     if (chev && sub) chev.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); sub.classList.toggle('open'); chev.classList.toggle('open', sub.classList.contains('open')); });
   })();
 </script>
-<script src="sidebar-topnav.js?v=1"></script>
+<script src="sidebar-topnav.js?v=4"></script>
 </body>
 </html>
