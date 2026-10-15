@@ -2531,7 +2531,10 @@ body.team-view #exportBtn{display:none !important;}
       }
       const when = m.createdAt ? new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
       const hit = msgMatches(m);
-      let bubbleHtml = renderMessageContent(m.content);
+      // LiveChat file: ang placeholder text ("📷 [Nagpadala ng larawan]") ay
+      // hindi na ipapakita kapag may mismong larawan/file na.
+      const lcFileOnly = m.payload && m.payload.lc_file_url && /^\s*(📷|📎)\s*\[Nagpadala ng/.test(String(m.content || ''));
+      let bubbleHtml = lcFileOnly ? '' : renderMessageContent(m.content);
       if (hit) bubbleHtml = highlightMatches(bubbleHtml, searchQ);
       bubbleHtml += renderAttachments(attachmentsOf(m), !!bubbleHtml);
       if (m.csatRating != null) {
@@ -2643,6 +2646,14 @@ body.team-view #exportBtn{display:none !important;}
   // ---------------------------------------------------------------------------
   function attachmentsOf(m) {
     const list = m && m.payload && Array.isArray(m.payload.attachments) ? m.payload.attachments : [];
+    // LIVECHAT FILES (2026-10-15): ang LiveChat ay walang payload.attachments —
+    // ang url ay nasa payload.lc_file_url (+ lc_file_type), galing livechat.js.
+    if (!list.length && m && m.payload && m.payload.lc_file_url) {
+      const u = m.payload.lc_file_url, ct = String(m.payload.lc_file_type || '');
+      const kind = /^image\//i.test(ct) || /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(u) ? 'image'
+        : /^video\//i.test(ct) ? 'video' : /^audio\//i.test(ct) ? 'audio' : 'file';
+      return [{ url: u, type: kind, name: (String(m.content || '').match(/\(([^)]+)\)\s*$/) || [])[1] || '' }];
+    }
     return list.filter(a => a && (a.url || (a.lat != null && a.lng != null)));
   }
   function safeAttUrl(u) {
