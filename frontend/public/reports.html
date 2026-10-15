@@ -1359,13 +1359,15 @@ const DIVISION_TO_CHAT_SLUG = {
   'hype bdt':           'HypeplayBD',
   'mgk':                'MGK',
   'luckystacks':        'LuckystacksPH',
+  'swabe gaming':       'swabegaming',
+  'swabe':              'swabegaming',
   // 'gwin' has no chat slug yet — add one here when it is set up.
 };
 
 const CHAT_BRAND_LABELS = {
   buenasph: 'Buenas Cash', tmtcash: 'TMT Cash', mcp: 'Mobile Play Casino', manilaplayph: 'Manila Play',
   HypleplayPH: 'Hype Play', HypeplayBD: 'Hype BDT', Tmtplay: 'TMT Play', MGK: 'MGK',
-  BuenasCredit: 'Buenas Credits', LuckystacksPH: 'LuckyStacks',
+  BuenasCredit: 'Buenas Credits', LuckystacksPH: 'LuckyStacks', swabegaming: 'Swabe Gaming',
   casinyeam: 'Casinyeam', manilacasino: 'Mc88', superscatterph: 'Super Scatter PH',
   'livechat-general': 'LC General',
 };
@@ -2260,10 +2262,11 @@ const SEV_LABEL = { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
 const AI_BOT_NAMES_CLIENT = new Set([
   'Admin Joy','Admin Love','Agent Jem','Manila Play Admin','Mona','Hype Play PH Admin','Bogchi',
   'Lucky Stacks Admin','Admin May','TMTPlay Admin','Buenas88 Admin','Maya',
+  'Admin Kim','Agent Kim','Kim',   // Swabe Gaming AI (2026-10-15)
 ]);
 // SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad): ang mga superadmin
 // login (Love, Buenas88 Admin, OM - AOM, …) ay tao na — HINDI bot.
-const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi'];
+const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin'];
 SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_NAMES_CLIENT.delete(n));
 function stripHtmlClient(html) {
   if (!html) return '';
