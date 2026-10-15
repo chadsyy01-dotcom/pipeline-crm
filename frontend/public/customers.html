@@ -1038,10 +1038,10 @@ body.team-view #exportBtn{display:none !important;}
   // mga brand ng team na iyon (lahat ng counts, stats, CSAT at listahan).
   // Swabe Gaming: wala pang alam na slug — tinutugma rin ayon sa pangalan.
   const CSR_TEAMS = {
-    bravo:   { label: 'BRAVO',   brands: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph'] },
-    delta:   { label: 'DELTA',   brands: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD', 'manilaplay', 'hypeplayph', 'hypeplaybd'] },
-    foxtrot: { label: 'FOXTROT', brands: ['MGK', 'Tmtplay', 'BuenasCredit', 'LuckystacksPH', 'mastergoldkey', 'luckystacksph', 'tmtplay', 'swabegaming', 'SwabeGaming', 'swabe'], match: /swabe/i },
-    echo:    { label: 'ECHO',    brands: ['buenasph'] },
+    bravo:   { label: 'BRAVO',   show: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph'], brands: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph'] },
+    delta:   { label: 'DELTA',   show: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD'], brands: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD', 'manilaplay', 'hypeplayph', 'hypeplaybd'] },
+    foxtrot: { label: 'FOXTROT', show: ['Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH', 'swabegaming'], brands: ['MGK', 'Tmtplay', 'BuenasCredit', 'LuckystacksPH', 'mastergoldkey', 'luckystacksph', 'tmtplay', 'swabegaming', 'SwabeGaming', 'swabe'], match: /swabe/i },
+    echo:    { label: 'ECHO',    show: ['buenasph'], brands: ['buenasph'] },
   };
   const TEAM_KEY = (new URLSearchParams(location.search).get('team') || '').toLowerCase();
   const TEAM = CSR_TEAMS[TEAM_KEY] || null;
@@ -1057,7 +1057,7 @@ body.team-view #exportBtn{display:none !important;}
       const h = document.getElementById('custTitle'), sub = document.getElementById('custSub');
       document.body.classList.add('team-view');
       if (h) h.textContent = 'Team ' + TEAM.label;
-      if (sub) sub.textContent = 'Customers ng ' + TEAM.label + ': ' + TEAM.brands.filter((b, i, a) => BRAND_LABELS[b] && a.findIndex(x => BRAND_LABELS[x] === BRAND_LABELS[b]) === i).map(b => BRAND_LABELS[b]).join(' · ') + (TEAM.match ? ' · Swabe Gaming' : '');
+      if (sub) sub.textContent = 'Customers ng ' + TEAM.label + ': ' + (TEAM.show || TEAM.brands).map(b => BRAND_LABELS[b] || b).join(' · ');
       document.title = 'Team ' + TEAM.label + ' — CSR Dashboard';
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setTeamTitle); else setTeamTitle();
@@ -1307,14 +1307,19 @@ body.team-view #exportBtn{display:none !important;}
   // the current selection (select.onchange is idempotent across rebuilds).
   function renderBrandTabs() {
     const counts = {};
+    // Team tab (2026-10-15): lahat ng brand ng team ay nasa dropdown kahit 0
+    // pa ang chats (hal. Swabe Gaming sa FOXTROT bago pa pumasok ang unang chat).
+    if (TEAM && TEAM.show) TEAM.show.forEach(b => { counts[b] = 0; });
     allConversations.forEach(c => { counts[c.brand] = (counts[c.brand] || 0) + 1; });
+    // huwag doblehin kapag lumang slug ang may chats (hal. 'tmtplay' vs 'Tmtplay')
+    if (TEAM && TEAM.show) TEAM.show.forEach(b => { if (!counts[b] && Object.keys(counts).some(k => k !== b && counts[k] && brandLabel(k) === brandLabel(b))) delete counts[b]; });
     const select = document.getElementById('brandFilter');
     if (!select) return;
     select.innerHTML = `<option value="all">All Brands (${allConversations.length})</option>` +
       Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(brand =>
         `<option value="${escapeHtml(brand)}">${escapeHtml(brandLabel(brand))} (${counts[brand]})</option>`
       ).join('');
-    select.value = (currentBrand === 'all' || counts[currentBrand]) ? currentBrand : 'all';
+    select.value = (currentBrand === 'all' || counts[currentBrand] != null) ? currentBrand : 'all';
     currentBrand = select.value;
     select.onchange = () => {
       currentBrand = select.value;
