@@ -284,6 +284,29 @@
   .cust-row .v{font-weight:700;text-align:right;word-break:break-word;}
   .cust-row .v.muted{font-weight:600;color:var(--ink-faint);font-style:italic;}
   .cust-section-title{font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint);margin:6px 0 -4px;}
+  /* CLICKABLE CHATS / TICKETS (2026-10-15) */
+  .cust-stat.clk{cursor:pointer;transition:box-shadow .15s,background .15s;position:relative;}
+  .cust-stat.clk:hover{box-shadow:inset 0 0 0 1.5px var(--line);}
+  .cust-stat.clk.on{background:var(--primary-tint);box-shadow:inset 0 0 0 2px var(--primary);}
+  .cust-stat.clk .lbl::after{content:' ▾';color:var(--ink-faint);}
+  .cust-stat.clk.on .lbl{color:var(--primary);}
+  .ct-row{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
+  .ct-top{display:flex;align-items:center;gap:10px;}
+  .ct-top .cc-main{min-width:0;flex:1;}
+  .ct-issue{font-size:12.5px;font-weight:700;color:var(--ink);}
+  .ct-meta{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .ct-pill{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;}
+  .ct-pill.pending{background:#FFF4DB;color:#A15C00;}
+  .ct-pill.checking{background:#E8F0FF;color:#2754C5;}
+  .ct-pill.done{background:#E7F7EF;color:#0F7B53;}
+  .ct-pill.rejected{background:#FDECEC;color:#C8283A;}
+  .ct-pill.unknown{background:#F1F5F9;color:#64748B;}
+  .ct-rem{border-left:3px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--ink-soft);}
+  .ct-rem.done{border-left-color:#12A574;} .ct-rem.rejected{border-left-color:#E5484D;}
+  .ct-rem b{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin-right:6px;}
+  .ct-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 -2px;}
+  .ct-tab{all:unset;cursor:pointer;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);}
+  .ct-tab.on{background:var(--ink);color:#fff;border-color:var(--ink);}
   .cust-conv{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;border:1px solid var(--line);}
   .cust-conv:hover{background:var(--bg);}
   .cust-conv .cc-main{min-width:0;flex:1;}
@@ -2165,10 +2188,9 @@ body.team-view #exportBtn{display:none !important;}
         <div class="cust-stats">
           <div class="cust-stat"><div class="lbl">Tickets</div><div class="val">${ticketCount}</div><div class="sub">${openTickets ? `${openTickets} still open` : 'all closed'}</div></div>
         </div>
-        <div class="cust-section-title">Tickets (${ticketCount})</div>
-        ${rows}
-        ${ticketCount > 25 ? `<div class="cust-note">Showing the 25 most recent of ${ticketCount}.</div>` : ''}
+        <div id="custDetail" style="display:flex;flex-direction:column;gap:8px;">${customerTicketsHtml(tickets)}</div>
       `;
+      bindTicketTabs(body.querySelector('#custDetail'), tickets);
       return;
     }
 
@@ -2177,12 +2199,12 @@ body.team-view #exportBtn{display:none !important;}
 
     const stats = `
       <div class="cust-stats">
-        <div class="cust-stat">
+        <div class="cust-stat clk on" data-show="chats" title="I-click para makita ang mga chat">
           <div class="lbl">Chats</div>
           <div class="val">${d.totalChats}</div>
           <div class="sub">last 70 days</div>
         </div>
-        <div class="cust-stat">
+        <div class="cust-stat clk" data-show="tickets" title="I-click para makita ang mga ticket">
           <div class="lbl">Tickets</div>
           <div class="val">${ticketCount == null ? '—' : ticketCount}</div>
           <div class="sub">${ticketCount == null ? 'sheet unavailable' : (openTickets ? `${openTickets} still open` : 'matched by name')}</div>
@@ -2238,17 +2260,73 @@ body.team-view #exportBtn{display:none !important;}
       ? '<div class="cust-note">No tickets found under this exact name. Ticket forms ask for a name separately from the chat username, so the same person may have filed tickets under a different one.</div>'
       : '';
 
+    const chatsHtml = `
+      <div class="cust-section-title">Conversations (${d.conversations.length})</div>
+      ${convs || '<div class="cust-note">Walang chat sa huling 70 araw.</div>'}
+      ${d.conversations.length > 25 ? `<div class="cust-note">Showing the 25 most recent of ${d.conversations.length}.</div>` : ''}`;
+
     body.innerHTML = `
       ${stats}
+      <div id="custDetail" style="display:flex;flex-direction:column;gap:8px;">${chatsHtml}</div>
       ${details}
-      ${ticketNote}
-      <div class="cust-section-title">Conversations (${d.conversations.length})</div>
-      ${convs}
-      ${d.conversations.length > 25 ? `<div class="cust-note">Showing the 25 most recent of ${d.conversations.length}.</div>` : ''}
     `;
 
-    body.querySelectorAll('.cust-conv').forEach(el => el.addEventListener('click', () => {
+    // CLICKABLE CHATS / TICKETS (2026-10-15, utos ni Chad): i-click ang Chats
+    // o Tickets card → lalabas sa ilalim ang listahan. Ang tickets ay may
+    // status (Pending / In Progress / Done / Rejected) at remarks.
+    const detail = body.querySelector('#custDetail');
+    const bindConvs = () => detail.querySelectorAll('.cust-conv').forEach(el => el.addEventListener('click', () => {
       openConversationModal(el.dataset.conversationId, el.dataset.customerName, el.dataset.customerSub, el.dataset.brand);
+    }));
+    const show = what => {
+      body.querySelectorAll('.cust-stat.clk').forEach(x => x.classList.toggle('on', x.dataset.show === what));
+      if (what === 'tickets') { detail.innerHTML = customerTicketsHtml(tickets, ticketNote); bindTicketTabs(detail, tickets); }
+      else { detail.innerHTML = chatsHtml; bindConvs(); }
+    };
+    body.querySelectorAll('.cust-stat.clk').forEach(el => el.addEventListener('click', () => show(el.dataset.show)));
+    bindConvs();
+  }
+
+  // Ticket list para sa customer profile (2026-10-15)
+  function ticketRemarks(t) {
+    const out = [], seen = new Set();
+    const add = (label, val) => { const v = String(val || '').trim(); if (v && !seen.has(v)) { seen.add(v); out.push([label, v]); } };
+    add(t.statusCls === 'rejected' ? 'Reject reason' : 'Remarks', t.rejectReason);
+    const raw = t.raw || {};
+    Object.keys(raw).forEach(k => {
+      if (/^[a-z_]/.test(k)) return;
+      if (/reject|remark|note|reason|comment|resolution/i.test(k)) add(k, raw[k]);
+    });
+    return out;
+  }
+  function customerTicketsHtml(tickets, emptyNote, filter) {
+    if (tickets == null) return '<div class="cust-note">Hindi ma-load ang ticket sheet ngayon.</div>';
+    if (!tickets.length) return emptyNote || '<div class="cust-note">Walang ticket sa pangalang ito.</div>';
+    const f = filter || 'all';
+    const isOpen = t => t.statusCls === 'pending' || t.statusCls === 'checking';
+    const cnt = { all: tickets.length, open: tickets.filter(isOpen).length, done: tickets.filter(t => t.statusCls === 'done').length, rejected: tickets.filter(t => t.statusCls === 'rejected').length };
+    const list = tickets.filter(t => f === 'all' || (f === 'open' ? isOpen(t) : t.statusCls === f))
+      .slice().sort((a, b) => (b.submitted || 0) - (a.submitted || 0));
+    const fmt = x => x instanceof Date && !isNaN(x) ? x.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+    const tabs = [['all', 'Lahat'], ['open', 'Pending / In progress'], ['done', 'Done'], ['rejected', 'Rejected']]
+      .map(([k, l]) => `<button type="button" class="ct-tab${k === f ? ' on' : ''}" data-f="${k}">${l} ${cnt[k]}</button>`).join('');
+    const rows = list.slice(0, 50).map(t => {
+      const rem = ticketRemarks(t);
+      const by = t.statusCls === 'done' || t.statusCls === 'rejected' ? (t.resolvedBy ? ` · ${escapeHtml(t.resolvedBy)}` : '') + (t.resolvedAt ? ` · ${fmt(t.resolvedAt)}` : '') : (t.acknowledgedBy ? ` · hawak ni ${escapeHtml(t.acknowledgedBy)}` : '');
+      return `<div class="ct-row">
+        <div class="ct-top"><div class="cc-main">
+          <div class="ct-issue">${escapeHtml(t.issue || '—')}</div>
+          <div class="ct-meta">${escapeHtml(t.id || '')} · ${escapeHtml(t.brandLabel || '')} · ${fmt(t.submitted)}${by}</div>
+        </div><span class="ct-pill ${escapeHtml(t.statusCls || 'unknown')}">${escapeHtml(t.statusLabel || t.statusRaw || '—')}</span></div>
+        ${rem.length ? rem.map(([k, v]) => `<div class="ct-rem ${escapeHtml(t.statusCls || '')}"><b>${escapeHtml(k)}</b>${escapeHtml(v)}</div>`).join('') : (t.statusCls === 'done' || t.statusCls === 'rejected' ? '<div class="ct-meta" style="font-style:italic;">Walang remarks</div>' : '')}
+      </div>`;
+    }).join('') || '<div class="cust-note">Walang ticket sa filter na ito.</div>';
+    return `<div class="cust-section-title">Tickets (${tickets.length})</div><div class="ct-tabs">${tabs}</div>${rows}${list.length > 50 ? `<div class="cust-note">Ipinapakita ang 50 pinakabago sa ${list.length}.</div>` : ''}`;
+  }
+  function bindTicketTabs(container, tickets) {
+    container.querySelectorAll('.ct-tab').forEach(b => b.addEventListener('click', () => {
+      container.innerHTML = customerTicketsHtml(tickets, '', b.dataset.f);
+      bindTicketTabs(container, tickets);
     }));
   }
 
