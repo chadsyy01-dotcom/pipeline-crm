@@ -159,6 +159,7 @@ const AI_BOT_SENDER_NAMES = new Set([
   'TMTPlay Admin',         // admin@tmtplay88.online
   // HypePlay BDT
   'Admin Mim', 'Agent Mim', 'Mim',
+  'Admin Kim', 'Agent Kim', 'Kim',   // Swabe Gaming AI (2026-10-15)
   'Bogchi',                // admin@hypeplaybdt.com (lumang persona)
   // SUPERADMIN accounts (opisyal na roster ni Chad, 2026-10-10): hindi
   // sila HH agent — owner/system logins na nagpapadala ng automated
@@ -170,7 +171,7 @@ const AI_BOT_SENDER_NAMES = new Set([
 // real agent", hal. Buenas88 Admin sa Buenas Credit na sumagot pagkatapos ng
 // handoff). Tinatanggal sila sa bot list. Exception: ang automated na
 // mensahe nila (survey / "Rate our support") ay hindi pa rin human reply.
-const SUPERADMIN_NAMES = new Set(['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi']);
+const SUPERADMIN_NAMES = new Set(['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin']);
 SUPERADMIN_NAMES.forEach(n => AI_BOT_SENDER_NAMES.delete(n));
 const AUTOMATED_MSG_RE = /rate\s+(our|your|the)\s+(support|conversation|chat|experience|service)|please\s+rate|how\s+would\s+you\s+rate|customer\s+satisfaction\s+survey|i-?rate\s+ang/i;
 
