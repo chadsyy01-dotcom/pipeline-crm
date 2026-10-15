@@ -182,6 +182,10 @@ const AUTOMATED_MSG_RE = /rate\s+(our|your|the)\s+(support|conversation|chat|exp
 const BRAND_BOT_SENDER_NAMES = {
   hypleplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
   hypeplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
+  // Swabe Gaming (2026-10-15): si 'Admin Bea' ang nagpapadala ng AI messages sa
+  // Swabe (hal. "Let me connect you now with our team") — BOT doon lang; TAO
+  // pa rin si Admin Bea sa Buenas Cash.
+  swabegaming: new Set(['Admin Bea', 'Agent Bea', 'Bea']),
 };
 
 // ANG opisyal na tanong na "bot ba ito?" — brand-aware. Gamitin ito sa lahat
