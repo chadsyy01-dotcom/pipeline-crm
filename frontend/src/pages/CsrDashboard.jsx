@@ -13,7 +13,20 @@ const DEFAULT_PAGE = '/csr-dashboard.html';
 // hindi magamit ang hash para magbukas ng ibang site sa loob ng iframe.
 const SAFE_PAGE = /^\/[A-Za-z0-9_\-/]+\.html(\?[^#]*)?$/;
 
+// CSR role (2026-10-15): Customers, Settings at Profile lang ang bukas sa kanila
+// (tingnan ang ROLE GUARD sa public/sidebar-topnav.js). Diretso na sila sa
+// Customers para hindi na dumaan sa Dashboard at ma-redirect habang naglo-load.
+const CSR_PAGES = /^\/(customers|settings|profile)\.html(\?|$)/;
+function isCsr() {
+  try { return String(localStorage.getItem('csr_role') || '').toUpperCase() === 'CSR'; } catch { return false; }
+}
+
 function pageFromHash() {
+  const p = pageFromHashRaw();
+  return isCsr() && !CSR_PAGES.test(p) ? '/customers.html' : p;
+}
+
+function pageFromHashRaw() {
   const raw = window.location.hash.replace(/^#/, '');
   if (!raw) return DEFAULT_PAGE;
   let page;
