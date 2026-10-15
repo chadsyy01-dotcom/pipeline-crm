@@ -992,7 +992,33 @@ router.get('/conversations', requireAuth, conversationsMicroCache, async (req, r
     // this only runs for conversations that actually have a handoff —
     // there's no point computing human response times for pure-AI ones,
     // and it keeps this extra query scoped to a much smaller set.
-    const handoffIds = conversations.filter(c => c.handoffStage).map(c => c.conversationId);
+    // HANDOFF KAHIT WALANG LABEL (2026-10-15, Swabe Gaming): may brands na
+    // huli o hindi naglalagay ng handoff label (hal. sgpending_humanhandoff),
+    // pero nag-transfer na ang AI ("Let me connect you now with our team…").
+    // Hanapin ang mga conversation na walang stage pero may bot transfer
+    // message (HANDOFF_MSG_RE, huling 3 araw) para makuwenta rin sila —
+    // kung hindi, "AI Chat" ang lalabas sa halip na Waiting/Missed.
+    const xferKeys = new Set();
+    const noStageIds = conversations
+      .filter(c => !c.handoffStage && !LIVECHAT_BRAND_SET.has(c.brand))
+      .map(c => c.conversationId);
+    if (noStageIds.length > 0) {
+      try {
+        const xferRows = await sequelize.query(`
+          SELECT DISTINCT "brand", "conversationId", "senderName"
+          FROM "ChatwootEvents"
+          WHERE event = 'message_created' AND "senderType" = 'user'
+            AND "conversationId" IN (:noStageIds)
+            AND "createdAt" > NOW() - INTERVAL '3 days'
+            AND "content" ~* :re
+        `, { replacements: { noStageIds, re: HANDOFF_MSG_RE.source }, type: QueryTypes.SELECT });
+        xferRows.forEach(r => { if (isBotSender(r.brand, r.senderName)) xferKeys.add(ck(r.brand, r.conversationId)); });
+      } catch (e) {
+        console.warn('[conversations] transfer-message lookup failed:', e.message);
+      }
+    }
+    const needsCalc = c => !!c.handoffStage || xferKeys.has(ck(c.brand, c.conversationId));
+    const handoffIds = conversations.filter(needsCalc).map(c => c.conversationId);
     if (handoffIds.length > 0) {
       const allMessages = await sequelize.query(`
         SELECT "conversationId", "brand", "senderType", "senderName", "createdAt", "handoffStage", LEFT(content, 400) AS content
@@ -1008,7 +1034,7 @@ router.get('/conversations', requireAuth, conversationsMicroCache, async (req, r
       });
 
       conversations.forEach(c => {
-        if (!c.handoffStage) return;
+        if (!needsCalc(c)) return;
         const msgs = byConversation[ck(c.brand, c.conversationId)];
         if (!msgs) return;
         const { art, ftr, ftrExempt, ftrExemptWhy, waitExempt, sessionHandoff, humanReplied } = computeArtFtr(msgs, c.brand);
