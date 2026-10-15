@@ -1752,6 +1752,8 @@ body.team-view #exportBtn{display:none !important;}
   // Kapareho ng AGENT_REQ_RE sa backend/routes/chatwoot.js.
   const AGENT_REQ_RE = /\b(real|live|human|actual|totoong)\s*(agent|person|tao|representative|rep|staff|support|cs|csr)\b|\b(speak|talk|chat|connect|transfer)\w*\s+(me\s+)?(directly\s+)?(with|to)\s+(a|an|the|your)?\s*(real\s+|live\s+|human\s+|custom\w*\s+(service\s+)?)?(agent|human|person|representative|rep|staff|cs|csr|admin|support)\b|\b(kausap(in)?|makausap|ka-?chat)\b[\s\S]{0,25}\b(tao|agent|csr|admin|cs)\b|\b(gusto|pwede|paki|need|want)\b[\s\S]{0,25}\b(agent|live\s*agent|csr)\b|\bnot\s+(a\s+)?bot\b|\bhindi\s+(ka\s+)?bot\b|^\s*(agent|live\s*agent|human|csr)\s*[?.!]*\s*$/i;
   const isAgentRequest = t => !!t && AGENT_REQ_RE.test(String(t).slice(0, 400));
+  // Closing spiel / CSAT survey na ipinapadala pag-resolve (lahat ng brand).
+  const CLOSING_SPIEL_RE = /rate\s+(our|your|the)\s+(support|conversation|chat|experience|service)|kumusta\s+ang\s+(iyong|inyong)\s+experience|how\s+was\s+your\s+(experience|chat)|please\s+rate|we'?d\s+love\s+to\s+hear\s+your\s+feedback/i;
   function chatStatusKey(c) {
     const idleMin = c.lastActivityAt ? (Date.now() - new Date(c.lastActivityAt).getTime()) / 60000 : Infinity;
     const late = c.ftr != null && c.ftr > MISSED_SLA_SEC && !c.ftrExempt;
@@ -1772,10 +1774,18 @@ body.team-view #exportBtn{display:none !important;}
     // pang handoff label (hal. sgpending_humanhandoff), handoff na rin ito —
     // backend: sessionHandoff === true (rule (b) sa sessionHasHandoff).
     const handedOff = (c.handoffStage && c.sessionHandoff !== false) || (c.sessionHandoff === true && !LIVECHAT_BRANDS.has(c.brand));
+    // CLOSING SPIEL / RESOLVED (2026-10-15, utos ni Chad): kapag na-resolve na
+    // ang chat (status resolved, HH Closed, o may closing spiel / CSAT survey
+    // gaya ng "Kumusta ang iyong experience…" / "Rate our support"), hindi na
+    // ito Waiting: Missed Chat kung walang taong sumagot sa handoff, Closed
+    // kung may sumagot.
+    const closedOut = (c.status || '').toLowerCase() === 'resolved' || c.handoffStage === 'closed'
+      || CLOSING_SPIEL_RE.test(String(c.lastMessage || '').slice(0, 300));
     if (handedOff && !answered && !agentSpokeLast && !c.waitExempt) {
-      if (idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
+      if (closedOut || idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
       return { cls: 'waiting', label: 'Waiting', late };
     }
+    if (closedOut) return { cls: 'closedx', label: 'Closed', late };
     if (idleMin >= AUTO_CLOSE_MIN) return { cls: 'closedx', label: 'Closed', late };
     // RESOLVED = CLOSED (2026-10-15): ang chat na na-resolve na (hal. may
     // "Rate our support" na) o HH Closed ay hindi na Ongoing kahit wala pang
