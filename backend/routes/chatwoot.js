@@ -288,7 +288,25 @@ function slimPayload(payload) {
     out.sender = s;
   }
   delete out.additional_attributes;
-  delete out.attachments;
+  // ATTACHMENTS (2026-10-15): dati binubura ang buong attachments kaya hindi
+  // lumalabas ang mga photo/file sa Customers thread. Ngayon, isang maliit na
+  // listahan ang itinatabi — ang mga key ay ang binabasa ng customers.html
+  // (url, thumb, type, ext, size, lat, lng, title).
+  if (Array.isArray(out.attachments) && out.attachments.length) {
+    out.attachments = out.attachments.slice(0, 10).map(a => ({
+      type: a.file_type || 'file',
+      url: a.data_url || a.external_url || null,
+      thumb: a.thumb_url || null,
+      ext: a.extension || null,
+      size: a.file_size || null,
+      lat: a.coordinates_lat ?? null,
+      lng: a.coordinates_long ?? null,
+      title: a.fallback_title || null,
+    })).filter(a => a.url || (a.lat != null && a.lng != null));
+    if (!out.attachments.length) delete out.attachments;
+  } else {
+    delete out.attachments;
+  }
   return out;
 }
 
