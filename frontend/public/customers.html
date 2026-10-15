@@ -848,8 +848,8 @@ body.team-view #exportBtn{display:none !important;}
         <div class="f-group">
           <span class="f-label">Status</span>
           <select id="statusFilter" class="admin-select">
-            <option value="active" selected>Active (not resolved)</option>
-            <option value="all">All statuses</option>
+            <option value="active">Active (not resolved)</option>
+            <option value="all" selected>All statuses</option>
             <option value="open">Open</option>
             <option value="pending">Pending</option>
             <option value="resolved">Resolved</option>
@@ -1151,7 +1151,7 @@ body.team-view #exportBtn{display:none !important;}
 
   let allConversations = [];
   let currentBrand = 'all';
-  let currentStatus = 'active'; // DEFAULT: itago ang Resolved — lalabas lang kapag pinili sa dropdown (2026-09-23)
+  let currentStatus = 'all'; // DEFAULT: All statuses (2026-10-15, utos ni Chad; dati 'active' mula 2026-09-23)
   let currentHandoff = 'all';
   let currentCater = 'all'; // DEFAULT: All (2026-10-15, utos ni Chad; dati 'human' mula 2026-09-23); all | human | bot
   let currentAdmin = 'all';
