@@ -855,7 +855,7 @@ function goSearch(e) {
 const CHAT_BRAND_LABELS = {
   buenasph: 'Buenas PH', tmtcash: 'TMTCash', mcp: 'Mobile Casino Play', manilaplayph: 'Manila Play PH',
   HypleplayPH: 'HypePlay PH', HypeplayBD: 'HypePlay BD', Tmtplay: 'TMTPLAY', MGK: '88MGK',
-  BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH', swabegaming: 'Swabe Gaming',
+  BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH', swabegaming: 'Swabe Gaming', SwabeGaming: 'Swabe Gaming',
   casinyeam: 'Casinyeam', manilacasino: 'Manila Casino', superscatterph: 'SuperScatter PH',
   'livechat-general': 'LC General',
 };
@@ -904,6 +904,10 @@ SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_NAMES_CLIENT.delete(n));
 const BRAND_BOT_CLIENT = {
   hypleplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
   hypeplayph: new Set(['Admin Hanna', 'Agent Hanna', 'Hanna']),
+  // Swabe Gaming (2026-10-15): si 'Admin Bea' ang nagpapadala ng AI messages sa
+  // Swabe (hal. "Let me connect you now with our team") — BOT doon lang; TAO
+  // pa rin si Admin Bea sa Buenas Cash.
+  swabegaming: new Set(['Admin Bea', 'Agent Bea', 'Bea']),
 };
 function isBotClient(brand, senderName) {
   if (!senderName) return false;
@@ -1299,7 +1303,7 @@ async function loadChatOverviewInner() {
     const WAITING_BRANDS = new Set([
       // Chatwoot — lahat (case-sensitive slugs, mula sa webhook URLs)
       'buenasph', 'tmtcash', 'mcp', 'manilaplayph', 'HypleplayPH',
-      'HypeplayBD', 'Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH', 'swabegaming',
+      'HypeplayBD', 'Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH', 'SwabeGaming', 'swabegaming',
       // LiveChat (lahat)
       'casinyeam', 'manilacasino', 'superscatterph', 'livechat-general',
     ]);
