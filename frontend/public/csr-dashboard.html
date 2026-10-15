@@ -855,7 +855,7 @@ function goSearch(e) {
 const CHAT_BRAND_LABELS = {
   buenasph: 'Buenas PH', tmtcash: 'TMTCash', mcp: 'Mobile Casino Play', manilaplayph: 'Manila Play PH',
   HypleplayPH: 'HypePlay PH', HypeplayBD: 'HypePlay BD', Tmtplay: 'TMTPLAY', MGK: '88MGK',
-  BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH',
+  BuenasCredit: 'Buenas Credit', LuckystacksPH: 'LuckyStacks PH', swabegaming: 'Swabe Gaming',
   casinyeam: 'Casinyeam', manilacasino: 'Manila Casino', superscatterph: 'SuperScatter PH',
   'livechat-general': 'LC General',
 };
@@ -888,6 +888,7 @@ const AI_BOT_NAMES_CLIENT = new Set([
   'Admin Tala', 'Agent Tala', 'Tala',
   'TMTPlay Admin',
   'Admin Mim', 'Agent Mim', 'Mim',
+  'Admin Kim', 'Agent Kim', 'Kim',   // Swabe Gaming AI (2026-10-15)
   'Bogchi',
   // SUPERADMIN accounts (opisyal na roster ni Chad, 2026-10-10): hindi
   // sila HH agent — owner/system logins na nagpapadala ng automated
@@ -897,7 +898,7 @@ const AI_BOT_NAMES_CLIENT = new Set([
 ]);
 // SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad): ang mga superadmin
 // login (Love, Buenas88 Admin, OM - AOM, …) ay tao na — HINDI bot.
-const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi'];
+const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin'];
 SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_NAMES_CLIENT.delete(n));
 // 'Admin Hanna' ay BOT sa Hype PH pero TUNAY NA TAO sa TMTCash — brand-scoped.
 const BRAND_BOT_CLIENT = {
@@ -1298,7 +1299,7 @@ async function loadChatOverviewInner() {
     const WAITING_BRANDS = new Set([
       // Chatwoot — lahat (case-sensitive slugs, mula sa webhook URLs)
       'buenasph', 'tmtcash', 'mcp', 'manilaplayph', 'HypleplayPH',
-      'HypeplayBD', 'Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH',
+      'HypeplayBD', 'Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH', 'swabegaming',
       // LiveChat (lahat)
       'casinyeam', 'manilacasino', 'superscatterph', 'livechat-general',
     ]);
