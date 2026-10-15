@@ -20,7 +20,10 @@
   // UI-level ito: itinatago ang menu at nire-redirect ang page.
   const ROLE_KEY = 'csr_role';
   const ROLE_API = (typeof window.API_BASE === 'string' && window.API_BASE) || 'https://pipeline-crm-production-412d.up.railway.app/api';
-  const CSR_ALLOWED = new Set(['customers', 'settings', 'profile']);
+  // 2026-10-15 (utos ni Chad): Customers + BRAVO/DELTA/FOXTROT/ECHO LANG ang
+  // nakikita ng CSR — tinanggal na ang Settings. (Profile = sariling account,
+  // wala sa menu, mabubuksan lang mula sa avatar.)
+  const CSR_ALLOWED = new Set(['customers', 'profile']);
   const pageKey = h => String(h || '').split(/[?#]/)[0].split('/').pop().replace(/\.html$/, '').toLowerCase();
   const isLimited = r => String(r || '').toUpperCase() === 'CSR';
   const getRole = () => { try { return localStorage.getItem(ROLE_KEY) || ''; } catch (e) { return ''; } };
