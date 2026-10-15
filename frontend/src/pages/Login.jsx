@@ -201,6 +201,7 @@ export default function Login() {
         const result = await api.register(body);
         if (result && result.token) {
           setToken(result.token);
+          try { localStorage.setItem('csr_role', (result.user && result.user.role) || ''); } catch (e) { /* fine */ }
           navigate('/');
         } else {
           // /auth/register hands back a token, so this is only a safety net.
@@ -208,8 +209,10 @@ export default function Login() {
           setNotice('Account created. Log in with your new email and password.');
         }
       } else {
-        const { token } = await api.login({ email, password });
+        const { token, user } = await api.login({ email, password });
         setToken(token);
+        // 2026-10-15: i-save agad ang role para diretso sa Customers ang CSR
+        try { localStorage.setItem('csr_role', (user && user.role) || ''); } catch (e) { /* fine */ }
         navigate('/');
       }
     } catch (err) {
