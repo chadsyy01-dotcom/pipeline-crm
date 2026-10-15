@@ -358,7 +358,7 @@
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...(options.headers || {}) },
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(body.error || `HTTP ${res.status}`), { authFail: res.status === 401 });
     return body;
   }
 
@@ -390,6 +390,8 @@
         document.getElementById('memberAccountPanel').classList.remove('hidden');
       }
     } catch (err) {
+      // LOGIN LOOP FIX (2026-10-15): logout lang kapag 401 talaga
+      if (!err || !err.authFail) return;
       localStorage.removeItem('pipeline_token');
       window.location.href = LOGIN_PATH;
     }
@@ -702,6 +704,6 @@
     });
   })();
 </script>
-<script src="sidebar-topnav.js?v=1"></script>
+<script src="sidebar-topnav.js?v=4"></script>
 </body>
 </html>
