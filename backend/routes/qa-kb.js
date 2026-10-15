@@ -65,6 +65,7 @@ SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_SENDER_NAMES.delete(n));
 const BRAND_BOT_SENDER_NAMES = {
   hypleplayph: new Set(['Admin Hanna']),
   hypeplayph: new Set(['Admin Hanna']),
+  swabegaming: new Set(['Admin Bea', 'Agent Bea', 'Bea']),   // Swabe AI sender (2026-10-15)
 };
 function isBotSender(brand, senderName) {
   if (!senderName) return false;
