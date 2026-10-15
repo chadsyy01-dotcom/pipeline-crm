@@ -1962,11 +1962,14 @@ router.post('/backfill', requireAuth, async (req, res) => {
 //     livechat-general) ay HINDI sakop — ibang API ang LiveChat.
 // ---------------------------------------------------------------------------
 let REPLY_CONFIG = {};
+let REPLY_CONFIG_ERROR = null;   // 2026-10-15: para makita sa error message kung sira ang JSON
 try {
   REPLY_CONFIG = JSON.parse(process.env.CHATWOOT_REPLY_CONFIG || '{}');
 } catch (e) {
+  REPLY_CONFIG_ERROR = e.message;
   console.error('CHATWOOT_REPLY_CONFIG is not valid JSON — replies disabled until fixed:', e.message);
 }
+console.log('[reply] CHATWOOT_REPLY_CONFIG brands:', Object.keys(REPLY_CONFIG).join(', ') || '(wala)');
 
 router.post('/reply', requireAuth, async (req, res) => {
   try {
@@ -1986,7 +1989,11 @@ router.post('/reply', requireAuth, async (req, res) => {
     const cfg = cfgKey ? REPLY_CONFIG[cfgKey] : null;
     if (!cfg || !cfg.baseUrl || !cfg.accountId || !cfg.token) {
       return res.status(400).json({
-        error: `Hindi pa naka-configure ang replies para sa "${brand}". Idagdag ito sa CHATWOOT_REPLY_CONFIG sa Railway (baseUrl, accountId, token) at i-redeploy.`,
+        error: REPLY_CONFIG_ERROR
+          ? `SIRA ang JSON ng CHATWOOT_REPLY_CONFIG sa Railway (${REPLY_CONFIG_ERROR}) — kaya walang brand na makapag-reply. Ayusin ang JSON (kuwit, quotes, { }) at i-save.`
+          : (cfgKey && cfg)
+            ? `Kulang ang config ng "${cfgKey}" sa CHATWOOT_REPLY_CONFIG — kailangan ang baseUrl, accountId at token.`
+            : `Walang "${brand}" sa CHATWOOT_REPLY_CONFIG. Ang nakikita ng server ngayon: ${Object.keys(REPLY_CONFIG).join(', ') || '(wala)'}. Idagdag ang "${brand}" (baseUrl, accountId, token) at i-save sa Railway.`,
       });
     }
 
