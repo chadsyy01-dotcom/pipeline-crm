@@ -52,11 +52,12 @@ const AI_BOT_SENDER_NAMES = new Set([
   'Admin Tala', 'Agent Tala', 'Tala',
   'TMTPlay Admin',
   'Admin Mim', 'Agent Mim', 'Mim',
+  'Admin Kim', 'Agent Kim', 'Kim',   // Swabe Gaming AI (2026-10-15)
   'Bogchi',
 ]);
 // SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad): ang mga superadmin
 // login (Love, Buenas88 Admin, OM - AOM, …) ay tao na — HINDI bot.
-const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi'];
+const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin'];
 SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_SENDER_NAMES.delete(n));
 
 // Brand-scoped bot personas — KEEP IN SYNC with chatwoot.js. 'Admin Hanna'
