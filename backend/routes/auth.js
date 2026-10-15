@@ -9,9 +9,24 @@ const router = express.Router();
 
 // Brute-force protection: a handful of attempts per IP per window, not a
 // hard global cap — tune these if real usage needs it.
+// LOGIN FIX (2026-10-15): dati, IP ang susi ng limit — pero walang
+// "trust proxy" ang server, kaya sa likod ng Railway proxy ay IISANG IP ang
+// lahat ng user. 10 login lang kada 15 min para sa BUONG team (kasama pa ang
+// matagumpay), kaya hindi na makapag-login ang CSR team kapag sabay-sabay.
+// Ngayon: kada EMAIL ang bilang, at ang MALING password lang ang binibilang.
+// Email lookup na hindi sensitibo sa malaki/maliit na letra at sa espasyo
+// (hal. auto-capitalize ng phone: "Jacobcoline4@gmail.com").
+function emailWhere(email) {
+  const e = String(email || '').trim().toLowerCase();
+  return User.sequelize.where(User.sequelize.fn('lower', User.sequelize.col('email')), e);
+}
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 10,
+  limit: 10,                 // 10 maling subok kada email kada 15 min
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => 'login:' + String(req.body?.email || '').trim().toLowerCase(),
+  validate: false,           // walang IP-based checks — email ang susi
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many login attempts. Try again in a few minutes.' },
@@ -154,7 +169,7 @@ router.post('/register', registerLimiter, async (req, res) => {
       }
     }
 
-    const existing = await User.findOne({ where: { email } });
+    const existing = await User.findOne({ where: emailWhere(email) });
     if (existing) return res.status(409).json({ error: 'Email already registered' });
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -185,7 +200,8 @@ router.post('/register', registerLimiter, async (req, res) => {
 router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ where: { email } });
+    // Case-insensitive (2026-10-15): "Jacobcoline4@gmail.com" = "jacobcoline4@gmail.com"
+    const user = await User.findOne({ where: emailWhere(email) });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
