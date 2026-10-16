@@ -1194,6 +1194,8 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   let currentDsatSeverity = 'all';
 
   let allConversations = [];
+  const hasContent = c => !!(c.lastMessage && String(c.lastMessage).trim())
+    || !!(c.csatFeedback && String(c.csatFeedback).trim()) || c.csatRating != null || c.ftr != null;
   let currentBrand = 'all';
   // Pilitin ang default kahit i-restore ng browser ang lumang pinili sa reload
   window.addEventListener('pageshow', () => {
@@ -1483,7 +1485,10 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       }
       lastConvSig = raw;
       const data = JSON.parse(raw);
-      allConversations = (data.conversations || []).filter(c => inTeam(c.brand));
+      // WALANG LAMAN (2026-10-16, utos ni Chad): ang conversation na walang
+      // kahit isang mensahe ("No messages yet") ay hindi ipinapakita at hindi
+      // binibilang — kadalasan lumang event na ipinadala ulit ng Chatwoot.
+      allConversations = (data.conversations || []).filter(c => inTeam(c.brand) && hasContent(c));
       renderBrandTabs();
       renderAdminFilter();
       renderConcernFilter();
