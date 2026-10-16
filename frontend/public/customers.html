@@ -231,6 +231,15 @@
   .reply-bar textarea:focus{outline:2px solid var(--primary);outline-offset:-1px;background:var(--card);}
   .reply-bar button{padding:9px 16px;border-radius:10px;border:none;background:var(--primary);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;align-self:flex-end;}
   .reply-bar button:disabled{opacity:.6;cursor:progress;}
+  .reply-bar .reply-attach{background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:9px 11px;font-size:15px;}
+  .reply-bar .reply-attach:hover{background:var(--card);}
+  .reply-bar.drag textarea{outline:2px dashed var(--primary);}
+  .reply-att{display:flex;align-items:center;gap:10px;padding:8px 20px 0;background:var(--card);}
+  .reply-att img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
+  .reply-att .ra-info{display:flex;flex-direction:column;font-size:12px;min-width:0;flex:1;}
+  .reply-att .ra-info b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .reply-att .ra-info span{color:var(--ink-faint);font-size:11px;}
+  .reply-att button{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:4px 9px;cursor:pointer;}
   .reply-note{font-size:11px;color:var(--ink-faint);padding:8px 20px 12px;border-top:1px solid var(--line);text-align:center;}
   .modal-panel{
     background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow);
@@ -994,8 +1003,15 @@ body.team-view #exportBtn{display:none !important;}
       <div class="modal-body" id="modalBody">
         <div class="empty-note">Loading…</div>
       </div>
+      <div class="reply-att" id="replyAtt" style="display:none;">
+        <img id="replyAttImg" alt="">
+        <div class="ra-info"><b id="replyAttName"></b><span id="replyAttSize"></span></div>
+        <button type="button" id="replyAttRemove" title="Alisin ang larawan">✕</button>
+      </div>
       <div class="reply-bar" id="replyBar" style="display:none;">
-        <textarea id="replyInput" rows="1" placeholder="I-type ang reply… (Enter para i-send, Shift+Enter para bagong linya)"></textarea>
+        <input type="file" id="replyFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+        <button type="button" id="replyAttachBtn" class="reply-attach" title="Mag-upload ng larawan (o i-paste ang screenshot)">📎</button>
+        <textarea id="replyInput" rows="1" placeholder="I-type ang reply… (Enter para i-send, Shift+Enter para bagong linya, Ctrl+V para mag-paste ng larawan)"></textarea>
         <button type="button" id="replySendBtn">Send</button>
       </div>
       <div class="reply-note" id="replyNote" style="display:none;"></div>
@@ -2375,36 +2391,94 @@ body.team-view #exportBtn{display:none !important;}
     const note = document.getElementById('replyNote');
     const input = document.getElementById('replyInput');
     input.value = '';
-    if (!brand || LIVECHAT_BRANDS_CLIENT.has(brand)) {
+    clearReplyAttachment();
+    // 2026-10-16: puwede na ring mag-reply (text + larawan) sa LiveChat.
+    if (!brand) {
       bar.style.display = 'none';
       note.style.display = '';
-      note.textContent = brand
-        ? 'LiveChat conversation — mag-reply sa LiveChat app.'
-        : 'Hindi matukoy ang brand ng conversation na ito — buksan ito mula sa Conversations table para makapag-reply.';
+      note.textContent = 'Hindi matukoy ang brand ng conversation na ito — buksan ito mula sa Conversations table para makapag-reply.';
     } else {
       bar.style.display = '';
       note.style.display = 'none';
     }
   }
 
+  // ---- IMAGE ATTACHMENT (2026-10-15, utos ni Chad) ----
+  // 📎 button, paste (Ctrl+V) o drag & drop. Pinapaliit muna sa max 1600px
+  // (JPEG ~85%) para mabilis at kasya sa server limit; ang maliliit na file
+  // (≤1.2 MB) ay ipinapadala nang buo (para hindi masira ang GIF).
+  let replyAttachment = null;   // { name, type, data(base64), size, preview }
+  function clearReplyAttachment() {
+    replyAttachment = null;
+    document.getElementById('replyAtt').style.display = 'none';
+    document.getElementById('replyFile').value = '';
+  }
+  function readAsDataURL(file) {
+    return new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(file); });
+  }
+  async function prepareImage(file) {
+    if (!/^image\/(png|jpe?g|gif|webp)$/i.test(file.type)) { alert('Larawan lang ang puwede (PNG, JPG, GIF, WEBP).'); return null; }
+    let dataUrl = await readAsDataURL(file), type = file.type, name = file.name || 'screenshot.png';
+    if (file.size > 1.2 * 1024 * 1024) {
+      const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = dataUrl; });
+      const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+      dataUrl = c.toDataURL('image/jpeg', 0.85); type = 'image/jpeg'; name = name.replace(/\.\w+$/, '') + '.jpg';
+    }
+    const size = Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 0.75);
+    if (size > 1.45 * 1024 * 1024) { alert('Masyadong malaki pa rin ang larawan pagkatapos paliitin. Subukan ang mas maliit.'); return null; }
+    return { name, type, data: dataUrl.slice(dataUrl.indexOf(',') + 1), size, preview: dataUrl };
+  }
+  async function setReplyAttachment(file) {
+    if (!file) return;
+    try {
+      const a = await prepareImage(file);
+      if (!a) return;
+      replyAttachment = a;
+      document.getElementById('replyAttImg').src = a.preview;
+      document.getElementById('replyAttName').textContent = a.name;
+      document.getElementById('replyAttSize').textContent = (a.size / 1024 > 1024 ? (a.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(a.size / 1024)) + ' KB') + ' · ipapadala kasama ng reply';
+      document.getElementById('replyAtt').style.display = '';
+      document.getElementById('replyInput').focus();
+    } catch (e) { console.error(e); alert('Hindi mabasa ang larawan.'); }
+  }
+  document.getElementById('replyAttachBtn').addEventListener('click', () => document.getElementById('replyFile').click());
+  document.getElementById('replyFile').addEventListener('change', e => setReplyAttachment(e.target.files && e.target.files[0]));
+  document.getElementById('replyAttRemove').addEventListener('click', clearReplyAttachment);
+  document.getElementById('replyInput').addEventListener('paste', e => {
+    const item = [...((e.clipboardData && e.clipboardData.items) || [])].find(i => i.kind === 'file' && /^image\//.test(i.type));
+    if (item) { e.preventDefault(); setReplyAttachment(item.getAsFile()); }
+  });
+  (function dnd() {
+    const bar = document.getElementById('replyBar');
+    ['dragenter', 'dragover'].forEach(ev => bar.addEventListener(ev, e => { e.preventDefault(); bar.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(ev => bar.addEventListener(ev, e => { e.preventDefault(); bar.classList.remove('drag'); }));
+    bar.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) setReplyAttachment(f); });
+  })();
+
   async function sendReply() {
     const input = document.getElementById('replyInput');
     const btn = document.getElementById('replySendBtn');
     const content = input.value.trim();
-    if (!content || !replyCtx.conversationId || !replyCtx.brand) return;
+    if ((!content && !replyAttachment) || !replyCtx.conversationId || !replyCtx.brand) return;
     btn.disabled = true; input.disabled = true;
     const prevLabel = btn.textContent;
     btn.textContent = 'Sending…';
     try {
       const token = localStorage.getItem('pipeline_token');
-      const res = await fetch(`${API_BASE}/chatwoot/reply`, {
+      const replyPath = LIVECHAT_BRANDS_CLIENT.has(replyCtx.brand) ? 'livechat' : 'chatwoot';
+      const res = await fetch(`${API_BASE}/${replyPath}/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ brand: replyCtx.brand, conversationId: Number(replyCtx.conversationId), content }),
+        body: JSON.stringify({ brand: replyCtx.brand, conversationId: Number(replyCtx.conversationId), content,
+          attachment: replyAttachment ? { name: replyAttachment.name, type: replyAttachment.type, data: replyAttachment.data } : undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
       input.value = '';
+      clearReplyAttachment();
       // Hintayin ang webhook echo bago i-reload ang thread.
       const body = document.getElementById('modalBody');
       const sentNote = document.createElement('div');
