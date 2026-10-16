@@ -1010,8 +1010,8 @@ body.team-view #exportBtn{display:none !important;}
       </div>
       <div class="reply-bar" id="replyBar" style="display:none;">
         <input type="file" id="replyFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-        <button type="button" id="replyAttachBtn" class="reply-attach" title="Mag-upload ng larawan (o i-paste ang screenshot)">📎</button>
-        <textarea id="replyInput" rows="1" placeholder="I-type ang reply… (Enter para i-send, Shift+Enter para bagong linya, Ctrl+V para mag-paste ng larawan)"></textarea>
+        <button type="button" id="replyAttachBtn" class="reply-attach" title="Mag-upload ng larawan (o i-paste ang screenshot)" style="display:none;">📎</button>
+        <textarea id="replyInput" rows="1" placeholder="I-type ang reply… (Enter para i-send, Shift+Enter para bagong linya)"></textarea>
         <button type="button" id="replySendBtn">Send</button>
       </div>
       <div class="reply-note" id="replyNote" style="display:none;"></div>
@@ -2407,6 +2407,10 @@ body.team-view #exportBtn{display:none !important;}
   // 📎 button, paste (Ctrl+V) o drag & drop. Pinapaliit muna sa max 1600px
   // (JPEG ~85%) para mabilis at kasya sa server limit; ang maliliit na file
   // (≤1.2 MB) ay ipinapadala nang buo (para hindi masira ang GIF).
+  // NAKA-OFF MUNA (2026-10-16, utos ni Chad): hinaharang ng Cloudflare ng
+  // TMTPLAY Chatwoot ang file upload (at pagkatapos pati text replies).
+  // Gawing true para ibalik ang 📎 / paste / drag & drop.
+  const REPLY_IMAGE_UPLOAD = false;
   let replyAttachment = null;   // { name, type, data(base64), size, preview }
   function clearReplyAttachment() {
     replyAttachment = null;
@@ -2432,7 +2436,7 @@ body.team-view #exportBtn{display:none !important;}
     return { name, type, data: dataUrl.slice(dataUrl.indexOf(',') + 1), size, preview: dataUrl };
   }
   async function setReplyAttachment(file) {
-    if (!file) return;
+    if (!file || !REPLY_IMAGE_UPLOAD) return;
     try {
       const a = await prepareImage(file);
       if (!a) return;
@@ -2449,10 +2453,11 @@ body.team-view #exportBtn{display:none !important;}
   document.getElementById('replyAttRemove').addEventListener('click', clearReplyAttachment);
   document.getElementById('replyInput').addEventListener('paste', e => {
     const item = [...((e.clipboardData && e.clipboardData.items) || [])].find(i => i.kind === 'file' && /^image\//.test(i.type));
-    if (item) { e.preventDefault(); setReplyAttachment(item.getAsFile()); }
+    if (item && REPLY_IMAGE_UPLOAD) { e.preventDefault(); setReplyAttachment(item.getAsFile()); }
   });
   (function dnd() {
     const bar = document.getElementById('replyBar');
+    if (!REPLY_IMAGE_UPLOAD) return;
     ['dragenter', 'dragover'].forEach(ev => bar.addEventListener(ev, e => { e.preventDefault(); bar.classList.add('drag'); }));
     ['dragleave', 'drop'].forEach(ev => bar.addEventListener(ev, e => { e.preventDefault(); bar.classList.remove('drag'); }));
     bar.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) setReplyAttachment(f); });
