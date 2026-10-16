@@ -520,4 +520,112 @@ router.get('/health', (req, res) => {
   res.json({ ok: true, secretConfigured: !!WEBHOOK_SECRET, domainMap: DOMAIN_MAP, groupMap: GROUP_MAP, greetingPatterns: GREETING_PATTERNS });
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/livechat/reply  body: { brand, conversationId, content, attachment? }
+// REPLY MULA SA DASHBOARD PARA SA LIVECHAT (2026-10-16, utos ni Chad) —
+// text at larawan. Gamit ang LiveChat Agent Chat API v3.5.
+//
+// Railway variable (isang JSON):
+//   LIVECHAT_REPLY_CONFIG = {"accountId":"<LiveChat account id>",
+//     "token":"<Personal Access Token>","agentEmail":"<email ng agent na may-ari ng token>"}
+//   - Gawin ang PAT sa https://developers.livechat.com/console → Tools →
+//     Personal Access Tokens. Scopes: chats--all:rw, chats.conversation--all:rw
+//     (at chats--access:rw kung hihingin).
+//   - accountId = "Account ID" na makikita rin sa page na iyon.
+//   - Ang agentEmail ang lalabas na sender; idadagdag siya sa chat kung wala pa.
+// Ang LiveChat chat_id ay kinukuha sa payload.lc_chat_id ng pinakahuling row
+// ng conversation (conversationId sa DB ay hash lang ng chat_id).
+// ---------------------------------------------------------------------------
+const { requireAuth } = require('../middleware/auth');
+let LC_REPLY = null, LC_REPLY_ERROR = null;
+try { LC_REPLY = process.env.LIVECHAT_REPLY_CONFIG ? JSON.parse(process.env.LIVECHAT_REPLY_CONFIG) : null; }
+catch (e) { LC_REPLY_ERROR = e.message; console.error('LIVECHAT_REPLY_CONFIG is not valid JSON:', e.message); }
+const LC_API = 'https://api.livechatinc.com/v3.5/agent/action';
+
+function lcAuthHeader() {
+  return 'Basic ' + Buffer.from(`${LC_REPLY.accountId}:${LC_REPLY.token}`).toString('base64');
+}
+async function lcAction(action, body) {
+  const r = await fetch(`${LC_API}/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: lcAuthHeader() },
+    body: JSON.stringify(body),
+  });
+  const text = await r.text();
+  let data = {}; try { data = JSON.parse(text); } catch { /* not json */ }
+  if (!r.ok) {
+    const err = new Error(data?.error?.message || `HTTP ${r.status}`);
+    err.status = r.status; err.type = data?.error?.type; err.raw = text.slice(0, 300);
+    throw err;
+  }
+  return data;
+}
+async function lcUpload(buf, type, name) {
+  const fd = new FormData();
+  fd.append('file', new Blob([buf], { type }), name);
+  const r = await fetch(`${LC_API}/upload_file`, { method: 'POST', headers: { Authorization: lcAuthHeader() }, body: fd });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || !data.url) throw new Error('upload_file: ' + (data?.error?.message || `HTTP ${r.status}`));
+  return data.url;
+}
+async function lcSend(chatId, event) {
+  try {
+    return await lcAction('send_event', { chat_id: chatId, event });
+  } catch (e) {
+    // Hindi pa kasali sa chat ang agent → idagdag, tapos subukan ulit
+    if (/not.*(user|member)|requester|access/i.test(e.message) && LC_REPLY.agentEmail) {
+      await lcAction('add_user_to_chat', { chat_id: chatId, user_id: LC_REPLY.agentEmail, user_type: 'agent', visibility: 'all', ignore_requester_presence: true });
+      return await lcAction('send_event', { chat_id: chatId, event });
+    }
+    throw e;
+  }
+}
+
+router.post('/reply', requireAuth, async (req, res) => {
+  try {
+    if (!LC_REPLY || !LC_REPLY.accountId || !LC_REPLY.token) {
+      return res.status(400).json({ error: LC_REPLY_ERROR
+        ? `SIRA ang JSON ng LIVECHAT_REPLY_CONFIG sa Railway (${LC_REPLY_ERROR}).`
+        : 'Hindi pa naka-configure ang LiveChat replies. Idagdag ang LIVECHAT_REPLY_CONFIG sa Railway ({"accountId":"…","token":"…","agentEmail":"…"}) at i-redeploy.' });
+    }
+    const conversationId = Number(req.body?.conversationId);
+    const brand = String(req.body?.brand || '').trim();
+    const content = String(req.body?.content || '').trim();
+    const att = req.body?.attachment && req.body.attachment.data ? req.body.attachment : null;
+    if (!conversationId || (!content && !att)) return res.status(400).json({ error: 'conversationId at content o attachment ang kailangan' });
+    if (att && !/^image\/(png|jpe?g|gif|webp)$/i.test(String(att.type || ''))) return res.status(400).json({ error: 'Larawan lang (PNG, JPG, GIF, WEBP) ang puwedeng i-upload.' });
+
+    const rows = await sequelize.query(`
+      SELECT payload->>'lc_chat_id' AS chat_id
+      FROM "ChatwootEvents"
+      WHERE "conversationId" = :conversationId ${brand ? 'AND "brand" = :brand' : ''}
+        AND payload->>'lc_chat_id' IS NOT NULL
+      ORDER BY "createdAt" DESC LIMIT 1
+    `, { replacements: { conversationId, brand }, type: QueryTypes.SELECT });
+    const chatId = rows[0] && rows[0].chat_id;
+    if (!chatId) return res.status(404).json({ error: 'Hindi mahanap ang LiveChat chat id ng conversation na ito (masyadong luma na ang chat).' });
+
+    const sent = [];
+    if (att) {
+      const buf = Buffer.from(String(att.data).replace(/^data:[^,]*,/, ''), 'base64');
+      if (buf.length > 10 * 1024 * 1024) return res.status(400).json({ error: 'Masyadong malaki ang larawan (max 10 MB).' });
+      const name = String(att.name || 'image').replace(/[^\w.\-]+/g, '_').slice(0, 80) || 'image';
+      const url = await lcUpload(buf, att.type, name);
+      sent.push(await lcSend(chatId, { type: 'file', url, visibility: 'all' }));
+    }
+    if (content) sent.push(await lcSend(chatId, { type: 'message', text: content, visibility: 'all' }));
+
+    const by = req.user?.name || req.user?.email || 'unknown';
+    console.log(`LiveChat dashboard reply by ${by} -> ${brand} chat ${chatId} (${sent.length} event)`);
+    // Ang webhook echo (incoming_event) ang mag-iimbak nito sa DB.
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('LiveChat reply error:', err.message, err.raw || '');
+    const hint = err.status === 401 ? ' (401: mali ang accountId/token sa LIVECHAT_REPLY_CONFIG)'
+      : err.status === 403 ? ' (403: kulang ang scopes ng Personal Access Token)'
+      : /inactive|not active|chat is closed/i.test(err.message) ? ' (sarado na ang chat sa LiveChat — hindi na ma-replyan)' : '';
+    res.status(502).json({ error: `Tumanggi ang LiveChat: ${err.message}${hint}` });
+  }
+});
+
 module.exports = router;
