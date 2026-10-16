@@ -682,6 +682,7 @@ body.team-view #exportBtn{display:none !important;}
       if (!res.ok) throw Object.assign(new Error("Invalid session"), { authFail: res.status === 401 });
       const data = await res.json();
       const user = data.user || data;
+      window.__userRole = user && user.role ? String(user.role) : '';
       if (user) {
         const nameEl = document.querySelector(".profile-name");
         if (nameEl && user.name) {
@@ -1295,11 +1296,133 @@ body.team-view #exportBtn{display:none !important;}
   // - hindi sabay-sabay (may inFlight guard), at humihinto kapag nakatago ang tab
   // - kapag walang nagbago sa data, hindi na nire-rebuild ang dropdowns
   // - kapag may bukas na dropdown (naka-focus), hinihintay munang matapos
+  // ===== WAITING SOUND (2026-10-16, utos ni Chad) =====
+  // HARD RULE: tutunog LANG kapag (1) nasa team tab (BRAVO/DELTA/FOXTROT/ECHO)
+  // at (2) ang naka-login ay role CSR. Tumutunog kapag may BAGONG chat na
+  // pumasok sa Waiting (bawat chat isang beses). Sa unang load, walang tunog
+  // (tinatandaan lang ang mga naka-Waiting na).
+  const isCsrUser = () => String(window.__userRole || (() => { try { return localStorage.getItem('csr_role') || ''; } catch (e) { return ''; } })()).toUpperCase() === 'CSR';
+  let waitSeen = null;          // Set ng "brand|id" na alam nang naka-Waiting
+  let audioCtx = null;
+  function ensureAudio() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { /* walang audio */ }
+    updateSoundPill();
+  }
+  // Kailangan ng browser ng isang click/keypress bago payagang tumunog
+  ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { if (TEAM && isCsrUser()) ensureAudio(); }, { passive: true }));
+  function playWaitingChime(times) {
+    if (!audioCtx || audioCtx.state !== 'running') return false;
+    const t0 = audioCtx.currentTime;
+    for (let r = 0; r < Math.min(times || 1, 3); r++) {
+      [880, 1175, 1568].forEach((f, i) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        const t = t0 + r * 0.9 + i * 0.16;
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+        o.connect(g).connect(audioCtx.destination);
+        o.start(t); o.stop(t + 0.5);
+      });
+    }
+    return true;
+  }
+  function updateSoundPill() {
+    let pill = document.getElementById('waitSoundPill');
+    const show = TEAM && isCsrUser();
+    if (!show) { if (pill) pill.remove(); return; }
+    if (!pill) {
+      pill = document.createElement('button');
+      pill.id = 'waitSoundPill'; pill.type = 'button';
+      pill.style.cssText = 'margin-left:8px;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid var(--line);cursor:pointer;font-family:inherit;';
+      pill.addEventListener('click', () => { ensureAudio(); playWaitingChime(1); setTimeout(() => speak('New chat waiting.'), 700); });
+      const ind = document.getElementById('liveIndicator');
+      if (ind && ind.parentNode) ind.parentNode.insertBefore(pill, ind.nextSibling);
+    }
+    const on = audioCtx && audioCtx.state === 'running';
+    pill.textContent = on ? '🔔 Sound ON' : '🔕 I-click para i-on ang sound';
+    pill.style.background = on ? '#E7F7EF' : '#FFF4DB';
+    pill.style.color = on ? '#0F7B53' : '#A15C00';
+    pill.title = on ? 'Tutunog kapag may bagong chat sa Waiting (i-click para i-test)' : 'Kailangang mag-click muna para payagan ng browser ang tunog';
+  }
+  // VOICE (2026-10-16, utos ni Chad): may boses na "New chat waiting" at, kapag
+  // malapit na sa 3 minuto at wala pang kumukuha, "Alert" ulit.
+  const NEAR_MISS_MIN = 2.25;    // 2m 15s mula sa huling activity → babala bago maging Missed (3m)
+  let nearAlerted = new Set();
+  function speak(text) {
+    try {
+      if (!('speechSynthesis' in window)) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US'; u.rate = 1; u.pitch = 1; u.volume = 1;
+      const v = speechSynthesis.getVoices().find(x => /en[-_]US/i.test(x.lang) && /female|samantha|zira|google us/i.test(x.name))
+        || speechSynthesis.getVoices().find(x => /^en/i.test(x.lang));
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch (e) { /* walang TTS */ }
+  }
+  function playAlertChime() {
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    const t0 = audioCtx.currentTime;
+    [0, 0.28, 0.56].forEach(dt => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'square'; o.frequency.value = 660;
+      g.gain.setValueAtTime(0.0001, t0 + dt);
+      g.gain.exponentialRampToValueAtTime(0.18, t0 + dt + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.22);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t0 + dt); o.stop(t0 + dt + 0.25);
+    });
+  }
+  const brandSay = slug => String(brandLabel(slug) || '').replace(/\bPH\b/g, 'P H').replace(/\bBD\b/g, 'B D');
+  function notifyDesktop(title, body) {
+    try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification(title, { body }); } catch (e) {}
+  }
+  function checkWaitingSound() {
+    if (!TEAM || !isCsrUser()) return;
+    updateSoundPill();
+    const waiting = allConversations.filter(c => chatStatusKey(c).cls === 'waiting');
+    const now = new Set(waiting.map(c => c.brand + '|' + c.conversationId));
+    if (waitSeen === null) {   // unang load: tandaan lang (pati ang malapit na sa 3m, para walang biglang alert)
+      waitSeen = now;
+      waiting.forEach(c => { if (idleMinOf(c) >= NEAR_MISS_MIN) nearAlerted.add(c.brand + '|' + c.conversationId); });
+      return;
+    }
+    const fresh = waiting.filter(c => !waitSeen.has(c.brand + '|' + c.conversationId));
+    waitSeen = now;   // ang lumabas sa Waiting ay puwedeng tumunog ulit kapag bumalik
+    nearAlerted = new Set([...nearAlerted].filter(k => now.has(k)));
+    if (fresh.length) {
+      playWaitingChime(1);
+      const msg = fresh.length === 1 ? `New chat waiting. ${brandSay(fresh[0].brand)}.` : `${fresh.length} new chats waiting.`;
+      setTimeout(() => speak(msg), 700);
+      notifyDesktop('New chat waiting', `${fresh.length} chat ang naghihintay ng agent — Team ${TEAM.label}`);
+    }
+    // MALAPIT NA SA 3 MINUTO at wala pang kumukuha → alert (isang beses kada chat)
+    const near = waiting.filter(c => idleMinOf(c) >= NEAR_MISS_MIN && !nearAlerted.has(c.brand + '|' + c.conversationId));
+    if (near.length) {
+      near.forEach(c => nearAlerted.add(c.brand + '|' + c.conversationId));
+      setTimeout(() => {
+        playAlertChime();
+        const msg = near.length === 1
+          ? `Alert! Chat waiting almost 3 minutes. ${brandSay(near[0].brand)}. Please pick it up.`
+          : `Alert! ${near.length} chats waiting almost 3 minutes. Please pick them up.`;
+        setTimeout(() => speak(msg), 800);
+        notifyDesktop('⚠ Malapit nang maging Missed Chat', `${near.length} chat ang halos 3 minuto nang naghihintay — Team ${TEAM.label}`);
+      }, fresh.length ? 3500 : 0);
+    }
+  }
+  function idleMinOf(c) {
+    return c.lastActivityAt ? (Date.now() - new Date(c.lastActivityAt).getTime()) / 60000 : 0;
+  }
+
   let convInFlight = false, lastConvSig = '';
   async function loadConversations(auto) {
     const token = localStorage.getItem('pipeline_token');
     if (!token) return;
-    if (auto === true && (convInFlight || document.hidden || searchMode)) return;
+    // CSR sa team tab: tuloy pa rin ang refresh kahit nakatago ang tab para tumunog ang Waiting sound
+    if (auto === true && (convInFlight || (document.hidden && !(TEAM && isCsrUser())) || searchMode)) return;
     if (auto === true && document.activeElement && document.activeElement.tagName === 'SELECT') return;
     convInFlight = true;
     try {
@@ -1328,6 +1451,7 @@ body.team-view #exportBtn{display:none !important;}
         // walang bagong data — i-refresh lang ang oras-based na status
         // (hal. Waiting → Missed pag lumampas sa 3 min) at ang mga bilang
         applyFiltersAndRender();
+        checkWaitingSound();
         return;
       }
       lastConvSig = raw;
@@ -1338,6 +1462,7 @@ body.team-view #exportBtn{display:none !important;}
       renderConcernFilter();
       applyFiltersAndRender();
       renderArtFtrStats();
+      checkWaitingSound();
     } catch (err) {
       console.error('Failed to load conversations:', err);
       document.getElementById('liveIndicator').textContent = '● Error loading';
