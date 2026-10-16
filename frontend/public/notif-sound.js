@@ -64,6 +64,7 @@
   heartbeat();
   setInterval(heartbeat, 5000);
   function isLeader() {
+    if (isCsrRole()) return false;   // CSR: walang ticket sound / desktop notif
     try {
       var cur = JSON.parse(localStorage.getItem(LEADER_KEY) || 'null');
       return !cur || cur.id === TAB_ID || Date.now() - cur.t > 12000;
@@ -74,7 +75,14 @@
   var audioCtx = null;
   // LAGING ON (desisyon 2026-09-23): walang in-app off switch — browser
   // tab mute o system volume ang paraan kung gustong patahimikin.
-  function soundEnabled() { return true; }
+  // CSR ROLE = WALANG TICKET SOUNDS (2026-10-16, utos ni Chad): ang CSR team
+  // ay chat (Waiting) alerts lang ang naririnig — nasa customers.html iyon.
+  // Ang role ay mula sa localStorage 'csr_role' (sine-save ng login at ng
+  // sidebar-topnav.js mula sa /auth/me).
+  function isCsrRole() {
+    try { return String(localStorage.getItem('csr_role') || '').toUpperCase() === 'CSR'; } catch (e) { return false; }
+  }
+  function soundEnabled() { return !isCsrRole(); }
   function ensureAudioCtx() {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
