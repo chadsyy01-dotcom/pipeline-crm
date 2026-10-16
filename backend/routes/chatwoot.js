@@ -2050,6 +2050,66 @@ try {
 }
 console.log('[reply] CHATWOOT_REPLY_CONFIG brands:', Object.keys(REPLY_CONFIG).join(', ') || '(wala)');
 
+// GET /api/chatwoot/activity?brand=tmtcash&conversationId=123  (2026-10-16)
+// Ang mga ACTIVITY message ng Chatwoot ("Conversation was marked resolved by
+// system due to 10 minutes of inactivity", "Bogchi added …", "Assigned to Mim
+// by Bogchi") ay HINDI dumarating sa webhook — kaya direktang kinukuha sa
+// Chatwoot API gamit ang token ng brand sa CHATWOOT_REPLY_CONFIG. Ipinapakita
+// ito nang eksakto sa thread ng dashboard (utos ni Chad: sundin ang Chatwoot).
+const activityCache = new Map();   // key → { at, data } (30s)
+router.get('/activity', requireAuth, async (req, res) => {
+  try {
+    const brand = String(req.query.brand || '').trim();
+    const conversationId = Number(req.query.conversationId);
+    if (!brand || !conversationId) return res.status(400).json({ error: 'brand at conversationId ang kailangan' });
+    const cfgKey = Object.prototype.hasOwnProperty.call(REPLY_CONFIG, brand) ? brand
+      : Object.keys(REPLY_CONFIG).find(k => k.toLowerCase() === brand.toLowerCase());
+    const cfg = cfgKey ? REPLY_CONFIG[cfgKey] : null;
+    if (!cfg || !cfg.baseUrl || !cfg.accountId || !cfg.token) return res.json({ activity: null, reason: 'no-config' });
+
+    const key = `${cfgKey}:${conversationId}`;
+    const hit = activityCache.get(key);
+    if (hit && Date.now() - hit.at < 30000) return res.json({ activity: hit.data });
+
+    const base = `${String(cfg.baseUrl).replace(/\/+$/, '')}/api/v1/accounts/${cfg.accountId}/conversations/${conversationId}/messages`;
+    const headers = {
+      'api_access_token': cfg.token, 'api-access-token': cfg.token, 'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    };
+    const out = [];
+    let before = null;
+    for (let page = 0; page < 10; page++) {   // 20 mensahe kada page → hanggang ~200
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 6000);
+      const r = await fetch(before ? `${base}?before=${before}` : base, { headers, signal: ctl.signal }).finally(() => clearTimeout(timer));
+      if (!r.ok) {
+        if (page === 0) return res.json({ activity: null, reason: `HTTP ${r.status}` });
+        break;
+      }
+      const j = await r.json().catch(() => ({}));
+      const list = Array.isArray(j.payload) ? j.payload : [];
+      if (!list.length) break;
+      list.forEach(m => {
+        const mt = m.message_type;
+        if ((mt === 2 || mt === 'activity') && m.content) {
+          const t = typeof m.created_at === 'number' ? m.created_at * 1000 : Date.parse(m.created_at);
+          if (Number.isFinite(t)) out.push({ id: m.id, content: String(m.content), at: t });
+        }
+      });
+      const minId = Math.min(...list.map(m => Number(m.id)).filter(Number.isFinite));
+      if (!Number.isFinite(minId) || list.length < 20 || minId === before) break;
+      before = minId;
+    }
+    const data = [...new Map(out.map(a => [a.id, a])).values()].sort((a, b) => a.at - b.at);
+    activityCache.set(key, { at: Date.now(), data });
+    if (activityCache.size > 500) activityCache.delete(activityCache.keys().next().value);
+    res.json({ activity: data });
+  } catch (err) {
+    console.error('Chatwoot activity error:', err.message);
+    res.json({ activity: null, reason: 'error' });
+  }
+});
+
 router.post('/reply', requireAuth, async (req, res) => {
   try {
     const brand = String(req.body?.brand || '').trim();
