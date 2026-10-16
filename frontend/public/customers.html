@@ -652,6 +652,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
 .res-pill{text-align:center;margin:6px 0;}
 .res-pill span{display:inline-block;font-size:11.5px;font-weight:600;color:#065F46;background:#ECFDF5;border:1px solid #A7F3D0;padding:4px 12px;border-radius:999px;}
 .res-pill b{font-weight:800;}
+.res-pill.act span{color:#475569;background:#F1F5F9;border-color:#E2E8F0;font-weight:500;}
 .csat-in-thread{margin-top:8px;padding-top:7px;border-top:1px dashed rgba(100,116,139,.35);font-style:normal;font-size:12.5px;}
 .csat-in-thread .k{display:block;font-size:10.5px;font-weight:700;color:var(--ink-faint);font-style:italic;margin-bottom:2px;}
 .csat-in-thread .fb{margin-top:3px;color:var(--ink-soft);}
@@ -2516,6 +2517,15 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     const token = localStorage.getItem('pipeline_token');
     if (!token) return;
     try {
+      // Chatwoot activity messages (resolved by…, labels, assigned…) — sabay
+      // na kinukuha; hindi hinahadlangan ang thread kapag pumalya (null).
+      const actP = (brand && !LIVECHAT_BRANDS.has(brand))
+        ? Promise.race([
+            fetch(`${API_BASE}/chatwoot/activity?conversationId=${encodeURIComponent(conversationId)}&brand=${encodeURIComponent(brand)}`, { headers: { Authorization: `Bearer ${token}` } })
+              .then(r => r.ok ? r.json() : null).then(d => (d && Array.isArray(d.activity)) ? d.activity : null).catch(() => null),
+            new Promise(r => setTimeout(() => r(null), 8000)),
+          ])
+        : Promise.resolve(null);
       const res = await fetch(`${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&limit=200${typeof brand !== 'undefined' && brand ? `&brand=${encodeURIComponent(brand)}` : ''}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -2525,7 +2535,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       const messages = (data.events || []).slice().reverse();
       // Kapag galing sa chat-content search, ipasa ang query para
       // ma-highlight at ma-scroll diretso sa tumamang mensahe.
-      renderMessageThread(messages, searchMode ? lastSearchQuery : '');
+      renderMessageThread(messages, searchMode ? lastSearchQuery : '', await actP);
     } catch (err) {
       console.error('Failed to load conversation thread:', err);
       body.innerHTML = '<div class="empty-note">Could not load this conversation. Please try again.</div>';
@@ -2669,7 +2679,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); }
   });
 
-  function renderMessageThread(messages, searchQ) {
+  function renderMessageThread(messages, searchQ, activity) {
     const body = document.getElementById('modalBody');
     const qLower = (searchQ || '').toLowerCase();
     const msgMatches = m => qLower && String(m.content || '').toLowerCase().includes(qLower);
@@ -2805,23 +2815,33 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // conversation_status_changed (status = resolved). Ang pangalan ay ang
     // naka-assign na agent (payload.meta.assignee, available lang ~3 araw);
     // kapag wala, ang huling human agent na nagsalita bago ang resolve.
+    // SUNDIN ANG CHATWOOT (2026-10-16, utos ni Chad): ang mga activity
+    // message ng Chatwoot ("Conversation was marked resolved by system due to
+    // 10 minutes of inactivity", "Bogchi added …", "Assigned to Mim by Bogchi")
+    // ay kinukuha DIREKTA sa Chatwoot API (/api/chatwoot/activity) at
+    // ipinapakita nang eksakto. Wala nang hula kung sino ang nag-close.
+    // Kapag hindi makuha (hal. hinarang ng Cloudflare), simpleng
+    // "Conversation was resolved" lang mula sa webhook.
+    const actList = Array.isArray(activity) ? activity : null;
+    const actTexts = new Set((actList || []).map(a => String(a.content || '').trim()));
     const resolvedEvents = [];
-    messages
-      .filter(m => m.event === 'conversation_status_changed' && m.status === 'resolved' && tOf(m) != null)
-      .sort((a, b) => tOf(a) - tOf(b))
-      .forEach(m => {
-        const at = tOf(m);
-        if (resolvedEvents.length && at - resolvedEvents[resolvedEvents.length - 1].at < 60000) return;
-        const p = m.payload || {};
-        const assignee = p.meta?.assignee?.name || p.conversation?.meta?.assignee?.name || null;
-        let lastHuman = null;
-        withContent.forEach(x => { const t = tOf(x); if (t != null && t <= at && isHumanAgent(x)) lastHuman = x.senderName; });
-        resolvedEvents.push({ at, by: assignee || lastHuman, guessed: !assignee && !!lastHuman });
-      });
+    if (actList) {
+      actList.filter(a => a && a.content && a.at).sort((a, b) => a.at - b.at)
+        .forEach(a => resolvedEvents.push({ at: a.at, text: String(a.content) }));
+    } else {
+      messages
+        .filter(m => m.event === 'conversation_status_changed' && m.status === 'resolved' && tOf(m) != null)
+        .sort((a, b) => tOf(a) - tOf(b))
+        .forEach(m => {
+          const at = tOf(m);
+          if (resolvedEvents.length && at - resolvedEvents[resolvedEvents.length - 1].at < 60000) return;
+          resolvedEvents.push({ at, text: 'Conversation was resolved', resolved: true });
+        });
+    }
     let resPtr = 0;
     const resolvedPill = r => {
       const w = new Date(r.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-      return `<div class="res-pill"><span>✔ Conversation was resolved${r.by ? ` by <b>${escapeHtml(r.by)}</b>` : ''} · ${escapeHtml(w)}</span></div>`;
+      return `<div class="res-pill${r.resolved ? '' : ' act'}"><span>${r.resolved ? '✔ ' : ''}${escapeHtml(r.text)} · ${escapeHtml(w)}</span></div>`;
     };
     const resolvedBefore = at => { let h = ''; while (resPtr < resolvedEvents.length && at != null && resolvedEvents[resPtr].at <= at) h += resolvedPill(resolvedEvents[resPtr++]); return h; };
     const CSAT_LBL = { 1: '😞 Very bad', 2: '😕 Bad', 3: '😐 Okay', 4: '😀 Good', 5: '😍 Excellent' };
@@ -2882,6 +2902,8 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         ? ` <span class="bot-tag" title="Superadmin — bilang na real agent">SUPERADMIN</span>`
         : (m.senderType === 'user' && isBotClient(m.brand, m.senderName)) ? ` <span class="bot-tag">AI</span>` : '';
       const resPills = resolvedBefore(atMs);
+      // Huwag doblehin: system message na kapareho ng Chatwoot activity
+      if (actList && !m.senderType && actTexts.has(String(m.content || '').trim())) return resPills;
       return `${resPills}${divider}${tagB}
         <div class="msg-row ${cls}${hit ? ' msg-hit' : ''}${mi && !mi.req ? ' msg-missed' : ''}">
           <div class="msg-meta">${escapeHtml(who)}${botTag} · ${escapeHtml(when)}</div>
