@@ -1311,8 +1311,19 @@ body.team-view #exportBtn{display:none !important;}
     } catch (e) { /* walang audio */ }
     updateSoundPill();
   }
-  // Kailangan ng browser ng isang click/keypress bago payagang tumunog
-  ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { if (TEAM && isCsrUser()) ensureAudio(); }, { passive: true }));
+  // DEFAULT ON (2026-10-16, utos ni Chad): sinusubukang buksan agad ang audio
+  // pagka-load. Kapag hinarang pa rin ng browser (walang click pa), kahit
+  // anong click/key/touch sa page ay magbubukas nito, at may malaking banner.
+  ['click', 'keydown', 'touchstart', 'pointerdown'].forEach(ev => document.addEventListener(ev, () => { if (TEAM && isCsrUser()) ensureAudio(); }, { passive: true, capture: true }));
+  function autoStartAudio() {
+    if (!TEAM || !isCsrUser()) return;
+    ensureAudio();
+    // ang speechSynthesis ay "naiinit" na rin para walang delay sa unang alert
+    try { if ('speechSynthesis' in window) speechSynthesis.getVoices(); } catch (e) {}
+    if (audioCtx) audioCtx.onstatechange = updateSoundPill;
+  }
+  setTimeout(autoStartAudio, 300);
+  setInterval(() => { if (TEAM && isCsrUser() && (!audioCtx || audioCtx.state !== 'running')) ensureAudio(); }, 5000);
   function playWaitingChime(times) {
     if (!audioCtx || audioCtx.state !== 'running') return false;
     const t0 = audioCtx.currentTime;
@@ -1343,9 +1354,21 @@ body.team-view #exportBtn{display:none !important;}
       if (ind && ind.parentNode) ind.parentNode.insertBefore(pill, ind.nextSibling);
     }
     const on = audioCtx && audioCtx.state === 'running';
-    pill.textContent = on ? '🔔 Sound ON' : '🔕 I-click para i-on ang sound';
-    pill.style.background = on ? '#E7F7EF' : '#FFF4DB';
-    pill.style.color = on ? '#0F7B53' : '#A15C00';
+    pill.textContent = on ? '🔔 Sound ON' : '🔕 Hinarang ng browser — i-click kahit saan';
+    pill.style.background = on ? '#E7F7EF' : '#FDECEC';
+    pill.style.color = on ? '#0F7B53' : '#C8283A';
+    // Malaking banner kapag hinarang pa ng browser ang tunog
+    let ban = document.getElementById('waitSoundBanner');
+    if (!on) {
+      if (!ban) {
+        ban = document.createElement('div');
+        ban.id = 'waitSoundBanner';
+        ban.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;background:#C8283A;color:#fff;font-weight:800;font-size:13px;padding:10px 18px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;';
+        ban.textContent = '🔊 I-click dito para gumana ang Waiting sound alerts';
+        ban.addEventListener('click', () => { ensureAudio(); playWaitingChime(1); });
+        document.body.appendChild(ban);
+      }
+    } else if (ban) ban.remove();
     pill.title = on ? 'Tutunog kapag may bagong chat sa Waiting (i-click para i-test)' : 'Kailangang mag-click muna para payagan ng browser ang tunog';
   }
   // VOICE (2026-10-16, utos ni Chad): may boses na "New chat waiting" at, kapag
