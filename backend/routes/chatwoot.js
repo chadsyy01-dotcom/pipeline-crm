@@ -2056,8 +2056,14 @@ router.post('/reply', requireAuth, async (req, res) => {
       console.error(`Chatwoot reply failed [${brand} #${conversationId}]: HTTP ${cwRes.status} ${bodyText.slice(0, 300)}`);
       const hint = cwRes.status === 401
         ? ' (401: mali o hindi tanggap ang token — i-recopy o i-regenerate ito sa Profile Settings ng tamang account sa tamang instance, tapos i-update ang CHATWOOT_REPLY_CONFIG)'
-        : cwRes.status === 404 ? ' (404: maling accountId/baseUrl, o wala ang conversation sa instance na ito)' : '';
-      return res.status(502).json({ error: `Tumanggi ang Chatwoot (HTTP ${cwRes.status})${hint}` });
+        : cwRes.status === 404 ? ' (404: maling accountId/baseUrl, o wala ang conversation sa instance na ito)'
+        : cwRes.status === 403 ? (att
+            ? ' (403 habang nag-a-upload ng larawan: kadalasan hinaharang ng Cloudflare/nginx ng Chatwoot server ang file upload, o hindi member ng inbox ang account ng token)'
+            : ' (403: hindi member ng inbox ang account ng token — idagdag siya sa inbox sa Chatwoot Settings → Inboxes → Collaborators)')
+        : cwRes.status === 413 ? ' (413: masyadong malaki ang file para sa Chatwoot server — i-limit sa nginx client_max_body_size)' : '';
+      // Maikling detalye mula sa Chatwoot (walang token) para mas madaling i-diagnose
+      const detail = bodyText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+      return res.status(502).json({ error: `Tumanggi ang Chatwoot (HTTP ${cwRes.status})${hint}${detail ? ` — ${detail}` : ''}` });
     }
 
     const sent = await cwRes.json().catch(() => ({}));
