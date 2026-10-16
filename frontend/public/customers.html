@@ -479,6 +479,9 @@ body.team-view .split-bar{height:8px;}
 body.team-view .split-note{display:none;}
 /* Export CSV: tanggal sa team tabs (2026-10-15, utos ni Chad) */
 body.team-view #exportBtn{display:none !important;}
+/* CSR role: walang Export CSV kahit saan (2026-10-16, utos ni Chad) —
+   body.role-csr ay inilalagay ng sidebar-topnav.js; body.is-csr ng page na ito */
+body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
 @media (max-width:1280px){
   .csat-panel{grid-template-columns:repeat(2,minmax(0,1fr));}
   .csat-split{grid-column:span 2;}
@@ -683,6 +686,7 @@ body.team-view #exportBtn{display:none !important;}
       const data = await res.json();
       const user = data.user || data;
       window.__userRole = user && user.role ? String(user.role) : '';
+      document.body.classList.toggle('is-csr', window.__userRole.toUpperCase() === 'CSR');
       if (user) {
         const nameEl = document.querySelector(".profile-name");
         if (nameEl && user.name) {
@@ -2062,6 +2066,7 @@ body.team-view #exportBtn{display:none !important;}
   // activity range, search) ay respetado, kaya kung "Missed Chat + Last 30
   // Days" ang nakikita mo, iyon din ang laman ng file.
   document.getElementById('exportBtn').addEventListener('click', () => {
+    if (String(window.__userRole || '').toUpperCase() === 'CSR') return;   // CSR: bawal mag-export
     const list = lastRenderedList || [];
     if (!list.length) { alert('Walang rows na ie-export sa kasalukuyang view.'); return; }
     const esc_ = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
