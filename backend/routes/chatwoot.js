@@ -1994,8 +1994,14 @@ router.post('/reply', requireAuth, async (req, res) => {
     const brand = String(req.body?.brand || '').trim();
     const conversationId = Number(req.body?.conversationId);
     const content = String(req.body?.content || '').trim();
-    if (!brand || !conversationId || !content) {
-      return res.status(400).json({ error: 'brand, conversationId, and content are required' });
+    // IMAGE UPLOAD (2026-10-15): opsyonal na attachment { name, type, data(base64) }.
+    // Pinapaliit muna ng browser ang larawan kaya kasya sa 2mb JSON limit.
+    const att = req.body?.attachment && req.body.attachment.data ? req.body.attachment : null;
+    if (!brand || !conversationId || (!content && !att)) {
+      return res.status(400).json({ error: 'brand, conversationId, at content o attachment ang kailangan' });
+    }
+    if (att && !/^image\/(png|jpe?g|gif|webp)$/i.test(String(att.type || ''))) {
+      return res.status(400).json({ error: 'Larawan lang (PNG, JPG, GIF, WEBP) ang puwedeng i-upload.' });
     }
     if (content.length > 5000) {
       return res.status(400).json({ error: 'Masyadong mahaba ang mensahe (max 5000 characters).' });
@@ -2016,7 +2022,20 @@ router.post('/reply', requireAuth, async (req, res) => {
     }
 
     const url = `${String(cfg.baseUrl).replace(/\/+$/, '')}/api/v1/accounts/${cfg.accountId}/conversations/${conversationId}/messages`;
-    const cwRes = await fetch(url, {
+    let fetchOpts;
+    if (att) {
+      // multipart/form-data: content + attachments[] (Chatwoot messages API)
+      const buf = Buffer.from(String(att.data).replace(/^data:[^,]*,/, ''), 'base64');
+      if (buf.length > 10 * 1024 * 1024) return res.status(400).json({ error: 'Masyadong malaki ang larawan (max 10 MB).' });
+      const fd = new FormData();
+      if (content) fd.append('content', content);
+      fd.append('message_type', 'outgoing');
+      fd.append('private', 'false');
+      const safeName = String(att.name || 'image').replace(/[^\w.\-]+/g, '_').slice(0, 80) || 'image';
+      fd.append('attachments[]', new Blob([buf], { type: att.type }), safeName);
+      fetchOpts = { method: 'POST', headers: { 'api_access_token': cfg.token, 'api-access-token': cfg.token }, body: fd };
+    }
+    const cwRes = await fetch(url, fetchOpts || {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
