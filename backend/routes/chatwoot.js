@@ -338,6 +338,60 @@ async function prunePayloads() {
   }
 }
 setTimeout(prunePayloads, 60 * 1000);                 // 1 min after boot
+
+// REPLAYED / LATE WEBHOOKS (2026-10-16): nagkaproblema ang Chatwoot at
+// ipinadala ulit nang sabay-sabay ang mga LUMANG event. Dahil ang "createdAt"
+// ay oras ng pag-insert (hindi oras ng mismong mensahe), lumabas na bago ang
+// mga lumang chats — 271 "Ongoing" nang sabay. Ayos:
+//  (1) webhook: kapag ang oras sa payload ay >15 min nang mas luma kaysa
+//      ngayon, ang oras ng payload ang ise-save bilang createdAt;
+//  (2) sa bawat boot: itinatama ang mga row (huling 3 araw) na ang createdAt
+//      ay >15 min na mas bago kaysa sa oras ng payload. Idempotent.
+const LATE_EVENT_MS = 15 * 60 * 1000;
+function parseCwTime(v) {
+  if (v == null || v === '') return null;
+  const n = typeof v === 'number' ? v : (/^\d+(\.\d+)?$/.test(String(v)) ? Number(v) : NaN);
+  const ms = !Number.isNaN(n) ? (n < 1e12 ? n * 1000 : n) : Date.parse(String(v));
+  return Number.isFinite(ms) && ms > 0 ? new Date(ms) : null;
+}
+// Ang tunay na oras ng event ayon sa payload. message_updated (CSAT) ay hindi
+// — ang created_at nito ay oras ng lumang survey message.
+function payloadEventTime(p) {
+  const ev = String(p?.event || '');
+  if (ev === 'message_created') return parseCwTime(p.created_at);
+  // updated_at lang (HINDI timestamp/last_activity_at — luma iyon kapag
+  // nag-resolve ang agent nang matagal nang walang mensahe).
+  if (ev.startsWith('conversation_')) return parseCwTime(p.updated_at);
+  return null;
+}
+async function fixReplayedEvents() {
+  try {
+    const rows = await sequelize.query(`
+      SELECT "id", "event", "createdAt",
+             "payload"->>'created_at' AS ca, "payload"->>'updated_at' AS ua
+      FROM "ChatwootEvents"
+      WHERE "createdAt" > NOW() - INTERVAL '3 days'
+        AND ("event" = 'message_created' OR "event" LIKE 'conversation\_%')
+    `, { type: QueryTypes.SELECT });
+    const fix = [];
+    for (const r of rows) {
+      const t = payloadEventTime({ event: r.event, created_at: r.ca, updated_at: r.ua });
+      if (t && new Date(r.createdAt).getTime() - t.getTime() > LATE_EVENT_MS) fix.push([r.id, t.toISOString()]);
+    }
+    for (let i = 0; i < fix.length; i += 1000) {
+      const part = fix.slice(i, i + 1000);
+      await sequelize.query(`
+        UPDATE "ChatwootEvents" e SET "createdAt" = v.t
+        FROM (SELECT unnest(ARRAY[:ids]::int[]) AS id, unnest(ARRAY[:ts]::timestamptz[]) AS t) v
+        WHERE e."id" = v.id
+      `, { replacements: { ids: part.map(x => x[0]), ts: part.map(x => x[1]) } });
+    }
+    console.log(`[replay-fix] checked ${rows.length} row(s), corrected time on ${fix.length} replayed/late event(s).`);
+  } catch (err) {
+    console.error('[replay-fix] error:', err.message);
+  }
+}
+setTimeout(fixReplayedEvents, 20 * 1000);             // 20s after boot
 setInterval(prunePayloads, 24 * 60 * 60 * 1000);      // then daily
 
 // Normalizes Chatwoot conversation labels (e.g. "BNS-HH PENDING", "TMT-HH-
@@ -526,11 +580,18 @@ router.post('/webhook/:brand', async (req, res) => {
     // persist only the slimmed copy.
     const fields = extractFields(payload, req.params.brand);
 
+    // Lumang event na ngayon lang dumating (replay/backlog) → oras ng payload
+    // ang gagamitin para hindi magmukhang bagong activity (2026-10-16).
+    const evTime = payloadEventTime(payload);
+    const lateTime = evTime && (Date.now() - evTime.getTime() > LATE_EVENT_MS) ? evTime : null;
+    if (lateTime && Math.random() < 0.05) console.log(`[replay-fix] late ${payload.event} [${req.params.brand} #${fields.conversationId}] dated ${lateTime.toISOString()} (sample)`);
+
     await ChatwootEvent.create({
       brand: req.params.brand,
       event: payload.event || 'unknown',
       ...fields,
       payload: slimPayload(payload),
+      ...(lateTime ? { createdAt: lateTime } : {}),
     });
 
     // Chatwoot doesn't do anything with the response body, but it does
