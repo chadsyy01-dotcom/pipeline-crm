@@ -68,11 +68,13 @@ export default function CsrDashboard() {
     if (title) document.title = title;
   }, []);
 
+  // 2026-10-16: allow="autoplay" para sa Waiting sound alerts sa loob ng iframe
   return (
     <iframe
       ref={frameRef}
       src={initialSrc}
       onLoad={handleLoad}
+      allow="autoplay"
       title="CSR Dashboard"
       style={{
         width: '100%',
