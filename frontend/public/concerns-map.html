@@ -58,6 +58,13 @@ body{margin:0;background:var(--floor);color:var(--ink);font-family:var(--body);}
 .users .nm2 span{display:block;font-size:.95cqw;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .users .cnt{flex:none;font-family:var(--display);font-weight:800;font-size:1.2cqw;color:var(--gold);font-variant-numeric:tabular-nums;}
 .users .more{font-size:1.05cqw;color:var(--ink-soft);font-weight:700;padding-left:.4cqw;}
+.intl{position:absolute;left:58%;top:52%;transform:translate(-50%,-50%);background:rgba(7,14,24,.88);border:.14cqw solid var(--gold);border-radius:1.2cqw;padding:1.8cqw 2.2cqw;min-width:30cqw;backdrop-filter:blur(6px);}
+.intl .k{font-weight:800;font-size:1.1cqw;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);}
+.intl .big{font-family:var(--display);font-weight:800;font-size:6cqw;line-height:1;margin-top:.6cqw;color:#fff;font-variant-numeric:tabular-nums;}
+.intl .sub{font-size:1.2cqw;color:var(--ink-soft);margin-top:.5cqw;}
+.intl .cl{display:flex;flex-direction:column;gap:.5cqw;margin-top:1.2cqw;}
+.intl .cc{display:flex;justify-content:space-between;gap:2cqw;font-size:1.5cqw;font-weight:700;color:#fff;border-bottom:.08cqw solid rgba(255,255,255,.12);padding-bottom:.4cqw;}
+.intl .cc b{font-family:var(--display);color:var(--gold);font-variant-numeric:tabular-nums;}
 .lm.left{transform:translate(calc(-100% - 1.8cqw),-50%);}
 .hud{position:absolute;left:3cqw;top:2.6cqw;}
 .hud .k{font-weight:800;font-size:1.1cqw;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-soft);}
@@ -196,6 +203,7 @@ input{width:96px;font-variant-numeric:tabular-nums;}
   const keyOf = c => String(c || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^city of\s+/, '').replace(/\s+city$/, '').trim();
 
   let top = [];   // [{ city, region, n, at:[lat,lon] }]
+  let intl = { n: 0, countries: [], people: [] };   // international / VPN (Chad 2026-10-18)
   const svg = document.getElementById('map'), gProv = document.getElementById('provs'), gGrid = document.getElementById('grid');
   const overlay = document.getElementById('overlay'), msg = document.getElementById('msg');
   const hudT = document.getElementById('hudT'), rankEl = document.getElementById('rank'), nowEl = document.getElementById('now');
@@ -293,6 +301,12 @@ input{width:96px;font-variant-numeric:tabular-nums;}
   const pop = (el, delay = 0) => !reduce && el.animate(
     [{ scale: '.3', opacity: 0 }, { scale: '1.08', opacity: 1, offset: .7 }, { scale: '1', opacity: 1 }],
     { duration: 620, delay, easing: 'cubic-bezier(.2,.9,.3,1.2)', fill: 'both' });
+  function countUp2(el, n, id) {
+    if (reduce) { el.textContent = fmt(n); return; }
+    const t0 = performance.now();
+    const step = ts => { if (!alive(id)) return; const t = Math.min(1, (ts - t0) / 1300); el.textContent = fmt(Math.round(n * (1 - Math.pow(1 - t, 3)))); if (t < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
   function countUp(el, n, id) {
     if (reduce) { el.textContent = fmt(n) + ' concerns'; return; }
     const t0 = performance.now();
@@ -314,6 +328,14 @@ input{width:96px;font-variant-numeric:tabular-nums;}
   }
 
   const usersEl = document.getElementById('users');
+  function showUsers(title, ppl) {
+    const esc = TicketData.escapeHtml, MAXU = 8;
+    usersEl.innerHTML = `<div class="uh">${esc(title)}</div>` + ppl.slice(0, MAXU).map(([u, v]) =>
+      `<div class="u"><div class="av" style="background:${TicketData.colorForName ? TicketData.colorForName(u) : '#334155'}">${esc(TicketData.initialsForName ? TicketData.initialsForName(u) : u.slice(0, 2).toUpperCase())}</div><div class="nm2"><b>${esc(u)}</b><span>${esc(v.issue)}</span></div><div class="cnt">${fmt(v.n)}</div></div>`).join('')
+      + (ppl.length > MAXU ? `<div class="more">+${fmt(ppl.length - MAXU)} pang player</div>` : '') + (ppl.length ? '' : '<div class="more">Walang username sa tickets</div>');
+    usersEl.hidden = false;
+    if (!reduce) usersEl.querySelectorAll('.uh, .u, .more').forEach((el, k) => el.animate([{ opacity: 0, translate: '-2cqw 0' }, { opacity: 1, translate: '0 0' }], { duration: 420, delay: 200 + k * 90, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' }));
+  }
   function renderRank(active) {
     rankEl.innerHTML = top.map((t, i) => `<div class="${i === active ? 'on' : ''}">#${i + 1} ${TicketData.escapeHtml(t.city)} · ${fmt(t.n)}</div>`).join('');
   }
@@ -325,7 +347,7 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     feats.forEach(f => f.el.classList.remove('hot', 'dim'));
     setView(full); hudT.textContent = 'Philippines'; renderRank(-1);
     nowEl.textContent = 'Mapa ng Pilipinas';
-    if (!top.length) { nowEl.textContent = 'Walang ticket na may IP sa napiling period.'; return; }
+    if (!top.length && !intl.n) { nowEl.textContent = 'Walang ticket na may IP sa napiling period.'; return; }
     try {
       if (!reduce) feats.forEach((f, i) => f.el.animate([{ strokeDasharray: '1 1', strokeDashoffset: 1, fillOpacity: 0 }, { strokeDasharray: '1 1', strokeDashoffset: 0, fillOpacity: 0, offset: .7 }, { strokeDasharray: '1 0', strokeDashoffset: 0, fillOpacity: 1 }], { duration: 1800, delay: (i % 25) * 22, easing: 'ease-out' }));
       await wait(2300, id);
@@ -349,12 +371,7 @@ input{width:96px;font-variant-numeric:tabular-nums;}
         const lab = addTag(`<div class="nm">${esc(T.city)}</div><div class="ct">0 concerns</div>`, 'city', T.at);
         pop(lab); countUp(lab.querySelector('.ct'), T.n, id);
         // USERNAMES (Chad 2026-10-18): mga player ng lungsod sa gilid, isa-isang lumalabas
-        const ppl = T.people || [], MAXU = 8;
-        usersEl.innerHTML = `<div class="uh">Mga player · ${esc(T.city)}</div>` + ppl.slice(0, MAXU).map(([u, v]) =>
-          `<div class="u"><div class="av" style="background:${TicketData.colorForName ? TicketData.colorForName(u) : '#334155'}">${esc(TicketData.initialsForName ? TicketData.initialsForName(u) : u.slice(0, 2).toUpperCase())}</div><div class="nm2"><b>${esc(u)}</b><span>${esc(v.issue)}</span></div><div class="cnt">${fmt(v.n)}</div></div>`).join('')
-          + (ppl.length > MAXU ? `<div class="more">+${fmt(ppl.length - MAXU)} pang player</div>` : '') + (ppl.length ? '' : '<div class="more">Walang username sa tickets</div>');
-        usersEl.hidden = false;
-        if (!reduce) usersEl.querySelectorAll('.uh, .u, .more').forEach((el, k) => el.animate([{ opacity: 0, translate: '-2cqw 0' }, { opacity: 1, translate: '0 0' }], { duration: 420, delay: 200 + k * 90, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' }));
+        showUsers(`Mga player · ${T.city}`, T.people || []);
         await wait(1800, id);
         const pin = addTag(PIN, 'pin', L ? L[1] : T.at);
         if (!reduce) pin.animate([{ translate: '0 -6cqw', opacity: 0 }, { translate: '0 0', opacity: 1, offset: .6 }, { translate: '0 -.8cqw', offset: .8 }, { translate: '0 0', opacity: 1 }], { duration: 750, easing: 'ease-out', fill: 'both' });
@@ -372,6 +389,23 @@ input{width:96px;font-variant-numeric:tabular-nums;}
         if (i < top.length - 1) await fly(full, 1700, id);
       }
       await fly(full, 1800, id);
+      // INTERNATIONAL / VPN (Chad 2026-10-18): huling eksena — mga bansa, bilang at username
+      if (intl.n) {
+        renderRank(-1);
+        hudT.textContent = 'International / VPN';
+        nowEl.textContent = `International / VPN · ${fmt(intl.n)} tickets`;
+        feats.forEach(f => f.el.classList.add('dim'));
+        const box = document.createElement('div');
+        box.className = 'intl';
+        box.innerHTML = `<div class="k">Labas ng Pilipinas</div><div class="big">${fmt(intl.n)}</div><div class="sub">ticket requests mula sa international IP o VPN</div>`
+          + `<div class="cl">${intl.countries.slice(0, 6).map(([c, k]) => `<div class="cc"><span>${TicketData.escapeHtml(c)}</span><b>${fmt(k)}</b></div>`).join('')}</div>`
+          + (intl.countries.length > 6 ? `<div class="sub">+${fmt(intl.countries.length - 6)} pang bansa</div>` : '');
+        overlay.appendChild(box);
+        pop(box);
+        countUp2(box.querySelector('.big'), intl.n, id);
+        showUsers('Mga player · International / VPN', intl.people);
+        await wait(5600, id).finally(() => { box.remove(); usersEl.hidden = true; feats.forEach(f => f.el.classList.remove('dim')); });
+      }
       hudT.textContent = 'Philippines'; renderRank(-1); nowEl.textContent = 'Tapos — umuulit';
       await wait(1500, id);
       play();
@@ -459,7 +493,7 @@ input{width:96px;font-variant-numeric:tabular-nums;}
   let tickets = [], geoCache = {}, retryTimer = null, mapReady = false;
   let lastSig = '', dataReady = false;
   // Isang beses lang magsisimula (o magre-restart kapag nagbago talaga ang top 3)
-  function maybePlay() { if (!mapReady || !dataReady) return; const sig = JSON.stringify(top.map(t => [t.city, t.n])); if (sig === lastSig) return; lastSig = sig; play(); }
+  function maybePlay() { if (!mapReady || !dataReady) return; const sig = JSON.stringify([top.map(t => [t.city, t.n]), intl.n]); if (sig === lastSig) return; lastSig = sig; play(); }
   const ipOf = t => {
     const raw = t.raw || {};
     const col = Object.keys(raw).find(k => /^\s*ip(\s*address)?\s*$/i.test(k)) || Object.keys(raw).find(k => /\bip\b/i.test(k));
@@ -495,8 +529,17 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     }
     const byCity = new Map();
     let located = 0;
+    const byCountry = new Map(), intlUsers = new Map();
+    let intlN = 0;
     rowsIp.forEach(({ ip, issue, user }) => {
       const g = geoCache[ip];
+      if (g && g.countryCode && g.countryCode !== 'PH') {   // INTERNATIONAL / VPN
+        intlN++;
+        const c = g.country || g.countryCode;
+        byCountry.set(c, (byCountry.get(c) || 0) + 1);
+        if (user && user !== 'Unknown') { const u = intlUsers.get(user) || { n: 0, issue: c + (g.city && g.city !== c ? ' · ' + g.city : '') }; u.n++; intlUsers.set(user, u); }
+        return;
+      }
       if (!g || g.countryCode !== 'PH' || g.lat == null) return;
       located++;
       const city = g.city || g.region || 'Unknown';
@@ -508,7 +551,9 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     });
     top = [...byCity.values()].sort((a, b) => b.n - a.n).slice(0, 5)
       .map(r => ({ ...r, concerns: [...r.issues.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3), people: [...r.users.entries()].sort((a, b) => b[1].n - a[1].n) }));
-    statsEl.textContent = `${fmt(list.length)} tickets · ${fmt(withIp.length)} may IP · ${fmt(located)} nahanap sa Pilipinas` + (pending ? ` · ${fmt(pending)} IP hinahanap pa (mag-a-update kusa)` : '');
+    intl = { n: intlN, countries: [...byCountry.entries()].sort((a, b) => b[1] - a[1]), people: [...intlUsers.entries()].sort((a, b) => b[1].n - a[1].n) };
+    const intlTxt = intlN ? ` · ${fmt(intlN)} international: ${intl.countries.slice(0, 4).map(([c, k]) => `${c} ${fmt(k)}`).join(', ')}${intl.countries.length > 4 ? '…' : ''}` : '';
+    statsEl.textContent = `${fmt(list.length)} tickets · ${fmt(withIp.length)} may IP · ${fmt(located)} nahanap sa Pilipinas` + intlTxt + (pending ? ` · ${fmt(pending)} IP hinahanap pa (mag-a-update kusa)` : '');
     if (pending) retryTimer = setTimeout(compute, 65000);
     dataReady = true; maybePlay();
   }
