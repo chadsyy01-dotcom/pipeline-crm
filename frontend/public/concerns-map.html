@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Concerns Map — CSR Dashboard</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Figtree:wght@400;600;800&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js?v=15"></script>
+<style>
+/* Layout: a 16:9 map stage (sea, land, labels overlay), transport + data editor below. */
+:root{
+  --sea:#0A1626; --sea-2:#0E2238; --land:#1C3350; --land-edge:#4F78A8; --ink:#F4F7FB; --ink-soft:#9FB0C8;
+  --hot:#EF3340; --hot-soft:rgba(239,51,64,.28); --gold:#FFC857; --line:#22364F; --floor:#070E18;
+  --display:"Unbounded","Arial Black",system-ui,sans-serif; --body:"Figtree","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--floor);color:var(--ink);font-family:var(--body);}
+.wrap{max-width:1180px;margin:0 auto;padding-block:22px 32px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));display:flex;flex-direction:column;gap:14px;}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;}
+.head h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(16px,2.2vw,22px);}
+.head p{margin:0;color:var(--ink-soft);font-size:13px;}
+
+.stage{position:relative;width:100%;max-width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 55% 45%, var(--sea-2), var(--sea) 70%);container-type:inline-size;box-shadow:0 30px 80px rgba(0,0,0,.5);}
+.stage svg{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.prov{fill:var(--land);stroke:var(--land-edge);stroke-width:.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;transition:fill .9s ease, stroke .6s ease, opacity .6s ease;}
+.prov.dim{opacity:.55;}
+.prov.hot{fill:rgba(239,51,64,.62);stroke:#FF2D3D;stroke-width:2.6;opacity:1;}
+.grid-line{stroke:rgba(159,176,200,.08);stroke-width:1;vector-effect:non-scaling-stroke;fill:none;}
+
+.overlay{position:absolute;inset:0;pointer-events:none;}
+.tag{position:absolute;transform:translate(-50%,-50%);}
+.pulse{position:absolute;width:2.2cqw;height:2.2cqw;margin:-1.1cqw 0 0 -1.1cqw;border-radius:50%;background:var(--hot);box-shadow:0 0 0 .3cqw rgba(255,255,255,.9);}
+.pulse::after{content:"";position:absolute;inset:-.2cqw;border-radius:50%;border:.25cqw solid var(--hot);animation:ring 1.6s ease-out infinite;}
+@keyframes ring{from{transform:scale(1);opacity:.9}to{transform:scale(4.2);opacity:0}}
+.city{position:absolute;transform:translate(-50%,calc(-100% - 2.4cqw));text-align:center;white-space:nowrap;}
+.city .nm{font-family:var(--display);font-weight:800;font-size:4.4cqw;letter-spacing:-.02em;line-height:1;color:#fff;text-shadow:0 .4cqw 2cqw rgba(0,0,0,.6);}
+.city .ct{display:inline-block;margin-top:.8cqw;font-weight:800;font-size:1.35cqw;letter-spacing:.14em;text-transform:uppercase;background:#fff;color:#C8102E;padding:.5cqw 1.1cqw;border-radius:99px;font-variant-numeric:tabular-nums;box-shadow:0 .3cqw 1.2cqw rgba(0,0,0,.4);}
+.pin{position:absolute;width:3.2cqw;height:4.4cqw;margin:-4.4cqw 0 0 -1.6cqw;}
+.lm{position:absolute;transform:translate(1.8cqw,-50%);background:rgba(7,14,24,.86);border:.12cqw solid var(--gold);border-radius:1cqw;padding:1cqw 1.4cqw;min-width:16cqw;backdrop-filter:blur(6px);}
+.lm .k{font-weight:800;font-size:1cqw;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);}
+.lm .n{font-family:var(--display);font-weight:800;font-size:2.1cqw;line-height:1.1;margin-top:.4cqw;color:#fff;}
+.lm .d{font-size:1.15cqw;color:var(--ink-soft);margin-top:.4cqw;}
+.lm.left{transform:translate(calc(-100% - 1.8cqw),-50%);}
+.hud{position:absolute;left:3cqw;top:2.6cqw;}
+.hud .k{font-weight:800;font-size:1.1cqw;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-soft);}
+.hud .t{font-family:var(--display);font-weight:800;font-size:2.4cqw;margin-top:.5cqw;max-width:46cqw;line-height:1.1;}
+.rank{position:absolute;right:3cqw;top:2.6cqw;display:flex;flex-direction:column;gap:.6cqw;align-items:flex-end;}
+.rank div{font-weight:800;font-size:1.2cqw;padding:.45cqw 1cqw;border-radius:99px;background:rgba(255,255,255,.07);color:var(--ink-soft);font-variant-numeric:tabular-nums;transition:background .4s,color .4s;}
+.rank div.on{background:var(--hot);color:#fff;}
+.msg{position:absolute;inset:0;display:grid;place-content:center;text-align:center;padding:24px;color:var(--ink-soft);font-size:15px;}
+
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.btn{font-family:var(--body);font-weight:800;font-size:13px;color:var(--ink);background:#0F1B2C;border:1px solid var(--line);border-radius:99px;padding:9px 16px;cursor:pointer;}
+.btn:hover{border-color:var(--ink-soft);}
+.btn:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.now{font-size:13px;color:var(--ink-soft);}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.filters label{font-size:12px;font-weight:800;color:var(--ink-soft);display:flex;gap:6px;align-items:center;letter-spacing:.04em;text-transform:uppercase;}
+.back{color:var(--ink-soft);text-decoration:none;font-size:13px;font-weight:700;}
+.back:hover{color:var(--ink);}
+.editor{border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:#0B1422;}
+.editor h2{margin:0;font-size:14px;font-weight:800;}
+.editor p{margin:0;font-size:12.5px;color:var(--ink-soft);line-height:1.5;max-width:75ch;}
+.rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;}
+.row{display:flex;gap:8px;align-items:center;min-width:0;}
+.row b{font-size:12px;color:var(--ink-soft);width:18px;}
+select,input{font-family:var(--body);font-size:13px;color:var(--ink);background:#0F1B2C;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;}
+select{flex:1;}
+input{width:96px;font-variant-numeric:tabular-nums;}
+@media (prefers-reduced-motion: reduce){.pulse::after{animation:none}}
+</style>
+<style>[hidden]{display:none!important}</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw Object.assign(new Error("Invalid session"), { authFail: res.status === 401 });
+    } catch (err) {
+      if (!err || !err.authFail) return;
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="wrap">
+  <div class="head">
+    <div style="display:flex;gap:14px;align-items:baseline;flex-wrap:wrap"><a class="back" href="reports.html">← Reports</a><h1>Concerns Map</h1></div>
+    <p>Saan galing ang pinakamaraming ticket requests, batay sa IP Address ng player</p>
+  </div>
+
+  <div class="filters">
+    <label for="period">Period
+      <select id="period">
+        <option value="month">This month</option>
+        <option value="7">Last 7 days</option>
+        <option value="today">Today</option>
+        <option value="lastmonth">Last month</option>
+        <option value="all">Lahat ng na-load</option>
+      </select></label>
+    <label for="brand">Brand <select id="brand"><option value="">All brands</option></select></label>
+    <span class="now" id="stats">Nilo-load ang tickets…</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <svg id="map" preserveAspectRatio="xMidYMid meet" aria-label="Mapa ng Pilipinas"><g id="grid"></g><g id="provs"></g></svg>
+    <div class="overlay" id="overlay">
+      <div class="hud" id="hud"><div class="k">Ticket requests by location</div><div class="t" id="hudT">Philippines</div></div>
+      <div class="rank" id="rank"></div>
+    </div>
+    <div class="msg" id="msg">Nilo-load ang mapa ng Pilipinas…</div>
+  </div>
+
+  <div class="bar">
+    <button class="btn" id="replay" type="button">Replay</button>
+    <button class="btn" id="pause" type="button">Pause</button>
+    <span class="now" id="now"></span>
+  </div>
+  <p class="note" style="font-size:12.5px;color:var(--ink-soft);margin:0">Ang lungsod ay hinahanap mula sa IP Address ng ticket (ip-api.com). Paminsan-minsan ay ang lungsod ng internet provider ang lumalabas, hindi ang eksaktong lugar ng player. Ang probinsyang kinalalagyan ng lungsod ang naka-highlight.</p>
+</div>
+
+<script>
+(() => {
+  // Landmark kada lungsod (lat, lon ng mismong landmark). Susi: pangalan ng lungsod, lowercase, walang "city".
+  const LANDMARKS = {
+    'quezon': ['Quezon Memorial Circle', [14.651, 121.049], 'Pambansang dambana at parke sa gitna ng QC'],
+    'manila': ['Intramuros', [14.591, 120.975], 'Ang lumang Walled City ng Maynila'],
+    'makati': ['Ayala Triangle Gardens', [14.557, 121.024], 'Puso ng business district'],
+    'taguig': ['BGC High Street', [14.551, 121.051], 'Bonifacio Global City'],
+    'pasig': ['Ortigas Center', [14.586, 121.061], 'Business district ng silangang Metro Manila'],
+    'pasay': ['Mall of Asia Seaside', [14.535, 120.982], 'Manila Bay sunset sa SM MOA'],
+    'caloocan': ['Bonifacio Monument', [14.657, 120.984], 'Monumento ni Andres Bonifacio'],
+    'mandaluyong': ['Shaw Boulevard', [14.581, 121.053], 'Tiangge at Megamall area'],
+    'paranaque': ['Entertainment City', [14.519, 120.986], 'Mga integrated resort sa baybay ng Manila Bay'],
+    'las pinas': ['Bamboo Organ Church', [14.475, 120.979], 'Kawayang organ mula 1824'],
+    'muntinlupa': ['Alabang Town Center', [14.424, 121.029], 'Sentro ng south Metro'],
+    'marikina': ['Marikina Riverbanks', [14.633, 121.088], 'Shoe Capital ng Pilipinas'],
+    'valenzuela': ['Valenzuela People\'s Park', [14.699, 120.983], 'Parke ng lungsod'],
+    'antipolo': ['Antipolo Cathedral', [14.586, 121.176], 'Pilgrimage site ng Our Lady of Peace'],
+    'cebu': ["Magellan's Cross", [10.293, 123.902], 'Krus na itinanim noong 1521'],
+    'lapu-lapu': ['Lapu-Lapu Shrine', [10.311, 124.016], 'Mactan, kung saan natalo si Magellan'],
+    'mandaue': ['Marcelo Fernan Bridge', [10.333, 123.950], 'Tulay papuntang Mactan'],
+    'davao': ['Mount Apo', [6.988, 125.271], 'Pinakamataas na bundok ng Pilipinas'],
+    'baguio': ['Burnham Park', [16.412, 120.594], 'Ang lawa at parke ng Summer Capital'],
+    'iloilo': ['Miagao Church', [10.642, 122.235], 'UNESCO World Heritage na simbahan'],
+    'bacolod': ['The Ruins', [10.707, 122.978], 'Ang "Taj Mahal" ng Negros'],
+    'cagayan de oro': ['Cagayan de Oro River', [8.420, 124.640], 'Whitewater rafting capital'],
+    'zamboanga': ['Fort Pilar', [6.904, 122.081], 'Kuta at dambana mula 1635'],
+    'angeles': ['Mount Pinatubo', [15.130, 120.350], 'Ang bulkang sumabog noong 1991'],
+    'san fernando': ['Giant Lantern', [15.034, 120.684], 'Christmas Capital ng Pilipinas'],
+    'puerto princesa': ['Underground River', [10.193, 118.927], 'Isa sa New 7 Wonders of Nature'],
+    'batangas': ['Taal Volcano', [14.011, 120.998], 'Bulkan sa gitna ng lawa'],
+    'tagaytay': ['Taal Volcano View', [14.011, 120.998], 'Tanaw ang Taal mula sa ridge'],
+    'calamba': ['Rizal Shrine', [14.213, 121.167], 'Bahay-sinilangan ni Jose Rizal'],
+    'santa rosa': ['Enchanted Kingdom', [14.284, 121.096], 'Theme park ng Laguna'],
+    'bacoor': ['Zapote Bridge', [14.462, 120.959], 'Makasaysayang tulay ng Cavite'],
+    'dasmarinas': ['Paradahan Tower', [14.329, 120.937], 'Sentro ng Dasmariñas'],
+    'imus': ['Imus Cathedral', [14.428, 120.938], 'Unang watawat, Labanan sa Alapan'],
+    'general santos': ['Fish Port Complex', [6.090, 125.157], 'Tuna Capital ng Pilipinas'],
+    'tacloban': ['San Juanico Bridge', [11.296, 124.989], 'Pinakamahabang tulay sa dagat ng PH'],
+    'legazpi': ['Mayon Volcano', [13.257, 123.685], 'Perpektong cone na bulkan'],
+    'naga': ['Peñafrancia Basilica', [13.627, 123.192], 'Pilgrimage site ng Bicol'],
+    'dumaguete': ['Rizal Boulevard', [9.307, 123.309], 'City of Gentle People'],
+    'tarlac': ['Monasterio de Tarlac', [15.394, 120.477], 'Relic ng Banal na Krus'],
+    'malolos': ['Barasoain Church', [14.848, 120.811], 'Unang Republika ng Pilipinas'],
+    'olongapo': ['Subic Bay', [14.820, 120.270], 'Freeport at baybayin ng Zambales'],
+    'butuan': ['Balangay Shrine', [8.958, 125.565], 'Mga sinaunang bangkang balangay'],
+    'cabanatuan': ['Cabanatuan Cathedral', [15.486, 120.967], 'Puso ng Nueva Ecija'],
+    'lucena': ['Perez Park', [13.937, 121.616], 'Kabisera ng Quezon Province'],
+    'iligan': ['Maria Cristina Falls', [8.183, 124.191], 'City of Majestic Waterfalls'],
+  };
+  const keyOf = c => String(c || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^city of\s+/, '').replace(/\s+city$/, '').trim();
+
+  let top = [];   // [{ city, region, n, at:[lat,lon] }]
+  const svg = document.getElementById('map'), gProv = document.getElementById('provs'), gGrid = document.getElementById('grid');
+  const overlay = document.getElementById('overlay'), msg = document.getElementById('msg');
+  const hudT = document.getElementById('hudT'), rankEl = document.getElementById('rank'), nowEl = document.getElementById('now');
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const NS = 'http://www.w3.org/2000/svg';
+  const fmt = n => Number(n).toLocaleString('en-US');
+
+  // ---- Mercator projection into map units ----
+  const K = 2000;
+  const proj = ([lat, lon]) => [lon / 360 * K, -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) / (2 * Math.PI) * K];
+
+  let feats = [], full = null, view = null;
+  const ringPath = ring => ring.map(([lon, lat], i) => { const [x, y] = proj([lat, lon]); return (i ? 'L' : 'M') + x.toFixed(2) + ' ' + y.toFixed(2); }).join('') + 'Z';
+  function build(geo) {
+    gProv.innerHTML = '';
+    feats = (geo.features || []).filter(f => f.geometry).map(f => {
+      const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : [];
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      polys.forEach(p => p[0].forEach(([lon, lat]) => { const [x, y] = proj([lat, lon]); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }));
+      const el = document.createElementNS(NS, 'path');
+      el.setAttribute('d', polys.map(p => p.map(ringPath).join('')).join(''));
+      el.setAttribute('class', 'prov');
+      el.setAttribute('pathLength', '1');
+      const name = (f.properties && (f.properties.name || f.properties.NAME_1 || f.properties.ADM2_EN || f.properties.adm2_en || f.properties.ADM1_EN || f.properties.adm1_en || f.properties.PROVINCE || f.properties.province || f.properties.woe_name)) || '';
+      gProv.appendChild(el);
+      const rings = polys.map(p => p[0].map(([lon, lat]) => proj([lat, lon])));
+      return { name, el, box: [x0, y0, x1, y1], rings };
+    });
+    const b = feats.reduce((a, f) => [Math.min(a[0], f.box[0]), Math.min(a[1], f.box[1]), Math.max(a[2], f.box[2]), Math.max(a[3], f.box[3])], [Infinity, Infinity, -Infinity, -Infinity]);
+    full = fitBox(b, 0.08);
+    // faint lat/lon grid for a cartographic feel
+    gGrid.innerHTML = '';
+    for (let lon = 114; lon <= 130; lon += 2) { const [x] = proj([0, lon]); gGrid.insertAdjacentHTML('beforeend', `<line class="grid-line" x1="${x}" x2="${x}" y1="${b[1] - 400}" y2="${b[3] + 400}"/>`); }
+    for (let lat = 2; lat <= 22; lat += 2) { const [, y] = proj([lat, 0]); gGrid.insertAdjacentHTML('beforeend', `<line class="grid-line" y1="${y}" y2="${y}" x1="${b[0] - 600}" x2="${b[2] + 600}"/>`); }
+    setView(full);
+  }
+  // A 16:9 viewBox containing the given box with padding
+  function fitBox([x0, y0, x1, y1], pad) {
+    let w = (x1 - x0) * (1 + pad * 2), h = (y1 - y0) * (1 + pad * 2);
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    if (w / h > 16 / 9) h = w * 9 / 16; else w = h * 16 / 9;
+    return { cx, cy, w };
+  }
+  function setView(v) {
+    view = v;
+    const h = v.w * 9 / 16;
+    svg.setAttribute('viewBox', `${v.cx - v.w / 2} ${v.cy - h / 2} ${v.w} ${h}`);
+    placeTags();
+  }
+  // Map units → % of the stage, for HTML labels that keep a constant size
+  const toStage = ([x, y]) => [((x - (view.cx - view.w / 2)) / view.w) * 100, ((y - (view.cy - view.w * 9 / 32)) / (view.w * 9 / 16)) * 100];
+  let tags = [];
+  function placeTags() { tags.forEach(t => { const [l, tp] = toStage(t.p); t.el.style.left = l + '%'; t.el.style.top = tp + '%'; }); }
+  function addTag(html, cls, latlon) {
+    const el = document.createElement('div');
+    el.className = cls; el.innerHTML = html;
+    overlay.appendChild(el);
+    const t = { el, p: proj(latlon) };
+    tags.push(t); placeTags();
+    return el;
+  }
+  function clearTags() { tags.forEach(t => t.el.remove()); tags = []; }
+
+  // ---- Animation helpers (cancellable) ----
+  let run = 0, paused = false, pauseWaiters = [];
+  const alive = id => id === run;
+  const gate = () => paused ? new Promise(r => pauseWaiters.push(r)) : null;
+  async function wait(ms, id) {
+    let left = ms;
+    while (left > 0) { if (!alive(id)) throw 0; const g = gate(); if (g) await g; const s = Math.min(left, 50); await new Promise(r => setTimeout(r, s)); left -= s; }
+    if (!alive(id)) throw 0;
+  }
+  const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  // Smooth "fly": zoom out a little mid-way when travelling far, then in
+  function fly(to, ms, id) {
+    if (reduce) { setView(to); return Promise.resolve(); }
+    const from = { ...view };
+    const dist = Math.hypot(to.cx - from.cx, to.cy - from.cy);
+    const bump = Math.min(1.6, dist / Math.max(from.w, to.w) * 1.2);
+    return new Promise((res, rej) => {
+      let t0 = null, acc = 0, last = null;
+      const step = ts => {
+        if (!alive(id)) return rej(0);
+        if (last != null && !paused) acc += ts - last;
+        last = ts;
+        const t = Math.min(1, acc / ms), e = ease(t);
+        const w = Math.exp(Math.log(from.w) + (Math.log(to.w) - Math.log(from.w)) * e) * (1 + bump * Math.sin(Math.PI * t) * .35);
+        setView({ cx: from.cx + (to.cx - from.cx) * e, cy: from.cy + (to.cy - from.cy) * e, w });
+        t < 1 ? requestAnimationFrame(step) : res();
+      };
+      requestAnimationFrame(step);
+    });
+  }
+  // `scale`/`translate` compose with the CSS transform that positions each tag
+  const pop = (el, delay = 0) => !reduce && el.animate(
+    [{ scale: '.3', opacity: 0 }, { scale: '1.08', opacity: 1, offset: .7 }, { scale: '1', opacity: 1 }],
+    { duration: 620, delay, easing: 'cubic-bezier(.2,.9,.3,1.2)', fill: 'both' });
+  function countUp(el, n, id) {
+    if (reduce) { el.textContent = fmt(n) + ' concerns'; return; }
+    const t0 = performance.now();
+    const step = ts => { if (!alive(id)) return; const t = Math.min(1, (ts - t0) / 1300); el.textContent = fmt(Math.round(n * (1 - Math.pow(1 - t, 3)))) + ' concerns'; if (t < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+  const PIN = '<svg viewBox="0 0 32 44" width="100%" height="100%"><path d="M16 43C16 43 2 26.5 2 16a14 14 0 0 1 28 0C30 26.5 16 43 16 43z" fill="#FFC857" stroke="#070E18" stroke-width="2"/><circle cx="16" cy="16" r="6" fill="#070E18"/></svg>';
+
+
+  // Point-in-polygon (projected units) para malaman ang probinsya ng lungsod
+  const inRing = ([x, y], r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, yi] = r[i], [xj, yj] = r[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+  function provinceAt(latlon) {
+    const p = proj(latlon);
+    let hit = feats.find(f => p[0] >= f.box[0] && p[0] <= f.box[2] && p[1] >= f.box[1] && p[1] <= f.box[3] && f.rings.some(r => inRing(p, r)));
+    if (!hit) { // nasa baybay/dagat: pinakamalapit na probinsya
+      let best = Infinity; feats.forEach(f => { const cx = (f.box[0] + f.box[2]) / 2, cy = (f.box[1] + f.box[3]) / 2, d = Math.hypot(cx - p[0], cy - p[1]); if (d < best) { best = d; hit = f; } });
+    }
+    return hit;
+  }
+
+  function renderRank(active) {
+    rankEl.innerHTML = top.map((t, i) => `<div class="${i === active ? 'on' : ''}">#${i + 1} ${TicketData.escapeHtml(t.city)} · ${fmt(t.n)}</div>`).join('');
+  }
+
+  async function play() {
+    const id = ++run;
+    paused = false; pauseWaiters.splice(0).forEach(r => r()); pauseBtn.textContent = 'Pause';
+    clearTags();
+    feats.forEach(f => f.el.classList.remove('hot', 'dim'));
+    setView(full); hudT.textContent = 'Philippines'; renderRank(-1);
+    nowEl.textContent = 'Mapa ng Pilipinas';
+    if (!top.length) { nowEl.textContent = 'Walang ticket na may IP sa napiling period.'; return; }
+    try {
+      if (!reduce) feats.forEach((f, i) => f.el.animate([{ strokeDasharray: '1 1', strokeDashoffset: 1, fillOpacity: 0 }, { strokeDasharray: '1 1', strokeDashoffset: 0, fillOpacity: 0, offset: .7 }, { strokeDasharray: '1 0', strokeDashoffset: 0, fillOpacity: 1 }], { duration: 1800, delay: (i % 25) * 22, easing: 'ease-out' }));
+      await wait(2300, id);
+      for (let i = 0; i < top.length; i++) {
+        const T = top[i], esc = TicketData.escapeHtml;
+        const L = LANDMARKS[keyOf(T.city)] || null;
+        const prov = provinceAt(T.at);
+        const hit = prov ? [prov] : [];
+        nowEl.textContent = `#${i + 1} ${T.city}`;
+        renderRank(i);
+        hudT.textContent = `#${i + 1} sa ticket requests`;
+        const p = proj(T.at), lp = L ? proj(L[1]) : p;
+        const box = prov ? prov.box : [p[0], p[1], p[0], p[1]];
+        const target = fitBox([Math.min(box[0], lp[0], p[0]), Math.min(box[1], lp[1], p[1]), Math.max(box[2], lp[0], p[0]), Math.max(box[3], lp[1], p[1])], 0.55);
+        target.w = Math.max(target.w, full.w / 14);
+        feats.forEach(f => f.el.classList.toggle('dim', !hit.includes(f)));
+        setTimeout(() => alive(id) && hit.forEach(f => { f.el.classList.add('hot'); gProv.appendChild(f.el); }), reduce ? 0 : 900);
+        await fly(target, 2600, id);
+        addTag('', 'pulse', T.at);
+        const lab = addTag(`<div class="nm">${esc(T.city)}</div><div class="ct">0 concerns</div>`, 'city', T.at);
+        pop(lab); countUp(lab.querySelector('.ct'), T.n, id);
+        await wait(1800, id);
+        const pin = addTag(PIN, 'pin', L ? L[1] : T.at);
+        if (!reduce) pin.animate([{ translate: '0 -6cqw', opacity: 0 }, { translate: '0 0', opacity: 1, offset: .6 }, { translate: '0 -.8cqw', offset: .8 }, { translate: '0 0', opacity: 1 }], { duration: 750, easing: 'ease-out', fill: 'both' });
+        const leftSide = toStage(lp)[0] > 62;
+        const card = addTag(L
+          ? `<div class="k">Landmark ng ${esc(T.city)}</div><div class="n">${esc(L[0])}</div><div class="d">${esc(L[2])}</div>`
+          : `<div class="k">${esc(T.region || 'Philippines')}</div><div class="n">${esc(T.city)}</div><div class="d">${fmt(T.n)} ticket requests</div>`,
+          'lm' + (leftSide ? ' left' : ''), L ? L[1] : T.at);
+        pop(card, 350);
+        await wait(3400, id);
+        clearTags();
+        hit.forEach(f => f.el.classList.remove('hot'));
+        feats.forEach(f => f.el.classList.remove('dim'));
+        if (i < top.length - 1) await fly(full, 1700, id);
+      }
+      await fly(full, 1800, id);
+      hudT.textContent = 'Philippines'; renderRank(-1); nowEl.textContent = 'Tapos — umuulit';
+      await wait(1500, id);
+      play();
+    } catch (e) { if (e !== 0) console.error(e); }
+  }
+
+  const pauseBtn = document.getElementById('pause');
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Play' : 'Pause';
+    if (!paused) pauseWaiters.splice(0).forEach(r => r());
+    document.getAnimations().forEach(a => paused ? a.pause() : a.play());
+  });
+  document.getElementById('replay').addEventListener('click', () => feats.length && play());
+  window.addEventListener('resize', placeTags);
+
+  // ---- Map data: accept GeoJSON (lon/lat), TopoJSON, or Highcharts' projected GeoJSON ----
+  function topoToGeo(topo) {
+    const tf = topo.transform, arcs = topo.arcs.map(a => {
+      let x = 0, y = 0;
+      return a.map(p => tf ? [(x += p[0]) * tf.scale[0] + tf.translate[0], (y += p[1]) * tf.scale[1] + tf.translate[1]] : p);
+    });
+    const arc = i => i < 0 ? arcs[~i].slice().reverse() : arcs[i];
+    const ring = idx => idx.reduce((pts, i, k) => { const a = arc(i); return pts.concat(k ? a.slice(1) : a); }, []);
+    const obj = Object.values(topo.objects)[0];
+    return { type: 'FeatureCollection', features: (obj.geometries || []).filter(g => g.arcs).map(g => ({
+      type: 'Feature', properties: g.properties || {},
+      geometry: g.type === 'Polygon' ? { type: 'Polygon', coordinates: g.arcs.map(ring) }
+        : { type: 'MultiPolygon', coordinates: g.arcs.map(p => p.map(ring)) },
+    })) };
+  }
+  // Least-squares affine fit: lon/lat = f(x, y), from features that carry latitude/longitude
+  function unproject(geo) {
+    const pairs = [];
+    const each = (f, cb) => { const g = f.geometry; (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).forEach(p => p.forEach(r => r.forEach(cb))); };
+    geo.features.forEach(f => {
+      const pr = f.properties || {}, lat = Number(pr.latitude), lon = Number(pr.longitude);
+      if (!f.geometry || !isFinite(lat) || !isFinite(lon)) return;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      each(f, ([x, y]) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); });
+      pairs.push([(x0 + x1) / 2, (y0 + y1) / 2, lon, lat]);
+    });
+    if (pairs.length < 6) throw new Error('no reference points');
+    const solve = col => { // normal equations for v = a*x + b*y + c
+      let S = [[0,0,0],[0,0,0],[0,0,0]], r = [0,0,0];
+      pairs.forEach(q => { const v = [q[0], q[1], 1]; for (let i = 0; i < 3; i++) { r[i] += v[i] * q[col]; for (let j = 0; j < 3; j++) S[i][j] += v[i] * v[j]; } });
+      const M = S.map((row, i) => [...row, r[i]]);
+      for (let i = 0; i < 3; i++) { let m = i; for (let k = i + 1; k < 3; k++) if (Math.abs(M[k][i]) > Math.abs(M[m][i])) m = k; [M[i], M[m]] = [M[m], M[i]];
+        for (let k = 0; k < 3; k++) if (k !== i) { const f = M[k][i] / M[i][i]; for (let j = i; j < 4; j++) M[k][j] -= f * M[i][j]; } }
+      return M.map((row, i) => row[3] / row[i]);
+    };
+    const L = solve(2), A = solve(3);
+    const conv = ([x, y]) => [L[0] * x + L[1] * y + L[2], A[0] * x + A[1] * y + A[2]];
+    geo.features.forEach(f => { if (!f.geometry) return; const g = f.geometry;
+      g.coordinates = g.type === 'Polygon' ? g.coordinates.map(r => r.map(conv)) : g.coordinates.map(p => p.map(r => r.map(conv))); });
+    return geo;
+  }
+  function normalize(d) {
+    if (!d) throw new Error('empty');
+    let geo = d.type === 'Topology' ? topoToGeo(d) : d;
+    if (!geo.features || !geo.features.length) throw new Error('no features');
+    const g = geo.features.find(f => f.geometry).geometry;
+    const pt = g.type === 'Polygon' ? g.coordinates[0][0] : g.coordinates[0][0][0];
+    const isLonLat = Math.abs(pt[0]) <= 180 && Math.abs(pt[1]) <= 90 && pt[0] > 100;
+    return isLonLat ? geo : unproject(geo);
+  }
+
+
+  // ---- Mapa: sa backend muna (naka-cache), tapos direkta sa CDN ----
+  const token = () => localStorage.getItem('pipeline_token') || '';
+  async function loadMap() {
+    const tries = [
+      () => fetch(`${API_BASE}/geo/ph-map`, { headers: { Authorization: `Bearer ${token()}` } }),
+      () => fetch('https://cdn.jsdelivr.net/npm/@highcharts/map-collection@2.3.3/countries/ph/ph-all.topo.json'),
+      () => fetch('https://code.highcharts.com/mapdata/countries/ph/ph-all.topo.json'),
+    ];
+    for (const t of tries) {
+      try { const r = await t(); if (!r.ok) continue; return normalize(await r.json()); } catch (e) { console.warn('map source failed', e && e.message); }
+    }
+    throw new Error('no map');
+  }
+
+  // ---- Data: tickets → IP → lungsod ----
+  const statsEl = document.getElementById('stats'), periodEl = document.getElementById('period'), brandEl = document.getElementById('brand');
+  let tickets = [], geoCache = {}, retryTimer = null, mapReady = false;
+  let lastSig = '', dataReady = false;
+  // Isang beses lang magsisimula (o magre-restart kapag nagbago talaga ang top 3)
+  function maybePlay() { if (!mapReady || !dataReady) return; const sig = JSON.stringify(top.map(t => [t.city, t.n])); if (sig === lastSig) return; lastSig = sig; play(); }
+  const ipOf = t => {
+    const raw = t.raw || {};
+    const col = Object.keys(raw).find(k => /^\s*ip(\s*address)?\s*$/i.test(k)) || Object.keys(raw).find(k => /\bip\b/i.test(k));
+    const v = col ? String(raw[col] || '').trim() : '';
+    return v && /[\d:.]/.test(v) ? v.split(/[\s,]+/)[0] : '';
+  };
+  function inPeriod(d) {
+    if (!d || isNaN(d)) return false;
+    const now = new Date(), p = periodEl.value;
+    if (p === 'all') return true;
+    if (p === 'today') return TicketData.isSameLocalDay(d, now);
+    if (p === '7') return now - d <= 7 * 864e5;
+    if (p === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    if (p === 'lastmonth') { const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1); return d.getFullYear() === lm.getFullYear() && d.getMonth() === lm.getMonth(); }
+    return true;
+  }
+  async function compute() {
+    clearTimeout(retryTimer);
+    const list = tickets.filter(t => inPeriod(t.submitted) && (!brandEl.value || t.brandLabel === brandEl.value));
+    const withIp = list.map(t => ipOf(t)).filter(Boolean);
+    const need = [...new Set(withIp)].filter(ip => !(ip in geoCache));
+    let pending = 0;
+    if (need.length) {
+      statsEl.textContent = `Hinahanap ang lokasyon ng ${fmt(need.length)} IP…`;
+      try {
+        const r = await fetch(`${API_BASE}/geo/lookup`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` }, body: JSON.stringify({ ips: need }) });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        Object.assign(geoCache, j.results || {});
+        pending = j.pending || 0;
+      } catch (e) { statsEl.textContent = 'Hindi mahanap ang lokasyon ng mga IP: ' + e.message; return; }
+    }
+    const byCity = new Map();
+    let located = 0;
+    withIp.forEach(ip => {
+      const g = geoCache[ip];
+      if (!g || g.countryCode !== 'PH' || g.lat == null) return;
+      located++;
+      const city = g.city || g.region || 'Unknown';
+      const k = city.toLowerCase();
+      const row = byCity.get(k) || { city, region: g.region, n: 0, at: [g.lat, g.lon] };
+      row.n++; byCity.set(k, row);
+    });
+    top = [...byCity.values()].sort((a, b) => b.n - a.n).slice(0, 3);
+    statsEl.textContent = `${fmt(list.length)} tickets · ${fmt(withIp.length)} may IP · ${fmt(located)} nahanap sa Pilipinas` + (pending ? ` · ${fmt(pending)} IP hinahanap pa (mag-a-update kusa)` : '');
+    if (pending) retryTimer = setTimeout(compute, 65000);
+    dataReady = true; maybePlay();
+  }
+  periodEl.addEventListener('change', compute);
+  brandEl.addEventListener('change', compute);
+
+  loadMap().then(geo => { build(geo); msg.hidden = true; mapReady = true; maybePlay(); })
+    .catch(() => { msg.textContent = 'Hindi ma-load ang mapa ng Pilipinas. I-refresh ang page.'; });
+  TicketData.fetchTickets().then(list => {
+    tickets = list || [];
+    [...new Set(tickets.map(t => t.brandLabel).filter(Boolean))].sort().forEach(b => brandEl.insertAdjacentHTML('beforeend', `<option>${TicketData.escapeHtml(b)}</option>`));
+    compute();
+  }).catch(e => { statsEl.textContent = 'Hindi ma-load ang tickets: ' + (e && e.message); });
+})();
+</script>
+<script src="sidebar-topnav.js?v=4"></script>
+</body>
+</html>
