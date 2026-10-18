@@ -37,7 +37,7 @@ body{margin:0;background:var(--floor);color:var(--ink);font-family:var(--body);}
 .pulse{position:absolute;width:2.2cqw;height:2.2cqw;margin:-1.1cqw 0 0 -1.1cqw;border-radius:50%;background:var(--hot);box-shadow:0 0 0 .3cqw rgba(255,255,255,.9);}
 .pulse::after{content:"";position:absolute;inset:-.2cqw;border-radius:50%;border:.25cqw solid var(--hot);animation:ring 1.6s ease-out infinite;}
 @keyframes ring{from{transform:scale(1);opacity:.9}to{transform:scale(4.2);opacity:0}}
-.city{position:absolute;transform:translate(-50%,calc(-100% - 2.4cqw));text-align:center;white-space:nowrap;}
+.city{position:absolute;transform:translate(-50%,calc(-100% - 5.6cqw));text-align:center;white-space:nowrap;}
 .city .nm{font-family:var(--display);font-weight:800;font-size:4.4cqw;letter-spacing:-.02em;line-height:1;color:#fff;text-shadow:0 .4cqw 2cqw rgba(0,0,0,.6);}
 .city .ct{display:inline-block;margin-top:.8cqw;font-weight:800;font-size:1.35cqw;letter-spacing:.14em;text-transform:uppercase;background:#fff;color:#C8102E;padding:.5cqw 1.1cqw;border-radius:99px;font-variant-numeric:tabular-nums;box-shadow:0 .3cqw 1.2cqw rgba(0,0,0,.4);}
 .pin{position:absolute;width:3.2cqw;height:4.4cqw;margin:-4.4cqw 0 0 -1.6cqw;}
@@ -45,12 +45,25 @@ body{margin:0;background:var(--floor);color:var(--ink);font-family:var(--body);}
 .lm .k{font-weight:800;font-size:1cqw;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);}
 .lm .n{font-family:var(--display);font-weight:800;font-size:2.1cqw;line-height:1.1;margin-top:.4cqw;color:#fff;}
 .lm .d{font-size:1.15cqw;color:var(--ink-soft);margin-top:.4cqw;}
+.lm .cl{display:flex;flex-direction:column;gap:.5cqw;margin-top:.7cqw;min-width:22cqw;}
+.lm .cc{display:flex;justify-content:space-between;gap:1.6cqw;align-items:baseline;font-size:1.45cqw;font-weight:700;color:#fff;border-bottom:.08cqw solid rgba(255,255,255,.12);padding-bottom:.4cqw;}
+.lm .cc span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:26cqw;}
+.lm .cc b{font-family:var(--display);font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;}
+.users{position:absolute;left:3cqw;top:10cqw;bottom:3cqw;width:25cqw;display:flex;flex-direction:column;gap:.55cqw;overflow:hidden;}
+.users .uh{font-weight:800;font-size:1.05cqw;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:.3cqw;}
+.users .u{display:flex;align-items:center;gap:.9cqw;background:rgba(7,14,24,.78);border:.08cqw solid rgba(255,255,255,.1);border-radius:.8cqw;padding:.55cqw .9cqw;min-width:0;}
+.users .av{flex:none;width:2.3cqw;height:2.3cqw;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:1cqw;color:#fff;}
+.users .nm2{min-width:0;flex:1;}
+.users .nm2 b{display:block;font-size:1.25cqw;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.users .nm2 span{display:block;font-size:.95cqw;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.users .cnt{flex:none;font-family:var(--display);font-weight:800;font-size:1.2cqw;color:var(--gold);font-variant-numeric:tabular-nums;}
+.users .more{font-size:1.05cqw;color:var(--ink-soft);font-weight:700;padding-left:.4cqw;}
 .lm.left{transform:translate(calc(-100% - 1.8cqw),-50%);}
 .hud{position:absolute;left:3cqw;top:2.6cqw;}
 .hud .k{font-weight:800;font-size:1.1cqw;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-soft);}
 .hud .t{font-family:var(--display);font-weight:800;font-size:2.4cqw;margin-top:.5cqw;max-width:46cqw;line-height:1.1;}
 .rank{position:absolute;right:3cqw;top:2.6cqw;display:flex;flex-direction:column;gap:.6cqw;align-items:flex-end;}
-.rank div{font-weight:800;font-size:1.2cqw;padding:.45cqw 1cqw;border-radius:99px;background:rgba(255,255,255,.07);color:var(--ink-soft);font-variant-numeric:tabular-nums;transition:background .4s,color .4s;}
+.rank div{font-weight:800;font-size:1.1cqw;padding:.45cqw 1cqw;border-radius:99px;background:rgba(255,255,255,.07);color:var(--ink-soft);font-variant-numeric:tabular-nums;transition:background .4s,color .4s;}
 .rank div.on{background:var(--hot);color:#fff;}
 .msg{position:absolute;inset:0;display:grid;place-content:center;text-align:center;padding:24px;color:var(--ink-soft);font-size:15px;}
 
@@ -117,6 +130,7 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     <div class="overlay" id="overlay">
       <div class="hud" id="hud"><div class="k">Ticket requests by location</div><div class="t" id="hudT">Philippines</div></div>
       <div class="rank" id="rank"></div>
+      <div class="users" id="users" hidden></div>
     </div>
     <div class="msg" id="msg">Nilo-load ang mapa ng Pilipinas…</div>
   </div>
@@ -299,6 +313,7 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     return hit;
   }
 
+  const usersEl = document.getElementById('users');
   function renderRank(active) {
     rankEl.innerHTML = top.map((t, i) => `<div class="${i === active ? 'on' : ''}">#${i + 1} ${TicketData.escapeHtml(t.city)} · ${fmt(t.n)}</div>`).join('');
   }
@@ -306,7 +321,7 @@ input{width:96px;font-variant-numeric:tabular-nums;}
   async function play() {
     const id = ++run;
     paused = false; pauseWaiters.splice(0).forEach(r => r()); pauseBtn.textContent = 'Pause';
-    clearTags();
+    clearTags(); usersEl.hidden = true;
     feats.forEach(f => f.el.classList.remove('hot', 'dim'));
     setView(full); hudT.textContent = 'Philippines'; renderRank(-1);
     nowEl.textContent = 'Mapa ng Pilipinas';
@@ -326,23 +341,32 @@ input{width:96px;font-variant-numeric:tabular-nums;}
         const box = prov ? prov.box : [p[0], p[1], p[0], p[1]];
         const target = fitBox([Math.min(box[0], lp[0], p[0]), Math.min(box[1], lp[1], p[1]), Math.max(box[2], lp[0], p[0]), Math.max(box[3], lp[1], p[1])], 0.55);
         target.w = Math.max(target.w, full.w / 14);
+        target.cx -= target.w * 0.12;   // iwan ang kaliwa para sa listahan ng username
         feats.forEach(f => f.el.classList.toggle('dim', !hit.includes(f)));
         setTimeout(() => alive(id) && hit.forEach(f => { f.el.classList.add('hot'); gProv.appendChild(f.el); }), reduce ? 0 : 900);
         await fly(target, 2600, id);
         addTag('', 'pulse', T.at);
         const lab = addTag(`<div class="nm">${esc(T.city)}</div><div class="ct">0 concerns</div>`, 'city', T.at);
         pop(lab); countUp(lab.querySelector('.ct'), T.n, id);
+        // USERNAMES (Chad 2026-10-18): mga player ng lungsod sa gilid, isa-isang lumalabas
+        const ppl = T.people || [], MAXU = 8;
+        usersEl.innerHTML = `<div class="uh">Mga player · ${esc(T.city)}</div>` + ppl.slice(0, MAXU).map(([u, v]) =>
+          `<div class="u"><div class="av" style="background:${TicketData.colorForName ? TicketData.colorForName(u) : '#334155'}">${esc(TicketData.initialsForName ? TicketData.initialsForName(u) : u.slice(0, 2).toUpperCase())}</div><div class="nm2"><b>${esc(u)}</b><span>${esc(v.issue)}</span></div><div class="cnt">${fmt(v.n)}</div></div>`).join('')
+          + (ppl.length > MAXU ? `<div class="more">+${fmt(ppl.length - MAXU)} pang player</div>` : '') + (ppl.length ? '' : '<div class="more">Walang username sa tickets</div>');
+        usersEl.hidden = false;
+        if (!reduce) usersEl.querySelectorAll('.uh, .u, .more').forEach((el, k) => el.animate([{ opacity: 0, translate: '-2cqw 0' }, { opacity: 1, translate: '0 0' }], { duration: 420, delay: 200 + k * 90, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' }));
         await wait(1800, id);
         const pin = addTag(PIN, 'pin', L ? L[1] : T.at);
         if (!reduce) pin.animate([{ translate: '0 -6cqw', opacity: 0 }, { translate: '0 0', opacity: 1, offset: .6 }, { translate: '0 -.8cqw', offset: .8 }, { translate: '0 0', opacity: 1 }], { duration: 750, easing: 'ease-out', fill: 'both' });
         const leftSide = toStage(lp)[0] > 62;
-        const card = addTag(L
-          ? `<div class="k">Landmark ng ${esc(T.city)}</div><div class="n">${esc(L[0])}</div><div class="d">${esc(L[2])}</div>`
-          : `<div class="k">${esc(T.region || 'Philippines')}</div><div class="n">${esc(T.city)}</div><div class="d">${fmt(T.n)} ticket requests</div>`,
+        // TOP CONCERNS (Chad 2026-10-18): ang card ay nagpapakita ng top 3 ticket concerns ng lungsod at bilang
+        const cons = (T.concerns || []).map(([c, k]) => `<div class="cc"><span>${esc(c)}</span><b>${fmt(k)}</b></div>`).join('');
+        const card = addTag(`<div class="k">Top concerns · ${esc(T.city)}</div><div class="cl">${cons || '<div class="cc"><span>Walang concern</span><b>0</b></div>'}</div>`
+          + (L ? `<div class="d">Landmark: ${esc(L[0])}</div>` : ''),
           'lm' + (leftSide ? ' left' : ''), L ? L[1] : T.at);
         pop(card, 350);
         await wait(3400, id);
-        clearTags();
+        clearTags(); usersEl.hidden = true;
         hit.forEach(f => f.el.classList.remove('hot'));
         feats.forEach(f => f.el.classList.remove('dim'));
         if (i < top.length - 1) await fly(full, 1700, id);
@@ -456,6 +480,7 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     clearTimeout(retryTimer);
     const list = tickets.filter(t => inPeriod(t.submitted) && (!brandEl.value || t.brandLabel === brandEl.value));
     const withIp = list.map(t => ipOf(t)).filter(Boolean);
+    const rowsIp = list.map(t => ({ ip: ipOf(t), issue: (t.issue || t.category || 'Others').trim() || 'Others', user: String(t.name || '').trim() })).filter(r => r.ip);
     const need = [...new Set(withIp)].filter(ip => !(ip in geoCache));
     let pending = 0;
     if (need.length) {
@@ -470,16 +495,19 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     }
     const byCity = new Map();
     let located = 0;
-    withIp.forEach(ip => {
+    rowsIp.forEach(({ ip, issue, user }) => {
       const g = geoCache[ip];
       if (!g || g.countryCode !== 'PH' || g.lat == null) return;
       located++;
       const city = g.city || g.region || 'Unknown';
       const k = city.toLowerCase();
-      const row = byCity.get(k) || { city, region: g.region, n: 0, at: [g.lat, g.lon] };
-      row.n++; byCity.set(k, row);
+      const row = byCity.get(k) || { city, region: g.region, n: 0, at: [g.lat, g.lon], issues: new Map(), users: new Map() };
+      row.n++; row.issues.set(issue, (row.issues.get(issue) || 0) + 1);
+      if (user && user !== 'Unknown') { const u = row.users.get(user) || { n: 0, issue }; u.n++; row.users.set(user, u); }
+      byCity.set(k, row);
     });
-    top = [...byCity.values()].sort((a, b) => b.n - a.n).slice(0, 3);
+    top = [...byCity.values()].sort((a, b) => b.n - a.n).slice(0, 5)
+      .map(r => ({ ...r, concerns: [...r.issues.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3), people: [...r.users.entries()].sort((a, b) => b[1].n - a[1].n) }));
     statsEl.textContent = `${fmt(list.length)} tickets · ${fmt(withIp.length)} may IP · ${fmt(located)} nahanap sa Pilipinas` + (pending ? ` · ${fmt(pending)} IP hinahanap pa (mag-a-update kusa)` : '');
     if (pending) retryTimer = setTimeout(compute, 65000);
     dataReady = true; maybePlay();
