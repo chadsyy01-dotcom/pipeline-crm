@@ -200,6 +200,23 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     'lucena': ['Perez Park', [13.937, 121.616], 'Kabisera ng Quezon Province'],
     'iligan': ['Maria Cristina Falls', [8.183, 124.191], 'City of Majestic Waterfalls'],
   };
+  // Gitna ng bawat kilalang lungsod (lat, lon). Ito ang ginagamit sa pulse at highlight,
+  // hindi ang coordinates ng IP (minsan ibang lugar ang ibinibigay ng IP kahit "Manila" ang lungsod).
+  const CITY_AT = {
+    'quezon': [14.676, 121.044], 'manila': [14.599, 120.984], 'makati': [14.555, 121.023], 'taguig': [14.517, 121.051],
+    'pasig': [14.576, 121.085], 'pasay': [14.538, 121.001], 'caloocan': [14.651, 120.972], 'mandaluyong': [14.579, 121.036],
+    'paranaque': [14.479, 121.020], 'las pinas': [14.445, 120.993], 'muntinlupa': [14.408, 121.042], 'marikina': [14.651, 121.103],
+    'valenzuela': [14.700, 120.983], 'antipolo': [14.587, 121.176], 'cebu': [10.316, 123.885], 'lapu-lapu': [10.310, 123.949],
+    'mandaue': [10.324, 123.922], 'davao': [7.190, 125.455], 'baguio': [16.402, 120.596], 'iloilo': [10.720, 122.562],
+    'bacolod': [10.677, 122.951], 'cagayan de oro': [8.454, 124.632], 'zamboanga': [6.921, 122.079], 'angeles': [15.145, 120.589],
+    'san fernando': [15.035, 120.689], 'puerto princesa': [9.739, 118.735], 'batangas': [13.757, 121.058], 'tagaytay': [14.115, 120.962],
+    'calamba': [14.212, 121.165], 'santa rosa': [14.312, 121.112], 'bacoor': [14.459, 120.929], 'dasmarinas': [14.329, 120.937],
+    'imus': [14.430, 120.937], 'general santos': [6.116, 125.172], 'tacloban': [11.244, 125.004], 'legazpi': [13.139, 123.744],
+    'naga': [13.621, 123.195], 'dumaguete': [9.307, 123.308], 'tarlac': [15.486, 120.590], 'malolos': [14.843, 120.811],
+    'olongapo': [14.829, 120.282], 'butuan': [8.948, 125.543], 'cabanatuan': [15.486, 120.967], 'lucena': [13.932, 121.617],
+    'iligan': [8.228, 124.245], 'san juan': [14.600, 121.036], 'navotas': [14.667, 120.942], 'malabon': [14.662, 120.957],
+    'pateros': [14.545, 121.068], 'cainta': [14.578, 121.122], 'taytay': [14.557, 121.133], 'san jose del monte': [14.814, 121.045],
+  };
   const keyOf = c => String(c || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^city of\s+/, '').replace(/\s+city$/, '').trim();
 
   let top = [];   // [{ city, region, n, at:[lat,lon] }]
@@ -510,6 +527,12 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     if (p === 'lastmonth') { const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1); return d.getFullYear() === lm.getFullYear() && d.getMonth() === lm.getMonth(); }
     return true;
   }
+  const median = a => { const b = a.slice().sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+  function cityPoint(r) {
+    const known = CITY_AT[keyOf(r.city)];
+    if (known) return known;
+    return [median(r.pts.map(p => p[0])), median(r.pts.map(p => p[1]))];   // gitna ng lahat ng IP ng lungsod
+  }
   async function compute() {
     clearTimeout(retryTimer);
     const list = tickets.filter(t => inPeriod(t.submitted) && (!brandEl.value || t.brandLabel === brandEl.value));
@@ -544,13 +567,14 @@ input{width:96px;font-variant-numeric:tabular-nums;}
       located++;
       const city = g.city || g.region || 'Unknown';
       const k = city.toLowerCase();
-      const row = byCity.get(k) || { city, region: g.region, n: 0, at: [g.lat, g.lon], issues: new Map(), users: new Map() };
+      const row = byCity.get(k) || { city, region: g.region, n: 0, at: null, pts: [], issues: new Map(), users: new Map() };
+      row.pts.push([g.lat, g.lon]);
       row.n++; row.issues.set(issue, (row.issues.get(issue) || 0) + 1);
       if (user && user !== 'Unknown') { const u = row.users.get(user) || { n: 0, issue }; u.n++; row.users.set(user, u); }
       byCity.set(k, row);
     });
     top = [...byCity.values()].sort((a, b) => b.n - a.n).slice(0, 5)
-      .map(r => ({ ...r, concerns: [...r.issues.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3), people: [...r.users.entries()].sort((a, b) => b[1].n - a[1].n) }));
+      .map(r => ({ ...r, at: cityPoint(r), concerns: [...r.issues.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3), people: [...r.users.entries()].sort((a, b) => b[1].n - a[1].n) }));
     intl = { n: intlN, countries: [...byCountry.entries()].sort((a, b) => b[1] - a[1]), people: [...intlUsers.entries()].sort((a, b) => b[1].n - a[1].n) };
     const intlTxt = intlN ? ` · ${fmt(intlN)} international: ${intl.countries.slice(0, 4).map(([c, k]) => `${c} ${fmt(k)}`).join(', ')}${intl.countries.length > 4 ? '…' : ''}` : '';
     statsEl.textContent = `${fmt(list.length)} tickets · ${fmt(withIp.length)} may IP · ${fmt(located)} nahanap sa Pilipinas` + intlTxt + (pending ? ` · ${fmt(pending)} IP hinahanap pa (mag-a-update kusa)` : '');
