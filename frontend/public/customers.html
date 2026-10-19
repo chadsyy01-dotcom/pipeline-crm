@@ -2121,7 +2121,22 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   // and less egress. The Refresh button covers "I want it now".
   // 2026-10-14: ginawang 5 segundo (utos ni Chad) — may 5s server cache na
   // ang /chatwoot/conversations kaya iisang query lang kahit maraming nakabukas.
-  setInterval(() => loadConversations(true), 5000);
+  // REFRESH RATE (2026-10-20, para bumaba ang gastos sa Railway DB):
+  //   CSR sa team tab (BRAVO/DELTA/FOXTROT/ECHO) = 5s (kailangan ng Waiting alerts),
+  //   ibang CSR view = 15s, Admin / Team Leader = 30s. Ang Refresh button ay agad pa rin.
+  let lastAutoRefresh = Date.now();
+  const refreshEveryMs = () => {
+    const role = String(window.__userRole || localStorage.getItem('csr_role') || '').toLowerCase();
+    const csr = typeof isCsrUser === 'function' ? isCsrUser() : role === 'csr';
+    if (csr && TEAM) return 5000;
+    if (csr) return 15000;
+    return 30000;
+  };
+  setInterval(() => {
+    if (Date.now() - lastAutoRefresh < refreshEveryMs() - 250) return;
+    lastAutoRefresh = Date.now();
+    loadConversations(true);
+  }, 5000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) loadConversations(true); });
   setInterval(loadCsatStats, 60000);
 
