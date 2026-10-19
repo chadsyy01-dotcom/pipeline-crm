@@ -66,10 +66,6 @@ body{margin:0;background:var(--floor);color:var(--ink);font-family:var(--body);}
 .intl .cc{display:flex;justify-content:space-between;gap:2cqw;font-size:1.5cqw;font-weight:700;color:#fff;border-bottom:.08cqw solid rgba(255,255,255,.12);padding-bottom:.4cqw;}
 .intl .cc b{font-family:var(--display);color:var(--gold);font-variant-numeric:tabular-nums;}
 .lm.left{transform:translate(calc(-100% - 1.8cqw),-15%);}
-.users .u{cursor:pointer;pointer-events:auto;transition:border-color .2s, background .2s;}
-.users .u:hover{border-color:rgba(255,200,87,.6);}
-.users .u.sel{border-color:var(--gold);background:rgba(255,200,87,.14);}
-.users{pointer-events:auto;}
 .ppin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:3;}
 .ppin .bub{background:#22D3EE;color:#05202A;font-weight:800;font-size:1.15cqw;padding:.45cqw .9cqw;border-radius:.7cqw;white-space:nowrap;box-shadow:0 .3cqw 1.2cqw rgba(0,0,0,.45);}
 .ppin .bub span{display:block;font-weight:600;font-size:.9cqw;opacity:.8;}
@@ -362,7 +358,6 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     usersEl.innerHTML = `<div class="uh">${esc(title)}</div>` + ppl.slice(0, MAXU).map(([u, v]) =>
       `<div class="u"><div class="av" style="background:${TicketData.colorForName ? TicketData.colorForName(u) : '#334155'}">${esc(TicketData.initialsForName ? TicketData.initialsForName(u) : u.slice(0, 2).toUpperCase())}</div><div class="nm2"><b>${esc(u)}</b><span>${esc(v.issue)}</span></div><div class="cnt">${fmt(v.n)}</div></div>`).join('')
       + (ppl.length > MAXU ? `<div class="more">+${fmt(ppl.length - MAXU)} pang player</div>` : '') + (ppl.length ? '' : '<div class="more">Walang username sa tickets</div>');
-    usersEl.querySelectorAll('.u').forEach((el, k) => { el._u = ppl[k][0]; el._v = ppl[k][1]; el.title = 'I-click para makita sa mapa'; });
     usersEl.hidden = false;
     if (!reduce) usersEl.querySelectorAll('.uh, .u, .more').forEach((el, k) => el.animate([{ opacity: 0, translate: '-2cqw 0' }, { opacity: 1, translate: '0 0' }], { duration: 420, delay: 200 + k * 90, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' }));
   }
@@ -459,33 +454,6 @@ input{width:96px;font-variant-numeric:tabular-nums;}
   }
   // Kept for the data code: (re)start from the first slide
   function play() { buildSlides(); drawn = false; goTo(0); }
-
-  // ---- Click a username → pin that player's own IP location ----
-  usersEl.addEventListener('click', async e => {
-    const row = e.target.closest('.u'); if (!row) return;
-    const v = row._v; if (!v) return;
-    usersEl.querySelectorAll('.u.sel').forEach(x => x.classList.remove('sel'));
-    row.classList.add('sel');
-    clearTimeout(autoTimer);
-    tags.filter(t => t.el.classList.contains('ppin')).forEach(t => t.el.remove());
-    tags = tags.filter(t => !t.el.classList.contains('ppin'));
-    if (toastEl) { toastEl.remove(); toastEl = null; }
-    const esc = TicketData.escapeHtml;
-    if (!v.pt) {   // international / walang coordinates: ipakita na lang ang lugar
-      toastEl = document.createElement('div'); toastEl.className = 'toast';
-      toastEl.textContent = `${row._u} · ${v.place || 'Hindi alam ang lokasyon'}`;
-      overlay.appendChild(toastEl); pop(toastEl); return;
-    }
-    const pin = addTag(`<div class="bub">${esc(row._u)}<span>${esc(v.place || '')}</span></div><div class="stem"></div><div class="dot"></div>`, 'ppin', v.pt);
-    if (!reduce) pin.animate([{ opacity: 0, translate: '0 -3cqw' }, { opacity: 1, translate: '0 0' }], { duration: 450, easing: 'cubic-bezier(.2,.9,.3,1.2)', fill: 'both' });
-    const [x, y] = toStage(proj(v.pt));
-    if (x < 30 || x > 95 || y < 12 || y > 92) {   // nasa labas ng view: ilapit ang mapa
-      const p = proj(v.pt), h = view.w * 9 / 16;
-      const b = [Math.min(view.cx - view.w / 2 + view.w * 0.3, p[0]), Math.min(view.cy - h / 2, p[1]), Math.max(view.cx + view.w / 2, p[0]), Math.max(view.cy + h / 2, p[1])];
-      const t = fitBox(b, 0.15); t.cx -= t.w * 0.12;
-      await fly(t, 1200, run).catch(() => {});
-    }
-  });
 
   document.getElementById('prev').addEventListener('click', () => goTo(cur - 1));
   document.getElementById('next').addEventListener('click', () => goTo(cur + 1));
