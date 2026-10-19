@@ -881,6 +881,36 @@ function conversationsMicroCache(req, res, next) {
   next();
 }
 
+// SHORT CACHE (2026-10-20, para bumaba ang CPU ng Postgres): iisang resulta kada URL
+// sa loob ng `ms`, at iisang query lang kapag sabay-sabay ang request. Para sa mga
+// mabigat na pinapatawag ng maraming nakabukas na tab (Dashboard + Customers).
+function shortCache(ms) {
+  const cache = new Map(), inflight = new Map();
+  return (req, res, next) => {
+    const key = req.originalUrl.replace(/([?&])_=[^&]*/g, '$1');
+    const hit = cache.get(key);
+    if (hit && Date.now() - hit.t < ms) return res.status(hit.status).json(hit.body);
+    const pending = inflight.get(key);
+    if (pending) return pending.then(r => res.status(r.status).json(r.body)).catch(() => next());
+    let resolveP;
+    const myP = new Promise(r => { resolveP = r; });
+    inflight.set(key, myP);
+    const orig = res.json.bind(res);
+    res.json = body => {
+      const status = res.statusCode || 200;
+      if (inflight.get(key) === myP) inflight.delete(key);
+      resolveP({ status, body });
+      if (status < 400) {
+        cache.set(key, { t: Date.now(), status, body });
+        if (cache.size > 200) cache.delete(cache.keys().next().value);
+      }
+      return orig(body);
+    };
+    res.on('close', () => { if (inflight.get(key) === myP) { inflight.delete(key); resolveP({ status: 503, body: { error: 'retry' } }); } });
+    next();
+  };
+}
+
 router.get('/conversations', requireAuth, conversationsMicroCache, async (req, res) => {
   try {
     const brand = req.query.brand || null;
@@ -1152,7 +1182,7 @@ router.get('/conversations', requireAuth, conversationsMicroCache, async (req, r
 // submitted the survey) falls within that window are counted. Passing only
 // one of the two is treated as no date filter at all, same as passing
 // neither, since a half-open range isn't something the frontend ever sends.
-router.get('/csat', requireAuth, async (req, res) => {
+router.get('/csat', requireAuth, shortCache(60000), async (req, res) => {
   try {
     const brand = req.query.brand || null;
     const from = req.query.from || null;
@@ -1235,7 +1265,7 @@ router.get('/csat', requireAuth, async (req, res) => {
 //   handoffPending        n conversations whose LATEST handoff stage is 'pending'
 //                         (no date filter — a pending handoff is pending until
 //                         someone replies, however old it is)
-router.get('/stats', requireAuth, async (req, res) => {
+router.get('/stats', requireAuth, shortCache(60000), async (req, res) => {
   try {
     const from = req.query.from || null;
     const to = req.query.to || null;
@@ -1299,7 +1329,7 @@ router.get('/stats', requireAuth, async (req, res) => {
 //                   naipasa pero hindi nasagot). LiveChat brands: lahat HH.
 //   AI only       = conversations − HH
 // Hindi umaasa sa handoff label (dala-dala ng Chatwoot kahit lumang usapan).
-router.get('/handoff-split', requireAuth, async (req, res) => {
+router.get('/handoff-split', requireAuth, shortCache(60000), async (req, res) => {
   try {
     const from = req.query.from, to = req.query.to;
     if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
@@ -1495,7 +1525,7 @@ router.get('/bot-health', requireAuth, async (req, res) => {
 // LATEST handoff stage is 'pending', with just the fields the widget shows.
 // Replaces the dashboard's previous approach of pulling the full 1000-per-
 // brand conversation list every poll just to filter it down to a handful.
-router.get('/pending', requireAuth, async (req, res) => {
+router.get('/pending', requireAuth, shortCache(20000), async (req, res) => {
   try {
     const pendingRows = await sequelize.query(`
       SELECT "conversationId", "brand" FROM (
