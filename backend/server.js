@@ -3,8 +3,36 @@ const express = require('express');
 const cors = require('cors');
 const { sequelize, DealStage } = require('./models');
 
+const zlib = require('zlib');
+
 const app = express();
 app.use(cors());
+
+// GZIP (2026-10-20): pinapaliit ang JSON/text na ipinapadala sa browser (~70–80% mas maliit),
+// para bumaba ang egress cost sa Railway. Built-in zlib lang — walang bagong npm package.
+// Gzip lang kapag tinatanggap ng browser, ≥ 1 KB, at JSON/text ang laman.
+app.use((req, res, next) => {
+  if (!/\bgzip\b/i.test(String(req.headers['accept-encoding'] || ''))) return next();
+  const origSend = res.send.bind(res);
+  res.send = function (body) {
+    if (res.headersSent || res.getHeader('Content-Encoding') || res.statusCode === 204 || res.statusCode === 304) return origSend(body);
+    const type = String(res.getHeader('Content-Type') || '');
+    let buf = null;
+    if (typeof body === 'string') buf = Buffer.from(body, 'utf8');
+    else if (Buffer.isBuffer(body) && /json|text|javascript|csv/i.test(type)) buf = body;
+    if (!buf || buf.length < 1024 || !/json|text|javascript|csv/i.test(type)) return origSend(body);
+    try {
+      const gz = zlib.gzipSync(buf, { level: 6 });
+      res.setHeader('Content-Encoding', 'gzip');
+      res.setHeader('Vary', 'Accept-Encoding');
+      res.removeHeader('Content-Length');
+      return origSend(gz);
+    } catch (e) {
+      return origSend(body);
+    }
+  };
+  next();
+});
 // `verify` stashes the raw request bytes on req.rawBody alongside the normal
 // parsed req.body — needed by routes/chatwoot.js to check the Chatwoot
 // webhook signature, since that has to be computed over the exact raw JSON
