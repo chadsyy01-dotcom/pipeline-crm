@@ -133,7 +133,12 @@ input{width:96px;font-variant-numeric:tabular-nums;}
         <option value="today">Today</option>
         <option value="lastmonth">Last month</option>
         <option value="all">Lahat ng na-load</option>
+        <option value="custom">Custom range…</option>
       </select></label>
+    <span id="customRange" hidden style="display:inline-flex;gap:6px;align-items:center">
+      <input type="date" id="dFrom" aria-label="Mula"><span class="now">hanggang</span><input type="date" id="dTo" aria-label="Hanggang">
+      <button class="btn" id="applyRange" type="button" style="padding:7px 14px">Apply</button>
+    </span>
     <label for="brand">Brand <select id="brand"><option value="">All brands</option></select></label>
     <span class="now" id="stats">Nilo-load ang tickets…</span>
   </div>
@@ -552,6 +557,12 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     if (!d || isNaN(d)) return false;
     const now = new Date(), p = periodEl.value;
     if (p === 'all') return true;
+    if (p === 'custom') {   // CUSTOM RANGE (2026-10-19): kasama ang buong araw ng From at To
+      const f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
+      if (f && d < new Date(f + 'T00:00:00')) return false;
+      if (t && d > new Date(t + 'T23:59:59.999')) return false;
+      return true;
+    }
     if (p === 'today') return TicketData.isSameLocalDay(d, now);
     if (p === '7') return now - d <= 7 * 864e5;
     if (p === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
@@ -612,7 +623,24 @@ input{width:96px;font-variant-numeric:tabular-nums;}
     if (pending) retryTimer = setTimeout(compute, 65000);
     dataReady = true; maybePlay();
   }
-  periodEl.addEventListener('change', compute);
+  const rangeEl = document.getElementById('customRange');
+  periodEl.addEventListener('change', () => {
+    const custom = periodEl.value === 'custom';
+    rangeEl.hidden = !custom;
+    if (custom) {   // default: simula ng buwan hanggang ngayon
+      const now = new Date(), iso = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+      const fEl = document.getElementById('dFrom'), tEl = document.getElementById('dTo');
+      if (!fEl.value) fEl.value = iso(new Date(now.getFullYear(), now.getMonth(), 1));
+      if (!tEl.value) tEl.value = iso(now);
+      return;   // hintayin ang Apply
+    }
+    compute();
+  });
+  document.getElementById('applyRange').addEventListener('click', () => {
+    const f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
+    if (f && t && f > t) { statsEl.textContent = 'Mas huli ang "Mula" kaysa sa "Hanggang". Ayusin ang petsa.'; return; }
+    compute();
+  });
   brandEl.addEventListener('change', compute);
 
   loadMap().then(geo => { build(geo); msg.hidden = true; mapReady = true; maybePlay(); })
