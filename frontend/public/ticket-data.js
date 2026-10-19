@@ -86,7 +86,8 @@
     LSP: 'LuckyStacks PH',
     SSP: 'SuperScatter PH',
     TMT_PLAY: 'TMTPLAY',
-    MNC: 'Manila Casino'
+    MNC: 'Manila Casino',
+    MC: 'Manila Casino'   // "MC-" Ticket ID prefix = Manila Casino din (Chad 2026-10-19); MCP ang Mobile Casino Play
   };
 
   function brandFromTicketId(ticketId) {
