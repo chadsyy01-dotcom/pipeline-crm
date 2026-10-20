@@ -221,7 +221,7 @@
         <span class="live-chip"><i></i> Live — updates automatically</span>
       </div>
       <div class="tabs" id="rangeTabs">
-        <button class="tab" data-days="1">Today</button>
+        <button class="tab" data-days="1">24 hours</button>
         <button class="tab active" data-days="7">7 Days</button>
         <button class="tab" data-days="30">30 Days</button>
         <button class="tab" data-days="">All time</button>
@@ -231,12 +231,12 @@
 
     <div class="sms-kpis">
       <div class="kpi-card" style="--acc:#2563EB;--acc-t:#EFF4FF;">
-        <div class="kh"><div class="kpi-label">Total OTP sent</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></div></div>
+        <div class="kh"><div class="kpi-label">Messages sent</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></div></div>
         <div class="kpi-value" id="kpiTotal">—</div>
         <div class="ks" id="kpiTotalSub">&nbsp;</div>
       </div>
       <div class="kpi-card" style="--acc:#22C55E;--acc-t:#EAFBF1;">
-        <div class="kh"><div class="kpi-label" style="color:#0F8A46">Successfully sent</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div></div>
+        <div class="kh"><div class="kpi-label" style="color:#0F8A46">Delivered</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div></div>
         <div class="kpi-value" id="kpiSuccess" style="color:#16A34A">—</div>
         <div class="ks" id="kpiSuccessSub">&nbsp;</div>
       </div>
@@ -246,8 +246,9 @@
         <div class="ks" id="kpiFailedSub">&nbsp;</div>
       </div>
       <div class="kpi-card" style="--acc:#8B5CF6;--acc-t:#F3EEFE;">
-        <div class="kh"><div class="kpi-label">Success rate</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div></div>
+        <div class="kh"><div class="kpi-label">Not failed</div><div class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div></div>
         <div class="kpi-value" id="kpiRate">—</div>
+        <div class="ks" id="kpiRateSub">&nbsp;</div>
         <div class="rate-bar"><i id="kpiRateBar" style="width:0"></i></div>
       </div>
     </div>
@@ -268,9 +269,9 @@
             <th>Brand</th>
             <th class="num">Total</th>
             <th class="num">Delivered</th>
-            <th class="num">Sent</th>
+            <th class="num">Unconfirmed</th>
             <th class="num">Failed</th>
-            <th class="num">Success %</th>
+            <th class="num">Delivered %</th>
           </tr>
         </thead>
         <tbody id="brandTableBody">
@@ -365,22 +366,49 @@ function hideSmsSetupNote() {
   document.getElementById("smsSetupNote").style.display = "none";
 }
 
-function renderKpis(totals) {
+// The gateway reports three outcomes, and they are NOT the same thing
+// (clarified 2026-10-20). "delivered" is confirmed by the network. "sent" means
+// the gateway accepted it but no delivery confirmation has come back — it may
+// or may not have arrived. The page used to add the two together and call the
+// result "Successfully sent · 100%", which read as proof of delivery when most
+// of those messages were still unconfirmed. Now delivered stands on its own,
+// and the last card counts everything that didn't fail, saying plainly how
+// much of it is still unconfirmed.
+function renderKpis(totals, brands) {
   const total = totals.total || 0;
   const delivered = totals.delivered || 0;
   const sent = totals.sent || 0;
   const failed = totals.failed || 0;
+  const pending = totals.pending || 0;
+  const unconfirmed = sent + pending;
+
   document.getElementById("kpiTotal").textContent = fmtNum(total);
-  document.getElementById("kpiSuccess").textContent = fmtNum(sent + delivered);
+  document.getElementById("kpiSuccess").textContent = fmtNum(delivered);
   document.getElementById("kpiFailed").textContent = fmtNum(failed);
-  document.getElementById("kpiRate").textContent = total ? pct(delivered + sent, total) + "%" : "—";
-  const rate = total ? ((delivered + sent) / total) * 100 : 0;
+
+  // OTP vs other, from the brand breakdown: the backend files anything whose
+  // text isn't an OTP under "Other / non-OTP", so the headline card no longer
+  // calls the whole figure "OTP".
+  const otherRow = (brands || []).find((b) => /other\s*\/\s*non-otp/i.test(String(b.brand)));
+  const other = otherRow ? otherRow.total : 0;
+  document.getElementById("kpiTotalSub").textContent = total
+    ? `${fmtNum(total - other)} OTP · ${fmtNum(other)} other`
+    : "\u00a0";
+
+  document.getElementById("kpiSuccessSub").textContent = total
+    ? `${pct(delivered, total)}% confirmed by the network`
+    : "\u00a0";
+  document.getElementById("kpiFailedSub").textContent = total ? `${pct(failed, total)}% of all messages` : "\u00a0";
+
+  const notFailed = delivered + unconfirmed;
+  document.getElementById("kpiRate").textContent = total ? pct(notFailed, total) + "%" : "—";
+  document.getElementById("kpiRateSub").textContent = total
+    ? (unconfirmed ? `${fmtNum(unconfirmed)} still unconfirmed` : "all confirmed delivered")
+    : "\u00a0";
+  const rate = total ? (notFailed / total) * 100 : 0;
   const bar = document.getElementById("kpiRateBar");
   bar.style.width = rate.toFixed(1) + "%";
   bar.style.background = rate >= 85 ? "#22C55E" : rate >= 65 ? "#F59E0B" : "#EF4444";
-  document.getElementById("kpiTotalSub").textContent = total ? `${fmtNum(delivered)} delivered · ${fmtNum(sent)} sent` : "\u00a0";
-  document.getElementById("kpiSuccessSub").textContent = total ? `${pct(delivered + sent, total)}% of all OTPs` : "\u00a0";
-  document.getElementById("kpiFailedSub").textContent = total ? `${pct(failed, total)}% failed` : "\u00a0";
 }
 
 function renderTable(brands) {
@@ -391,14 +419,17 @@ function renderTable(brands) {
   }
   document.getElementById("brandSub").textContent = `${brands.length} brand${brands.length === 1 ? "" : "s"}`;
   body.innerHTML = brands.map((b) => {
-    const r = b.total > 0 ? (((b.delivered || 0) + (b.sent || 0)) / b.total) * 100 : 0;
+    // Confirmed delivery only, so a brand whose messages are all unconfirmed
+    // can't show as 100%.
+    const unconfirmed = (b.sent || 0) + (b.pending || 0);
+    const r = b.total > 0 ? ((b.delivered || 0) / b.total) * 100 : 0;
     const col = r >= 85 ? "#22C55E" : r >= 65 ? "#F59E0B" : "#EF4444";
     return `
     <tr>
       <td class="bname">${String(b.brand).replace(/</g, "&lt;")}</td>
       <td class="num">${fmtNum(b.total)}</td>
       <td class="num" style="color:#16A34A">${fmtNum(b.delivered)}</td>
-      <td class="num" style="color:var(--primary)">${fmtNum(b.sent)}</td>
+      <td class="num" style="color:var(--primary)">${fmtNum(unconfirmed)}</td>
       <td class="num" style="color:var(--danger)">${fmtNum(b.failed)}</td>
       <td class="num"><div class="succ"><div class="sb"><i style="width:${r.toFixed(1)}%;background:${col}"></i></div><span style="color:${col}">${r.toFixed(1)}%</span></div></td>
     </tr>`; }).join("");
@@ -411,7 +442,7 @@ function renderChart(brands) {
     labels: top.map((b) => b.brand),
     datasets: [
       { label: "Delivered", data: top.map((b) => b.delivered || 0), backgroundColor: "#22C55E", borderRadius: 4, maxBarThickness: 46 },
-      { label: "Sent", data: top.map((b) => b.sent || 0), backgroundColor: "#3B82F6", borderRadius: 4, maxBarThickness: 46 },
+      { label: "Unconfirmed", data: top.map((b) => (b.sent || 0) + (b.pending || 0)), backgroundColor: "#3B82F6", borderRadius: 4, maxBarThickness: 46 },
       { label: "Failed", data: top.map((b) => b.failed || 0), backgroundColor: "#F87171", borderRadius: 4, maxBarThickness: 46 },
     ],
   };
@@ -443,7 +474,7 @@ async function loadSmsStats(days) {
     const res = await fetch(`${SMS_API_BASE}/stats?${params.toString()}`, { headers: smsHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    renderKpis(data.totals || {});
+    renderKpis(data.totals || {}, data.brands || []);
     renderTable(data.brands || []);
     renderChart(data.brands || []);
   } catch (err) {
@@ -452,13 +483,19 @@ async function loadSmsStats(days) {
       "⚠️ Hindi makuha ang SMS stats. Kung bago lang ito, siguraduhing nasa ALLOWED_ORIGINS ng SMS Inbox app " +
       "(sa Railway) ang domain na ito (" + location.origin + "). Detalye: " + err.message
     );
-    renderKpis({});
+    renderKpis({}, []);
     renderTable([]);
   }
 }
 
 let currentRangeDays = 7;
 
+// The range tabs drive the WHOLE page (fix 2026-10-20). They used to apply to
+// the figures at the top only, while the message log below stayed on all time
+// — so the same screen read "10" in the KPIs and "407 messages" in the log,
+// with no way to tell they were counting different periods. Picking a range
+// now reloads both. An explicit From/To in the log still wins over the tab,
+// for when someone wants a period the tabs don't offer.
 document.getElementById("rangeTabs").addEventListener("click", (e) => {
   const btn = e.target.closest(".tab");
   if (!btn) return;
@@ -466,7 +503,16 @@ document.getElementById("rangeTabs").addEventListener("click", (e) => {
   btn.classList.add("active");
   currentRangeDays = btn.dataset.days;
   loadSmsStats(currentRangeDays);
+  logPage = 1;
+  loadMessageLog();
 });
+
+function rangeLabel() {
+  const d = Number(currentRangeDays);
+  if (!currentRangeDays) return "all time";
+  if (d === 1) return "the last 24 hours";
+  return `the last ${d} days`;
+}
 
 // ---- Message log: full list of sent messages, filterable + paginated ----
 let logPage = 1;
@@ -541,10 +587,16 @@ async function loadMessageLog() {
     const sender = document.getElementById("logSenderFilter").value.trim();
     const from = document.getElementById("logFromDate").value;
     const to = document.getElementById("logToDate").value;
+    // Own dates beat the tab; otherwise the log follows whichever range is
+    // selected above, so both halves of the page count the same period.
+    if (from || to) {
+      if (from) params.set("from", from);
+      if (to) params.set("to", to + "T23:59:59");
+    } else if (currentRangeDays) {
+      params.set("days", currentRangeDays);
+    }
     if (brand) params.set("brand", brand);
     if (sender) params.set("sent_by", sender);
-    if (from) params.set("from", from);
-    if (to) params.set("to", to + "T23:59:59");
 
     const res = await fetch(`${SMS_API_BASE}/messages/log?${params.toString()}`, { headers: smsHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -562,8 +614,10 @@ async function loadMessageLog() {
     renderLogTable(rows);
     const pages = Math.max(Math.ceil(logTotal / LOG_PAGE_SIZE), 1);
     document.getElementById("logPageInfo").textContent = `Page ${logPage} of ${pages}`;
+    const ownDates = document.getElementById("logFromDate").value || document.getElementById("logToDate").value;
     document.getElementById("logCount").textContent =
       `${fmtNum(logTotal)} message${logTotal === 1 ? "" : "s"}` +
+      (ownDates ? " · own date range" : ` · ${rangeLabel()}`) +
       (net ? ` · ${fmtNum(rows.length)} ${net} on this page` : "");
     document.getElementById("logPrev").disabled = logPage <= 1;
     document.getElementById("logNext").disabled = logPage >= pages;
@@ -576,6 +630,7 @@ async function loadMessageLog() {
 
 document.getElementById("logApply").addEventListener("click", () => { logPage = 1; loadMessageLog(); });
 document.getElementById("logNetworkFilter").addEventListener("change", () => { loadMessageLog(); });
+// Clearing the filters leaves the log following the range tab again.
 document.getElementById("logClear").addEventListener("click", () => {
   document.getElementById("logBrandFilter").value = "";
   document.getElementById("logNetworkFilter").value = "";
