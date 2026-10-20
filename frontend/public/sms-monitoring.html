@@ -320,10 +320,11 @@
               <th>Message</th>
               <th>Status</th>
               <th>Sent by</th>
+              <th>Phone</th>
             </tr>
           </thead>
           <tbody id="logTableBody">
-            <tr><td colspan="8"><div class="empty-note">Loading…</div></td></tr>
+            <tr><td colspan="9"><div class="empty-note">Loading…</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -344,16 +345,63 @@
 </div>
 
 <script>
-// ---- SMS Monitoring: pulls from the separate SMS Inbox app (its own Railway
-// service + database), not from this dashboard's own API_BASE/token system. ----
-const SMS_API_BASE = "https://sms-inbox-production-2c98.up.railway.app/api";
-// If the SMS Inbox app's APP_PASSWORD is ever turned back on, put it here so
-// this page can still authenticate. Leave blank while it's off (current setup).
-const SMS_APP_PASSWORD = "";
+// ---- SMS Monitoring: reads EVERY SMS Inbox backend ----
+// These are separate apps on Railway, each with its own Postgres and its own
+// Android phone/SIMs — they share only the codebase (see the SMS Inbox
+// multi-backend note in Project Knowledge). This page used to read `main`
+// alone, so messages sent on any other phone simply never appeared: Buenas PH
+// OTPs sent at 10:32 PM on 2026-10-20 were missing here while sitting happily
+// in app3's own database. Every backend below is now queried and the results
+// merged, so the page shows the whole estate.
+//
+// TO ADD A PHONE: deploy its backend (recipe in Project Knowledge), then add a
+// line here with its Railway URL. Nothing else on the page needs changing.
+const SMS_BACKENDS = [
+  { key: "main",  label: "CSR DEPT phone", base: "https://sms-inbox-production-2c98.up.railway.app/api" },
+  { key: "app3",  label: "Buenas PH phone", base: "https://sms-buenas-ph-production.up.railway.app/api" },
+  // { key: "app2", label: "Manila Play phone", base: "https://…/api" },
+  // { key: "app4", label: "TMTCash phone",     base: "https://…/api" },
+  // { key: "app5", label: "TMTPLAY phone",     base: "https://…/api" },
+];
+// If an app's APP_PASSWORD is ever turned back on, put it here (per backend
+// key) so this page can still authenticate. Blank = that app has it off.
+const SMS_APP_PASSWORDS = {};
 
 const fmtNum = (n) => (n || 0).toLocaleString();
 const pct = (num, den) => (den > 0 ? ((num / den) * 100).toFixed(1) : "0.0");
-const smsHeaders = () => (SMS_APP_PASSWORD ? { "X-App-Password": SMS_APP_PASSWORD } : {});
+const smsHeaders = (key) => (SMS_APP_PASSWORDS[key] ? { "X-App-Password": SMS_APP_PASSWORDS[key] } : {});
+
+// Calls the same path on every backend. Never rejects: a backend that is down
+// or blocked by CORS comes back as { ok:false } so one bad phone can't blank
+// the whole page, and the note at the top names it.
+async function smsFetchAll(path) {
+  return Promise.all(SMS_BACKENDS.map(async (b) => {
+    try {
+      const res = await fetch(`${b.base}${path}`, { headers: smsHeaders(b.key) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return { ok: true, backend: b, data: await res.json() };
+    } catch (err) {
+      return { ok: false, backend: b, error: err.message };
+    }
+  }));
+}
+
+function reportBackendTrouble(results) {
+  const bad = results.filter((r) => !r.ok);
+  if (!bad.length) { hideSmsSetupNote(); return; }
+  if (bad.length === SMS_BACKENDS.length) {
+    showSmsSetupNote(
+      "⚠️ Walang SMS backend na sumasagot. Kung bago lang ito, siguraduhing nasa ALLOWED_ORIGINS ng bawat SMS Inbox app (sa Railway) ang domain na ito (" +
+      location.origin + "). Detalye: " + bad.map((b) => `${b.backend.label} — ${b.error}`).join(" · ")
+    );
+  } else {
+    showSmsSetupNote(
+      "⚠️ Hindi kasama sa mga numero sa ibaba ang " + bad.map((b) => b.backend.label).join(", ") +
+      " — hindi sumasagot ngayon. Idagdag ang " + location.origin + " sa ALLOWED_ORIGINS ng app na iyon sa Railway. Detalye: " +
+      bad.map((b) => b.error).join(" · ")
+    );
+  }
+}
 
 let brandChart = null;
 
@@ -467,25 +515,30 @@ function renderChart(brands) {
 }
 
 async function loadSmsStats(days) {
-  hideSmsSetupNote();
-  try {
-    const params = new URLSearchParams();
-    if (days) params.set("days", days);
-    const res = await fetch(`${SMS_API_BASE}/stats?${params.toString()}`, { headers: smsHeaders() });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    renderKpis(data.totals || {}, data.brands || []);
-    renderTable(data.brands || []);
-    renderChart(data.brands || []);
-  } catch (err) {
-    console.error("SMS stats fetch failed:", err);
-    showSmsSetupNote(
-      "⚠️ Hindi makuha ang SMS stats. Kung bago lang ito, siguraduhing nasa ALLOWED_ORIGINS ng SMS Inbox app " +
-      "(sa Railway) ang domain na ito (" + location.origin + "). Detalye: " + err.message
-    );
-    renderKpis({}, []);
-    renderTable([]);
-  }
+  const params = new URLSearchParams();
+  if (days) params.set("days", days);
+  const results = await smsFetchAll(`/stats?${params.toString()}`);
+  reportBackendTrouble(results);
+
+  // Add the phones together. A brand lives on exactly one phone, so brand
+  // rows merge by name without double-counting.
+  const totals = { total: 0, sent: 0, delivered: 0, failed: 0, pending: 0 };
+  const byBrand = new Map();
+  results.filter((r) => r.ok).forEach(({ data }) => {
+    Object.entries(data.totals || {}).forEach(([k, v]) => {
+      if (typeof totals[k] === "number") totals[k] += Number(v) || 0;
+    });
+    (data.brands || []).forEach((b) => {
+      const cur = byBrand.get(b.brand) || { brand: b.brand, total: 0, sent: 0, delivered: 0, failed: 0, pending: 0 };
+      ["total", "sent", "delivered", "failed", "pending"].forEach((k) => { cur[k] += Number(b[k]) || 0; });
+      byBrand.set(b.brand, cur);
+    });
+  });
+  const brands = [...byBrand.values()].sort((a, b) => b.total - a.total);
+
+  renderKpis(totals, brands);
+  renderTable(brands);
+  renderChart(brands);
 }
 
 let currentRangeDays = 7;
@@ -543,22 +596,26 @@ function networkOf(number) {
 }
 
 async function loadBrandOptions() {
-  try {
-    const res = await fetch(`${SMS_API_BASE}/brands`, { headers: smsHeaders() });
-    if (!res.ok) return;
-    const brands = await res.json();
-    const sel = document.getElementById("logBrandFilter");
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">All brands</option>' +
-      brands.map((b) => `<option value="${b.brand.replace(/"/g, "&quot;")}">${b.brand} (${fmtNum(b.count)})</option>`).join("");
-    sel.value = cur;
-  } catch (e) { /* non-fatal — filter just stays empty */ }
+  const results = await smsFetchAll("/brands");
+  const counts = new Map();
+  results.filter((r) => r.ok).forEach(({ data }) => {
+    (Array.isArray(data) ? data : []).forEach((b) => {
+      counts.set(b.brand, (counts.get(b.brand) || 0) + (Number(b.count) || 0));
+    });
+  });
+  if (!counts.size) return;   // non-fatal — the filter just stays as it is
+  const sel = document.getElementById("logBrandFilter");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All brands</option>' +
+    [...counts.entries()].sort((a, b) => b[1] - a[1])
+      .map(([brand, n]) => `<option value="${String(brand).replace(/"/g, "&quot;")}">${brand} (${fmtNum(n)})</option>`).join("");
+  sel.value = cur;
 }
 
 function renderLogTable(rows) {
   const body = document.getElementById("logTableBody");
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="8"><div class="empty-note">No messages match these filters.</div></td></tr>';
+    body.innerHTML = '<tr><td colspan="9"><div class="empty-note">No messages match these filters.</div></td></tr>';
     return;
   }
   body.innerHTML = rows.map((m) => {
@@ -575,57 +632,83 @@ function renderLogTable(rows) {
       <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${bodyShort}">${bodyShort}</td>
       <td>${statusBadge(m.status)}</td>
       <td style="color:var(--ink-soft)">${sender.replace(/</g, "&lt;")}</td>
+      <td style="white-space:nowrap;color:var(--ink-faint);font-weight:600">${String(m._phone || "—").replace(/</g, "&lt;")}</td>
     </tr>`;
   }).join("");
 }
 
+// The log merges every phone into one list (2026-10-20). Each backend pages
+// its own rows, so to show a correct combined page N this asks each one for
+// its newest N*50 rows, sorts them together by time, and takes the slice —
+// correct ordering and no gaps for as deep as the backends will page
+// (200 rows each, so 4 pages with two phones). Past that the page says so
+// rather than quietly skipping messages; a brand or date filter gets you
+// there instead.
+const LOG_BACKEND_MAX = 200;
+
 async function loadMessageLog() {
-  document.getElementById("logTableBody").innerHTML = '<tr><td colspan="8"><div class="empty-note">Loading…</div></td></tr>';
-  try {
-    const params = new URLSearchParams({ page: logPage, pageSize: LOG_PAGE_SIZE });
-    const brand = document.getElementById("logBrandFilter").value;
-    const sender = document.getElementById("logSenderFilter").value.trim();
-    const from = document.getElementById("logFromDate").value;
-    const to = document.getElementById("logToDate").value;
-    // Own dates beat the tab; otherwise the log follows whichever range is
-    // selected above, so both halves of the page count the same period.
-    if (from || to) {
-      if (from) params.set("from", from);
-      if (to) params.set("to", to + "T23:59:59");
-    } else if (currentRangeDays) {
-      params.set("days", currentRangeDays);
-    }
-    if (brand) params.set("brand", brand);
-    if (sender) params.set("sent_by", sender);
+  document.getElementById("logTableBody").innerHTML = '<tr><td colspan="9"><div class="empty-note">Loading…</div></td></tr>';
 
-    const res = await fetch(`${SMS_API_BASE}/messages/log?${params.toString()}`, { headers: smsHeaders() });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    logTotal = data.total || 0;
-    let rows = data.rows || [];
+  const brand = document.getElementById("logBrandFilter").value;
+  const sender = document.getElementById("logSenderFilter").value.trim();
+  const from = document.getElementById("logFromDate").value;
+  const to = document.getElementById("logToDate").value;
 
-    // Network filter narrows only the rows this page already fetched — the
-    // backend stores no network field, so paging and the total count still
-    // come from the server. The count label says which of the two you're
-    // looking at.
-    const net = document.getElementById("logNetworkFilter").value;
-    if (net) rows = rows.filter((m) => networkOf(m.phone) === net);
-
-    renderLogTable(rows);
-    const pages = Math.max(Math.ceil(logTotal / LOG_PAGE_SIZE), 1);
-    document.getElementById("logPageInfo").textContent = `Page ${logPage} of ${pages}`;
-    const ownDates = document.getElementById("logFromDate").value || document.getElementById("logToDate").value;
-    document.getElementById("logCount").textContent =
-      `${fmtNum(logTotal)} message${logTotal === 1 ? "" : "s"}` +
-      (ownDates ? " · own date range" : ` · ${rangeLabel()}`) +
-      (net ? ` · ${fmtNum(rows.length)} ${net} on this page` : "");
-    document.getElementById("logPrev").disabled = logPage <= 1;
-    document.getElementById("logNext").disabled = logPage >= pages;
-  } catch (err) {
-    console.error("Message log fetch failed:", err);
-    document.getElementById("logTableBody").innerHTML =
-      '<tr><td colspan="8"><div class="empty-note">Could not load the message log.</div></td></tr>';
+  const need = Math.min(logPage * LOG_PAGE_SIZE, LOG_BACKEND_MAX);
+  const params = new URLSearchParams({ page: 1, pageSize: need });
+  // Own dates beat the tab; otherwise the log follows whichever range is
+  // selected above, so both halves of the page count the same period.
+  if (from || to) {
+    if (from) params.set("from", from);
+    if (to) params.set("to", to + "T23:59:59");
+  } else if (currentRangeDays) {
+    params.set("days", currentRangeDays);
   }
+  if (brand) params.set("brand", brand);
+  if (sender) params.set("sent_by", sender);
+
+  const results = await smsFetchAll(`/messages/log?${params.toString()}`);
+  reportBackendTrouble(results);
+  const good = results.filter((r) => r.ok);
+  if (!good.length) {
+    document.getElementById("logTableBody").innerHTML =
+      '<tr><td colspan="9"><div class="empty-note">Could not load the message log.</div></td></tr>';
+    return;
+  }
+
+  logTotal = good.reduce((n, r) => n + (Number(r.data.total) || 0), 0);
+  let merged = [];
+  good.forEach(({ backend, data }) => {
+    (data.rows || []).forEach((row) => merged.push({ ...row, _phone: backend.label }));
+  });
+  merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  const start = (logPage - 1) * LOG_PAGE_SIZE;
+  let rows = merged.slice(start, start + LOG_PAGE_SIZE);
+  const beyondReach = merged.length >= good.length * LOG_BACKEND_MAX && start + LOG_PAGE_SIZE > LOG_BACKEND_MAX;
+
+  // Network filter narrows only the rows already fetched — no backend stores
+  // a network field, so paging and the total still come from the servers.
+  const net = document.getElementById("logNetworkFilter").value;
+  if (net) rows = rows.filter((m) => networkOf(m.phone) === net);
+
+  if (beyondReach && !rows.length) {
+    document.getElementById("logTableBody").innerHTML =
+      '<tr><td colspan="9"><div class="empty-note">This page is past what the backends will return in one go. Narrow it with a brand or a date range.</div></td></tr>';
+  } else {
+    renderLogTable(rows);
+  }
+
+  const pages = Math.max(Math.ceil(logTotal / LOG_PAGE_SIZE), 1);
+  document.getElementById("logPageInfo").textContent = `Page ${logPage} of ${pages}`;
+  const ownDates = from || to;
+  document.getElementById("logCount").textContent =
+    `${fmtNum(logTotal)} message${logTotal === 1 ? "" : "s"}` +
+    (ownDates ? " · own date range" : ` · ${rangeLabel()}`) +
+    ` · ${good.length} of ${SMS_BACKENDS.length} phones` +
+    (net ? ` · ${fmtNum(rows.length)} ${net} on this page` : "");
+  document.getElementById("logPrev").disabled = logPage <= 1;
+  document.getElementById("logNext").disabled = logPage >= pages;
 }
 
 document.getElementById("logApply").addEventListener("click", () => { logPage = 1; loadMessageLog(); });
@@ -656,9 +739,11 @@ loadSmsStats(currentRangeDays);
 // inside the SMS inbox itself); we listen to the same stream here so this
 // dashboard refreshes the moment a message is sent/updated — no manual
 // refresh needed, and no wasteful polling when nothing is happening. ----
-function connectSmsStream() {
+// One live stream per backend, so a message sent on any phone refreshes the
+// page straight away. Each reconnects on its own if its app restarts.
+function connectSmsStream(backend) {
   try {
-    const es = new EventSource(`${SMS_API_BASE}/stream`);
+    const es = new EventSource(`${backend.base}/stream`);
     let debounceTimer = null;
     const refreshEverything = () => {
       clearTimeout(debounceTimer);
@@ -677,10 +762,10 @@ function connectSmsStream() {
       let data; try { data = JSON.parse(ev.data); } catch { return; }
       if (data.type === "message" || data.type === "status" || data.type === "convo_deleted") refreshEverything();
     };
-    es.onerror = () => { es.close(); setTimeout(connectSmsStream, 5000); };
-  } catch (e) { console.error("SMS live stream failed to connect:", e); }
+    es.onerror = () => { es.close(); setTimeout(() => connectSmsStream(backend), 5000); };
+  } catch (e) { console.error(`SMS live stream failed for ${backend.label}:`, e); }
 }
-connectSmsStream();
+SMS_BACKENDS.forEach(connectSmsStream);
 </script>
 <script src="sidebar-topnav.js?v=4"></script>
 </body>
