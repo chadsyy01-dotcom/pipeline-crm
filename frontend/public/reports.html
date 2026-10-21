@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-21e --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-21f --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -652,6 +652,8 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
 .cs-now{font-size:12.5px;color:#64748B;}
 /* (2026-10-21, Chad: "alisin na ito sa report") lumang Chats content — nakatago, slides na lang ang makikita. Para ibalik: burahin ang linyang ito. */
 #page-chats > .kpi-row, #page-chats > .panel, #page-chats > .cols-2 { display: none !important; }
+/* (2026-10-21, Chad) Ticket Resolution + Ticket Analytics: slides na lang din — burahin ang linyang ito para ibalik ang dating tables. */
+#page-tickets > .kpi-row, #page-tickets > .panel, #page-tickets > .cols-2, #page-analytics > .section-head, #page-analytics > .kpi-row, #page-analytics > .panel, #page-analytics > .cols-2 { display: none !important; }
 @media (prefers-reduced-motion: reduce){.cs-livedot i{animation:none}.cs-pair .ba,.cs-pair .bb,.cs-stack div{transition:none}}
 </style>
 </head>
@@ -918,6 +920,8 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
     <div class="report-page" id="page-tickets">
 
       <div id="ticketsFlag"></div>
+      <!-- TICKET RESOLUTION SHOW (2026-10-21) -->
+      <div class="cs-wrap"><div class="cs-stage"><section class="cs-view" id="trView" aria-live="polite"><div class="cs-msg">Loading tickets…</div></section></div><div class="cs-bar" id="trCtrl"></div></div>
 
       <div class="kpi-row">
         <div class="kpi-card accent-b">
@@ -1049,6 +1053,8 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
 
 
       <div id="analyticsFlag"></div>
+      <!-- TICKET ANALYTICS SHOW (2026-10-21) -->
+      <div class="cs-wrap"><div class="cs-stage"><section class="cs-view" id="anView" aria-live="polite"><div class="cs-msg">Loading tickets…</div></section></div><div class="cs-bar" id="anCtrl"></div></div>
 
       <div class="kpi-row">
         <div style="display:none;"><div class="kpi-card accent-b">
@@ -4248,6 +4254,245 @@ TicketData.fetchTickets()
   $('prPrev').addEventListener('click', () => shift(-1));
   $('prNext').addEventListener('click', () => shift(1));
   load();
+})();
+</script>
+<script>
+// =====================================================================
+// TICKET SHOWS (2026-10-21, utos ni Chad: "yung ginawa natin sa chats -
+// gawin din natin sa ticket resolution and ticket analytics").
+// Parehong slides engine at .cs-* na itsura ng Chats Show; parehong
+// periods (CS_A = Oct 1–15, CS_B = Oct 16–22). Data = allTickets (brand
+// sheets, parehong source ng dating tabs). Per day = calendar days na
+// lumipas na sa period. Nire-render kasabay ng bawat renderTicketResolution
+// (unang load + auto-refresh kada 2 min). Umaasa sa csFmt/csPct/csAnim/
+// csCountUp/csChip mula sa Chats Show block.
+// =====================================================================
+(function () {
+  'use strict';
+  const inPeriod = (d, P) => d && d >= startOfDay(P.start) && d <= endOfDay(P.end);
+  const dayIdx = (d, allDays) => Math.floor((startOfDay(d) - allDays[0]) / 86400000);
+  const concernOf = t => (t.issue && t.issue !== '—') ? t.issue : ((t.category || '').replace(/[^\w\s\/&-]/g, '').trim() || '(no category)');
+  const isDone = t => t.statusCls === 'done', isRej = t => t.statusCls === 'rejected', isOpen = t => t.statusCls === 'pending' || t.statusCls === 'checking';
+  const esc = s => escapeHtml(String(s == null ? '' : s));
+  const TK_COLORS = ['#3B82F6', '#F97316', '#A855F7', '#06B6D4', '#EF4444', '#14B8A6', '#EC4899', '#EAB308', '#84CC16', '#F43F5E', '#60A5FA', '#34D399', '#FBBF24', '#C084FC', '#2DD4BF', '#FB7185'];
+
+  // Buong frame: Oct 1 → Oct 22, ilang araw na ang lumipas sa bawat period
+  function frame() {
+    const now = new Date(), allDays = [];
+    for (let d = startOfDay(CS_A.start); d <= endOfDay(CS_B.end); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) allDays.push(d);
+    const elapsed = P => { const e = endOfDay(P.end) < now ? endOfDay(P.end) : now; return e < P.start ? 0 : Math.floor((startOfDay(e) - startOfDay(P.start)) / 86400000) + 1; };
+    const daysA = elapsed(CS_A), daysB = elapsed(CS_B);
+    const lastB = daysB ? new Date(CS_B.start.getFullYear(), CS_B.start.getMonth(), CS_B.start.getDate() + daysB - 1) : null;
+    return { allDays, daysA, daysB, lastB, inB: d => d >= startOfDay(CS_B.start) };
+  }
+  // Kada brand: daily filed + totals + per day + change
+  function byBrand(filedA, filedB, F) {
+    const m = new Map();
+    const get = b => { if (!m.has(b)) m.set(b, { key: b, label: b, daily: F.allDays.map(() => 0), listA: [], listB: [] }); return m.get(b); };
+    filedA.forEach(t => { const e = get(t.brandLabel || 'Unknown'); e.listA.push(t); e.daily[dayIdx(t.submitted, F.allDays)]++; });
+    filedB.forEach(t => { const e = get(t.brandLabel || 'Unknown'); e.listB.push(t); e.daily[dayIdx(t.submitted, F.allDays)]++; });
+    let c = 0;
+    return [...m.values()].map(e => {
+      const a = e.listA.length, b = e.listB.length, aPD = F.daysA ? a / F.daysA : 0, bPD = F.daysB ? b / F.daysB : 0;
+      const chg = aPD > 0 && (bPD - aPD) / aPD <= 9 ? (bPD - aPD) / aPD : null;
+      return { ...e, a, b, aPD, bPD, chg, color: TK_COLORS[c++ % TK_COLORS.length] };
+    }).sort((x, y) => (y.b - x.b) || (y.a - x.a));
+  }
+  function spark(e, per, F) {
+    const n = F.allDays.length, w = 100, h = 30, max = Math.max(...e.daily, 1);
+    const shown = F.daysA + F.daysB;   // hanggang ngayon lang
+    const x = i => n > 1 ? i / (n - 1) * w : w / 2, y = v => h - 2 - v / max * (h - 6);
+    const pts = e.daily.slice(0, shown).map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    const bIdx = F.allDays.findIndex(d => F.inB(d));
+    const r0 = per === 'a' ? 0 : x(bIdx), r1 = per === 'a' ? x(bIdx - 1) : w;
+    const li = shown - 1;
+    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="${r0}" y="0" width="${Math.max(0, r1 - r0)}" height="${h}" fill="${per === 'a' ? 'rgba(107,124,150,.16)' : 'rgba(59,130,246,.12)'}"/>
+      ${shown > 1 ? `<polyline points="${pts}" fill="none" stroke="${e.color}" stroke-width="1.6" vector-effect="non-scaling-stroke" class="ln"/>` : ''}
+      ${li >= 0 ? `<circle cx="${x(li)}" cy="${y(e.daily[li])}" r="1.6" fill="${e.color}"/>` : ''}</svg>`;
+  }
+  const rank = (i, color, labelHtml, w, count) => `<div class="cs-pair" style="grid-template-columns:2.4cqw 1fr 9cqw">
+      <div class="n" style="color:${color};font-family:var(--cs-display)">${i + 1}</div>
+      <div style="min-width:0"><div class="n" style="margin-bottom:.4cqw">${labelHtml}</div><div class="bars"><div class="bb" data-w="${w}" style="background:${color}"></div></div></div>
+      <div class="c" style="font-family:var(--cs-display);font-size:1.8cqw">${csFmt(count)}</div></div>`;
+
+  // ---------- Generic slides engine (isang instance kada tab) ----------
+  function makeShow(cfg) {
+    const S = { slide: 0, mode: 'slides', per: null, D: null, built: false };
+    const view = () => document.getElementById(cfg.view), ctrl = () => document.getElementById(cfg.ctrl);
+    const active = () => { const p = document.getElementById(cfg.page); return p && p.classList.contains('active'); };
+    function showSlide(i) {
+      const v = view(), SL = cfg.slides(S.D);
+      S.mode = 'slides'; S.per = null; S.slide = Math.max(0, Math.min(SL.length - 1, i));
+      v.innerHTML = SL[S.slide]();
+      v.querySelectorAll('.cs-k, .cs-t, .cs-kpi, .cs-pair, .cs-mv, .row, .cs-legend').forEach((el, k) => csAnim(el, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: k * 70 }));
+      v.querySelectorAll('.cs-kpi .v[data-n]').forEach(el => csCountUp(el, Number(el.dataset.n)));
+      const max = Math.max(...[...v.querySelectorAll('.cs-pair [data-w]')].map(e => Number(e.dataset.w)), 1);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        v.querySelectorAll('.cs-pair [data-w]').forEach((e, k) => { e.style.transitionDelay = `${300 + k * 60}ms`; e.style.width = `${Number(e.dataset.w) / max * 100}%`; });
+        v.querySelectorAll('.cs-stack [data-w]').forEach((e, k) => { e.style.transitionDelay = `${300 + k * 150}ms`; e.style.width = `${Number(e.dataset.w) * 100}%`; });
+      }));
+      v.querySelectorAll('[data-open]').forEach(el => el.addEventListener('click', () => openPeriod(el.dataset.open)));
+      ctrl().innerHTML = `<button class="cs-btn" type="button" data-nav="-1">◀ Prev</button><button class="cs-btn" type="button" data-nav="1">Next ▶</button>
+        <span class="cs-now">${S.slide + 1} / ${SL.length} · Click ${CS_A.label} or ${CS_B.label} to see each brand</span>`;
+      ctrl().querySelectorAll('[data-nav]').forEach(b => b.onclick = () => showSlide(S.slide + Number(b.dataset.nav)));
+    }
+    function openPeriod(per) {
+      const v = view(); S.mode = 'cards'; S.per = per;
+      const html = cfg.cards(S.D, per), count = (html.match(/class="cs-card/g) || []).length;
+      v.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">${per === 'a' ? `${CS_A.label} · by brand` : `${CS_B.label} · per day vs ${CS_A.label}`}</div>
+        <div class="cs-t">${per === 'a' ? `${cfg.noun} in ${CS_A.label}` : `${cfg.noun} this week`}</div></div>
+        ${per === 'b' ? '<span class="cs-livedot"><i></i>LIVE <small>· updates every 2 min</small></span>' : ''}</div>
+        <div class="cs-cards${count > 10 ? ' many' : ''}">${html || '<div class="cs-msg">No tickets in this period.</div>'}</div>`;
+      v.querySelectorAll('.cs-card').forEach((c, k) => csAnim(c, [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: k * 50 }));
+      v.querySelectorAll('.cs-card .v[data-n]').forEach(el => csCountUp(el, Number(el.dataset.n), 1400));
+      v.querySelectorAll('.ln').forEach((l, k) => csAnim(l, [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: 1300, delay: 300 + k * 50 }));
+      ctrl().innerHTML = '<button class="cs-btn" type="button" id="' + cfg.view + 'Back">← Back to summary</button>';
+      document.getElementById(cfg.view + 'Back').onclick = () => showSlide(0);
+    }
+    // refresh: huwag i-restart ang slide; i-update lang ang cards na nagbago
+    function refreshCards(prev) {
+      const v = view(), tmp = document.createElement('div'); tmp.innerHTML = cfg.cards(S.D, S.per);
+      const keys = r => [...r.querySelectorAll('.cs-card')].map(c => c.dataset.key).join('|');
+      if (keys(v) !== keys(tmp)) { openPeriod(S.per); return; }
+      tmp.querySelectorAll('.cs-card').forEach(fresh => {
+        const card = [...v.querySelectorAll('.cs-card')].find(c => c.dataset.key === fresh.dataset.key); if (!card) return;
+        const was = Number(card.querySelector('.v').dataset.n), n = Number(fresh.querySelector('.v').dataset.n);
+        card.querySelector('.s').innerHTML = fresh.querySelector('.s').innerHTML;
+        card.querySelector('svg').outerHTML = fresh.querySelector('svg').outerHTML;
+        const co = card.querySelector('.cs-chip'), cn = fresh.querySelector('.cs-chip'); if (co && cn) co.outerHTML = cn.outerHTML;
+        if (was !== n) {
+          const vv = card.querySelector('.v'); vv.dataset.n = n; csCountUp(vv, n, 900);
+          card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 900);
+          csAnim(vv, [{ transform: 'scale(1.08)' }, { transform: 'none' }], { duration: 500 });
+        }
+      });
+    }
+    return {
+      render(D) {
+        const prev = S.D; S.D = D;
+        if (!prev) { showSlide(0); return; }
+        if (S.mode === 'cards') refreshCards(prev);
+        else if (!active()) showSlide(S.slide);   // tahimik na update kapag nakatago ang tab
+        // kapag nakikita at nasa slides: hayaan hanggang sa susunod na Prev/Next (fresh na data na doon)
+      },
+      key(e) { if (!active() || S.mode !== 'slides' || !S.D) return; if (e.key === 'ArrowRight') showSlide(S.slide + 1); else if (e.key === 'ArrowLeft') showSlide(S.slide - 1); },
+    };
+  }
+
+  // ======================= TICKET RESOLUTION =======================
+  const trShow = makeShow({
+    view: 'trView', ctrl: 'trCtrl', page: 'page-tickets', noun: 'Tickets filed',
+    slides: D => {
+      const { F } = D, fA = D.filedA.length, fB = D.filedB.length, aPD = F.daysA ? fA / F.daysA : 0, bPD = F.daysB ? fB / F.daysB : 0;
+      const chg = aPD ? (bPD - aPD) / aPD : null;
+      const was = (x, suffix = '') => `was ${x}${suffix} (${CS_A.label})`;
+      return [
+        () => `<div class="cs-k">Ticket resolution · ${CS_B.label} vs ${CS_A.label}</div>
+          <div class="cs-t">${chg == null ? `Tickets ${CS_B.label}` : `${chg >= 0 ? 'More' : 'Fewer'} tickets per day this week`}</div>
+          <div class="cs-kpis">
+            <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Filed · ${CS_A.label}</div><div class="v" data-n="${fA}">0</div><div class="s">${csFmt(aPD)} per day · ${F.daysA} days</div><div class="go">View by brand ›</div></button>
+            <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Filed · ${CS_B.label}</div><div class="v" data-n="${fB}">0</div><div class="s">${csFmt(bPD)} per day · ${F.daysB} day${F.daysB === 1 ? '' : 's'}${F.lastB ? ` · up to ${F.lastB.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div><div class="go">View by brand ›</div></button>
+            <div class="cs-kpi"><div class="cs-k">Change per day</div><div class="v" style="color:${chg == null ? 'inherit' : chg >= 0 ? 'var(--cs-up)' : 'var(--cs-down)'}">${chg == null ? '—' : `${chg >= 0 ? '+' : ''}${(chg * 100).toFixed(0)}%`}</div><div class="s">${chg == null ? 'No tickets yet' : `${csFmt(Math.abs(bPD - aPD))} ${bPD >= aPD ? 'more' : 'fewer'} tickets per day`}</div></div>
+          </div>
+          <div class="cs-kpis cs-kpis2">
+            <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">Resolved</div><div class="v" data-n="${D.resB}">0</div><div class="s">${CS_B.label} · ${csFmt(D.closedB)} closed · ${was(csFmt(D.resA))}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">Rejected</div><div class="v" data-n="${D.rejB}">0</div><div class="s">${CS_B.label} · ${D.closedB ? csPct(D.rejB / D.closedB) : '—'} of closed · ${was(csFmt(D.rejA))}</div></div>
+            <div class="cs-kpi"><div class="cs-k">Resolution rate</div><div class="v" style="color:${D.rateB == null ? 'inherit' : D.rateB >= .8 ? 'var(--cs-up)' : D.rateB >= .5 ? 'var(--cs-gold)' : 'var(--cs-down)'}">${D.rateB == null ? '—' : csPct(D.rateB)}</div><div class="s">${CS_B.label} · resolved out of closed · ${D.rateA == null ? 'no closed before' : was(csPct(D.rateA))}</div></div>
+          </div>`,
+        () => `<div class="cs-k">Top 5 concerns · filed ${CS_B.label}</div><div class="cs-t">What players are asking about</div>
+          <div class="cs-pairs">${D.topB.map(([k, n], i) => rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${csPct(n / (fB || 1))} of filed${D.topAMap.has(k) ? ` · was ${D.topAMap.get(k)}` : ' · new'}</span>`, n, n)).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
+        () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · tickets filed per day</div><div class="cs-t">Who filed more</div></div>
+          <div class="cs-legend"><span><i style="background:var(--cs-a)"></i>${CS_A.label}</span><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
+          <div class="cs-pairs">${D.brands.filter(b => b.aPD > 0 || b.bPD > 0).slice(0, 7).map(b => `<div class="cs-pair"><div class="n" title="${esc(b.label)}">${esc(b.label)}</div><div class="bars"><div class="ba" data-w="${b.aPD}"></div><div class="bb" data-w="${b.bPD}"></div></div><div class="c">${csChip(b.chg)}</div></div>`).join('')}</div>`,
+        () => `<div class="cs-k">Resolved vs rejected · tickets closed in the period</div><div class="cs-t">How tickets were closed</div>
+          <div class="cs-split">${[[CS_A.label, D.resA, D.rejA], [CS_B.label, D.resB, D.rejB]].map(([lb, r, j]) => { const c = r + j; return `<div class="row"><b>${lb}<small>${csFmt(c)} closed</small></b>
+            <div class="cs-stack">${c ? `<div class="hh" style="background:#22C55E;color:#052E16" data-w="${r / c}">Resolved ${csPct(r / c)}</div><div class="ai" style="background:#EF4444" data-w="${j / c}">Rejected ${csPct(j / c)}</div>` : ''}</div></div>`; }).join('')}</div>`,
+      ];
+    },
+    cards: (D, per) => (per === 'a' ? [...D.brands].filter(b => b.a > 0).sort((x, y) => y.a - x.a) : D.brands.filter(b => b.a > 0 || b.b > 0)).map(b => {
+      const L = per === 'a' ? b.listA : b.listB, n = per === 'a' ? b.a : b.b, d = L.filter(isDone).length, r = L.filter(isRej).length;
+      const tot = per === 'a' ? D.filedA.length : D.filedB.length;
+      return `<div class="cs-card" data-key="${esc(b.key)}"><div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span>${per === 'a' ? `<span class="cs-chip share">${tot ? (n / tot * 100).toFixed(1) : 0}%</span>` : csChip(b.chg)}</div>
+        <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:#4ADE80">${d} done</span> · <span style="color:#F87171">${r} rej</span> · ${per === 'a' ? `${csFmt(b.aPD)} per day` : `${csFmt(b.bPD)} per day · was ${csFmt(b.aPD)}`}</div>${spark(b, per, D.F)}</div>`;
+    }).join(''),
+  });
+
+  // ======================= TICKET ANALYTICS =======================
+  function repeatStats(list) {
+    const m = new Map();
+    list.forEach(t => { const u = (t.name || '').trim(); if (!u || /^unknown$/i.test(u)) return; const k = (t.brandLabel || '') + '|' + u.toLowerCase(); if (!m.has(k)) m.set(k, []); m.get(k).push(t); });
+    let tix = 0, players = 0; const rows = [];
+    m.forEach(v => { if (v.length >= 2) { tix += v.length; players++; rows.push(v); } });
+    return { tix, players, rows: rows.sort((a, b) => b.length - a.length) };
+  }
+  const anShow = makeShow({
+    view: 'anView', ctrl: 'anCtrl', page: 'page-analytics', noun: 'Tickets filed',
+    slides: D => {
+      const { F } = D, fA = D.filedA.length, fB = D.filedB.length, aPD = F.daysA ? fA / F.daysA : 0, bPD = F.daysB ? fB / F.daysB : 0;
+      const chg = aPD ? (bPD - aPD) / aPD : null;
+      const rA = D.repA, rB = D.repB, top = D.ccB[0];
+      const dayKey = d => d.toDateString();
+      return [
+        () => `<div class="cs-k">Ticket analytics · ${CS_B.label} vs ${CS_A.label}</div>
+          <div class="cs-t">${rB.players ? `${rB.players} repeat players this week` : `Tickets ${CS_B.label}`}</div>
+          <div class="cs-kpis">
+            <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Filed · ${CS_A.label}</div><div class="v" data-n="${fA}">0</div><div class="s">${csFmt(aPD)} per day · ${F.daysA} days</div><div class="go">View by brand ›</div></button>
+            <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Filed · ${CS_B.label}</div><div class="v" data-n="${fB}">0</div><div class="s">${csFmt(bPD)} per day · ${F.daysB} day${F.daysB === 1 ? '' : 's'}</div><div class="go">View by brand ›</div></button>
+            <div class="cs-kpi"><div class="cs-k">Change per day</div><div class="v" style="color:${chg == null ? 'inherit' : chg >= 0 ? 'var(--cs-up)' : 'var(--cs-down)'}">${chg == null ? '—' : `${chg >= 0 ? '+' : ''}${(chg * 100).toFixed(0)}%`}</div><div class="s">${chg == null ? 'No tickets yet' : `${csFmt(Math.abs(bPD - aPD))} ${bPD >= aPD ? 'more' : 'fewer'} tickets per day`}</div></div>
+          </div>
+          <div class="cs-kpis cs-kpis2">
+            <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Repeat tickets</div><div class="v">${fB ? csPct(rB.tix / fB, 1) : '—'}</div><div class="s">${CS_B.label} · ${csFmt(rB.tix)} tickets from players with 2+ · was ${fA ? csPct(rA.tix / fA, 1) : '—'}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #A855F7"><div class="cs-k">Repeat players</div><div class="v" data-n="${rB.players}">0</div><div class="s">${CS_B.label} · filed 2 or more tickets · was ${csFmt(rA.players)}</div></div>
+            <div class="cs-kpi"><div class="cs-k">Top concern</div><div class="v" style="font-size:2.4cqw;line-height:1.15">${top ? esc(top[0]) : '—'}</div><div class="s">${top ? `${CS_B.label} · ${csFmt(top[1].n)} tickets · ${csPct(top[1].n / (fB || 1))} of filed` : 'No tickets yet'}</div></div>
+          </div>`,
+        () => `<div class="cs-k">Top concerns · ${CS_B.label}</div><div class="cs-t">Most filed concerns</div>
+          <div class="cs-pairs">${D.ccB.slice(0, 6).map(([k, o], i) => { const bl = [...o.brands.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+            return rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6', '#14B8A6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${bl.map(([b, n]) => `${esc(b)} ${n}`).join(' · ')}${D.ccAMap.has(k) ? ` · was ${D.ccAMap.get(k)}` : ' · new'}</span>`, o.n, o.n); }).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
+        () => `<div class="cs-k">Repeat players · ${CS_B.label}</div><div class="cs-t">Who keeps filing</div>
+          <div class="cs-movers">${rB.rows.slice(0, 6).map(v => { const days = new Set(v.map(t => dayKey(t.submitted))).size, d = v.filter(isDone).length;
+            const cm = new Map(); v.forEach(t => cm.set(concernOf(t), (cm.get(concernOf(t)) || 0) + 1)); const tc = [...cm.entries()].sort((a, b) => b[1] - a[1])[0];
+            return `<div class="cs-mv"><div><b>${esc(v[0].name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(v[0].brandLabel)}</span></b><span>${v.length} tickets in ${days} day${days === 1 ? '' : 's'} · ${d} done · ${tc ? esc(tc[0]) : ''}</span></div><div class="pct" style="color:${v.length / days >= 5 || v.length >= 20 ? 'var(--cs-down)' : 'var(--cs-gold)'}">${(v.length / days).toFixed(1)}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">/day</span></div></div>`; }).join('') || '<div class="cs-msg">No repeat players in this period.</div>'}</div>`,
+        () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · share of tickets from repeat players</div><div class="cs-t">Where repeats come from</div></div>
+          <div class="cs-legend"><span><i style="background:var(--cs-a)"></i>${CS_A.label}</span><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
+          <div class="cs-pairs">${D.brands.filter(b => b.a >= 5 || b.b >= 5).slice(0, 7).map(b => { const ra = b.a ? repeatStats(b.listA).tix / b.a : 0, rb = b.b ? repeatStats(b.listB).tix / b.b : 0;
+            return `<div class="cs-pair"><div class="n" title="${esc(b.label)}">${esc(b.label)}</div><div class="bars"><div class="ba" data-w="${ra}"></div><div class="bb" data-w="${rb}"></div></div><div class="c"><span class="cs-chip ${rb > ra ? 'down' : 'up'}">${csPct(rb)}</span></div></div>`; }).join('') || '<div class="cs-msg">Not enough tickets yet.</div>'}</div>`,
+      ];
+    },
+    cards: (D, per) => (per === 'a' ? [...D.brands].filter(b => b.a > 0).sort((x, y) => y.a - x.a) : D.brands.filter(b => b.a > 0 || b.b > 0)).map(b => {
+      const L = per === 'a' ? b.listA : b.listB, n = per === 'a' ? b.a : b.b, rp = repeatStats(L), hot = L.length >= 5 && rp.tix / L.length >= .7;
+      const tot = per === 'a' ? D.filedA.length : D.filedB.length;
+      return `<div class="cs-card" data-key="${esc(b.key)}"${hot ? ' style="border-color:rgba(239,68,68,.6)"' : ''}><div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span>${per === 'a' ? `<span class="cs-chip share">${tot ? (n / tot * 100).toFixed(1) : 0}%</span>` : csChip(b.chg)}</div>
+        <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:${hot ? '#F87171' : '#FBBF24'}">${n ? csPct(rp.tix / n) : '0%'} repeat</span> · ${rp.players} player${rp.players === 1 ? '' : 's'} · ${per === 'a' ? `${csFmt(b.aPD)}/day` : `${csFmt(b.bPD)}/day · was ${csFmt(b.aPD)}`}</div>${spark(b, per, D.F)}</div>`;
+    }).join(''),
+  });
+
+  // ---------- data + hook ----------
+  function buildData() {
+    const F = frame();
+    const filedA = allTickets.filter(t => inPeriod(t.submitted, CS_A)), filedB = allTickets.filter(t => inPeriod(t.submitted, CS_B));
+    const closedIn = P => allTickets.filter(t => inPeriod(t.resolvedAt, P) && (isDone(t) || isRej(t)));
+    const cA = closedIn(CS_A), cB = closedIn(CS_B);
+    const resA = cA.filter(isDone).length, resB = cB.filter(isDone).length, rejA = cA.length - resA, rejB = cB.length - resB;
+    const concerns = list => { const m = new Map(); list.forEach(t => { const k = concernOf(t); if (!m.has(k)) m.set(k, { n: 0, brands: new Map() }); const o = m.get(k); o.n++; const b = t.brandLabel || 'Unknown'; o.brands.set(b, (o.brands.get(b) || 0) + 1); }); return [...m.entries()].sort((a, b) => b[1].n - a[1].n); };
+    const ccA = concerns(filedA), ccB = concerns(filedB);
+    return {
+      F, filedA, filedB, brands: byBrand(filedA, filedB, F),
+      resA, resB, rejA, rejB, closedA: cA.length, closedB: cB.length,
+      rateA: cA.length ? resA / cA.length : null, rateB: cB.length ? resB / cB.length : null,
+      topA: ccA.slice(0, 5).map(([k, o]) => [k, o.n]), topB: ccB.slice(0, 5).map(([k, o]) => [k, o.n]),
+      topAMap: new Map(ccA.map(([k, o]) => [k, o.n])), ccA, ccB, ccAMap: new Map(ccA.map(([k, o]) => [k, o.n])),
+      repA: repeatStats(filedA), repB: repeatStats(filedB),
+    };
+  }
+  function renderShows() {
+    if (!allTickets.length) return;
+    try { const D = buildData(); trShow.render(D); anShow.render(D); } catch (e) { console.error('ticket shows:', e); }
+  }
+  const _prev = renderTicketResolution;
+  renderTicketResolution = function () { _prev.apply(this, arguments); renderShows(); };
+  document.addEventListener('keydown', e => { if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return; trShow.key(e); anShow.key(e); });
+  if (allTickets.length) renderShows();
 })();
 </script>
 <script src="sidebar-topnav.js?v=4"></script>
