@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22b --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22d --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -3229,29 +3229,29 @@ function csSlides() {
   const hhRate = h => h && h.conversations ? h.hh / h.conversations : null;
   const rA = hhRate(hA), rB = hhRate(hB);
   const hhCard = (cls, title, n, rate, prevRate, conv) => `<div class="cs-kpi ${cls}"><div class="cs-k">${title}</div><div class="v" data-n="${n || 0}">0</div>
-    <div class="s">${rate == null ? 'No live data yet' : `${csPct(rate)} of ${csFmt(conv)} chats${prevRate == null ? '' : ` · was ${csPct(prevRate)}`}`}</div></div>`;
+    <div class="s">${rate == null ? 'No live data yet' : `${CS_B.label} · ${csPct(rate)} of ${csFmt(conv)} chats`}</div></div>`;
   const pairs = D.list.filter(b => b.aPD > 0 || b.bPD > 0).slice(0, 7);
   const movers = D.list.filter(b => b.chg != null && b.aPD >= 1 && b.bPD > 0).sort((x, y) => y.chg - x.chg);
   const up = movers.filter(b => b.chg >= 0).slice(0, 6), mv = up.length >= 4 ? up : movers.slice(0, 6);
   return [
     () => `<div class="cs-k">Chats · ${CS_B.label} vs ${CS_A.label}</div>
-      <div class="cs-t">${TCHG == null ? `Chats ${CS_B.label}` : `${TCHG >= 0 ? 'More' : 'Fewer'} chats per day this week`}</div>
+      <div class="cs-t">Chats ${CS_B.label}</div>
       <div class="cs-kpis">
         <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">${CS_A.label}</div><div class="v" data-n="${TA}">0</div><div class="s">${csFmt(TAPD)} per day · ${daysA} days</div><div class="go">View by brand ›</div></button>
         <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">${CS_B.label}</div><div class="v" data-n="${TB}">0</div><div class="s">${csFmt(TBPD)} per day · ${daysB} day${daysB === 1 ? '' : 's'}${D.lastB ? ` · up to ${D.lastB.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div><div class="go">View by brand ›</div></button>
-        <div class="cs-kpi"><div class="cs-k">Change per day</div><div class="v" style="color:${TCHG == null ? 'inherit' : TCHG >= 0 ? 'var(--cs-up)' : 'var(--cs-down)'}">${TCHG == null ? '—' : `${TCHG >= 0 ? '+' : ''}${(TCHG * 100).toFixed(0)}%`}</div>
-          <div class="s">${TCHG == null ? 'No figures yet' : `${csFmt(Math.abs(TBPD - TAPD))} ${TBPD >= TAPD ? 'more' : 'fewer'} chats per day`}</div></div>
+        <div class="cs-kpi"><div class="cs-k">Top brand</div><div class="v" style="font-size:2.6cqw;line-height:1.15">${D.list[0] ? escapeHtml(D.list[0].label) : '—'}</div>
+          <div class="s">${D.list[0] && TB ? `${CS_B.label} · ${csFmt(D.list[0].b)} chats · ${csPct(D.list[0].b / TB)} of all brands` : 'No figures yet'}</div></div>
       </div>
       <div class="cs-kpis cs-kpis2">
-        <div class="cs-kpi"><div class="cs-k">Messages a day</div><div class="v" data-n="${Math.round(TBPD)}">0</div><div class="s">${CS_B.label} · was ${csFmt(TAPD)} (${CS_A.label})</div></div>
+        <div class="cs-kpi"><div class="cs-k">Messages a day</div><div class="v" data-n="${Math.round(TBPD)}">0</div><div class="s">${CS_B.label} · average over ${daysB} day${daysB === 1 ? '' : 's'}</div></div>
         ${hhCard('hh', 'Handed to human (HH)', hB && hB.hh, rB, rA, hB && hB.conversations)}
         ${hhCard('ai', 'AI only — no handoff', hB && hB.ai, rB == null ? null : 1 - rB, rA == null ? null : 1 - rA, hB && hB.conversations)}
       </div>`,
-    () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · average per day</div><div class="cs-t">Who grew</div></div>
+    () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · average per day</div><div class="cs-t">Chats per day by brand</div></div>
       <div class="cs-legend"><span><i style="background:var(--cs-a)"></i>${CS_A.label}</span><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
-      <div class="cs-pairs">${pairs.map(b => `<div class="cs-pair"><div class="n" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</div><div class="bars"><div class="ba" data-w="${b.aPD}"></div><div class="bb" data-w="${b.bPD}"></div></div><div class="c">${csChip(b.chg)}</div></div>`).join('')}</div>`,
-    () => `<div class="cs-k">Biggest movers · per day</div><div class="cs-t">${mv.length && mv[0].chg >= 0 ? 'Biggest increases' : 'Biggest changes'}</div>
-      <div class="cs-movers">${mv.map(b => `<div class="cs-mv"><div><b>${escapeHtml(b.label)}</b><span>${csFmt(b.aPD)} → ${csFmt(b.bPD)} per day</span></div><div class="pct" style="color:${b.chg >= 0 ? 'var(--cs-up)' : 'var(--cs-down)'}">${b.chg >= 0 ? '+' : ''}${(b.chg * 100).toFixed(0)}%</div></div>`).join('') || '<div class="cs-msg">No comparison yet.</div>'}</div>`,
+      <div class="cs-pairs">${pairs.map(b => `<div class="cs-pair"><div class="n" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</div><div class="bars"><div class="ba" data-w="${b.aPD}"></div><div class="bb" data-w="${b.bPD}"></div></div><div class="c"><span class="cs-chip share">${csFmt(b.bPD)}/day</span></div></div>`).join('')}</div>`,
+    () => `<div class="cs-k">Share of chats · ${CS_B.label}</div><div class="cs-t">Where the chats come from</div>
+      <div class="cs-movers">${D.list.filter(b => b.b > 0).slice(0, 6).map(b => `<div class="cs-mv"><div><b>${escapeHtml(b.label)}</b><span>${csFmt(b.b)} chats · ${csFmt(b.bPD)} per day</span></div><div class="pct" style="color:var(--cs-b)">${TB ? csPct(b.b / TB) : '—'}</div></div>`).join('') || '<div class="cs-msg">No chats yet.</div>'}</div>`,
     () => `<div class="cs-k">Handed to human vs AI only</div><div class="cs-t">How many were passed to an agent</div>
       <div class="cs-split">${[[CS_A.label, hA, rA], [CS_B.label, hB, rB]].map(([lb, h, r]) => `<div class="row"><b>${lb}<small>${h ? csFmt(h.conversations) + ' chats' : 'no live data'}</small></b>
         <div class="cs-stack">${r == null ? '' : `<div class="hh" data-w="${r}">HH ${csPct(r)}</div><div class="ai" data-w="${1 - r}">AI only ${csPct(1 - r)}</div>`}</div></div>`).join('')}</div>`,
@@ -3298,8 +3298,8 @@ function csCardsHtml(per) {
   return list.map(b => per === 'a'
     ? `<div class="cs-card" data-key="${escapeHtml(b.key)}"><div class="top"><span class="nm" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</span><span class="cs-chip share">${D.TA ? (b.a / D.TA * 100).toFixed(1) : 0}%</span></div>
       <div class="v" data-n="${b.a}">0</div><div class="s">${csFmt(b.aPD)} per day · ${D.daysA} days</div>${csSpark(b, 'a')}</div>`
-    : `<div class="cs-card" data-key="${escapeHtml(b.key)}"><div class="top"><span class="nm" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</span>${csChip(b.chg)}</div>
-      <div class="v" data-n="${b.b}">0</div><div class="s">${csFmt(b.bPD)} per day · was ${csFmt(b.aPD)}</div>${csSpark(b, 'b')}</div>`).join('');
+    : `<div class="cs-card" data-key="${escapeHtml(b.key)}"><div class="top"><span class="nm" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</span><span class="cs-chip share">${D.TB ? (b.b / D.TB * 100).toFixed(1) : 0}%</span></div>
+      <div class="v" data-n="${b.b}">0</div><div class="s">${csFmt(b.bPD)} per day · ${D.daysB} day${D.daysB === 1 ? '' : 's'}</div>${csSpark(b, 'b')}</div>`).join('');
 }
 function csOpenPeriod(per) {
   const view = document.getElementById('csView'), D = csState.data;
@@ -4395,22 +4395,22 @@ TicketData.fetchTickets()
       const was = (x, suffix = '') => `was ${x}${suffix} (${CS_A.label})`;
       return [
         () => `<div class="cs-k">Ticket resolution · ${CS_B.label} vs ${CS_A.label}</div>
-          <div class="cs-t">${chg == null ? `Tickets ${CS_B.label}` : `${chg >= 0 ? 'More' : 'Fewer'} tickets per day this week`}</div>
+          <div class="cs-t">Tickets filed and closed</div>
           <div class="cs-kpis">
             <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Filed · ${CS_A.label}</div><div class="v" data-n="${fA}">0</div><div class="s">${csFmt(aPD)} per day · ${F.daysA} days</div><div class="go">View by brand ›</div></button>
             <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Filed · ${CS_B.label}</div><div class="v" data-n="${fB}">0</div><div class="s">${csFmt(bPD)} per day · ${F.daysB} day${F.daysB === 1 ? '' : 's'}${F.lastB ? ` · up to ${F.lastB.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div><div class="go">View by brand ›</div></button>
-            <div class="cs-kpi"><div class="cs-k">Change per day</div><div class="v" style="color:${chg == null ? 'inherit' : chg >= 0 ? 'var(--cs-up)' : 'var(--cs-down)'}">${chg == null ? '—' : `${chg >= 0 ? '+' : ''}${(chg * 100).toFixed(0)}%`}</div><div class="s">${chg == null ? 'No tickets yet' : `${csFmt(Math.abs(bPD - aPD))} ${bPD >= aPD ? 'more' : 'fewer'} tickets per day`}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Still open</div><div class="v" data-n="${D.openB}">0</div><div class="s">${CS_B.label} · ${fB ? csPct(D.openB / fB) : '—'} of filed, not yet closed</div></div>
           </div>
           <div class="cs-kpis cs-kpis2">
             <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">Resolved</div><div class="v" data-n="${D.resB}">0</div><div class="s">${CS_B.label} · ${csFmt(D.closedB)} closed · ${was(csFmt(D.resA))}</div></div>
             <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">Rejected</div><div class="v" data-n="${D.rejB}">0</div><div class="s">${CS_B.label} · ${D.closedB ? csPct(D.rejB / D.closedB) : '—'} of closed · ${was(csFmt(D.rejA))}</div></div>
-            <div class="cs-kpi"><div class="cs-k">Resolution rate</div><div class="v" style="color:${D.rateB == null ? 'inherit' : D.rateB >= .8 ? 'var(--cs-up)' : D.rateB >= .5 ? 'var(--cs-gold)' : 'var(--cs-down)'}">${D.rateB == null ? '—' : csPct(D.rateB)}</div><div class="s">${CS_B.label} · resolved out of closed · ${D.rateA == null ? 'no closed before' : was(csPct(D.rateA))}</div></div>
+            <div class="cs-kpi"><div class="cs-k">Resolution rate</div><div class="v" style="color:${D.rateB == null ? 'inherit' : D.rateB >= .8 ? 'var(--cs-up)' : D.rateB >= .5 ? 'var(--cs-gold)' : 'var(--cs-down)'}">${D.rateB == null ? '—' : csPct(D.rateB)}</div><div class="s">${CS_B.label} · ${csFmt(D.resB)} resolved out of ${csFmt(D.closedB)} closed</div></div>
           </div>`,
         () => `<div class="cs-k">Top 5 concerns · filed ${CS_B.label}</div><div class="cs-t">What players are asking about</div>
           <div class="cs-pairs">${D.topB.map(([k, n], i) => rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${csPct(n / (fB || 1))} of filed${D.topAMap.has(k) ? ` · was ${D.topAMap.get(k)}` : ' · new'}</span>`, n, n)).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
-        () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · tickets filed per day</div><div class="cs-t">Who filed more</div></div>
+        () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · tickets filed per day</div><div class="cs-t">Tickets per day by brand</div></div>
           <div class="cs-legend"><span><i style="background:var(--cs-a)"></i>${CS_A.label}</span><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
-          <div class="cs-pairs">${D.brands.filter(b => b.aPD > 0 || b.bPD > 0).slice(0, 7).map(b => `<div class="cs-pair"><div class="n" title="${esc(b.label)}">${esc(b.label)}</div><div class="bars"><div class="ba" data-w="${b.aPD}"></div><div class="bb" data-w="${b.bPD}"></div></div><div class="c">${csChip(b.chg)}</div></div>`).join('')}</div>`,
+          <div class="cs-pairs">${D.brands.filter(b => b.aPD > 0 || b.bPD > 0).slice(0, 7).map(b => `<div class="cs-pair"><div class="n" title="${esc(b.label)}">${esc(b.label)}</div><div class="bars"><div class="ba" data-w="${b.aPD}"></div><div class="bb" data-w="${b.bPD}"></div></div><div class="c"><span class="cs-chip share">${csFmt(b.bPD)}/day</span></div></div>`).join('')}</div>`,
         () => `<div class="cs-k">Resolved vs rejected · tickets closed in the period</div><div class="cs-t">How tickets were closed</div>
           <div class="cs-split">${[[CS_A.label, D.resA, D.rejA], [CS_B.label, D.resB, D.rejB]].map(([lb, r, j]) => { const c = r + j; return `<div class="row"><b>${lb}<small>${csFmt(c)} closed</small></b>
             <div class="cs-stack">${c ? `<div class="hh" style="background:#22C55E;color:#052E16" data-w="${r / c}">Resolved ${csPct(r / c)}</div><div class="ai" style="background:#EF4444" data-w="${j / c}">Rejected ${csPct(j / c)}</div>` : ''}</div></div>`; }).join('')}</div>`,
@@ -4419,8 +4419,8 @@ TicketData.fetchTickets()
     cards: (D, per) => (per === 'a' ? [...D.brands].filter(b => b.a > 0).sort((x, y) => y.a - x.a) : D.brands.filter(b => b.a > 0 || b.b > 0)).map(b => {
       const L = per === 'a' ? b.listA : b.listB, n = per === 'a' ? b.a : b.b, d = L.filter(isDone).length, r = L.filter(isRej).length;
       const tot = per === 'a' ? D.filedA.length : D.filedB.length;
-      return `<div class="cs-card" data-key="${esc(b.key)}"><div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span>${per === 'a' ? `<span class="cs-chip share">${tot ? (n / tot * 100).toFixed(1) : 0}%</span>` : csChip(b.chg)}</div>
-        <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:#4ADE80">${d} done</span> · <span style="color:#F87171">${r} rej</span> · ${per === 'a' ? `${csFmt(b.aPD)} per day` : `${csFmt(b.bPD)} per day · was ${csFmt(b.aPD)}`}</div>${spark(b, per, D.F)}</div>`;
+      return `<div class="cs-card" data-key="${esc(b.key)}"><div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span><span class="cs-chip share">${tot ? (n / tot * 100).toFixed(1) : 0}%</span></div>
+        <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:#4ADE80">${d} done</span> · <span style="color:#F87171">${r} rej</span> · ${per === 'a' ? `${csFmt(b.aPD)} per day` : `${csFmt(b.bPD)} per day`}</div>${spark(b, per, D.F)}</div>`;
     }).join(''),
   });
 
@@ -4445,10 +4445,10 @@ TicketData.fetchTickets()
           <div class="cs-kpis">
             <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Filed · ${CS_A.label}</div><div class="v" data-n="${fA}">0</div><div class="s">${csFmt(aPD)} per day · ${F.daysA} days</div><div class="go">View by brand ›</div></button>
             <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Filed · ${CS_B.label}</div><div class="v" data-n="${fB}">0</div><div class="s">${csFmt(bPD)} per day · ${F.daysB} day${F.daysB === 1 ? '' : 's'}</div><div class="go">View by brand ›</div></button>
-            <div class="cs-kpi"><div class="cs-k">Change per day</div><div class="v" style="color:${chg == null ? 'inherit' : chg >= 0 ? 'var(--cs-up)' : 'var(--cs-down)'}">${chg == null ? '—' : `${chg >= 0 ? '+' : ''}${(chg * 100).toFixed(0)}%`}</div><div class="s">${chg == null ? 'No tickets yet' : `${csFmt(Math.abs(bPD - aPD))} ${bPD >= aPD ? 'more' : 'fewer'} tickets per day`}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">Rejected</div><div class="v" data-n="${D.filedB.filter(isRej).length}">0</div><div class="s">${CS_B.label} · ${fB ? csPct(D.filedB.filter(isRej).length / fB) : '—'} of filed · ${D.filedB.filter(isDone).length} done</div></div>
           </div>
           <div class="cs-kpis cs-kpis2">
-            <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Repeat tickets</div><div class="v">${fB ? csPct(rB.tix / fB, 1) : '—'}</div><div class="s">${CS_B.label} · ${csFmt(rB.tix)} tickets from players with 2+ · was ${fA ? csPct(rA.tix / fA, 1) : '—'}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Repeat tickets</div><div class="v">${fB ? csPct(rB.tix / fB, 1) : '—'}</div><div class="s">${CS_B.label} · ${csFmt(rB.tix)} tickets from players with 2+</div></div>
             <div class="cs-kpi" style="border-left:.4cqw solid #A855F7"><div class="cs-k">Repeat players</div><div class="v" data-n="${rB.players}">0</div><div class="s">${CS_B.label} · filed 2 or more tickets · was ${csFmt(rA.players)}</div></div>
             <div class="cs-kpi"><div class="cs-k">Top concern</div><div class="v" style="font-size:2.4cqw;line-height:1.15">${top ? esc(top[0]) : '—'}</div><div class="s">${top ? `${CS_B.label} · ${csFmt(top[1].n)} tickets · ${csPct(top[1].n / (fB || 1))} of filed` : 'No tickets yet'}</div></div>
           </div>`,
@@ -4460,16 +4460,16 @@ TicketData.fetchTickets()
             const cm = new Map(); v.forEach(t => cm.set(concernOf(t), (cm.get(concernOf(t)) || 0) + 1)); const tc = [...cm.entries()].sort((a, b) => b[1] - a[1])[0];
             return `<div class="cs-mv" data-rp="${i}" style="cursor:pointer" title="See this player's tickets"><div style="min-width:0"><b>${esc(v[0].name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(v[0].brandLabel)}</span></b><span>${v.length} tickets in ${days} day${days === 1 ? '' : 's'} · ${d} done · ${tc ? esc(tc[0]) : ''}</span></div><div class="pct" style="color:${v.length / days >= 5 || v.length >= 20 ? 'var(--cs-down)' : 'var(--cs-gold)'}">${(v.length / days).toFixed(1)}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">/day</span></div></div>`; }).join('') || '<div class="cs-msg">No repeat players in this period.</div>'}</div>`,
         () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · share of tickets from repeat players</div><div class="cs-t">Where repeats come from</div></div>
-          <div class="cs-legend"><span><i style="background:var(--cs-a)"></i>${CS_A.label}</span><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
-          <div class="cs-pairs">${D.brands.filter(b => b.a >= 5 || b.b >= 5).slice(0, 7).map(b => { const ra = b.a ? repeatStats(b.listA).tix / b.a : 0, rb = b.b ? repeatStats(b.listB).tix / b.b : 0;
-            return `<div class="cs-pair"><div class="n" title="${esc(b.label)}">${esc(b.label)}</div><div class="bars"><div class="ba" data-w="${ra}"></div><div class="bb" data-w="${rb}"></div></div><div class="c"><span class="cs-chip ${rb > ra ? 'down' : 'up'}">${csPct(rb)}</span></div></div>`; }).join('') || '<div class="cs-msg">Not enough tickets yet.</div>'}</div>`,
+          <div class="cs-legend"><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
+          <div class="cs-pairs">${D.brands.filter(b => b.b >= 5).sort((x, y) => (repeatStats(y.listB).tix / y.b) - (repeatStats(x.listB).tix / x.b)).slice(0, 7).map(b => { const rp = repeatStats(b.listB), rb = rp.tix / b.b;
+            return `<div class="cs-pair"><div class="n" title="${esc(b.label)}">${esc(b.label)}</div><div class="bars"><div class="bb" data-w="${rb}" style="height:2cqw"></div></div><div class="c"><span class="cs-chip ${rb >= .7 ? 'down' : 'share'}">${csPct(rb)}</span></div></div>`; }).join('') || '<div class="cs-msg">Not enough tickets yet.</div>'}</div>`,
       ];
     },
     cards: (D, per) => (per === 'a' ? [...D.brands].filter(b => b.a > 0).sort((x, y) => y.a - x.a) : D.brands.filter(b => b.a > 0 || b.b > 0)).map(b => {
       const L = per === 'a' ? b.listA : b.listB, n = per === 'a' ? b.a : b.b, rp = repeatStats(L), hot = L.length >= 5 && rp.tix / L.length >= .7;
       const tot = per === 'a' ? D.filedA.length : D.filedB.length;
-      return `<div class="cs-card" data-key="${esc(b.key)}"${hot ? ' style="border-color:rgba(239,68,68,.6)"' : ''}><div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span>${per === 'a' ? `<span class="cs-chip share">${tot ? (n / tot * 100).toFixed(1) : 0}%</span>` : csChip(b.chg)}</div>
-        <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:${hot ? '#F87171' : '#FBBF24'}">${n ? csPct(rp.tix / n) : '0%'} repeat</span> · ${rp.players} player${rp.players === 1 ? '' : 's'} · ${per === 'a' ? `${csFmt(b.aPD)}/day` : `${csFmt(b.bPD)}/day · was ${csFmt(b.aPD)}`}</div>${spark(b, per, D.F)}</div>`;
+      return `<div class="cs-card" data-key="${esc(b.key)}"${hot ? ' style="border-color:rgba(239,68,68,.6)"' : ''}><div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span><span class="cs-chip share">${tot ? (n / tot * 100).toFixed(1) : 0}%</span></div>
+        <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:${hot ? '#F87171' : '#FBBF24'}">${n ? csPct(rp.tix / n) : '0%'} repeat</span> · ${rp.players} player${rp.players === 1 ? '' : 's'} · ${per === 'a' ? `${csFmt(b.aPD)}/day` : `${csFmt(b.bPD)}/day`}</div>${spark(b, per, D.F)}</div>`;
     }).join(''),
   });
 
@@ -4510,7 +4510,7 @@ TicketData.fetchTickets()
     const ccA = concerns(filedA), ccB = concerns(filedB);
     return {
       F, filedA, filedB, brands: byBrand(filedA, filedB, F),
-      resA, resB, rejA, rejB, closedA: cA.length, closedB: cB.length,
+      resA, resB, rejA, rejB, closedA: cA.length, closedB: cB.length, openB: filedB.filter(isOpen).length,
       rateA: cA.length ? resA / cA.length : null, rateB: cB.length ? resB / cB.length : null,
       topA: ccA.slice(0, 5).map(([k, o]) => [k, o.n]), topB: ccB.slice(0, 5).map(([k, o]) => [k, o.n]),
       topAMap: new Map(ccA.map(([k, o]) => [k, o.n])), ccA, ccB, ccAMap: new Map(ccA.map(([k, o]) => [k, o.n])),
@@ -4630,8 +4630,8 @@ TicketData.fetchTickets()
             <div class="cs-kpi"><div class="cs-k">Average rating</div><div class="v" style="color:${colorAvg(sB.avg)}">${sB.avg == null ? '—' : sB.avg}<span style="font-size:1.6cqw;color:var(--cs-soft)"> / 5</span></div><div class="s">${CS_B.label} · ${sA.avg == null ? 'no ratings before' : was(sA.avg + ' / 5')}</div></div>
           </div>
           <div class="cs-kpis cs-kpis2">
-            <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">CSAT — satisfied</div><div class="v" data-n="${sB.cs}">0</div><div class="s">${CS_B.label} · ${pct(sB.cs, sB.n)} rated 4–5★ · ${was(pct(sA.cs, sA.n))}${sB.neu ? ` · ${pct(sB.neu, sB.n)} rated 3★` : ''}</div></div>
-            <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">DSAT — dissatisfied</div><div class="v" data-n="${sB.ds}">0</div><div class="s">${CS_B.label} · ${pct(sB.ds, sB.n)} rated 1–2★ · ${was(pct(sA.ds, sA.n))}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">CSAT — satisfied</div><div class="v" data-n="${sB.cs}">0</div><div class="s">${CS_B.label} · ${pct(sB.cs, sB.n)} rated 4–5★${sB.neu ? ` · ${pct(sB.neu, sB.n)} rated 3★` : ''}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">DSAT — dissatisfied</div><div class="v" data-n="${sB.ds}">0</div><div class="s">${CS_B.label} · ${pct(sB.ds, sB.n)} rated 1–2★</div></div>
             <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Legit complaints</div><div class="v" data-n="${D.B.filter(r => r.severity === 'high').length}">0</div><div class="s">${CS_B.label} · HIGH-severity reasons · ${was(csFmt(D.A.filter(r => r.severity === 'high').length))}</div></div>
           </div>`,
         () => `<div class="cs-k">Top brands by DSAT · ${CS_B.label}</div><div class="cs-t">Where the complaints are</div>
@@ -4651,16 +4651,16 @@ TicketData.fetchTickets()
         () => `<div class="cs-k">Top players who gave DSATs · ${CS_B.label}</div><div class="cs-t">Who was unhappy <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to see their reasons</span></div>
           <div class="cs-movers">${D.playersB.slice(0, 6).map((p, i) => { const last = p.ds[0], reason = (last.feedback || '').trim();
             return `<div class="cs-mv" data-pl="${i}" style="cursor:pointer" title="See this player's DSAT reasons"><div style="min-width:0"><b>${esc(p.name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(chatBrandLabel(p.brand))}</span></b><span>${p.all.length} rating${p.all.length === 1 ? '' : 's'} in total · ${p.ds.length} DSAT${p.all.length - p.ds.length ? ` · ${p.all.length - p.ds.length} rated 3–5★` : ''} · latest: <span style="color:${SEV_COLOR[last.severity]}">${SEV_TXT[last.severity]}</span>${reason ? ` “${esc(reason.length > 50 ? reason.slice(0, 50) + '…' : reason)}”` : ''}</span></div><div class="pct" style="color:var(--cs-down)">${p.ds.length}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> DSAT</span></div></div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
-        () => `<div class="cs-k">Satisfied vs dissatisfied · all ratings in the period</div><div class="cs-t">How customers rated us</div>
-          <div class="cs-split">${[[CS_A.label, sA], [CS_B.label, sB]].map(([lb, s]) => `<div class="row"><b>${lb}<small>${csFmt(s.n)} ratings · avg ${s.avg == null ? '—' : s.avg}</small></b>
-            <div class="cs-stack">${s.n ? `<div class="hh" style="background:#22C55E;color:#052E16" data-w="${s.cs / s.n}">CSAT ${pct(s.cs, s.n)}</div>${s.neu ? `<div style="background:#6B7C96" data-w="${s.neu / s.n}">3★ ${pct(s.neu, s.n)}</div>` : ''}<div class="ai" style="background:#EF4444" data-w="${s.ds / s.n}">DSAT ${pct(s.ds, s.n)}</div>` : ''}</div></div>`).join('')}</div>`,
+        () => `<div class="cs-k">Satisfied vs dissatisfied · ${CS_B.label}</div><div class="cs-t">How customers rated us, per brand</div>
+          <div class="cs-split" style="gap:1.1cqw">${[['All brands', sB], ...D.brands.filter(b => b.sB.n >= 5).slice(0, 6).map(b => [b.label, b.sB])].map(([lb, s], i) => `<div class="row"><b style="${i ? 'font-size:1.25cqw' : ''}">${esc(lb)}<small>${csFmt(s.n)} ratings · avg ${s.avg == null ? '—' : s.avg}</small></b>
+            <div class="cs-stack" style="${i ? 'height:3cqw' : ''}">${s.n ? `<div class="hh" style="background:#22C55E;color:#052E16" data-w="${s.cs / s.n}">CSAT ${pct(s.cs, s.n)}</div>${s.neu ? `<div style="background:#6B7C96" data-w="${s.neu / s.n}">3★ ${pct(s.neu, s.n)}</div>` : ''}<div class="ai" style="background:#EF4444" data-w="${s.ds / s.n}">DSAT ${pct(s.ds, s.n)}</div>` : ''}</div></div>`).join('')}</div>`,
       ];
     },
     cards: (D, per) => (per === 'a' ? [...D.brands].filter(b => b.a > 0).sort((x, y) => y.sA.ds - x.sA.ds || y.a - x.a) : D.brands.filter(b => b.a > 0 || b.b > 0)).map(b => {
       const s = per === 'a' ? b.sA : b.sB, n = s.n, dsr = n ? s.ds / n : 0, prev = b.sA.n ? b.sA.ds / b.sA.n : null;
       const chip = per === 'a' ? `<span class="cs-chip share">${pct(s.ds, n)} DSAT</span>` : `<span class="cs-chip ${dsr > 0.2 ? 'down' : 'up'}">${pct(s.ds, n)} DSAT</span>`;
       return `<div class="cs-card" data-key="${esc(b.key)}"${dsr > 0.2 && n >= 5 ? ' style="border-color:rgba(239,68,68,.6)"' : ''}><div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span>${chip}</div>
-        <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:#4ADE80">${s.cs} CSAT</span> · <span style="color:#F87171">${s.ds} DSAT</span> · avg ${s.avg == null ? '—' : s.avg}${per === 'b' && prev != null ? ` · was ${pct(b.sA.ds, b.sA.n)} DSAT` : ''}</div>${spark(b, per, D.F)}</div>`;
+        <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:#4ADE80">${s.cs} CSAT</span> · <span style="color:#F87171">${s.ds} DSAT</span> · avg ${s.avg == null ? '—' : s.avg}</div>${spark(b, per, D.F)}</div>`;
     }).join(''),
   });
 
