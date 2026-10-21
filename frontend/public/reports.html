@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-21h --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22b --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -4455,10 +4455,10 @@ TicketData.fetchTickets()
         () => `<div class="cs-k">Top concerns · ${CS_B.label}</div><div class="cs-t">Most filed concerns</div>
           <div class="cs-pairs">${D.ccB.slice(0, 6).map(([k, o], i) => { const bl = [...o.brands.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
             return rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6', '#14B8A6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${bl.map(([b, n]) => `${esc(b)} ${n}`).join(' · ')}${D.ccAMap.has(k) ? ` · was ${D.ccAMap.get(k)}` : ' · new'}</span>`, o.n, o.n); }).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
-        () => `<div class="cs-k">Repeat players · ${CS_B.label}</div><div class="cs-t">Who keeps filing</div>
-          <div class="cs-movers">${rB.rows.slice(0, 6).map(v => { const days = new Set(v.map(t => dayKey(t.submitted))).size, d = v.filter(isDone).length;
+        () => `<div class="cs-k">Repeat players · ${CS_B.label}</div><div class="cs-t">Who keeps filing <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to see their tickets</span></div>
+          <div class="cs-movers">${rB.rows.slice(0, 6).map((v, i) => { const days = new Set(v.map(t => dayKey(t.submitted))).size, d = v.filter(isDone).length;
             const cm = new Map(); v.forEach(t => cm.set(concernOf(t), (cm.get(concernOf(t)) || 0) + 1)); const tc = [...cm.entries()].sort((a, b) => b[1] - a[1])[0];
-            return `<div class="cs-mv"><div><b>${esc(v[0].name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(v[0].brandLabel)}</span></b><span>${v.length} tickets in ${days} day${days === 1 ? '' : 's'} · ${d} done · ${tc ? esc(tc[0]) : ''}</span></div><div class="pct" style="color:${v.length / days >= 5 || v.length >= 20 ? 'var(--cs-down)' : 'var(--cs-gold)'}">${(v.length / days).toFixed(1)}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">/day</span></div></div>`; }).join('') || '<div class="cs-msg">No repeat players in this period.</div>'}</div>`,
+            return `<div class="cs-mv" data-rp="${i}" style="cursor:pointer" title="See this player's tickets"><div style="min-width:0"><b>${esc(v[0].name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(v[0].brandLabel)}</span></b><span>${v.length} tickets in ${days} day${days === 1 ? '' : 's'} · ${d} done · ${tc ? esc(tc[0]) : ''}</span></div><div class="pct" style="color:${v.length / days >= 5 || v.length >= 20 ? 'var(--cs-down)' : 'var(--cs-gold)'}">${(v.length / days).toFixed(1)}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">/day</span></div></div>`; }).join('') || '<div class="cs-msg">No repeat players in this period.</div>'}</div>`,
         () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · share of tickets from repeat players</div><div class="cs-t">Where repeats come from</div></div>
           <div class="cs-legend"><span><i style="background:var(--cs-a)"></i>${CS_A.label}</span><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
           <div class="cs-pairs">${D.brands.filter(b => b.a >= 5 || b.b >= 5).slice(0, 7).map(b => { const ra = b.a ? repeatStats(b.listA).tix / b.a : 0, rb = b.b ? repeatStats(b.listB).tix / b.b : 0;
@@ -4471,6 +4471,32 @@ TicketData.fetchTickets()
       return `<div class="cs-card" data-key="${esc(b.key)}"${hot ? ' style="border-color:rgba(239,68,68,.6)"' : ''}><div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span>${per === 'a' ? `<span class="cs-chip share">${tot ? (n / tot * 100).toFixed(1) : 0}%</span>` : csChip(b.chg)}</div>
         <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:${hot ? '#F87171' : '#FBBF24'}">${n ? csPct(rp.tix / n) : '0%'} repeat</span> · ${rp.players} player${rp.players === 1 ? '' : 's'} · ${per === 'a' ? `${csFmt(b.aPD)}/day` : `${csFmt(b.bPD)}/day · was ${csFmt(b.aPD)}`}</div>${spark(b, per, D.F)}</div>`;
     }).join(''),
+  });
+
+  // PLAYER DRILL-DOWN (2026-10-21, Chad: "hindi ko na siya ma-click"): i-click
+  // ang repeat player sa slide 3 → listahan ng LAHAT ng ticket niya sa
+  // period (petsa, ticket ID, concern, status, remarks), sa loob ng slide.
+  let anLastD = null;
+  function openRepeatPlayer(v) {
+    const view = document.getElementById('anView'), ctrl = document.getElementById('anCtrl');
+    const list = v.slice().sort((a, b) => (b.submitted || 0) - (a.submitted || 0));
+    const d = list.filter(isDone).length, r = list.filter(isRej).length;
+    const fmtDT = x => x instanceof Date && !isNaN(x) ? x.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+    const remark = t => { const out = [], seen = new Set(); const add = val => { const s = String(val || '').trim(); if (s && !seen.has(s)) { seen.add(s); out.push(s); } };
+      add(t.rejectReason); Object.keys(t.raw || {}).forEach(k => { if (!/^[a-z_]/.test(k) && /reject|remark|note|reason|comment|resolution/i.test(k)) add(t.raw[k]); }); return out; };
+    const stColor = t => isDone(t) ? '#4ADE80' : isRej(t) ? '#F87171' : '#FBBF24';
+    view.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">Repeat player · ${esc(v[0].brandLabel)} · ${CS_B.label}</div>
+        <div class="cs-t">${esc(v[0].name)} <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· ${list.length} tickets · <span style="color:#4ADE80">${d} done</span> · <span style="color:#F87171">${r} rejected</span> · ${list.length - d - r} open</span></div></div></div>
+      <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.6cqw;padding-right:.4cqw">${list.map(t => { const rem = remark(t);
+        return `<div class="cs-mv" style="padding:.9cqw 1.4cqw;gap:1.4cqw;align-items:flex-start">
+          <div style="min-width:0;flex:1"><b style="font-size:1.3cqw">${esc(concernOf(t))} <span style="color:var(--cs-soft);font-weight:600;font-size:1.05cqw;font-family:ui-monospace,Menlo,monospace">${esc(t.id || '')}</span></b>
+            <span>${fmtDT(t.submitted)} · <span style="color:${stColor(t)};font-weight:700">${esc(t.statusLabel || t.statusCls || '—')}</span>${t.resolvedBy || t.acknowledgedBy ? ` · ${esc(t.resolvedBy || t.acknowledgedBy)}` : ''}${t.resolvedAt ? ` · closed ${fmtDT(t.resolvedAt)}` : ''}${rem.length ? ` · <i style="color:var(--cs-ink)">“${esc(rem.join(' · '))}”</i>` : ''}</span></div></div>`; }).join('')}</div>`;
+    ctrl.innerHTML = '<button class="cs-btn" type="button" id="anRpBack">← Back to players</button>';
+    document.getElementById('anRpBack').onclick = () => anShow.goto(2);
+  }
+  document.getElementById('anView').addEventListener('click', e => {
+    const el = e.target.closest('[data-rp]'); if (!el || !anLastD) return;
+    const v = anLastD.repB.rows[Number(el.dataset.rp)]; if (v) openRepeatPlayer(v);
   });
 
   // ---------- data + hook ----------
@@ -4493,7 +4519,7 @@ TicketData.fetchTickets()
   }
   function renderShows() {
     if (!allTickets.length) return;
-    try { const D = buildData(); trShow.render(D); anShow.render(D); } catch (e) { console.error('ticket shows:', e); }
+    try { const D = buildData(); anLastD = D; trShow.render(D); anShow.render(D); } catch (e) { console.error('ticket shows:', e); }
   }
   const _prev = renderTicketResolution;
   renderTicketResolution = function () { _prev.apply(this, arguments); renderShows(); };
@@ -4549,6 +4575,46 @@ TicketData.fetchTickets()
     return { F, A, B, sA: stats(A), sB: stats(B), brands, playersB: players(B), playersA: players(A) };
   }
 
+  // COMMON FEEDBACK THEMES (2026-10-22, Chad: "per brand at yung common
+  // feedback nila, at least 6"). Bawat DSAT reason ay nilalagay sa isang
+  // theme ayon sa keyword (una ang tumama); walang isinulat = "No reason
+  // given". Hindi ito nagbabago ng HIGH/MEDIUM (dsatSeverity pa rin iyon).
+  const THEMES = [
+    ['Withdrawal / payout', /withdraw|payout|cash ?out|pending|hindi (pa )?(na)?(binayaran|nakuha)|di (pa )?(na)?binayaran|not paid|refund|pera ko|wala pa/i],
+    ['Deposit not credited', /deposit|top ?up|credited|hindi pumasok|di pumasok|hindi pa (na)?reflect|load/i],
+    ['OTP / login / account', /\botp\b|login|log in|password|account|locked|verify|verification|kyc/i],
+    ['Slow / no reply', /slow|mabagal|matagal|bagal|late|delay|no response|walang sagot|hindi (sinagot|sumagot)|di (sinagot|sumagot)|ignored|dedma|wait/i],
+    ['Not helpful / unresolved', /not helpful|walang tulong|hindi nakatulong|unresolved|hindi naayos|di naayos|paulit|useless|walang silbi|walang kwenta|poor|bad service|bot/i],
+    ['Bonus / promo', /bonus|promo|free ?(spin|credit)|cashback|rebate/i],
+    ['Game / app issue', /game|app|lag|error|freeze|glitch|hang|crash|loading/i],
+    ['Rude / cursing', /putang|tangina|tang ina|gago|bobo|ulol|fuck|shit|stupid|bwisit|tarantado|leche/i],
+  ];
+  const themeOf = r => { const t = (r.feedback || '').trim(); if (!t) return 'No reason given'; const hit = THEMES.find(([, re]) => re.test(t)); return hit ? hit[0] : 'Other remarks'; };
+  const THEME_COLOR = { 'Withdrawal / payout': '#EF4444', 'Deposit not credited': '#F97316', 'OTP / login / account': '#A855F7', 'Slow / no reply': '#F59E0B', 'Not helpful / unresolved': '#EAB308', 'Bonus / promo': '#06B6D4', 'Game / app issue': '#3B82F6', 'Rude / cursing': '#EC4899', 'Other remarks': '#9FB0C8', 'No reason given': '#6B7C96' };
+  function themesOf(list, min = 6) {
+    const m = new Map();
+    list.forEach(r => { const k = themeOf(r); if (!m.has(k)) m.set(k, { k, n: 0, sample: null }); const o = m.get(k); o.n++; if (!o.sample && r.feedback && r.feedback.trim()) o.sample = r.feedback.trim(); });
+    const rows = [...m.values()].sort((a, b) => b.n - a.n);
+    const picked = rows.slice(0, Math.max(min, 0));
+    return picked;
+  }
+  // I-click ang brand sa slide 3 → lahat ng DSAT reason ng brand na iyon
+  function openBrandReasons(b) {
+    const v = document.getElementById('satView'), c = document.getElementById('satCtrl');
+    const fmtAt = d => d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const rows = b.listB.filter(r => r.rating <= 2).sort((x, y) => ({ high: 0, medium: 1, low: 2 }[x.severity] - { high: 0, medium: 1, low: 2 }[y.severity]) || y.at - x.at);
+    v.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">DSAT reasons · ${CS_B.label}</div>
+        <div class="cs-t">${esc(b.label)} <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· ${rows.length} DSAT of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(k => `<span style="color:${SEV_COLOR[k]}">${rows.filter(r => r.severity === k).length} ${SEV_TXT[k]}</span>`).join(' · ')}</span></div></div></div>
+      <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.6cqw;padding-right:.4cqw">${rows.map(r => `
+        <div class="cs-mv" style="padding:.9cqw 1.4cqw;gap:1.4cqw;align-items:flex-start">
+          <div style="min-width:0;flex:1"><b style="font-size:1.3cqw;${r.feedback && r.feedback.trim() ? '' : 'color:var(--cs-soft);font-weight:600;font-style:italic'}">${r.feedback && r.feedback.trim() ? '“' + esc(r.feedback.trim()) + '”' : 'No reason given'}</b>
+            <span>${esc(r.name || 'Unknown')} · ${fmtAt(r.at)} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} · <span style="color:${SEV_COLOR[r.severity]}">${SEV_TXT[r.severity]}</span> · <span style="color:${THEME_COLOR[themeOf(r)]}">${themeOf(r)}</span></span></div>
+          <button class="cs-btn" type="button" data-conv="${esc(r.conversationId)}" data-nm="${esc(r.name || 'Unknown')}" style="font-size:1.05cqw;padding:.5cqw 1.1cqw;flex:none">Open chat ›</button></div>`).join('') || '<div class="cs-msg">No DSAT this week.</div>'}</div>`;
+    c.innerHTML = '<button class="cs-btn" type="button" id="satBrBack">← Back to brands</button>';
+    document.getElementById('satBrBack').onclick = () => show.goto(2);
+    v.querySelectorAll('[data-conv]').forEach(btn => btn.addEventListener('click', ev => { ev.stopPropagation(); openConversationModal(btn.dataset.conv, btn.dataset.nm, `${b.label} · DSAT`); }));
+  }
+
   const show = makeShow({
     view: 'satView', ctrl: 'satCtrl', page: 'page-satisfaction', noun: 'Ratings', every: '5 min',
     slides: D => {
@@ -4559,12 +4625,12 @@ TicketData.fetchTickets()
         () => `<div class="cs-k">Customer satisfaction · ${CS_B.label} vs ${CS_A.label}</div>
           <div class="cs-t">${sB.n ? `${pct(sB.cs, sB.n)} satisfied this week` : `Ratings ${CS_B.label}`}</div>
           <div class="cs-kpis">
-            <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Ratings · ${CS_A.label}</div><div class="v" data-n="${sA.n}">0</div><div class="s">${csFmt(F.daysA ? sA.n / F.daysA : 0)} per day · ${F.daysA} days</div><div class="go">View by brand ›</div></button>
-            <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Ratings · ${CS_B.label}</div><div class="v" data-n="${sB.n}">0</div><div class="s">${csFmt(F.daysB ? sB.n / F.daysB : 0)} per day · ${F.daysB} day${F.daysB === 1 ? '' : 's'}${F.lastB ? ` · up to ${F.lastB.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div><div class="go">View by brand ›</div></button>
+            <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Ratings · ${CS_A.label}</div><div class="v" data-n="${sA.n}">0</div><div class="s"><span style="color:#4ADE80">${sA.cs} CSAT</span> · ${sA.neu} rated 3★ · <span style="color:#F87171">${sA.ds} DSAT</span> · ${csFmt(F.daysA ? sA.n / F.daysA : 0)} per day</div><div class="go">View by brand ›</div></button>
+            <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Ratings · ${CS_B.label}</div><div class="v" data-n="${sB.n}">0</div><div class="s"><span style="color:#4ADE80">${sB.cs} CSAT</span> · ${sB.neu} rated 3★ · <span style="color:#F87171">${sB.ds} DSAT</span> · ${csFmt(F.daysB ? sB.n / F.daysB : 0)} per day</div><div class="go">View by brand ›</div></button>
             <div class="cs-kpi"><div class="cs-k">Average rating</div><div class="v" style="color:${colorAvg(sB.avg)}">${sB.avg == null ? '—' : sB.avg}<span style="font-size:1.6cqw;color:var(--cs-soft)"> / 5</span></div><div class="s">${CS_B.label} · ${sA.avg == null ? 'no ratings before' : was(sA.avg + ' / 5')}</div></div>
           </div>
           <div class="cs-kpis cs-kpis2">
-            <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">CSAT — satisfied</div><div class="v" data-n="${sB.cs}">0</div><div class="s">${CS_B.label} · ${pct(sB.cs, sB.n)} rated 4–5★ · ${was(pct(sA.cs, sA.n))}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">CSAT — satisfied</div><div class="v" data-n="${sB.cs}">0</div><div class="s">${CS_B.label} · ${pct(sB.cs, sB.n)} rated 4–5★ · ${was(pct(sA.cs, sA.n))}${sB.neu ? ` · ${pct(sB.neu, sB.n)} rated 3★` : ''}</div></div>
             <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">DSAT — dissatisfied</div><div class="v" data-n="${sB.ds}">0</div><div class="s">${CS_B.label} · ${pct(sB.ds, sB.n)} rated 1–2★ · ${was(pct(sA.ds, sA.n))}</div></div>
             <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Legit complaints</div><div class="v" data-n="${D.B.filter(r => r.severity === 'high').length}">0</div><div class="s">${CS_B.label} · HIGH-severity reasons · ${was(csFmt(D.A.filter(r => r.severity === 'high').length))}</div></div>
           </div>`,
@@ -4574,6 +4640,14 @@ TicketData.fetchTickets()
             <div style="min-width:0"><div class="n" style="margin-bottom:.4cqw">${esc(b.label)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${pct(b.sB.ds, b.sB.n)} of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(s => `<span style="color:${SEV_COLOR[s]}">${b.listB.filter(r => r.severity === s).length} ${SEV_TXT[s]}</span>`).join(' ')} · was ${aMap.get(b.key) || 0}</span></div>
               <div class="bars"><div class="bb" data-w="${b.sB.ds}" style="background:${['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i]}"></div></div></div>
             <div class="c" style="font-family:var(--cs-display);font-size:1.8cqw">${csFmt(b.sB.ds)}</div></div>`).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
+        () => `<div class="cs-k">Common feedback per brand · ${CS_B.label}</div><div class="cs-t">What each brand's DSATs say <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a brand to read every reason</span></div>
+          <div class="cs-cards" style="grid-template-columns:repeat(${Math.min(5, Math.max(1, topB.length))},1fr);grid-auto-rows:auto">${topB.map((b, i) => { const th = themesOf(b.listB.filter(r => r.rating <= 2)), max = th.length ? th[0].n : 1;
+            return `<div class="cs-card" data-br="${i}" style="cursor:pointer;gap:.7cqw" title="See all DSAT reasons for ${esc(b.label)}">
+              <div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span><span class="cs-chip down">${b.sB.ds} DSAT · ${pct(b.sB.ds, b.sB.n)}</span></div>
+              ${th.map(t => `<div style="min-width:0"><div style="display:flex;justify-content:space-between;gap:.6cqw;font-size:1.02cqw;font-weight:700;white-space:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;color:${THEME_COLOR[t.k] || 'var(--cs-ink)'}">${esc(t.k)}</span><span style="font-variant-numeric:tabular-nums">${t.n}</span></div>
+                <div style="height:.45cqw;border-radius:.3cqw;background:rgba(255,255,255,.06);margin-top:.25cqw"><div style="height:100%;width:${Math.max(3, Math.round(t.n / max * 100))}%;border-radius:.3cqw;background:${THEME_COLOR[t.k] || '#9FB0C8'}"></div></div>
+                ${t.sample ? `<div style="font-size:.92cqw;color:var(--cs-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.15cqw">“${esc(t.sample)}”</div>` : ''}</div>`).join('')}
+              ${th.length < 6 ? `<div style="font-size:.95cqw;color:var(--cs-soft);margin-top:auto">${th.length} theme${th.length === 1 ? '' : 's'} only</div>` : ''}</div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
         () => `<div class="cs-k">Top players who gave DSATs · ${CS_B.label}</div><div class="cs-t">Who was unhappy <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to see their reasons</span></div>
           <div class="cs-movers">${D.playersB.slice(0, 6).map((p, i) => { const last = p.ds[0], reason = (last.feedback || '').trim();
             return `<div class="cs-mv" data-pl="${i}" style="cursor:pointer" title="See this player's DSAT reasons"><div style="min-width:0"><b>${esc(p.name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(chatBrandLabel(p.brand))}</span></b><span>${p.all.length} rating${p.all.length === 1 ? '' : 's'} in total · ${p.ds.length} DSAT${p.all.length - p.ds.length ? ` · ${p.all.length - p.ds.length} rated 3–5★` : ''} · latest: <span style="color:${SEV_COLOR[last.severity]}">${SEV_TXT[last.severity]}</span>${reason ? ` “${esc(reason.length > 50 ? reason.slice(0, 50) + '…' : reason)}”` : ''}</span></div><div class="pct" style="color:var(--cs-down)">${p.ds.length}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> DSAT</span></div></div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
@@ -4617,11 +4691,14 @@ TicketData.fetchTickets()
             <span>${fmtAt(r.at)} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.rating}/5 · <span style="color:${SEV_COLOR[r.severity]}">${SEV_TXT[r.severity]}</span></span></div>
           <button class="cs-btn" type="button" data-conv="${esc(r.conversationId)}" style="font-size:1.05cqw;padding:.5cqw 1.1cqw;flex:none">Open chat ›</button></div>`).join('')}</div>`;
     c.innerHTML = '<button class="cs-btn" type="button" id="satPlBack">← Back to players</button>';
-    document.getElementById('satPlBack').onclick = () => show.goto(2);
+    document.getElementById('satPlBack').onclick = () => show.goto(3);
     v.querySelectorAll('[data-conv]').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); openConversationModal(b.dataset.conv, p.name, `${chatBrandLabel(p.brand)} · ${p.ds.length} DSAT`); }));
   }
   document.getElementById('satView').addEventListener('click', e => {
-    const el = e.target.closest('[data-pl]'); if (!el || !D) return;
+    if (!D) return;
+    const br = e.target.closest('[data-br]');
+    if (br) { const b = D.brands.filter(x => x.sB.ds > 0)[Number(br.dataset.br)]; if (b) openBrandReasons(b); return; }
+    const el = e.target.closest('[data-pl]'); if (!el) return;
     const p = D.playersB[Number(el.dataset.pl)]; if (p) openPlayer(p);
   });
   document.addEventListener('keydown', e => { if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return; show.key(e); });
