@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-21f --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-21g --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -623,6 +623,7 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
 .cs-movers{display:grid;grid-template-columns:1fr 1fr;gap:1.4cqw;flex:1;align-content:center;}
 .cs-mv{display:flex;align-items:center;justify-content:space-between;gap:1cqw;background:rgba(255,255,255,.04);border:.1cqw solid var(--cs-line);border-radius:1cqw;padding:1.2cqw 1.6cqw;}
 .cs-mv b{font-size:1.5cqw;} .cs-mv span{font-size:1.15cqw;color:var(--cs-soft);display:block;margin-top:.3cqw;}
+.cs-mv b span, .cs-mv span span{display:inline;margin:0;font-size:inherit;}
 .cs-mv .pct{font-family:var(--cs-display);font-weight:800;font-size:2.4cqw;}
 .cs-split{display:flex;flex-direction:column;gap:2cqw;flex:1;justify-content:center;}
 .cs-split .row{display:grid;grid-template-columns:14cqw 1fr;gap:1.6cqw;align-items:center;} .cs-split .row b{font-size:1.5cqw;}
@@ -654,6 +655,8 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
 #page-chats > .kpi-row, #page-chats > .panel, #page-chats > .cols-2 { display: none !important; }
 /* (2026-10-21, Chad) Ticket Resolution + Ticket Analytics: slides na lang din — burahin ang linyang ito para ibalik ang dating tables. */
 #page-tickets > .kpi-row, #page-tickets > .panel, #page-tickets > .cols-2, #page-analytics > .section-head, #page-analytics > .kpi-row, #page-analytics > .panel, #page-analytics > .cols-2 { display: none !important; }
+/* (2026-10-21, Chad) Customer Satisfaction: slides na lang din — burahin para ibalik ang dating cards/table. */
+#page-satisfaction > .kpi-row, #page-satisfaction > .section-head, #page-satisfaction > .panel, #page-satisfaction > #csTopBrands { display: none !important; }
 @media (prefers-reduced-motion: reduce){.cs-livedot i{animation:none}.cs-pair .ba,.cs-pair .bb,.cs-stack div{transition:none}}
 </style>
 </head>
@@ -1125,6 +1128,8 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
     <div class="report-page" id="page-satisfaction">
 
       <div id="csFlag"></div>
+      <!-- CUSTOMER SATISFACTION SHOW (2026-10-21) -->
+      <div class="cs-wrap"><div class="cs-stage"><section class="cs-view" id="satView" aria-live="polite"><div class="cs-msg">Loading ratings…</div></section></div><div class="cs-bar" id="satCtrl"></div></div>
 
       <div class="kpi-row">
         <div class="kpi-card accent-ok">
@@ -4342,7 +4347,7 @@ TicketData.fetchTickets()
       const html = cfg.cards(S.D, per), count = (html.match(/class="cs-card/g) || []).length;
       v.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">${per === 'a' ? `${CS_A.label} · by brand` : `${CS_B.label} · per day vs ${CS_A.label}`}</div>
         <div class="cs-t">${per === 'a' ? `${cfg.noun} in ${CS_A.label}` : `${cfg.noun} this week`}</div></div>
-        ${per === 'b' ? '<span class="cs-livedot"><i></i>LIVE <small>· updates every 2 min</small></span>' : ''}</div>
+        ${per === 'b' ? `<span class="cs-livedot"><i></i>LIVE <small>· updates every ${cfg.every || '2 min'}</small></span>` : ''}</div>
         <div class="cs-cards${count > 10 ? ' many' : ''}">${html || '<div class="cs-msg">No tickets in this period.</div>'}</div>`;
       v.querySelectorAll('.cs-card').forEach((c, k) => csAnim(c, [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: k * 50 }));
       v.querySelectorAll('.cs-card .v[data-n]').forEach(el => csCountUp(el, Number(el.dataset.n), 1400));
@@ -4493,6 +4498,116 @@ TicketData.fetchTickets()
   renderTicketResolution = function () { _prev.apply(this, arguments); renderShows(); };
   document.addEventListener('keydown', e => { if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return; trShow.key(e); anShow.key(e); });
   if (allTickets.length) renderShows();
+  window.TkShowEngine = { makeShow, frame, spark };   // ginagamit din ng Customer Satisfaction show
+})();
+</script>
+<script>
+// =====================================================================
+// CUSTOMER SATISFACTION SHOW (2026-10-21, utos ni Chad: "gawin na rin sa
+// customer satisfaction"). Parehong engine (TkShowEngine) at itsura ng
+// Chats / Ticket shows. Data = /chatwoot/csat para sa Oct 1–15 at Oct 16–22
+// (latest rating kada conversation sa window, parehong rule ng dating tab).
+// Severity ng DSAT reason = dsatSeverity() (HIGH / MEDIUM / NO REASON).
+// Nire-refresh kada 5 min. I-click ang player sa slide 3 para buksan ang chat.
+// =====================================================================
+(function () {
+  'use strict';
+  const { makeShow, frame, spark } = window.TkShowEngine;
+  const esc = s => escapeHtml(String(s == null ? '' : s));
+  const SAT_COLORS = ['#3B82F6', '#F97316', '#A855F7', '#06B6D4', '#EF4444', '#14B8A6', '#EC4899', '#EAB308', '#84CC16', '#F43F5E', '#60A5FA', '#34D399', '#FBBF24', '#C084FC', '#2DD4BF', '#FB7185'];
+  const SEV_COLOR = { high: '#EF4444', medium: '#F59E0B', low: '#6B7C96' }, SEV_TXT = { high: 'HIGH', medium: 'MEDIUM', low: 'NO REASON' };
+  const pct = (n, d, dp = 0) => d ? `${(n / d * 100).toFixed(dp)}%` : '—';
+  const avgOf = L => L.length ? (L.reduce((s, r) => s + r.rating, 0) / L.length).toFixed(2) : null;
+  let D = null;
+
+  async function fetchPeriod(P) {
+    const now = new Date(), end = endOfDay(P.end) < now ? endOfDay(P.end) : now;
+    if (now < P.start) return [];
+    const csat = await apiGetWithTimeout(`/chatwoot/csat?from=${encodeURIComponent(startOfDay(P.start).toISOString())}&to=${encodeURIComponent(end.toISOString())}`, CS_TIMEOUT_MS);
+    return (csat.responses || []).map(r => ({ conversationId: r.conversationId, brand: r.brand || 'unknown', name: r.contactName || null, rating: r.rating, feedback: r.feedback || null, at: new Date(r.createdAt), severity: r.rating <= 2 ? dsatSeverity(r.feedback) : null }));
+  }
+  function stats(L) {
+    const cs = L.filter(r => r.rating >= 4).length, ds = L.filter(r => r.rating <= 2).length;
+    return { n: L.length, cs, ds, neu: L.length - cs - ds, avg: avgOf(L) };
+  }
+  function build(A, B) {
+    const F = frame();
+    const m = new Map(); let c = 0;
+    const get = slug => { if (!m.has(slug)) m.set(slug, { key: slug, label: chatBrandLabel(slug), daily: F.allDays.map(() => 0), listA: [], listB: [], color: SAT_COLORS[c++ % SAT_COLORS.length] }); return m.get(slug); };
+    const idx = d => Math.floor((startOfDay(d) - F.allDays[0]) / 86400000);
+    A.forEach(r => { const e = get(r.brand); e.listA.push(r); const i = idx(r.at); if (i >= 0 && i < e.daily.length) e.daily[i]++; });
+    B.forEach(r => { const e = get(r.brand); e.listB.push(r); const i = idx(r.at); if (i >= 0 && i < e.daily.length) e.daily[i]++; });
+    const brands = [...m.values()].map(e => {
+      const sA = stats(e.listA), sB = stats(e.listB);
+      const aPD = F.daysA ? sA.n / F.daysA : 0, bPD = F.daysB ? sB.n / F.daysB : 0;
+      return { ...e, sA, sB, a: sA.n, b: sB.n, aPD, bPD, chg: aPD > 0 && (bPD - aPD) / aPD <= 9 ? (bPD - aPD) / aPD : null };
+    }).sort((x, y) => (y.sB.ds - x.sB.ds) || (y.b - x.b));
+    const players = L => { const pm = new Map();
+      L.forEach(r => { const u = (r.name || '').trim(); if (!u || /^unknown$/i.test(u)) return; const k = r.brand + '|' + u.toLowerCase(); if (!pm.has(k)) pm.set(k, { name: u, brand: r.brand, all: [], ds: [] }); const p = pm.get(k); p.all.push(r); if (r.rating <= 2) p.ds.push(r); });
+      return [...pm.values()].filter(p => p.ds.length).sort((x, y) => y.ds.length - x.ds.length || new Date(y.ds[0].at) - new Date(x.ds[0].at)); };
+    return { F, A, B, sA: stats(A), sB: stats(B), brands, playersB: players(B), playersA: players(A) };
+  }
+
+  const show = makeShow({
+    view: 'satView', ctrl: 'satCtrl', page: 'page-satisfaction', noun: 'Ratings', every: '5 min',
+    slides: D => {
+      const { F, sA, sB } = D, was = x => `was ${x} (${CS_A.label})`;
+      const colorAvg = a => a == null ? 'inherit' : a >= 4 ? 'var(--cs-up)' : a >= 3 ? 'var(--cs-gold)' : 'var(--cs-down)';
+      const topB = D.brands.filter(b => b.sB.ds > 0).slice(0, 5), aMap = new Map(D.brands.map(b => [b.key, b.sA.ds]));
+      return [
+        () => `<div class="cs-k">Customer satisfaction · ${CS_B.label} vs ${CS_A.label}</div>
+          <div class="cs-t">${sB.n ? `${pct(sB.cs, sB.n)} satisfied this week` : `Ratings ${CS_B.label}`}</div>
+          <div class="cs-kpis">
+            <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Ratings · ${CS_A.label}</div><div class="v" data-n="${sA.n}">0</div><div class="s">${csFmt(F.daysA ? sA.n / F.daysA : 0)} per day · ${F.daysA} days</div><div class="go">View by brand ›</div></button>
+            <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Ratings · ${CS_B.label}</div><div class="v" data-n="${sB.n}">0</div><div class="s">${csFmt(F.daysB ? sB.n / F.daysB : 0)} per day · ${F.daysB} day${F.daysB === 1 ? '' : 's'}${F.lastB ? ` · up to ${F.lastB.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div><div class="go">View by brand ›</div></button>
+            <div class="cs-kpi"><div class="cs-k">Average rating</div><div class="v" style="color:${colorAvg(sB.avg)}">${sB.avg == null ? '—' : sB.avg}<span style="font-size:1.6cqw;color:var(--cs-soft)"> / 5</span></div><div class="s">${CS_B.label} · ${sA.avg == null ? 'no ratings before' : was(sA.avg + ' / 5')}</div></div>
+          </div>
+          <div class="cs-kpis cs-kpis2">
+            <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">CSAT — satisfied</div><div class="v" data-n="${sB.cs}">0</div><div class="s">${CS_B.label} · ${pct(sB.cs, sB.n)} rated 4–5★ · ${was(pct(sA.cs, sA.n))}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">DSAT — dissatisfied</div><div class="v" data-n="${sB.ds}">0</div><div class="s">${CS_B.label} · ${pct(sB.ds, sB.n)} rated 1–2★ · ${was(pct(sA.ds, sA.n))}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Legit complaints</div><div class="v" data-n="${D.B.filter(r => r.severity === 'high').length}">0</div><div class="s">${CS_B.label} · HIGH-severity reasons · ${was(csFmt(D.A.filter(r => r.severity === 'high').length))}</div></div>
+          </div>`,
+        () => `<div class="cs-k">Top brands by DSAT · ${CS_B.label}</div><div class="cs-t">Where the complaints are</div>
+          <div class="cs-pairs">${topB.map((b, i) => `<div class="cs-pair" style="grid-template-columns:2.4cqw 1fr 9cqw">
+            <div class="n" style="color:${['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i]};font-family:var(--cs-display)">${i + 1}</div>
+            <div style="min-width:0"><div class="n" style="margin-bottom:.4cqw">${esc(b.label)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${pct(b.sB.ds, b.sB.n)} of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(s => `<span style="color:${SEV_COLOR[s]}">${b.listB.filter(r => r.severity === s).length} ${SEV_TXT[s]}</span>`).join(' ')} · was ${aMap.get(b.key) || 0}</span></div>
+              <div class="bars"><div class="bb" data-w="${b.sB.ds}" style="background:${['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i]}"></div></div></div>
+            <div class="c" style="font-family:var(--cs-display);font-size:1.8cqw">${csFmt(b.sB.ds)}</div></div>`).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
+        () => `<div class="cs-k">Top players who gave DSATs · ${CS_B.label}</div><div class="cs-t">Who was unhappy <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to open the chat</span></div>
+          <div class="cs-movers">${D.playersB.slice(0, 6).map((p, i) => { const last = p.ds[0], reason = (last.feedback || '').trim();
+            return `<div class="cs-mv" data-pl="${i}" style="cursor:pointer" title="Open the latest DSAT chat"><div style="min-width:0"><b>${esc(p.name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(chatBrandLabel(p.brand))}</span></b><span>${p.ds.length} of ${p.all.length} rating${p.all.length === 1 ? '' : 's'} · <span style="color:${SEV_COLOR[last.severity]}">${SEV_TXT[last.severity]}</span>${reason ? ` · “${esc(reason.length > 60 ? reason.slice(0, 60) + '…' : reason)}”` : ''}</span></div><div class="pct" style="color:var(--cs-down)">${p.ds.length}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> DSAT</span></div></div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
+        () => `<div class="cs-k">Satisfied vs dissatisfied · all ratings in the period</div><div class="cs-t">How customers rated us</div>
+          <div class="cs-split">${[[CS_A.label, sA], [CS_B.label, sB]].map(([lb, s]) => `<div class="row"><b>${lb}<small>${csFmt(s.n)} ratings · avg ${s.avg == null ? '—' : s.avg}</small></b>
+            <div class="cs-stack">${s.n ? `<div class="hh" style="background:#22C55E;color:#052E16" data-w="${s.cs / s.n}">CSAT ${pct(s.cs, s.n)}</div>${s.neu ? `<div style="background:#6B7C96" data-w="${s.neu / s.n}">3★ ${pct(s.neu, s.n)}</div>` : ''}<div class="ai" style="background:#EF4444" data-w="${s.ds / s.n}">DSAT ${pct(s.ds, s.n)}</div>` : ''}</div></div>`).join('')}</div>`,
+      ];
+    },
+    cards: (D, per) => (per === 'a' ? [...D.brands].filter(b => b.a > 0).sort((x, y) => y.sA.ds - x.sA.ds || y.a - x.a) : D.brands.filter(b => b.a > 0 || b.b > 0)).map(b => {
+      const s = per === 'a' ? b.sA : b.sB, n = s.n, dsr = n ? s.ds / n : 0, prev = b.sA.n ? b.sA.ds / b.sA.n : null;
+      const chip = per === 'a' ? `<span class="cs-chip share">${pct(s.ds, n)} DSAT</span>` : `<span class="cs-chip ${dsr > 0.2 ? 'down' : 'up'}">${pct(s.ds, n)} DSAT</span>`;
+      return `<div class="cs-card" data-key="${esc(b.key)}"${dsr > 0.2 && n >= 5 ? ' style="border-color:rgba(239,68,68,.6)"' : ''}><div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span>${chip}</div>
+        <div class="v" data-n="${n}">0</div><div class="s" style="white-space:normal"><span style="color:#4ADE80">${s.cs} CSAT</span> · <span style="color:#F87171">${s.ds} DSAT</span> · avg ${s.avg == null ? '—' : s.avg}${per === 'b' && prev != null ? ` · was ${pct(b.sA.ds, b.sA.n)} DSAT` : ''}</div>${spark(b, per, D.F)}</div>`;
+    }).join(''),
+  });
+
+  let loading = false;
+  async function load() {
+    if (loading) return; loading = true;
+    try {
+      const [A, B] = await Promise.all([fetchPeriod(CS_A), fetchPeriod(CS_B)]);
+      D = build(A, B); show.render(D);
+    } catch (e) {
+      console.warn('satisfaction show', e);
+      if (!D) document.getElementById('satView').innerHTML = `<div class="cs-msg">Ratings could not be loaded from the chat service right now.</div>`;
+    } finally { loading = false; }
+  }
+  document.getElementById('satView').addEventListener('click', e => {
+    const el = e.target.closest('[data-pl]'); if (!el || !D) return;
+    const p = D.playersB[Number(el.dataset.pl)]; if (!p) return;
+    openConversationModal(p.ds[0].conversationId, p.name, `${chatBrandLabel(p.brand)} · ${p.ds.length} DSAT`);
+  });
+  document.addEventListener('keydown', e => { if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return; show.key(e); });
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
 })();
 </script>
 <script src="sidebar-topnav.js?v=4"></script>
