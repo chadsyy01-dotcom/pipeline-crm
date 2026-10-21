@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-21g --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-21h --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -4381,6 +4381,7 @@ TicketData.fetchTickets()
         else if (!active()) showSlide(S.slide);   // tahimik na update kapag nakatago ang tab
         // kapag nakikita at nasa slides: hayaan hanggang sa susunod na Prev/Next (fresh na data na doon)
       },
+      goto(i) { if (S.D) showSlide(i); },
       key(e) { if (!active() || S.mode !== 'slides' || !S.D) return; if (e.key === 'ArrowRight') showSlide(S.slide + 1); else if (e.key === 'ArrowLeft') showSlide(S.slide - 1); },
     };
   }
@@ -4573,9 +4574,9 @@ TicketData.fetchTickets()
             <div style="min-width:0"><div class="n" style="margin-bottom:.4cqw">${esc(b.label)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${pct(b.sB.ds, b.sB.n)} of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(s => `<span style="color:${SEV_COLOR[s]}">${b.listB.filter(r => r.severity === s).length} ${SEV_TXT[s]}</span>`).join(' ')} · was ${aMap.get(b.key) || 0}</span></div>
               <div class="bars"><div class="bb" data-w="${b.sB.ds}" style="background:${['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i]}"></div></div></div>
             <div class="c" style="font-family:var(--cs-display);font-size:1.8cqw">${csFmt(b.sB.ds)}</div></div>`).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
-        () => `<div class="cs-k">Top players who gave DSATs · ${CS_B.label}</div><div class="cs-t">Who was unhappy <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to open the chat</span></div>
+        () => `<div class="cs-k">Top players who gave DSATs · ${CS_B.label}</div><div class="cs-t">Who was unhappy <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to see their reasons</span></div>
           <div class="cs-movers">${D.playersB.slice(0, 6).map((p, i) => { const last = p.ds[0], reason = (last.feedback || '').trim();
-            return `<div class="cs-mv" data-pl="${i}" style="cursor:pointer" title="Open the latest DSAT chat"><div style="min-width:0"><b>${esc(p.name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(chatBrandLabel(p.brand))}</span></b><span>${p.ds.length} of ${p.all.length} rating${p.all.length === 1 ? '' : 's'} · <span style="color:${SEV_COLOR[last.severity]}">${SEV_TXT[last.severity]}</span>${reason ? ` · “${esc(reason.length > 60 ? reason.slice(0, 60) + '…' : reason)}”` : ''}</span></div><div class="pct" style="color:var(--cs-down)">${p.ds.length}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> DSAT</span></div></div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
+            return `<div class="cs-mv" data-pl="${i}" style="cursor:pointer" title="See this player's DSAT reasons"><div style="min-width:0"><b>${esc(p.name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(chatBrandLabel(p.brand))}</span></b><span>${p.all.length} rating${p.all.length === 1 ? '' : 's'} in total · ${p.ds.length} DSAT${p.all.length - p.ds.length ? ` · ${p.all.length - p.ds.length} rated 3–5★` : ''} · latest: <span style="color:${SEV_COLOR[last.severity]}">${SEV_TXT[last.severity]}</span>${reason ? ` “${esc(reason.length > 50 ? reason.slice(0, 50) + '…' : reason)}”` : ''}</span></div><div class="pct" style="color:var(--cs-down)">${p.ds.length}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> DSAT</span></div></div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
         () => `<div class="cs-k">Satisfied vs dissatisfied · all ratings in the period</div><div class="cs-t">How customers rated us</div>
           <div class="cs-split">${[[CS_A.label, sA], [CS_B.label, sB]].map(([lb, s]) => `<div class="row"><b>${lb}<small>${csFmt(s.n)} ratings · avg ${s.avg == null ? '—' : s.avg}</small></b>
             <div class="cs-stack">${s.n ? `<div class="hh" style="background:#22C55E;color:#052E16" data-w="${s.cs / s.n}">CSAT ${pct(s.cs, s.n)}</div>${s.neu ? `<div style="background:#6B7C96" data-w="${s.neu / s.n}">3★ ${pct(s.neu, s.n)}</div>` : ''}<div class="ai" style="background:#EF4444" data-w="${s.ds / s.n}">DSAT ${pct(s.ds, s.n)}</div>` : ''}</div></div>`).join('')}</div>`,
@@ -4600,10 +4601,28 @@ TicketData.fetchTickets()
       if (!D) document.getElementById('satView').innerHTML = `<div class="cs-msg">Ratings could not be loaded from the chat service right now.</div>`;
     } finally { loading = false; }
   }
+  // PLAYER DRILL-DOWN (2026-10-21, Chad): i-click ang player → listahan ng
+  // LAHAT ng DSAT reason niya (o "No reason given"), hindi ang buong chat.
+  // May maliit na "Open chat ›" kada reason kung gusto pa ring buksan.
+  function openPlayer(p) {
+    const v = document.getElementById('satView'), c = document.getElementById('satCtrl');
+    const fmtAt = d => d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const rows = p.ds.slice().sort((x, y) => y.at - x.at);
+    const sev = { high: 0, medium: 0, low: 0 }; rows.forEach(r => sev[r.severity]++);
+    v.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">DSAT reasons · ${esc(chatBrandLabel(p.brand))} · ${CS_B.label}</div>
+        <div class="cs-t">${esc(p.name)} <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· ${p.ds.length} DSAT of ${p.all.length} rating${p.all.length === 1 ? '' : 's'} · ${['high', 'medium', 'low'].map(k => `<span style="color:${SEV_COLOR[k]}">${sev[k]} ${SEV_TXT[k]}</span>`).join(' · ')}</span></div></div></div>
+      <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.7cqw;padding-right:.4cqw">${rows.map((r, i) => `
+        <div class="cs-mv" style="padding:1cqw 1.4cqw;gap:1.4cqw;align-items:flex-start">
+          <div style="min-width:0;flex:1"><b style="font-size:1.35cqw;${r.feedback && r.feedback.trim() ? '' : 'color:var(--cs-soft);font-weight:600;font-style:italic'}">${r.feedback && r.feedback.trim() ? '“' + esc(r.feedback.trim()) + '”' : 'No reason given'}</b>
+            <span>${fmtAt(r.at)} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.rating}/5 · <span style="color:${SEV_COLOR[r.severity]}">${SEV_TXT[r.severity]}</span></span></div>
+          <button class="cs-btn" type="button" data-conv="${esc(r.conversationId)}" style="font-size:1.05cqw;padding:.5cqw 1.1cqw;flex:none">Open chat ›</button></div>`).join('')}</div>`;
+    c.innerHTML = '<button class="cs-btn" type="button" id="satPlBack">← Back to players</button>';
+    document.getElementById('satPlBack').onclick = () => show.goto(2);
+    v.querySelectorAll('[data-conv]').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); openConversationModal(b.dataset.conv, p.name, `${chatBrandLabel(p.brand)} · ${p.ds.length} DSAT`); }));
+  }
   document.getElementById('satView').addEventListener('click', e => {
     const el = e.target.closest('[data-pl]'); if (!el || !D) return;
-    const p = D.playersB[Number(el.dataset.pl)]; if (!p) return;
-    openConversationModal(p.ds[0].conversationId, p.name, `${chatBrandLabel(p.brand)} · ${p.ds.length} DSAT`);
+    const p = D.playersB[Number(el.dataset.pl)]; if (p) openPlayer(p);
   });
   document.addEventListener('keydown', e => { if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return; show.key(e); });
   load();
