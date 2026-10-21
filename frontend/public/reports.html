@@ -1645,6 +1645,31 @@ async function loadPeriodChats(info, sheetPromise) {
   };
 }
 
+// LIVE-ONLY BRANDS (2026-10-21, utos ni Chad): mga brand na WALA pang row sa
+// chat volume sheet — kinukuha ang "messages received" mula sa sariling
+// Chatwoot data ng dashboard (/chatwoot/messages-received), parehong sukat ng
+// sheet. Kapag nilagyan na ng row sa sheet ang brand, ang sheet na ang
+// masusunod (hindi na dodoblehin). Ang window ay hanggang sa huling araw na
+// may laman ang sheet para patas ang per-day.
+const LIVE_ONLY_SLUGS = ['SwabeGaming'];
+async function fillLiveOnlyBrands(info, res) {
+  if (!res || !res.ok) return;
+  const need = LIVE_ONLY_SLUGS.filter(slug => !res.byKey.has(slug));
+  if (!need.length || info.days <= 0) return;
+  let end = info.effEnd;
+  if (res.lastFilled) { const lf = endOfDay(res.lastFilled); if (lf < end) end = lf; }
+  try {
+    const data = await apiGet(`/chatwoot/messages-received?from=${encodeURIComponent(info.start.toISOString())}&to=${encodeURIComponent(end.toISOString())}`);
+    const by = (data && data.messagesReceivedByBrand) || {};
+    need.forEach(slug => {
+      const n = Object.entries(by).filter(([k]) => String(k).toLowerCase() === slug.toLowerCase()).reduce((t, [, v]) => t + Number(v || 0), 0);
+      if (!n) return;
+      res.byKey.set(slug, { label: chatBrandLabel(slug), total: n });
+      res.total += n;
+    });
+  } catch (e) { console.warn('messages-received (live-only brands)', e.message); }
+}
+
 let chatsLoadToken = 0;
 
 async function loadChatsComparison() {
@@ -1667,6 +1692,8 @@ async function loadChatsComparison() {
   const hhPromise = apiGet(`/chatwoot/handoff-split?from=${encodeURIComponent(B.start.toISOString())}&to=${encodeURIComponent(B.effEnd.toISOString())}`).catch(e => { console.warn('handoff-split', e.message); return null; });
   const [resA, resB, hhSplit] = await Promise.all([loadPeriodChats(A, sheetRows), loadPeriodChats(B, sheetRows), hhPromise]);
   if (myToken !== chatsLoadToken) return;   // the pickers moved on while this was loading
+  await Promise.all([fillLiveOnlyBrands(A, resA), fillLiveOnlyBrands(B, resB)]);
+  if (myToken !== chatsLoadToken) return;
 
   const byKey = new Map();
   if (resA.ok) resA.byKey.forEach((v, key) => byKey.set(key, { key, label: v.label, a: v.total, b: null }));
