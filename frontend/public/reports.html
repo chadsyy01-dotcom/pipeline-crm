@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22q --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22t --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -3387,7 +3387,7 @@ TicketData.fetchTickets()
   .then(tickets => {
     allTickets = tickets;
     renderTicketResolution();
-    TicketData.startAutoRefresh(t2 => { allTickets = t2; renderTicketResolution(); }, 120000);
+    TicketData.startAutoRefresh(t2 => { allTickets = t2; renderTicketResolution(); }, 30000);   // 30s (2026-10-22, Chad); dati 2 min
   })
   .catch(err => {
     console.error('Tickets failed:', err);
@@ -4358,7 +4358,7 @@ TicketData.fetchTickets()
       const html = cfg.cards(S.D, per), count = (html.match(/class="cs-card/g) || []).length;
       v.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">${per === 'a' ? `${CS_A.label} · by brand` : `${CS_B.label} · per day vs ${CS_A.label}`}</div>
         <div class="cs-t">${per === 'a' ? `${cfg.noun} in ${CS_A.label}` : `${cfg.noun} this week`}</div></div>
-        ${per === 'b' ? `<span class="cs-livedot"><i></i>LIVE <small>· updates every ${cfg.every || '2 min'}</small></span>` : ''}</div>
+        ${per === 'b' ? `<span class="cs-livedot"><i></i>LIVE <small>· updates every ${cfg.every || '30 sec'}</small></span>` : ''}</div>
         <div class="cs-cards${count > 10 ? ' many' : ''}">${html || '<div class="cs-msg">No tickets in this period.</div>'}</div>`;
       v.querySelectorAll('.cs-card').forEach((c, k) => csAnim(c, [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: k * 50 }));
       v.querySelectorAll('.cs-card .v[data-n]').forEach(el => csCountUp(el, Number(el.dataset.n), 1400));
