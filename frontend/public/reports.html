@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22t --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22u --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -657,6 +657,8 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
 #page-tickets > .kpi-row, #page-tickets > .panel, #page-tickets > .cols-2, #page-analytics > .section-head, #page-analytics > .kpi-row, #page-analytics > .panel, #page-analytics > .cols-2 { display: none !important; }
 /* (2026-10-21, Chad) Customer Satisfaction: slides na lang din — burahin para ibalik ang dating cards/table. */
 #page-satisfaction > .kpi-row, #page-satisfaction > .section-head, #page-satisfaction > .panel, #page-satisfaction > #csTopBrands { display: none !important; }
+/* (2026-10-22, Chad) Open AI: slides na lang din — burahin para ibalik ang dating cards/table. */
+#page-billing > .cb-title, #page-billing > .cb-editbar, #page-billing > .cb-cards, #page-billing > .cb-panel { display: none !important; }
 @media (prefers-reduced-motion: reduce){.cs-livedot i{animation:none}.cs-pair .ba,.cs-pair .bb,.cs-stack div{transition:none}}
 </style>
 </head>
@@ -1193,8 +1195,10 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
          (3) parehong /api/billing/consolidated record ang ine-edit, kaya
              naka-sync sa openai.html Billing page. -->
     <div class="report-page" id="page-billing">
+      <!-- OPEN AI SHOW (2026-10-22) -->
+      <div class="cs-wrap"><div class="cs-stage"><section class="cs-view" id="oaView" aria-live="polite"><div class="cs-msg">Loading Open AI spend…</div></section></div><div class="cs-bar" id="oaCtrl"></div></div>
       <div class="cb-title">
-        <h2>Open AI Billing — Oct 1–15, 2026</h2>
+        <h2>Open AI Billing — Oct 16–22, 2026</h2>
         <div class="cb-right">
           <span class="cb-live" id="rbUpdated">Loading…</span>
           <button class="cb-btn" id="rbEditBtn" style="display:none;">Edit</button>
@@ -3722,7 +3726,7 @@ TicketData.fetchTickets()
   // OCT 1–15 (2026-10-13, utos ni Chad): ang Open AI column ay LIVE pull ng
   // spend sa Oct 1–15, 2026 (lahat ng account, USD→PHP live rate). Walang
   // reference/comparison column. OLD/REPLACED: naka-paste na September figures.
-  const OA_START = '2026-10-01', OA_END = '2026-10-15', OA_LABEL = 'Oct 1–15, 2026';
+  const OA_START = '2026-10-16', OA_END = '2026-10-22', OA_LABEL = 'Oct 16–22, 2026';   // (2026-10-22, Chad) dati Oct 1–15
   let rbData = null, rbEditing = false, rbMeta = {}, rbLoaded = false;
 
   const OPENAI_ACCOUNT_TO_DIVISION = {
@@ -3928,6 +3932,7 @@ TicketData.fetchTickets()
       ['rbGrandSub', 'rbTopDivSub', 'rbTopSvcSub', 'rbOaCmpSub'].forEach(id => set(id, ''));
       wrap.innerHTML = `<div class="cb-empty">${msg}</div>`;
       upd.textContent = septOpenAi.loading ? 'Loading…' : '● Error'; upd.style.color = septOpenAi.loading ? '' : 'var(--danger,#EF4444)';
+      if (!oaLast) document.getElementById('oaView').innerHTML = `<div class="cs-msg">${septOpenAi.loading ? 'Loading Open AI spend for ' + OA_LABEL + '…' : 'Could not load Open AI spend right now — it retries on its own.'}</div>`;
       return;
     }
     const rate = septOpenAi.rate;
@@ -3953,7 +3958,51 @@ TicketData.fetchTickets()
       <div class="cb-note" style="margin-top:6px;">Live Open AI spend para sa ${OA_LABEL}, lahat ng account, naka-convert sa ₱ gamit ang live USD→PHP rate.</div>`;
     upd.textContent = '● Live · ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     upd.style.color = 'var(--success,#22C55E)';
+    oaShow(rows, total, rate);
   }
+
+  // ===== OPEN AI SHOW (2026-10-22, Chad: "baguhin din itong Open AI, same sa
+  // mga ginawa natin, data ay 16–22"). 2 slides: summary + per division. =====
+  let oaSlide = 0, oaLast = null;
+  function oaShow(rows, total, rate) {
+    oaLast = { rows, total, rate };
+    const view = document.getElementById('oaView'), ctrl = document.getElementById('oaCtrl');
+    const P = '<span style="font-family:Inter,sans-serif;font-weight:800">₱</span>'; const fmtP = v => P + Math.round(v).toLocaleString('en-US'), fmtU = v => '$' + (v / rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const days = Math.min(7, Math.max(1, Math.floor((Math.min(Date.now(), new Date(2026, 9, 22, 23, 59, 59).getTime()) - new Date(2026, 9, 16).getTime()) / 86400000) + 1));
+    const live = rows.filter(r => r.php > 0), top = live[0], max = top ? top.php : 1;
+    const COLORS = ['#3B82F6', '#F97316', '#A855F7', '#06B6D4', '#EF4444', '#14B8A6', '#EC4899', '#EAB308', '#84CC16', '#F43F5E', '#60A5FA', '#34D399', '#FBBF24', '#C084FC'];
+    const SL = [
+      () => `<div class="cs-k">Open AI billing · ${OA_LABEL}</div><div class="cs-t">${fmtP(total)} spent on Open AI</div>
+        <div class="cs-kpis">
+          <div class="cs-kpi"><div class="cs-k">Total (₱)</div><div class="v" data-n="${Math.round(total)}" data-pre="₱">0</div><div class="s">${OA_LABEL} · ${live.length} division${live.length === 1 ? '' : 's'} with spend</div></div>
+          <div class="cs-kpi"><div class="cs-k">Total (USD)</div><div class="v" style="font-size:3.6cqw">${fmtU(total)}</div><div class="s">live from OpenAI usage · all accounts</div></div>
+          <div class="cs-kpi"><div class="cs-k">Per day</div><div class="v" data-n="${Math.round(total / days)}" data-pre="₱">0</div><div class="s">average over ${days} day${days === 1 ? '' : 's'}</div></div>
+        </div>
+        <div class="cs-kpis cs-kpis2">
+          <div class="cs-kpi" style="border-left:.4cqw solid var(--cs-gold)"><div class="cs-k">Highest division</div><div class="v" style="font-size:2.6cqw;line-height:1.15">${top ? esc(top.name) : '—'}</div><div class="s">${top ? `${fmtP(top.php)} · ${Math.round(top.php / total * 100)}% of total` : 'No spend yet'}</div></div>
+          <div class="cs-kpi"><div class="cs-k">Top 3 share</div><div class="v">${live.length ? Math.round(live.slice(0, 3).reduce((a, r) => a + r.php, 0) / total * 100) + '%' : '—'}</div><div class="s">${live.slice(0, 3).map(r => esc(r.name)).join(' · ') || '—'}</div></div>
+          <div class="cs-kpi"><div class="cs-k">Exchange rate</div><div class="v" style="font-size:3.2cqw">${P}${rate.toFixed(2)}</div><div class="s">per USD · live (open.er-api.com)</div></div>
+        </div>`,
+      () => `<div class="cs-k">Open AI spend by division · ${OA_LABEL}</div><div class="cs-t">Who spends the most</div>
+        <div class="cs-pairs" style="gap:.7cqw">${live.map((r, i) => `<div class="cs-pair" style="grid-template-columns:16cqw 1fr 16cqw"><div class="n" title="${esc(r.name)}"><i style="display:inline-block;width:.8cqw;height:.8cqw;border-radius:50%;background:${COLORS[i % COLORS.length]};margin-right:.6cqw;vertical-align:-.05cqw"></i>${esc(r.name)}</div>
+          <div class="bars"><div class="bb" data-w="${r.php}" style="height:1.3cqw;background:${COLORS[i % COLORS.length]}"></div></div>
+          <div class="c" style="font-family:var(--cs-display);font-size:1.5cqw">${fmtP(r.php)}<span style="font-size:1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> · ${(r.php / total * 100).toFixed(1)}% · ${fmtU(r.php)}</span></div></div>`).join('') || '<div class="cs-msg">No Open AI spend in this period yet.</div>'}</div>
+        ${septOpenAi.unmatched.length ? `<div style="font-size:1cqw;color:var(--cs-soft)">Accounts with no matching division: ${esc(septOpenAi.unmatched.join(', '))}</div>` : ''}`,
+    ];
+    oaSlide = Math.max(0, Math.min(SL.length - 1, oaSlide));
+    view.innerHTML = SL[oaSlide]();
+    view.querySelectorAll('.cs-k, .cs-t, .cs-kpi, .cs-pair').forEach((el, k) => csAnim(el, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: k * 60 }));
+    view.querySelectorAll('.cs-kpi .v[data-n]').forEach(el => { const pre = el.dataset.pre || ''; const to = Number(el.dataset.n), t0 = performance.now();
+      const step = t => { const p = Math.min(1, (t - t0) / 1200); el.innerHTML = (pre ? P : '') + Math.round(to * (1 - Math.pow(1 - p, 3))).toLocaleString('en-US'); if (p < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
+    requestAnimationFrame(() => requestAnimationFrame(() => { view.querySelectorAll('.cs-pair [data-w]').forEach((e, k) => { e.style.transitionDelay = `${200 + k * 50}ms`; e.style.width = `${Number(e.dataset.w) / max * 100}%`; }); }));
+    ctrl.innerHTML = `<button class="cs-btn" type="button" data-nav="-1">◀ Prev</button><button class="cs-btn" type="button" data-nav="1">Next ▶</button><span class="cs-now">${oaSlide + 1} / ${SL.length} · updated ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>`;
+    ctrl.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { oaSlide += Number(b.dataset.nav); oaShow(oaLast.rows, oaLast.total, oaLast.rate); });
+  }
+  document.addEventListener('keydown', e => {
+    const p = document.getElementById('page-billing'); if (!p || !p.classList.contains('active') || !oaLast) return;
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return;
+    if (e.key === 'ArrowRight') { oaSlide++; oaShow(oaLast.rows, oaLast.total, oaLast.rate); } else if (e.key === 'ArrowLeft') { oaSlide--; oaShow(oaLast.rows, oaLast.total, oaLast.rate); }
+  });
 
   function rbRender() {
     if (OA_ONLY) return oaRender();
@@ -4082,6 +4131,8 @@ TicketData.fetchTickets()
       rbLoad();
     }
   });
+  // (2026-10-22) i-refresh kada 10 min habang bukas ang tab (OpenAI usage API ay may rate limit)
+  setInterval(() => { const p = document.getElementById('page-billing'); if (rbLoaded && p && p.classList.contains('active') && !document.hidden && !rbEditing) loadPeriodOpenAi().then(() => rbRender()); }, 10 * 60 * 1000);
 })();
 </script>
 <script>
