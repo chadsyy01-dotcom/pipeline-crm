@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22e --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22j --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -3210,7 +3210,15 @@ async function csLoad() {
     }).filter(b => b.a > 0 || b.b > 0).sort((x, y) => (y.b - x.b) || (y.a - x.a));
     const TA = list.reduce((s, b) => s + b.a, 0), TB = list.reduce((s, b) => s + b.b, 0);
     const prev = csState.data;
-    csState.data = { list, TA, TB, daysA, daysB, allDays, filled, inB, hhA: hhA && hhA.total, hhB: hhB && hhB.total, hhBrands: (hhB && hhB.byBrand) || {},
+    // PURE CHATWOOT LANG ang HH/AI (2026-10-22, Chad): hindi kasama ang LiveChat
+    // brands (casinyeam, manilacasino, superscatterph, livechat-general) — doon
+    // lahat tao ang sumasagot, kaya laging 100% HH at nagpapataas ng HH %.
+    const LC = new Set(['casinyeam', 'manilacasino', 'superscatterph', 'livechat-general']);
+    const cwOnly = h => { if (!h || !h.byBrand) return { total: null, byBrand: {} }; const by = {}; const t = { conversations: 0, hh: 0, ai: 0 };
+      Object.entries(h.byBrand).forEach(([k, v]) => { if (LC.has(String(k).toLowerCase())) return; by[k] = v; t.conversations += v.conversations; t.hh += v.hh; t.ai += v.ai; });
+      return { total: t.conversations ? t : null, byBrand: by }; };
+    const cwA = cwOnly(hhA), cwB = cwOnly(hhB);
+    csState.data = { list, TA, TB, daysA, daysB, allDays, filled, inB, hhA: cwA.total, hhB: cwB.total, hhBrands: cwB.byBrand, hhABrands: cwA.byBrand,
       lastB: lastIdx(inB) >= 0 ? allDays[lastIdx(inB)] : null };
     csState.updatedAt = new Date();
     if (!prev) csRender();
@@ -3244,15 +3252,17 @@ function csSlides() {
       </div>
       <div class="cs-kpis cs-kpis2">
         <div class="cs-kpi"><div class="cs-k">Messages a day</div><div class="v" data-n="${Math.round(TBPD)}">0</div><div class="s">${CS_B.label} · average over ${daysB} day${daysB === 1 ? '' : 's'}</div></div>
-        ${hhCard('hh', 'Handed to human (HH)', hB && hB.hh, rB, rA, hB && hB.conversations)}
-        ${hhCard('ai', 'AI only — no handoff', hB && hB.ai, rB == null ? null : 1 - rB, rA == null ? null : 1 - rA, hB && hB.conversations)}
+        ${hhCard('hh', 'Handed to human (HH) · Chatwoot', hB && hB.hh, rB, rA, hB && hB.conversations)}
+        ${hhCard('ai', 'AI only — no handoff · Chatwoot', hB && hB.ai, rB == null ? null : 1 - rB, rA == null ? null : 1 - rA, hB && hB.conversations)}
       </div>`,
     // (2026-10-22, Chad: "alisin na ang mga ito") tinanggal ang "Chats per day by brand" at "Share of chats" slides
     // (2026-10-22, Chad: walang % comparison ng dalawang period) — Oct 16–22 lang, All brands + kada brand
-    () => { const rows = [['All brands', hB]].concat(Object.entries(D.hhBrands || {}).filter(([, h]) => h.conversations >= 5).sort((x, y) => y[1].conversations - x[1].conversations).slice(0, 7).map(([slug, h]) => [chatBrandLabel(slug), h]));
-      return `<div class="cs-k">Handed to human vs AI only · ${CS_B.label}</div><div class="cs-t">How many were passed to an agent, per brand</div>
-      <div class="cs-split" style="gap:1.1cqw">${rows.map(([lb, h], i) => { const r = h && h.conversations ? h.hh / h.conversations : null; return `<div class="row"><b style="${i ? 'font-size:1.25cqw' : ''}">${escapeHtml(lb)}<small>${h ? csFmt(h.conversations) + ' chats' : 'no live data'}</small></b>
-        <div class="cs-stack" style="${i ? 'height:3cqw' : ''}">${r == null ? '' : `<div class="hh" data-w="${r}">HH ${csPct(r)}</div><div class="ai" data-w="${1 - r}">AI only ${csPct(1 - r)}</div>`}</div></div>`; }).join('')}</div>`; },
+    // (2026-10-22, Chad: "lagyan ng data na 1–15") — isang slide kada period, All brands + kada brand
+    ...[[CS_A, hA, D.hhABrands], [CS_B, hB, D.hhBrands]].map(([P, tot, by]) => () => {
+      const rows = [['All brands', tot]].concat(Object.entries(by || {}).filter(([, h]) => h.conversations >= 5).sort((x, y) => y[1].conversations - x[1].conversations).slice(0, 7).map(([slug, h]) => [chatBrandLabel(slug), h]));
+      return `<div class="cs-k">Handed to human vs AI only · ${P.label} · Chatwoot brands only</div><div class="cs-t">How many were passed to an agent, per brand</div>
+      <div class="cs-split" style="gap:1.1cqw">${rows.map(([lb, h], i) => { const r = h && h.conversations ? h.hh / h.conversations : null; return `<div class="row" style="grid-template-columns:22cqw 1fr"><b style="${i ? 'font-size:1.25cqw' : ''}">${escapeHtml(lb)}<small style="white-space:nowrap">${h ? csFmt(h.conversations) + ' chats · ' + csFmt(h.hh) + ' HH · ' + csFmt(h.ai) + ' AI' : 'no live data'}</small></b>
+        <div class="cs-stack" style="${i ? 'height:3cqw' : ''}">${r == null ? '' : `<div class="hh" data-w="${r}">HH ${csPct(r)}</div><div class="ai" data-w="${1 - r}">AI only ${csPct(1 - r)}</div>`}</div></div>`; }).join('')}</div>`; }),
   ];
 }
 
