@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22u --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22v --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -3797,9 +3797,13 @@ TicketData.fetchTickets()
   async function loadPeriodOpenAi() {
     try {
       const path = `/openai-billing/summary?range=custom&start=${OA_START}&end=${OA_END}&account=all&compare=false`;
-      const [sumRes, rateRes] = await Promise.all([
+      // (2026-10-22, Chad: "kabuuan ng month of Oct, realtime") buong Oktubre hanggang ngayon
+      const today = new Date(), mEnd = today.getMonth() === 9 && today.getFullYear() === 2026 ? today.toISOString().slice(0, 10) : '2026-10-31';
+      const pathM = `/openai-billing/summary?range=custom&start=2026-10-01&end=${mEnd}&account=all&compare=false`;
+      const [sumRes, rateRes, monRes] = await Promise.all([
         fetch(`${RB_API}${path}`, { headers: authHeaders() }),
         fetch('https://open.er-api.com/v6/latest/USD').catch(() => null),
+        fetch(`${RB_API}${pathM}`, { headers: authHeaders() }).catch(() => null),
       ]);
       if (sumRes.status === 429) { septOpenAi.loading = true; setTimeout(() => loadPeriodOpenAi().then(() => { if (!rbEditing) rbRender(); }), 65000); return; }
       if (!sumRes.ok) throw new Error('openai-billing HTTP ' + sumRes.status);
@@ -3820,7 +3824,14 @@ TicketData.fetchTickets()
         if (divName) byDiv.set(divName, (byDiv.get(divName) || 0) + php);
         else if ((a.totalUsd || 0) > 0) unmatched.push(a.name + ' ($' + (a.totalUsd || 0).toFixed(2) + ')');
       }
-      Object.assign(septOpenAi, { ok: true, loading: false, byDiv, unmatched, rate });
+      // month-to-date kada division (parehong matching)
+      let monByDiv = null, monTotalUsd = null;
+      if (monRes && monRes.ok) { try { const mon = await monRes.json(); const macc = (mon.byAccount && mon.byAccount.length) ? mon.byAccount : [{ name: mon.account || 'OpenAI', totalUsd: mon.totalUsd || 0 }];
+        monByDiv = new Map(); monTotalUsd = 0;
+        for (const a of macc) { const findDiv = t => divs.find(d => norm(d) === t) || divs.find(d => { const dn = norm(d); return dn && t && (dn.includes(t) || t.includes(dn)); });
+          const divName = findDiv(norm(OPENAI_ACCOUNT_TO_DIVISION[a.name] || a.name)) || findDiv(norm(a.name)) || a.name;
+          const php = Math.round((a.totalUsd || 0) * rate * 100) / 100; monTotalUsd += (a.totalUsd || 0); monByDiv.set(divName, (monByDiv.get(divName) || 0) + php); } } catch (e) { console.warn('month OpenAI', e.message); } }
+      Object.assign(septOpenAi, { ok: true, loading: false, byDiv, unmatched, rate, monByDiv, monTotalUsd, monEnd: mEnd });
     } catch (err) {
       console.warn('Oct 1–15 Open AI unavailable:', err.message);
       Object.assign(septOpenAi, { ok: false, loading: false, error: err.message });
@@ -3982,19 +3993,29 @@ TicketData.fetchTickets()
           <div class="cs-kpi" style="border-left:.4cqw solid var(--cs-gold)"><div class="cs-k">Highest division</div><div class="v" style="font-size:2.6cqw;line-height:1.15">${top ? esc(top.name) : '—'}</div><div class="s">${top ? `${fmtP(top.php)} · ${Math.round(top.php / total * 100)}% of total` : 'No spend yet'}</div></div>
           <div class="cs-kpi"><div class="cs-k">Top 3 share</div><div class="v">${live.length ? Math.round(live.slice(0, 3).reduce((a, r) => a + r.php, 0) / total * 100) + '%' : '—'}</div><div class="s">${live.slice(0, 3).map(r => esc(r.name)).join(' · ') || '—'}</div></div>
           <div class="cs-kpi"><div class="cs-k">Exchange rate</div><div class="v" style="font-size:3.2cqw">${P}${rate.toFixed(2)}</div><div class="s">per USD · live (open.er-api.com)</div></div>
-        </div>`,
+        </div>
+        ${septOpenAi.monByDiv ? (() => { const mt = [...septOpenAi.monByDiv.values()].reduce((a, v) => a + v, 0), md = new Date(septOpenAi.monEnd + 'T00:00:00').getDate(), mtop = [...septOpenAi.monByDiv.entries()].sort((a, b) => b[1] - a[1])[0];
+          return `<div class="cs-kpis cs-kpis2" style="margin-top:1cqw">
+          <div class="cs-kpi" style="border-left:.4cqw solid #22D3EE;padding:1.3cqw 2cqw"><div class="cs-k">October so far (₱)</div><div class="v" data-n="${Math.round(mt)}" data-pre="₱" style="font-size:3.6cqw">0</div><div class="s">Oct 1–${md} · realtime · ${fmtU(mt)}</div></div>
+          <div class="cs-kpi" style="padding:1.3cqw 2cqw"><div class="cs-k">October per day</div><div class="v" data-n="${Math.round(mt / md)}" data-pre="₱" style="font-size:3.6cqw">0</div><div class="s">average over ${md} days</div></div>
+          <div class="cs-kpi" style="padding:1.3cqw 2cqw"><div class="cs-k">Projected October</div><div class="v" data-n="${Math.round(mt / md * 31)}" data-pre="₱" style="font-size:3.6cqw">0</div><div class="s">if the same pace continues · top: ${mtop ? esc(mtop[0]) : '—'}</div></div></div>`; })() : ''}`,
       () => `<div class="cs-k">Open AI spend by division · ${OA_LABEL}</div><div class="cs-t">Who spends the most</div>
         <div class="cs-pairs" style="gap:.7cqw">${live.map((r, i) => `<div class="cs-pair" style="grid-template-columns:16cqw 1fr 16cqw"><div class="n" title="${esc(r.name)}"><i style="display:inline-block;width:.8cqw;height:.8cqw;border-radius:50%;background:${COLORS[i % COLORS.length]};margin-right:.6cqw;vertical-align:-.05cqw"></i>${esc(r.name)}</div>
           <div class="bars"><div class="bb" data-w="${r.php}" style="height:1.3cqw;background:${COLORS[i % COLORS.length]}"></div></div>
           <div class="c" style="font-family:var(--cs-display);font-size:1.5cqw">${fmtP(r.php)}<span style="font-size:1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> · ${(r.php / total * 100).toFixed(1)}% · ${fmtU(r.php)}</span></div></div>`).join('') || '<div class="cs-msg">No Open AI spend in this period yet.</div>'}</div>
         ${septOpenAi.unmatched.length ? `<div style="font-size:1cqw;color:var(--cs-soft)">Accounts with no matching division: ${esc(septOpenAi.unmatched.join(', '))}</div>` : ''}`,
+      ...(septOpenAi.monByDiv ? [() => { const ml = [...septOpenAi.monByDiv.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]), mt = ml.reduce((a, [, v]) => a + v, 0), mmax = ml.length ? ml[0][1] : 1, md = new Date(septOpenAi.monEnd + 'T00:00:00').getDate();
+        return `<div class="cs-k">Open AI spend by division · October so far (Oct 1–${md})</div><div class="cs-t">${fmtP(mt)} this month <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· realtime · ${fmtU(mt)}</span></div>
+        <div class="cs-pairs" style="gap:.7cqw">${ml.map(([n, v], i) => `<div class="cs-pair" style="grid-template-columns:16cqw 1fr 16cqw"><div class="n" title="${esc(n)}"><i style="display:inline-block;width:.8cqw;height:.8cqw;border-radius:50%;background:${COLORS[i % COLORS.length]};margin-right:.6cqw;vertical-align:-.05cqw"></i>${esc(n)}</div>
+          <div class="bars"><div class="bb" data-w="${v}" style="height:1.3cqw;background:${COLORS[i % COLORS.length]}"></div></div>
+          <div class="c" style="font-family:var(--cs-display);font-size:1.5cqw">${fmtP(v)}<span style="font-size:1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> · ${(v / mt * 100).toFixed(1)}% · ${fmtU(v)}</span></div></div>`).join('')}</div>`; }] : []),
     ];
     oaSlide = Math.max(0, Math.min(SL.length - 1, oaSlide));
     view.innerHTML = SL[oaSlide]();
     view.querySelectorAll('.cs-k, .cs-t, .cs-kpi, .cs-pair').forEach((el, k) => csAnim(el, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: k * 60 }));
     view.querySelectorAll('.cs-kpi .v[data-n]').forEach(el => { const pre = el.dataset.pre || ''; const to = Number(el.dataset.n), t0 = performance.now();
       const step = t => { const p = Math.min(1, (t - t0) / 1200); el.innerHTML = (pre ? P : '') + Math.round(to * (1 - Math.pow(1 - p, 3))).toLocaleString('en-US'); if (p < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
-    requestAnimationFrame(() => requestAnimationFrame(() => { view.querySelectorAll('.cs-pair [data-w]').forEach((e, k) => { e.style.transitionDelay = `${200 + k * 50}ms`; e.style.width = `${Number(e.dataset.w) / max * 100}%`; }); }));
+    requestAnimationFrame(() => requestAnimationFrame(() => { const ws = [...view.querySelectorAll('.cs-pair [data-w]')], wmax = Math.max(...ws.map(e => Number(e.dataset.w)), 1); ws.forEach((e, k) => { e.style.transitionDelay = `${200 + k * 50}ms`; e.style.width = `${Number(e.dataset.w) / wmax * 100}%`; }); }));
     ctrl.innerHTML = `<button class="cs-btn" type="button" data-nav="-1">◀ Prev</button><button class="cs-btn" type="button" data-nav="1">Next ▶</button><span class="cs-now">${oaSlide + 1} / ${SL.length} · updated ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>`;
     ctrl.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { oaSlide += Number(b.dataset.nav); oaShow(oaLast.rows, oaLast.total, oaLast.rate); });
   }
