@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22n --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22o --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -4413,12 +4413,12 @@ TicketData.fetchTickets()
             <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Still open</div><div class="v" data-n="${D.openB}">0</div><div class="s">${CS_B.label} · ${fB ? csPct(D.openB / fB) : '—'} of filed, not yet closed</div></div>
           </div>
           <div class="cs-kpis cs-kpis2">
-            <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">Resolved</div><div class="v" data-n="${D.resB}">0</div><div class="s">${CS_B.label} · ${csFmt(D.closedB)} closed · ${was(csFmt(D.resA))}</div></div>
-            <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">Rejected</div><div class="v" data-n="${D.rejB}">0</div><div class="s">${CS_B.label} · ${D.closedB ? csPct(D.rejB / D.closedB) : '—'} of closed · ${was(csFmt(D.rejA))}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">Resolved</div><div class="v" data-n="${D.resB}">0</div><div class="s">${CS_B.label} · ${csFmt(D.closedB)} closed</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">Rejected</div><div class="v" data-n="${D.rejB}">0</div><div class="s">${CS_B.label} · ${D.closedB ? csPct(D.rejB / D.closedB) : '—'} of closed</div></div>
             <div class="cs-kpi"><div class="cs-k">Resolution rate</div><div class="v" style="color:${D.rateB == null ? 'inherit' : D.rateB >= .8 ? 'var(--cs-up)' : D.rateB >= .5 ? 'var(--cs-gold)' : 'var(--cs-down)'}">${D.rateB == null ? '—' : csPct(D.rateB)}</div><div class="s">${CS_B.label} · ${csFmt(D.resB)} resolved out of ${csFmt(D.closedB)} closed</div></div>
           </div>`,
         () => `<div class="cs-k">Top 5 concerns · filed ${CS_B.label}</div><div class="cs-t">What players are asking about</div>
-          <div class="cs-pairs">${D.topB.map(([k, n], i) => rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${csPct(n / (fB || 1))} of filed${D.topAMap.has(k) ? ` · was ${D.topAMap.get(k)}` : ' · new'}</span>`, n, n)).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
+          <div class="cs-pairs">${D.topB.map(([k, n], i) => rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${csPct(n / (fB || 1))} of filed</span>`, n, n)).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
         () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · tickets filed per day</div><div class="cs-t">Tickets per day by brand</div></div>
           <div class="cs-legend"><span><i style="background:var(--cs-a)"></i>${CS_A.label}</span><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
           <div class="cs-pairs">${D.brands.filter(b => b.aPD > 0 || b.bPD > 0).slice(0, 7).map(b => `<div class="cs-pair"><div class="n" title="${esc(b.label)}">${esc(b.label)}</div><div class="bars"><div class="ba" data-w="${b.aPD}"></div><div class="bb" data-w="${b.bPD}"></div></div><div class="c"><span class="cs-chip share">${csFmt(b.bPD)}/day</span></div></div>`).join('')}</div>`,
@@ -4460,12 +4460,12 @@ TicketData.fetchTickets()
           </div>
           <div class="cs-kpis cs-kpis2">
             <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Repeat tickets</div><div class="v">${fB ? csPct(rB.tix / fB, 1) : '—'}</div><div class="s">${CS_B.label} · ${csFmt(rB.tix)} tickets from players with 2+</div></div>
-            <div class="cs-kpi" style="border-left:.4cqw solid #A855F7"><div class="cs-k">Repeat players</div><div class="v" data-n="${rB.players}">0</div><div class="s">${CS_B.label} · filed 2 or more tickets · was ${csFmt(rA.players)}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #A855F7"><div class="cs-k">Repeat players</div><div class="v" data-n="${rB.players}">0</div><div class="s">${CS_B.label} · filed 2 or more tickets</div></div>
             <div class="cs-kpi"><div class="cs-k">Top concern</div><div class="v" style="font-size:2.4cqw;line-height:1.15">${top ? esc(top[0]) : '—'}</div><div class="s">${top ? `${CS_B.label} · ${csFmt(top[1].n)} tickets · ${csPct(top[1].n / (fB || 1))} of filed` : 'No tickets yet'}</div></div>
           </div>`,
         () => `<div class="cs-k">Top concerns · ${CS_B.label}</div><div class="cs-t">Most filed concerns</div>
           <div class="cs-pairs">${D.ccB.slice(0, 6).map(([k, o], i) => { const bl = [...o.brands.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-            return rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6', '#14B8A6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${bl.map(([b, n]) => `${esc(b)} ${n}`).join(' · ')}${D.ccAMap.has(k) ? ` · was ${D.ccAMap.get(k)}` : ' · new'}</span>`, o.n, o.n); }).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
+            return rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6', '#14B8A6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${bl.map(([b, n]) => `${esc(b)} ${n}`).join(' · ')}</span>`, o.n, o.n); }).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
         () => `<div class="cs-k">Repeat players · ${CS_B.label}</div><div class="cs-t">Who keeps filing <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to see their tickets</span></div>
           <div class="cs-movers">${rB.rows.slice(0, 6).map((v, i) => { const days = new Set(v.map(t => dayKey(t.submitted))).size, d = v.filter(isDone).length;
             const cm = new Map(); v.forEach(t => cm.set(concernOf(t), (cm.get(concernOf(t)) || 0) + 1)); const tc = [...cm.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -4636,17 +4636,17 @@ TicketData.fetchTickets()
           <div class="cs-kpis">
             <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Ratings · ${CS_A.label}</div><div class="v" data-n="${sA.n}">0</div><div class="s"><span style="color:#4ADE80">${sA.cs} CSAT</span> · ${sA.neu} rated 3★ · <span style="color:#F87171">${sA.ds} DSAT</span> · ${csFmt(F.daysA ? sA.n / F.daysA : 0)} per day</div><div class="go">View by brand ›</div></button>
             <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Ratings · ${CS_B.label}</div><div class="v" data-n="${sB.n}">0</div><div class="s"><span style="color:#4ADE80">${sB.cs} CSAT</span> · ${sB.neu} rated 3★ · <span style="color:#F87171">${sB.ds} DSAT</span> · ${csFmt(F.daysB ? sB.n / F.daysB : 0)} per day</div><div class="go">View by brand ›</div></button>
-            <div class="cs-kpi"><div class="cs-k">Average rating</div><div class="v" style="color:${colorAvg(sB.avg)}">${sB.avg == null ? '—' : sB.avg}<span style="font-size:1.6cqw;color:var(--cs-soft)"> / 5</span></div><div class="s">${CS_B.label} · ${sA.avg == null ? 'no ratings before' : was(sA.avg + ' / 5')}</div></div>
+            <div class="cs-kpi"><div class="cs-k">Average rating</div><div class="v" style="color:${colorAvg(sB.avg)}">${sB.avg == null ? '—' : sB.avg}<span style="font-size:1.6cqw;color:var(--cs-soft)"> / 5</span></div><div class="s">${CS_B.label} · out of 5</div></div>
           </div>
           <div class="cs-kpis cs-kpis2">
             <div class="cs-kpi" style="border-left:.4cqw solid #22C55E"><div class="cs-k">CSAT — satisfied</div><div class="v" data-n="${sB.cs}">0</div><div class="s">${CS_B.label} · ${pct(sB.cs, sB.n)} rated 4–5★${sB.neu ? ` · ${pct(sB.neu, sB.n)} rated 3★` : ''}</div></div>
             <div class="cs-kpi" style="border-left:.4cqw solid #EF4444"><div class="cs-k">DSAT — dissatisfied</div><div class="v" data-n="${sB.ds}">0</div><div class="s">${CS_B.label} · ${pct(sB.ds, sB.n)} rated 1–2★</div></div>
-            <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Legit complaints</div><div class="v" data-n="${D.B.filter(r => r.severity === 'high').length}">0</div><div class="s">${CS_B.label} · HIGH-severity reasons · ${was(csFmt(D.A.filter(r => r.severity === 'high').length))}</div></div>
+            <div class="cs-kpi" style="border-left:.4cqw solid #F59E0B"><div class="cs-k">Legit complaints</div><div class="v" data-n="${D.B.filter(r => r.severity === 'high').length}">0</div><div class="s">${CS_B.label} · HIGH-severity reasons</div></div>
           </div>`,
         () => `<div class="cs-k">Top brands by DSAT · ${CS_B.label}</div><div class="cs-t">Where the complaints are</div>
           <div class="cs-pairs">${topB.map((b, i) => `<div class="cs-pair" style="grid-template-columns:2.4cqw 1fr 9cqw">
             <div class="n" style="color:${['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i]};font-family:var(--cs-display)">${i + 1}</div>
-            <div style="min-width:0"><div class="n" style="margin-bottom:.4cqw">${esc(b.label)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${pct(b.sB.ds, b.sB.n)} of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(s => `<span style="color:${SEV_COLOR[s]}">${b.listB.filter(r => r.severity === s).length} ${SEV_TXT[s]}</span>`).join(' ')} · was ${aMap.get(b.key) || 0}</span></div>
+            <div style="min-width:0"><div class="n" style="margin-bottom:.4cqw">${esc(b.label)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${pct(b.sB.ds, b.sB.n)} of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(s => `<span style="color:${SEV_COLOR[s]}">${b.listB.filter(r => r.severity === s).length} ${SEV_TXT[s]}</span>`).join(' ')}</span></div>
               <div class="bars"><div class="bb" data-w="${b.sB.ds}" style="background:${['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i]}"></div></div></div>
             <div class="c" style="font-family:var(--cs-display);font-size:1.8cqw">${csFmt(b.sB.ds)}</div></div>`).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
         () => `<div class="cs-k">Common feedback per brand · ${CS_B.label}</div><div class="cs-t">What each brand's DSATs say <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a brand to read every reason</span></div>
