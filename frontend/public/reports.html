@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22o --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22p --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -4419,12 +4419,7 @@ TicketData.fetchTickets()
           </div>`,
         () => `<div class="cs-k">Top 5 concerns · filed ${CS_B.label}</div><div class="cs-t">What players are asking about</div>
           <div class="cs-pairs">${D.topB.map(([k, n], i) => rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${csPct(n / (fB || 1))} of filed</span>`, n, n)).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
-        () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · tickets filed per day</div><div class="cs-t">Tickets per day by brand</div></div>
-          <div class="cs-legend"><span><i style="background:var(--cs-a)"></i>${CS_A.label}</span><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
-          <div class="cs-pairs">${D.brands.filter(b => b.aPD > 0 || b.bPD > 0).slice(0, 7).map(b => `<div class="cs-pair"><div class="n" title="${esc(b.label)}">${esc(b.label)}</div><div class="bars"><div class="ba" data-w="${b.aPD}"></div><div class="bb" data-w="${b.bPD}"></div></div><div class="c"><span class="cs-chip share">${csFmt(b.bPD)}/day</span></div></div>`).join('')}</div>`,
-        () => `<div class="cs-k">Resolved vs rejected · tickets closed in the period</div><div class="cs-t">How tickets were closed</div>
-          <div class="cs-split">${[[CS_A.label, D.resA, D.rejA], [CS_B.label, D.resB, D.rejB]].map(([lb, r, j]) => { const c = r + j; return `<div class="row"><b>${lb}<small>${csFmt(c)} closed</small></b>
-            <div class="cs-stack">${c ? `<div class="hh" style="background:#22C55E;color:#052E16" data-w="${r / c}">Resolved ${csPct(r / c)}</div><div class="ai" style="background:#EF4444" data-w="${j / c}">Rejected ${csPct(j / c)}</div>` : ''}</div></div>`; }).join('')}</div>`,
+        // (2026-10-22, Chad: "lahat ng redundant slide alisin") tinanggal: 'By brand per day' (nasa brand cards na) at 'Resolved vs rejected' (nasa summary na)
       ];
     },
     cards: (D, per) => (per === 'a' ? [...D.brands].filter(b => b.a > 0).sort((x, y) => y.a - x.a) : D.brands.filter(b => b.a > 0 || b.b > 0)).map(b => {
@@ -4463,17 +4458,12 @@ TicketData.fetchTickets()
             <div class="cs-kpi" style="border-left:.4cqw solid #A855F7"><div class="cs-k">Repeat players</div><div class="v" data-n="${rB.players}">0</div><div class="s">${CS_B.label} · filed 2 or more tickets</div></div>
             <div class="cs-kpi"><div class="cs-k">Top concern</div><div class="v" style="font-size:2.4cqw;line-height:1.15">${top ? esc(top[0]) : '—'}</div><div class="s">${top ? `${CS_B.label} · ${csFmt(top[1].n)} tickets · ${csPct(top[1].n / (fB || 1))} of filed` : 'No tickets yet'}</div></div>
           </div>`,
-        () => `<div class="cs-k">Top concerns · ${CS_B.label}</div><div class="cs-t">Most filed concerns</div>
-          <div class="cs-pairs">${D.ccB.slice(0, 6).map(([k, o], i) => { const bl = [...o.brands.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-            return rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6', '#14B8A6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${bl.map(([b, n]) => `${esc(b)} ${n}`).join(' · ')}</span>`, o.n, o.n); }).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
+        // (2026-10-22, Chad: "lahat ng redundant slide alisin") tinanggal: 'Top concerns' (nasa Ticket Resolution slide 2 na)
         () => `<div class="cs-k">Repeat players · ${CS_B.label}</div><div class="cs-t">Who keeps filing <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to see their tickets</span></div>
           <div class="cs-movers">${rB.rows.slice(0, 6).map((v, i) => { const days = new Set(v.map(t => dayKey(t.submitted))).size, d = v.filter(isDone).length;
             const cm = new Map(); v.forEach(t => cm.set(concernOf(t), (cm.get(concernOf(t)) || 0) + 1)); const tc = [...cm.entries()].sort((a, b) => b[1] - a[1])[0];
             return `<div class="cs-mv" data-rp="${i}" style="cursor:pointer" title="See this player's tickets"><div style="min-width:0"><b>${esc(v[0].name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(v[0].brandLabel)}</span></b><span>${v.length} tickets in ${days} day${days === 1 ? '' : 's'} · ${d} done · ${tc ? esc(tc[0]) : ''}</span></div><div class="pct" style="color:${v.length / days >= 5 || v.length >= 20 ? 'var(--cs-down)' : 'var(--cs-gold)'}">${(v.length / days).toFixed(1)}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">/day</span></div></div>`; }).join('') || '<div class="cs-msg">No repeat players in this period.</div>'}</div>`,
-        () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · share of tickets from repeat players</div><div class="cs-t">Where repeats come from</div></div>
-          <div class="cs-legend"><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
-          <div class="cs-pairs">${D.brands.filter(b => b.b >= 5).sort((x, y) => (repeatStats(y.listB).tix / y.b) - (repeatStats(x.listB).tix / x.b)).slice(0, 7).map(b => { const rp = repeatStats(b.listB), rb = rp.tix / b.b;
-            return `<div class="cs-pair"><div class="n" title="${esc(b.label)}">${esc(b.label)}</div><div class="bars"><div class="bb" data-w="${rb}" style="height:2cqw"></div></div><div class="c"><span class="cs-chip ${rb >= .7 ? 'down' : 'share'}">${csPct(rb)}</span></div></div>`; }).join('') || '<div class="cs-msg">Not enough tickets yet.</div>'}</div>`,
+        // (2026-10-22, Chad: "lahat ng redundant slide alisin") tinanggal: '% repeat per brand' (nasa brand cards na)
       ];
     },
     cards: (D, per) => (per === 'a' ? [...D.brands].filter(b => b.a > 0).sort((x, y) => y.a - x.a) : D.brands.filter(b => b.a > 0 || b.b > 0)).map(b => {
@@ -4503,7 +4493,7 @@ TicketData.fetchTickets()
           <div style="min-width:0;flex:1"><b style="font-size:1.3cqw">${esc(concernOf(t))} <span style="color:var(--cs-soft);font-weight:600;font-size:1.05cqw;font-family:ui-monospace,Menlo,monospace">${esc(t.id || '')}</span></b>
             <span>${fmtDT(t.submitted)} · <span style="color:${stColor(t)};font-weight:700">${esc(t.statusLabel || t.statusCls || '—')}</span>${t.resolvedBy || t.acknowledgedBy ? ` · ${esc(t.resolvedBy || t.acknowledgedBy)}` : ''}${t.resolvedAt ? ` · closed ${fmtDT(t.resolvedAt)}` : ''}${rem.length ? ` · <i style="color:var(--cs-ink)">“${esc(rem.join(' · '))}”</i>` : ''}</span></div></div>`; }).join('')}</div>`;
     ctrl.innerHTML = '<button class="cs-btn" type="button" id="anRpBack">← Back to players</button>';
-    document.getElementById('anRpBack').onclick = () => anShow.goto(2);
+    document.getElementById('anRpBack').onclick = () => anShow.goto(1);
   }
   document.getElementById('anView').addEventListener('click', e => {
     const el = e.target.closest('[data-rp]'); if (!el || !anLastD) return;
@@ -4660,9 +4650,7 @@ TicketData.fetchTickets()
         () => `<div class="cs-k">Top players who gave DSATs · ${CS_B.label}</div><div class="cs-t">Who was unhappy <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to see their reasons</span></div>
           <div class="cs-movers">${D.playersB.slice(0, 6).map((p, i) => { const last = p.ds[0], reason = (last.feedback || '').trim();
             return `<div class="cs-mv" data-pl="${i}" style="cursor:pointer" title="See this player's DSAT reasons"><div style="min-width:0"><b>${esc(p.name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(chatBrandLabel(p.brand))}</span></b><span>${p.all.length} rating${p.all.length === 1 ? '' : 's'} in total · ${p.ds.length} DSAT${p.all.length - p.ds.length ? ` · ${p.all.length - p.ds.length} rated 3–5★` : ''} · latest: <span style="color:${SEV_COLOR[last.severity]}">${SEV_TXT[last.severity]}</span>${reason ? ` “${esc(reason.length > 50 ? reason.slice(0, 50) + '…' : reason)}”` : ''}</span></div><div class="pct" style="color:var(--cs-down)">${p.ds.length}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> DSAT</span></div></div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
-        () => `<div class="cs-k">Satisfied vs dissatisfied · ${CS_B.label}</div><div class="cs-t">How customers rated us, per brand</div>
-          <div class="cs-split" style="gap:1.1cqw">${[['All brands', sB], ...D.brands.filter(b => b.sB.n >= 5).slice(0, 6).map(b => [b.label, b.sB])].map(([lb, s], i) => `<div class="row"><b style="${i ? 'font-size:1.25cqw' : ''}">${esc(lb)}<small>${csFmt(s.n)} ratings · avg ${s.avg == null ? '—' : s.avg}</small></b>
-            <div class="cs-stack" style="${i ? 'height:3cqw' : ''}">${s.n ? `<div class="hh" style="background:#22C55E;color:#052E16" data-w="${s.cs / s.n}">CSAT ${pct(s.cs, s.n)}</div>${s.neu ? `<div style="background:#6B7C96" data-w="${s.neu / s.n}">3★ ${pct(s.neu, s.n)}</div>` : ''}<div class="ai" style="background:#EF4444" data-w="${s.ds / s.n}">DSAT ${pct(s.ds, s.n)}</div>` : ''}</div></div>`).join('')}</div>`,
+        // (2026-10-22, Chad: "lahat ng redundant slide alisin") tinanggal: 'Satisfied vs dissatisfied per brand' (DSAT % nasa slide 2 at brand cards na)
       ];
     },
     cards: (D, per) => (per === 'a' ? [...D.brands].filter(b => b.a > 0).sort((x, y) => y.sA.ds - x.sA.ds || y.a - x.a) : D.brands.filter(b => b.a > 0 || b.b > 0)).map(b => {
