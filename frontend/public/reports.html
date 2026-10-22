@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22p --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22q --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -4418,7 +4418,9 @@ TicketData.fetchTickets()
             <div class="cs-kpi"><div class="cs-k">Resolution rate</div><div class="v" style="color:${D.rateB == null ? 'inherit' : D.rateB >= .8 ? 'var(--cs-up)' : D.rateB >= .5 ? 'var(--cs-gold)' : 'var(--cs-down)'}">${D.rateB == null ? '—' : csPct(D.rateB)}</div><div class="s">${CS_B.label} · ${csFmt(D.resB)} resolved out of ${csFmt(D.closedB)} closed</div></div>
           </div>`,
         () => `<div class="cs-k">Top 5 concerns · filed ${CS_B.label}</div><div class="cs-t">What players are asking about</div>
-          <div class="cs-pairs">${D.topB.map(([k, n], i) => rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${csPct(n / (fB || 1))} of filed</span>`, n, n)).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>`,
+          <div class="cs-pairs">${D.ccB.slice(0, 5).map(([k, o], i) => { const bl = [...o.brands.entries()].sort((a, b) => b[1] - a[1]); const pk = D.peakBlocks(o.hours);
+            return `<div data-cc="${i}" style="cursor:pointer" title="See brands and hours for this concern">` + rank(i, ['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i], `${esc(k)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.05cqw">· ${csPct(o.n / (fB || 1))} of filed · ${bl.slice(0, 3).map(([b, n]) => `${esc(b)} ${n}`).join(' · ')}${bl.length > 3 ? ` +${bl.length - 3}` : ''}${pk.length ? ` · <span style="color:var(--cs-gold)">peak ${pk[0].label}</span>` : ''}</span>`, o.n, o.n) + '</div>'; }).join('') || '<div class="cs-msg">No tickets filed yet.</div>'}</div>
+          <div style="font-size:1cqw;color:var(--cs-soft)">Click a concern to see every brand and its busiest hours.</div>`,
         // (2026-10-22, Chad: "lahat ng redundant slide alisin") tinanggal: 'By brand per day' (nasa brand cards na) at 'Resolved vs rejected' (nasa summary na)
       ];
     },
@@ -4500,6 +4502,32 @@ TicketData.fetchTickets()
     const v = anLastD.repB.rows[Number(el.dataset.rp)]; if (v) openRepeatPlayer(v);
   });
 
+  // CONCERN DRILL-DOWN (2026-10-22): i-click ang concern sa Top 5 → kada brand
+  // ang bilang, % ng concern, done/rej, at peak hours; plus hourly bar ng buong concern
+  let trLastD = null;
+  function openConcern(k, o) {
+    const view = document.getElementById('trView'), ctrl = document.getElementById('trCtrl'), D = trLastD;
+    const bl = [...o.brands.entries()].sort((a, b) => b[1] - a[1]), max = bl.length ? bl[0][1] : 1, hmax = Math.max(...o.hours, 1);
+    const pk = D.peakBlocks(o.hours);
+    view.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">Concern · ${CS_B.label}</div>
+        <div class="cs-t">${esc(k)} <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· ${csFmt(o.n)} tickets · ${csPct(o.n / (D.filedB.length || 1))} of filed · <span style="color:#4ADE80">${o.d} done</span> · <span style="color:#F87171">${o.r} rejected</span>${pk.length ? ` · <span style="color:var(--cs-gold)">peak ${pk.map(p => p.label).join(', ')}</span>` : ''}</span></div></div></div>
+      <div style="display:grid;grid-template-columns:1fr 34cqw;gap:2cqw;flex:1;min-height:0">
+        <div style="min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.55cqw;padding-right:.4cqw">${bl.map(([b, n]) => { const bh = o.bh.get(b) || new Array(24).fill(0), bp = D.peakBlocks(bh);
+          return `<div class="cs-pair" style="grid-template-columns:15cqw 1fr 14cqw"><div class="n" title="${esc(b)}">${esc(b)}</div><div class="bars"><div class="bb" data-w="${n}" style="height:1.3cqw"></div></div>
+            <div class="c" style="text-align:left;font-size:1.05cqw;color:var(--cs-soft)"><b style="color:var(--cs-ink);font-size:1.3cqw">${csFmt(n)}</b> · ${csPct(n / o.n)}${bp.length ? `<br><span style="color:var(--cs-gold)">${bp[0].label}</span>` : ''}</div></div>`; }).join('')}</div>
+        <div style="display:flex;flex-direction:column;gap:.6cqw"><div class="cs-k">Hour filed (PH time)</div>
+          <div style="flex:1;display:grid;grid-template-columns:repeat(24,1fr);align-items:end;gap:.25cqw;min-height:10cqw">${o.hours.map((n, h) => `<div title="${hourLabel(h)}: ${n}" style="height:${Math.max(2, n / hmax * 100)}%;background:${pk.some(p => (h - p.h + 24) % 24 < 3) ? 'var(--cs-gold)' : 'rgba(59,130,246,.55)'};border-radius:.2cqw .2cqw 0 0"></div>`).join('')}</div>
+          <div style="display:flex;justify-content:space-between;font-size:.9cqw;color:var(--cs-soft)"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span></div></div>
+      </div>`;
+    requestAnimationFrame(() => requestAnimationFrame(() => { view.querySelectorAll('.cs-pair [data-w]').forEach((e, i) => { e.style.transitionDelay = `${200 + i * 50}ms`; e.style.width = `${Number(e.dataset.w) / max * 100}%`; }); }));
+    ctrl.innerHTML = '<button class="cs-btn" type="button" id="trCcBack">← Back to concerns</button>';
+    document.getElementById('trCcBack').onclick = () => trShow.goto(1);
+  }
+  document.getElementById('trView').addEventListener('click', e => {
+    const el = e.target.closest('[data-cc]'); if (!el || !trLastD) return;
+    const row = trLastD.ccB[Number(el.dataset.cc)]; if (row) openConcern(row[0], row[1]);
+  });
+
   // ---------- data + hook ----------
   function buildData() {
     const F = frame();
@@ -4507,7 +4535,15 @@ TicketData.fetchTickets()
     const closedIn = P => allTickets.filter(t => inPeriod(t.resolvedAt, P) && (isDone(t) || isRej(t)));
     const cA = closedIn(CS_A), cB = closedIn(CS_B);
     const resA = cA.filter(isDone).length, resB = cB.filter(isDone).length, rejA = cA.length - resA, rejB = cB.length - resB;
-    const concerns = list => { const m = new Map(); list.forEach(t => { const k = concernOf(t); if (!m.has(k)) m.set(k, { n: 0, brands: new Map() }); const o = m.get(k); o.n++; const b = t.brandLabel || 'Unknown'; o.brands.set(b, (o.brands.get(b) || 0) + 1); }); return [...m.entries()].sort((a, b) => b[1].n - a[1].n); };
+    // (2026-10-22, Chad: "saang brands galing, anong oras, main concern") kada concern:
+    // brands (bilang), oras ng pag-file (24 slots), at kada brand ang peak hour nito
+    const concerns = list => { const m = new Map(); list.forEach(t => { const k = concernOf(t); if (!m.has(k)) m.set(k, { n: 0, d: 0, r: 0, brands: new Map(), hours: new Array(24).fill(0), bh: new Map() }); const o = m.get(k); o.n++; if (isDone(t)) o.d++; if (isRej(t)) o.r++;
+      const b = t.brandLabel || 'Unknown'; o.brands.set(b, (o.brands.get(b) || 0) + 1); const h = t.submitted ? t.submitted.getHours() : null;
+      if (h != null) { o.hours[h]++; if (!o.bh.has(b)) o.bh.set(b, new Array(24).fill(0)); o.bh.get(b)[h]++; } }); return [...m.entries()].sort((a, b) => b[1].n - a[1].n); };
+    // top 3 na magkakasunod na 3-oras na bloke (hal. 8 PM–11 PM) mula sa hourly counts
+    const peakBlocks = hours => { const blocks = []; for (let h = 0; h < 24; h++) blocks.push({ h, n: hours[h] + hours[(h + 1) % 24] + hours[(h + 2) % 24] });
+      blocks.sort((a, b) => b.n - a.n); const out = []; blocks.forEach(bl => { if (bl.n && out.length < 2 && !out.some(o => Math.abs(o.h - bl.h) < 3 || Math.abs(o.h - bl.h) > 21)) out.push(bl); });
+      return out.map(bl => ({ ...bl, label: `${hourLabel(bl.h)}–${hourLabel((bl.h + 3) % 24)}` })); };
     const ccA = concerns(filedA), ccB = concerns(filedB);
     return {
       F, filedA, filedB, brands: byBrand(filedA, filedB, F),
@@ -4515,12 +4551,12 @@ TicketData.fetchTickets()
       rateA: cA.length ? resA / cA.length : null, rateB: cB.length ? resB / cB.length : null,
       topA: ccA.slice(0, 5).map(([k, o]) => [k, o.n]), topB: ccB.slice(0, 5).map(([k, o]) => [k, o.n]),
       topAMap: new Map(ccA.map(([k, o]) => [k, o.n])), ccA, ccB, ccAMap: new Map(ccA.map(([k, o]) => [k, o.n])),
-      repA: repeatStats(filedA), repB: repeatStats(filedB),
+      repA: repeatStats(filedA), repB: repeatStats(filedB), peakBlocks,
     };
   }
   function renderShows() {
     if (!allTickets.length) return;
-    try { const D = buildData(); anLastD = D; trShow.render(D); anShow.render(D); } catch (e) { console.error('ticket shows:', e); }
+    try { const D = buildData(); anLastD = D; trLastD = D; trShow.render(D); anShow.render(D); } catch (e) { console.error('ticket shows:', e); }
   }
   const _prev = renderTicketResolution;
   renderTicketResolution = function () { _prev.apply(this, arguments); renderShows(); };
