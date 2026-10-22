@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22l --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22n --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -3261,7 +3261,7 @@ function csSlides() {
     // (2026-10-22, Chad: "alisin na ang mga ito") tinanggal ang "Chats per day by brand" at "Share of chats" slides
     // (2026-10-22, Chad: walang % comparison ng dalawang period) — Oct 16–22 lang, All brands + kada brand
     // (2026-10-22, Chad: "lagyan ng data na 1–15") — isang slide kada period, All brands + kada brand
-    ...[[CS_M, D.hhM, D.hhMBrands], [CS_B, hB, D.hhBrands]].map(([P, tot, by]) => () => {   // (Chad) Oct 10–15 sa halip na Oct 1–15
+    ...[[CS_B, hB, D.hhBrands]].map(([P, tot, by]) => () => {   // (Chad 2026-10-22 11:36) Oct 16–22 lang; tinanggal ang Oct 10–15 slide
       const rows = [['All brands', tot]].concat(Object.entries(by || {}).filter(([, h]) => h.conversations >= 5).sort((x, y) => y[1].conversations - x[1].conversations).slice(0, 7).map(([slug, h]) => [chatBrandLabel(slug), h]));
       return `<div class="cs-k">Handed to human vs AI only · ${P.label} · Chatwoot brands only</div><div class="cs-t">How many were passed to an agent, per brand</div>
       <div class="cs-split" style="gap:1.1cqw">${rows.map(([lb, h], i) => { const r = h && h.conversations ? h.hh / h.conversations : null; return `<div class="row" style="grid-template-columns:22cqw 1fr"><b style="${i ? 'font-size:1.25cqw' : ''}">${escapeHtml(lb)}<small style="white-space:nowrap">${h ? csFmt(h.conversations) + ' chats · ' + csFmt(h.hh) + ' HH · ' + csFmt(h.ai) + ' AI' : 'no live data'}</small></b>
@@ -4619,11 +4619,9 @@ TicketData.fetchTickets()
       <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.6cqw;padding-right:.4cqw">${rows.map(r => `
         <div class="cs-mv" style="padding:.9cqw 1.4cqw;gap:1.4cqw;align-items:flex-start">
           <div style="min-width:0;flex:1"><b style="font-size:1.3cqw;${r.feedback && r.feedback.trim() ? '' : 'color:var(--cs-soft);font-weight:600;font-style:italic'}">${r.feedback && r.feedback.trim() ? '“' + esc(r.feedback.trim()) + '”' : 'No reason given'}</b>
-            <span>${esc(r.name || 'Unknown')} · ${fmtAt(r.at)} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} · <span style="color:${SEV_COLOR[r.severity]}">${SEV_TXT[r.severity]}</span> · <span style="color:${THEME_COLOR[themeOf(r)]}">${themeOf(r)}</span></span></div>
-          <button class="cs-btn" type="button" data-conv="${esc(r.conversationId)}" data-nm="${esc(r.name || 'Unknown')}" style="font-size:1.05cqw;padding:.5cqw 1.1cqw;flex:none">Open chat ›</button></div>`).join('') || '<div class="cs-msg">No DSAT this week.</div>'}</div>`;
+            <span>${esc(r.name || 'Unknown')} · ${fmtAt(r.at)} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} · <span style="color:${SEV_COLOR[r.severity]}">${SEV_TXT[r.severity]}</span> · <span style="color:${THEME_COLOR[themeOf(r)]}">${themeOf(r)}</span></span></div></div>`).join('') || '<div class="cs-msg">No DSAT this week.</div>'}</div>`;
     c.innerHTML = '<button class="cs-btn" type="button" id="satBrBack">← Back to brands</button>';
     document.getElementById('satBrBack').onclick = () => show.goto(2);
-    v.querySelectorAll('[data-conv]').forEach(btn => btn.addEventListener('click', ev => { ev.stopPropagation(); openConversationModal(btn.dataset.conv, btn.dataset.nm, `${b.label} · DSAT`); }));
   }
 
   const show = makeShow({
@@ -4688,7 +4686,7 @@ TicketData.fetchTickets()
   }
   // PLAYER DRILL-DOWN (2026-10-21, Chad): i-click ang player → listahan ng
   // LAHAT ng DSAT reason niya (o "No reason given"), hindi ang buong chat.
-  // May maliit na "Open chat ›" kada reason kung gusto pa ring buksan.
+  // (2026-10-22, Chad: "alisin ang open chat") wala nang Open chat button.
   function openPlayer(p) {
     const v = document.getElementById('satView'), c = document.getElementById('satCtrl');
     const fmtAt = d => d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -4699,11 +4697,9 @@ TicketData.fetchTickets()
       <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.7cqw;padding-right:.4cqw">${rows.map((r, i) => `
         <div class="cs-mv" style="padding:1cqw 1.4cqw;gap:1.4cqw;align-items:flex-start">
           <div style="min-width:0;flex:1"><b style="font-size:1.35cqw;${r.feedback && r.feedback.trim() ? '' : 'color:var(--cs-soft);font-weight:600;font-style:italic'}">${r.feedback && r.feedback.trim() ? '“' + esc(r.feedback.trim()) + '”' : 'No reason given'}</b>
-            <span>${fmtAt(r.at)} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.rating}/5 · <span style="color:${SEV_COLOR[r.severity]}">${SEV_TXT[r.severity]}</span></span></div>
-          <button class="cs-btn" type="button" data-conv="${esc(r.conversationId)}" style="font-size:1.05cqw;padding:.5cqw 1.1cqw;flex:none">Open chat ›</button></div>`).join('')}</div>`;
+            <span>${fmtAt(r.at)} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.rating}/5 · <span style="color:${SEV_COLOR[r.severity]}">${SEV_TXT[r.severity]}</span></span></div></div>`).join('')}</div>`;
     c.innerHTML = '<button class="cs-btn" type="button" id="satPlBack">← Back to players</button>';
     document.getElementById('satPlBack').onclick = () => show.goto(3);
-    v.querySelectorAll('[data-conv]').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); openConversationModal(b.dataset.conv, p.name, `${chatBrandLabel(p.brand)} · ${p.ds.length} DSAT`); }));
   }
   document.getElementById('satView').addEventListener('click', e => {
     if (!D) return;
