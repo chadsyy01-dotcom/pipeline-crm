@@ -3210,7 +3210,7 @@ async function csLoad() {
     }).filter(b => b.a > 0 || b.b > 0).sort((x, y) => (y.b - x.b) || (y.a - x.a));
     const TA = list.reduce((s, b) => s + b.a, 0), TB = list.reduce((s, b) => s + b.b, 0);
     const prev = csState.data;
-    csState.data = { list, TA, TB, daysA, daysB, allDays, filled, inB, hhA: hhA && hhA.total, hhB: hhB && hhB.total,
+    csState.data = { list, TA, TB, daysA, daysB, allDays, filled, inB, hhA: hhA && hhA.total, hhB: hhB && hhB.total, hhBrands: (hhB && hhB.byBrand) || {},
       lastB: lastIdx(inB) >= 0 ? allDays[lastIdx(inB)] : null };
     csState.updatedAt = new Date();
     if (!prev) csRender();
@@ -3243,18 +3243,16 @@ function csSlides() {
           <div class="s">${D.list[0] && TB ? `${CS_B.label} · ${csFmt(D.list[0].b)} chats · ${csPct(D.list[0].b / TB)} of all brands` : 'No figures yet'}</div></div>
       </div>
       <div class="cs-kpis cs-kpis2">
-        <button class="cs-kpi" type="button" data-open="daily"><div class="cs-k">Messages a day</div><div class="v" data-n="${Math.round(TBPD)}">0</div><div class="s">${CS_B.label} · average over ${daysB} day${daysB === 1 ? '' : 's'}</div><div class="go">Per day by brand ›</div></button>
+        <div class="cs-kpi"><div class="cs-k">Messages a day</div><div class="v" data-n="${Math.round(TBPD)}">0</div><div class="s">${CS_B.label} · average over ${daysB} day${daysB === 1 ? '' : 's'}</div></div>
         ${hhCard('hh', 'Handed to human (HH)', hB && hB.hh, rB, rA, hB && hB.conversations)}
         ${hhCard('ai', 'AI only — no handoff', hB && hB.ai, rB == null ? null : 1 - rB, rA == null ? null : 1 - rA, hB && hB.conversations)}
       </div>`,
-    () => `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw"><div><div class="cs-k">By brand · average per day</div><div class="cs-t">Chats per day by brand</div></div>
-      <div class="cs-legend"><span><i style="background:var(--cs-a)"></i>${CS_A.label}</span><span><i style="background:var(--cs-b)"></i>${CS_B.label}</span></div></div>
-      <div class="cs-pairs">${pairs.map(b => `<div class="cs-pair"><div class="n" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</div><div class="bars"><div class="ba" data-w="${b.aPD}"></div><div class="bb" data-w="${b.bPD}"></div></div><div class="c"><span class="cs-chip share">${csFmt(b.bPD)}/day</span></div></div>`).join('')}</div>`,
-    () => `<div class="cs-k">Share of chats · ${CS_B.label}</div><div class="cs-t">Where the chats come from</div>
-      <div class="cs-movers">${D.list.filter(b => b.b > 0).slice(0, 6).map(b => `<div class="cs-mv"><div><b>${escapeHtml(b.label)}</b><span>${csFmt(b.b)} chats · ${csFmt(b.bPD)} per day</span></div><div class="pct" style="color:var(--cs-b)">${TB ? csPct(b.b / TB) : '—'}</div></div>`).join('') || '<div class="cs-msg">No chats yet.</div>'}</div>`,
-    () => `<div class="cs-k">Handed to human vs AI only</div><div class="cs-t">How many were passed to an agent</div>
-      <div class="cs-split">${[[CS_A.label, hA, rA], [CS_B.label, hB, rB]].map(([lb, h, r]) => `<div class="row"><b>${lb}<small>${h ? csFmt(h.conversations) + ' chats' : 'no live data'}</small></b>
-        <div class="cs-stack">${r == null ? '' : `<div class="hh" data-w="${r}">HH ${csPct(r)}</div><div class="ai" data-w="${1 - r}">AI only ${csPct(1 - r)}</div>`}</div></div>`).join('')}</div>`,
+    // (2026-10-22, Chad: "alisin na ang mga ito") tinanggal ang "Chats per day by brand" at "Share of chats" slides
+    // (2026-10-22, Chad: walang % comparison ng dalawang period) — Oct 16–22 lang, All brands + kada brand
+    () => { const rows = [['All brands', hB]].concat(Object.entries(D.hhBrands || {}).filter(([, h]) => h.conversations >= 5).sort((x, y) => y[1].conversations - x[1].conversations).slice(0, 7).map(([slug, h]) => [chatBrandLabel(slug), h]));
+      return `<div class="cs-k">Handed to human vs AI only · ${CS_B.label}</div><div class="cs-t">How many were passed to an agent, per brand</div>
+      <div class="cs-split" style="gap:1.1cqw">${rows.map(([lb, h], i) => { const r = h && h.conversations ? h.hh / h.conversations : null; return `<div class="row"><b style="${i ? 'font-size:1.25cqw' : ''}">${escapeHtml(lb)}<small>${h ? csFmt(h.conversations) + ' chats' : 'no live data'}</small></b>
+        <div class="cs-stack" style="${i ? 'height:3cqw' : ''}">${r == null ? '' : `<div class="hh" data-w="${r}">HH ${csPct(r)}</div><div class="ai" data-w="${1 - r}">AI only ${csPct(1 - r)}</div>`}</div></div>`; }).join('')}</div>`; },
   ];
 }
 
@@ -3271,7 +3269,7 @@ function csShowSlide(i) {
     view.querySelectorAll('.cs-pair [data-w]').forEach((e, k) => { e.style.transitionDelay = `${300 + k * 60}ms`; e.style.width = `${Number(e.dataset.w) / max * 100}%`; });
     view.querySelectorAll('.cs-stack [data-w]').forEach((e, k) => { e.style.transitionDelay = `${300 + k * 150}ms`; e.style.width = `${Number(e.dataset.w) * 100}%`; });
   }));
-  view.querySelectorAll('[data-open]').forEach(el => el.addEventListener('click', () => el.dataset.open === 'daily' ? csOpenDaily() : csOpenPeriod(el.dataset.open)));
+  view.querySelectorAll('[data-open]').forEach(el => el.addEventListener('click', () => csOpenPeriod(el.dataset.open)));
   const ctrl = document.getElementById('csCtrl');
   ctrl.innerHTML = `<button class="cs-btn" id="csPrev" type="button">◀ Prev</button><button class="cs-btn" id="csNext" type="button">Next ▶</button>
     <span class="cs-now">${csState.slide + 1} / ${S.length} · Click ${CS_A.label} or ${CS_B.label} to see each brand${csState.updatedAt ? ` · updated ${csState.updatedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}</span>`;
@@ -3317,37 +3315,8 @@ function csOpenPeriod(per) {
     <span class="cs-now">${csState.updatedAt ? `Updated ${csState.updatedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}</span>`;
   document.getElementById('csBack').onclick = () => csShowSlide(0);
 }
-// MESSAGES PER DAY BY BRAND (2026-10-22, Chad): i-click ang "Messages a day"
-// → table: kada brand × kada araw ng Oct 16–22 (hanggang sa may laman ang
-// sheet), may Total at Avg/day kada brand at kada araw. Galing sa parehong
-// daily figures ng chat volume sheet (Swabe = pantay na hati ng live total).
-function csOpenDaily() {
-  const view = document.getElementById('csView'), D = csState.data;
-  csState.mode = 'daily'; csState.per = null;
-  const idx = D.allDays.map((d, i) => i).filter(i => D.inB(D.allDays[i]) && D.filled[i]);
-  const list = D.list.filter(b => b.b > 0).sort((x, y) => y.b - x.b);
-  const dayTot = idx.map(i => list.reduce((s, b) => s + (b.daily[i] || 0), 0));
-  const dayLbl = i => D.allDays[i].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const cell = (v, bold) => `<td style="text-align:right;padding:.55cqw .8cqw;font-variant-numeric:tabular-nums;${bold ? 'font-weight:800' : ''}">${csFmt(v)}</td>`;
-  view.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">Messages received per day · ${CS_B.label}</div><div class="cs-t">Per day by brand</div></div>
-      <span class="cs-livedot"><i></i>LIVE <small>· updates every 5 min</small></span></div>
-    <div style="flex:1;min-height:0;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:1.15cqw">
-      <thead><tr style="color:var(--cs-soft);font-size:1cqw;letter-spacing:.12em;text-transform:uppercase"><th style="text-align:left;padding:.55cqw .8cqw">Brand</th>${idx.map(i => `<th style="text-align:right;padding:.55cqw .8cqw">${dayLbl(i)}</th>`).join('')}<th style="text-align:right;padding:.55cqw .8cqw;border-left:.1cqw solid var(--cs-line)">Total</th><th style="text-align:right;padding:.55cqw .8cqw">Avg/day</th></tr></thead>
-      <tbody>${list.map(b => { const max = Math.max(...idx.map(i => b.daily[i] || 0), 1);
-        return `<tr style="border-top:.1cqw solid var(--cs-line)"><td style="padding:.55cqw .8cqw;font-weight:800;white-space:nowrap"><i style="display:inline-block;width:.8cqw;height:.8cqw;border-radius:50%;background:${b.color};margin-right:.6cqw;vertical-align:-.05cqw"></i>${escapeHtml(b.label)}</td>
-          ${idx.map(i => { const v = b.daily[i] || 0; return `<td style="text-align:right;padding:.55cqw .8cqw;font-variant-numeric:tabular-nums;background:rgba(59,130,246,${(v / max * .28).toFixed(2)})">${csFmt(v)}</td>`; }).join('')}
-          ${cell(b.b, true).replace('<td style="', '<td style="border-left:.1cqw solid var(--cs-line);')}${cell(b.bPD)}</tr>`; }).join('')}</tbody>
-      <tfoot><tr style="border-top:.2cqw solid var(--cs-line);font-weight:800"><td style="padding:.55cqw .8cqw">All brands</td>${dayTot.map(v => cell(v, true)).join('')}${cell(D.TB, true).replace('<td style="', '<td style="border-left:.1cqw solid var(--cs-line);')}${cell(D.daysB ? D.TB / D.daysB : 0, true)}</tr></tfoot>
-    </table>${idx.length < D.daysB ? `<div style="font-size:1cqw;color:var(--cs-soft);margin-top:.8cqw">Days without figures in the chat volume sheet yet are not shown.</div>` : ''}</div>`;
-  view.querySelectorAll('tbody tr').forEach((r, k) => csAnim(r, [{ opacity: 0, transform: 'translateX(-8px)' }, { opacity: 1, transform: 'none' }], { duration: 400, delay: k * 50 }));
-  const ctrl = document.getElementById('csCtrl');
-  ctrl.innerHTML = `<button class="cs-btn" id="csBack" type="button">← Back to summary</button>
-    <span class="cs-now">${csState.updatedAt ? `Updated ${csState.updatedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}</span>`;
-  document.getElementById('csBack').onclick = () => csShowSlide(0);
-}
 // Refresh: huwag i-restart ang animation; i-update lang ang nagbago at pakislapin
 function csRefreshInPlace(prev) {
-  if (csState.mode === 'daily') { csOpenDaily(); return; }
   if (csState.mode !== 'cards') { csShowSlide(csState.slide); return; }
   const per = csState.per, view = document.getElementById('csView');
   const old = new Map(prev.list.map(b => [b.key, per === 'a' ? b.a : b.b]));
