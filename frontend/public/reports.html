@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22j --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-22l --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -3134,6 +3134,8 @@ document.addEventListener('click', (e) => {
 // ---------------------------------------------------------------------------
 const CS_A = { start: new Date(2026, 9, 1), end: new Date(2026, 9, 15), label: 'Oct 1–15' };
 const CS_B = { start: new Date(2026, 9, 16), end: new Date(2026, 9, 22), label: 'Oct 16–22' };
+// Dagdag na HH/AI slide (2026-10-22, Chad: "dagdagan mo ng slide ng 10–15 Oct")
+const CS_M = { start: new Date(2026, 9, 10), end: new Date(2026, 9, 15), label: 'Oct 10–15' };
 const CS_COLORS = { buenasph: '#3B82F6', tmtcash: '#F97316', mcp: '#A855F7', manilaplayph: '#06B6D4', Tmtplay: '#EF4444',
   BuenasCredit: '#14B8A6', HypleplayPH: '#EC4899', HypeplayBD: '#F472B6', LuckystacksPH: '#EAB308', MGK: '#84CC16',
   SwabeGaming: '#F43F5E', casinyeam: '#22D3EE', manilacasino: '#FB923C', superscatterph: '#C084FC' };
@@ -3160,9 +3162,10 @@ async function csLoad() {
     const allDays = [];
     for (let d = startOfDay(CS_A.start); d <= bEnd; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) allDays.push(d);
     const inB = d => d >= startOfDay(CS_B.start);
-    const [rows, hhA, hhB] = await Promise.all([
+    const [rows, hhA, hhB, hhM] = await Promise.all([
       loadChatSheetRows(),
       apiGet(`/chatwoot/handoff-split?from=${encodeURIComponent(startOfDay(CS_A.start).toISOString())}&to=${encodeURIComponent(aEnd.toISOString())}`).catch(() => null),
+      apiGet(`/chatwoot/handoff-split?from=${encodeURIComponent(startOfDay(CS_M.start).toISOString())}&to=${encodeURIComponent(endOfDay(CS_M.end).toISOString())}`).catch(() => null),
       now < CS_B.start ? null : apiGet(`/chatwoot/handoff-split?from=${encodeURIComponent(startOfDay(CS_B.start).toISOString())}&to=${encodeURIComponent((now < bEnd ? now : bEnd).toISOString())}`).catch(() => null),
     ]);
     const blocks = parseSheetDaily(rows);
@@ -3217,8 +3220,8 @@ async function csLoad() {
     const cwOnly = h => { if (!h || !h.byBrand) return { total: null, byBrand: {} }; const by = {}; const t = { conversations: 0, hh: 0, ai: 0 };
       Object.entries(h.byBrand).forEach(([k, v]) => { if (LC.has(String(k).toLowerCase())) return; by[k] = v; t.conversations += v.conversations; t.hh += v.hh; t.ai += v.ai; });
       return { total: t.conversations ? t : null, byBrand: by }; };
-    const cwA = cwOnly(hhA), cwB = cwOnly(hhB);
-    csState.data = { list, TA, TB, daysA, daysB, allDays, filled, inB, hhA: cwA.total, hhB: cwB.total, hhBrands: cwB.byBrand, hhABrands: cwA.byBrand,
+    const cwA = cwOnly(hhA), cwB = cwOnly(hhB), cwM = cwOnly(hhM);
+    csState.data = { list, TA, TB, daysA, daysB, allDays, filled, inB, hhA: cwA.total, hhB: cwB.total, hhBrands: cwB.byBrand, hhABrands: cwA.byBrand, hhM: cwM.total, hhMBrands: cwM.byBrand,
       lastB: lastIdx(inB) >= 0 ? allDays[lastIdx(inB)] : null };
     csState.updatedAt = new Date();
     if (!prev) csRender();
@@ -3258,7 +3261,7 @@ function csSlides() {
     // (2026-10-22, Chad: "alisin na ang mga ito") tinanggal ang "Chats per day by brand" at "Share of chats" slides
     // (2026-10-22, Chad: walang % comparison ng dalawang period) — Oct 16–22 lang, All brands + kada brand
     // (2026-10-22, Chad: "lagyan ng data na 1–15") — isang slide kada period, All brands + kada brand
-    ...[[CS_A, hA, D.hhABrands], [CS_B, hB, D.hhBrands]].map(([P, tot, by]) => () => {
+    ...[[CS_M, D.hhM, D.hhMBrands], [CS_B, hB, D.hhBrands]].map(([P, tot, by]) => () => {   // (Chad) Oct 10–15 sa halip na Oct 1–15
       const rows = [['All brands', tot]].concat(Object.entries(by || {}).filter(([, h]) => h.conversations >= 5).sort((x, y) => y[1].conversations - x[1].conversations).slice(0, 7).map(([slug, h]) => [chatBrandLabel(slug), h]));
       return `<div class="cs-k">Handed to human vs AI only · ${P.label} · Chatwoot brands only</div><div class="cs-t">How many were passed to an agent, per brand</div>
       <div class="cs-split" style="gap:1.1cqw">${rows.map(([lb, h], i) => { const r = h && h.conversations ? h.hh / h.conversations : null; return `<div class="row" style="grid-template-columns:22cqw 1fr"><b style="${i ? 'font-size:1.25cqw' : ''}">${escapeHtml(lb)}<small style="white-space:nowrap">${h ? csFmt(h.conversations) + ' chats · ' + csFmt(h.hh) + ' HH · ' + csFmt(h.ai) + ' AI' : 'no live data'}</small></b>
