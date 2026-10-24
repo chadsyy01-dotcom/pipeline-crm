@@ -1230,7 +1230,12 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
 
   function matchesDateFilter(c) {
     if (currentDateFilter === 'all') return true;
-    const activity = new Date(c.lastActivityAt);
+    // (2026-10-24, Chad: "lumabas pa rin ang chats kahapon sa Today") — ang
+    // backend window ay base sa KAHIT ANONG event (CSAT prompt, auto-close,
+    // label, status change) kaya pumapasok ang lumang chat na may system
+    // event lang ngayon. Dito: ang huling TUNAY na mensahe (lastMessageAt)
+    // ang basehan; lastActivityAt lang kapag walang message.
+    const activity = new Date(c.lastMessageAt || c.lastActivityAt);
     if (isNaN(activity.getTime())) return false;
     const now = new Date();
     if (currentDateFilter === 'today') {
@@ -1843,7 +1848,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       if (lastSearchResults) renderSearchResults(lastSearchResults, lastSearchQuery);
       return; // nasa chat-content search mode — hindi tinatablan ng filters/auto-refresh
     }
-    let filtered = allConversations;
+    let filtered = allConversations.filter(matchesDateFilter);   // (2026-10-24) i-enforce ang Activity window sa client
     if (currentBrand !== 'all') filtered = filtered.filter(c => c.brand === currentBrand);
     if (currentStatus === 'active' && currentHandoff === 'all') {
       // Kapag may piniling Chat Status (hal. Missed Chat), laktawan ang
@@ -1870,7 +1875,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     {
       // Saklaw ng bilang = kapareho ng makikita kapag pinindot ang tab
       // (walang "active" trimming; ang Resolved/HH Closed ay sakop din).
-      let scope = allConversations;
+      let scope = allConversations.filter(matchesDateFilter);
       if (currentBrand !== 'all') scope = scope.filter(c => c.brand === currentBrand);
       if (currentStatus !== 'all' && currentStatus !== 'active') scope = scope.filter(c => (c.status || '').toLowerCase() === currentStatus);
       updateQuickCounts(otherFilters(scope));
