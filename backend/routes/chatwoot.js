@@ -1393,6 +1393,60 @@ router.get('/handoff-split', requireAuth, shortCache(60000), async (req, res) =>
   }
 });
 
+// GET /api/chatwoot/handoff-daily?from=...&to=...
+// (2026-10-24, Chad: "daily handoff per brand, this month") Kapareho ng
+// handoff-split pero naka-group KADA ARAW (Asia/Manila). Ang araw ng isang
+// conversation = araw ng UNANG customer message niya sa window; HH kung
+// may tunay na human reply o bot transfer message sa parehong araw (o
+// LiveChat brand = laging HH). Isang pass lang sa DB (3 grouped queries).
+router.get('/handoff-daily', requireAuth, shortCache(120000), async (req, res) => {
+  try {
+    const from = req.query.from, to = req.query.to;
+    if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
+    const repl = { from, to };
+    const day = `to_char(("createdAt" AT TIME ZONE 'Asia/Manila')::date, 'YYYY-MM-DD')`;
+    const [custRows, humanRows, botHoRows] = await Promise.all([
+      sequelize.query(`
+        SELECT "brand", "conversationId", MIN(${day}) AS d FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND "senderType" = 'contact' AND "isPrivate" = false
+          AND "conversationId" IS NOT NULL AND "createdAt" BETWEEN :from AND :to
+        GROUP BY "brand", "conversationId"
+      `, { replacements: repl, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT DISTINCT "brand", "conversationId", "senderName", ${day} AS d FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND "senderType" = 'user' AND "isPrivate" = false
+          AND "senderName" IS NOT NULL AND "conversationId" IS NOT NULL
+          AND "createdAt" BETWEEN :from AND :to
+      `, { replacements: repl, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT DISTINCT "brand", "conversationId", ${day} AS d FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND "senderType" = 'user' AND "isPrivate" = false
+          AND "conversationId" IS NOT NULL AND "createdAt" BETWEEN :from AND :to
+          AND "content" ~* :re
+      `, { replacements: { ...repl, re: HANDOFF_MSG_RE.source }, type: QueryTypes.SELECT }),
+    ]);
+    const key = (b, c) => b + '|' + c;
+    const hhDays = new Map();   // brand|conv → Set(day)
+    const addHH = (b, c, d) => { const k = key(b, c); if (!hhDays.has(k)) hhDays.set(k, new Set()); hhDays.get(k).add(d); };
+    humanRows.forEach(r => { if (!isBotSender(r.brand, r.senderName)) addHH(r.brand, r.conversationId, r.d); });
+    botHoRows.forEach(r => addHH(r.brand, r.conversationId, r.d));
+    const days = {};   // d → { brand: { conversations, hh, ai } }
+    custRows.forEach(r => {
+      const d = r.d, byB = days[d] ??= {}, b = byB[r.brand] ??= { conversations: 0, hh: 0, ai: 0 };
+      b.conversations++;
+      const set = hhDays.get(key(r.brand, r.conversationId));
+      // HH kung may human/transfer sa araw ng unang message O sa susunod na araw (lampas-hatinggabi)
+      const next = new Date(d + 'T00:00:00Z'); next.setUTCDate(next.getUTCDate() + 1);
+      const nd = next.toISOString().slice(0, 10);
+      if (LIVECHAT_BRAND_SET.has(r.brand) || (set && (set.has(d) || set.has(nd)))) b.hh++; else b.ai++;
+    });
+    res.json({ from, to, days, livechatBrands: [...LIVECHAT_BRAND_SET] });
+  } catch (err) {
+    console.error('Chatwoot handoff-daily error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/chatwoot/messages-received?from=...&to=...
 // Incoming customer messages per brand for the window (added 2026-09-21).
 // Powers the Reports page's Chats Comparison, whose historical months come
