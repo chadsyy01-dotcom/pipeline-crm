@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Handoffs — CSR Dashboard</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap">
+<style>
+/* DAILY HANDOFFS (2026-10-24, Chad: "bigyan ako ng daily handoff per brands, this month").
+   Table: brand × araw ng buwan, bilang ng chats na NAIPASA sa tao (HH). Source: /chatwoot/handoff-daily. */
+:root{--bg:#F5F7FB;--card:#fff;--ink:#0F1E3D;--soft:#64748B;--line:#E2E8F0;--hh:#F59E0B;--hhbg:#FFF7E6;--blue:#2563EB;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:13px}
+.wrap{max-width:1500px;margin:0 auto;padding:22px 16px 40px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.head h1{margin:0;font-size:20px;font-weight:800}
+.head p{margin:2px 0 0;color:var(--soft)}
+.back{color:var(--blue);text-decoration:none;font-weight:700}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+select,button{font:inherit;font-weight:700;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);cursor:pointer}
+button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft);font-weight:700}
+.kpi .v{font-size:24px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--soft);margin-top:2px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-size:11px;color:var(--soft);text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;background:#fff;z-index:1}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:#fff;font-weight:700;z-index:2}
+th:first-child{z-index:3}
+td.heat{background:var(--hhbg)}
+td.zero{color:#CBD5E1}
+tfoot td{font-weight:800;border-top:2px solid var(--ink)}
+td.tot,th.tot{border-left:2px solid var(--line);font-weight:800}
+.note{color:var(--soft);font-size:12px;margin-top:10px;line-height:1.5}
+.lc{font-size:10px;color:var(--soft);font-weight:600;margin-left:4px}
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.mode button{border:0;border-radius:0;background:#fff}.mode button.on{background:var(--ink);color:#fff}
+</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw Object.assign(new Error("Invalid session"), { authFail: res.status === 401 });
+    } catch (err) {
+      if (!err || !err.authFail) return;
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="wrap">
+  <div class="head">
+    <div><div style="display:flex;gap:14px;align-items:baseline"><a class="back" href="reports.html">← Reports</a><h1>Daily Handoffs per Brand</h1></div>
+      <p>Chats passed to a human agent (HH) each day · from live chat data · Asia/Manila days</p></div>
+    <div class="bar">
+      <select id="month"></select>
+      <span class="mode"><button id="mHH" class="on" type="button">HH</button><button id="mAll" type="button">All chats</button><button id="mPct" type="button">HH %</button></span>
+      <label style="font-weight:600;color:var(--soft)"><input type="checkbox" id="incLC"> include LiveChat</label>
+      <button id="csv" type="button">Export CSV</button>
+      <button id="reload" class="primary" type="button">↻ Refresh</button>
+    </div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="panel"><table id="tbl"><thead></thead><tbody><tr><td style="color:var(--soft)">Loading…</td></tr></tbody><tfoot></tfoot></table></div>
+  <div class="note">HH = a real agent replied, or the bot sent a transfer message, on the day the chat started (or the next day, for chats that cross midnight). Chatwoot brands only by default; tick "include LiveChat" to add Casinyeam / Mc88 / Super Scatter (always human-handled, so every chat counts as HH there). Chat events are kept for about 70 days.</div>
+</div>
+<script>
+(() => {
+  const LABELS = { buenasph: 'Buenas Cash', tmtcash: 'TMT Cash', mcp: 'Mobile Play Casino', manilaplayph: 'Manila Play', HypleplayPH: 'Hype Play', HypeplayBD: 'Hype BDT', Tmtplay: 'TMT Play', MGK: 'MGK', BuenasCredit: 'Buenas Credits', LuckystacksPH: 'LuckyStacks', swabegaming: 'Swabe Gaming', SwabeGaming: 'Swabe Gaming', primogaming: 'Primo Gaming', casinyeam: 'Casinyeam', manilacasino: 'Mc88', superscatterph: 'Super Scatter PH', 'livechat-general': 'LC General' };
+  const label = s => LABELS[s] || s;
+  const $ = id => document.getElementById(id);
+  let data = null, mode = 'hh', ym = null;
+
+  // Month options: current + 2 previous (retention ~70 days)
+  const now = new Date();
+  for (let i = 0; i < 3; i++) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    $('month').insertAdjacentHTML('beforeend', `<option value="${v}">${d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</option>`); }
+
+  async function load() {
+    ym = $('month').value; const [y, m] = ym.split('-').map(Number);
+    const from = new Date(y, m - 1, 1, 0, 0, 0, 0), end = new Date(y, m, 0, 23, 59, 59, 999), to = end < now ? end : now;
+    $('tbl').querySelector('tbody').innerHTML = '<tr><td style="color:var(--soft)">Loading…</td></tr>';
+    try {
+      const res = await fetch(`${API_BASE}/chatwoot/handoff-daily?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`, { headers: { Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      data = await res.json(); data.y = y; data.m = m; data.lastDay = to.getDate();
+      render();
+    } catch (e) { $('tbl').querySelector('tbody').innerHTML = `<tr><td style="color:#DC2626">Could not load: ${e.message}</td></tr>`; }
+  }
+
+  function render() {
+    if (!data) return;
+    const lc = new Set(data.livechatBrands || []);
+    const days = Array.from({ length: data.lastDay }, (_, i) => `${data.y}-${String(data.m).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`);
+    const brands = new Map();   // slug → { hh:[], all:[] }
+    days.forEach((d, i) => Object.entries(data.days[d] || {}).forEach(([b, v]) => { const e = brands.get(b) || { hh: new Array(days.length).fill(0), all: new Array(days.length).fill(0) }; e.hh[i] += v.hh; e.all[i] += v.conversations; brands.set(b, e); }));
+    const rows = [...brands.entries()].filter(([b]) => $('incLC').checked || !lc.has(b)).map(([b, e]) => ({ b, ...e, tHH: e.hh.reduce((a, x) => a + x, 0), tAll: e.all.reduce((a, x) => a + x, 0) })).sort((x, y) => y.tHH - x.tHH);
+    const val = (r, i) => mode === 'hh' ? r.hh[i] : mode === 'all' ? r.all[i] : (r.all[i] ? r.hh[i] / r.all[i] : null);
+    const fmt = v => v == null ? '—' : mode === 'pct' ? (v * 100).toFixed(0) + '%' : v.toLocaleString();
+    const dayTot = days.map((_, i) => rows.reduce((a, r) => ({ hh: a.hh + r.hh[i], all: a.all + r.all[i] }), { hh: 0, all: 0 }));
+    const T = dayTot.reduce((a, d) => ({ hh: a.hh + d.hh, all: a.all + d.all }), { hh: 0, all: 0 });
+    const cwRows = rows.filter(r => !lc.has(r.b));
+    const cw = cwRows.reduce((a, r) => ({ hh: a.hh + r.tHH, all: a.all + r.tAll }), { hh: 0, all: 0 });
+    const top = rows[0];
+    $('kpis').innerHTML = `
+      <div class="kpi"><div class="k">Total handoffs</div><div class="v">${T.hh.toLocaleString()}</div><div class="s">${$('month').selectedOptions[0].textContent} · ${data.lastDay} day${data.lastDay === 1 ? '' : 's'}</div></div>
+      <div class="kpi"><div class="k">Per day</div><div class="v">${Math.round(T.hh / data.lastDay).toLocaleString()}</div><div class="s">average handoffs a day</div></div>
+      <div class="kpi"><div class="k">HH rate · Chatwoot brands</div><div class="v">${cw.all ? (cw.hh / cw.all * 100).toFixed(0) + '%' : '—'}</div><div class="s">${cw.hh.toLocaleString()} of ${cw.all.toLocaleString()} chats (LiveChat excluded)</div></div>
+      <div class="kpi"><div class="k">Top brand</div><div class="v" style="font-size:18px">${top ? label(top.b) : '—'}</div><div class="s">${top ? top.tHH.toLocaleString() + ' handoffs · ' + Math.round(top.tHH / data.lastDay) + ' a day' : ''}</div></div>`;
+    const t = $('tbl');
+    t.querySelector('thead').innerHTML = `<tr><th>Brand</th>${days.map(d => `<th>${Number(d.slice(-2))}</th>`).join('')}<th class="tot">${mode === 'pct' ? 'HH %' : 'Total'}</th><th>Avg/day</th></tr>`;
+    t.querySelector('tbody').innerHTML = rows.map(r => `<tr><td>${label(r.b)}${lc.has(r.b) ? '<span class="lc">LC</span>' : ''}</td>${(() => { const rmax = Math.max(1, ...days.map((_, i) => val(r, i) || 0)); return days.map((_, i) => { const v = val(r, i); const n = v == null ? 0 : v; return `<td class="${n ? 'heat' : 'zero'}" style="${n ? `background:rgba(245,158,11,${(0.06 + n / rmax * 0.42).toFixed(2)})` : ''}">${fmt(v)}</td>`; }).join(''); })()}<td class="tot">${mode === 'pct' ? (r.tAll ? (r.tHH / r.tAll * 100).toFixed(0) + '%' : '—') : (mode === 'hh' ? r.tHH : r.tAll).toLocaleString()}</td><td>${mode === 'pct' ? '' : Math.round((mode === 'hh' ? r.tHH : r.tAll) / data.lastDay).toLocaleString()}</td></tr>`).join('') || '<tr><td colspan="40" style="color:var(--soft)">No chats in this month.</td></tr>';
+    t.querySelector('tfoot').innerHTML = `<tr><td>All brands</td>${dayTot.map(d => `<td>${mode === 'pct' ? (d.all ? (d.hh / d.all * 100).toFixed(0) + '%' : '—') : (mode === 'hh' ? d.hh : d.all).toLocaleString()}</td>`).join('')}<td class="tot">${mode === 'pct' ? (T.all ? (T.hh / T.all * 100).toFixed(0) + '%' : '—') : (mode === 'hh' ? T.hh : T.all).toLocaleString()}</td><td>${mode === 'pct' ? '' : Math.round((mode === 'hh' ? T.hh : T.all) / data.lastDay).toLocaleString()}</td></tr>`;
+    data._rows = rows; data._days = days;
+  }
+
+  $('csv').onclick = () => {
+    if (!data || !data._rows) return;
+    const esc = v => `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [['Brand', ...data._days, 'Total HH', 'Total chats', 'HH %'].map(esc).join(',')];
+    data._rows.forEach(r => lines.push([label(r.b), ...r.hh, r.tHH, r.tAll, r.tAll ? (r.tHH / r.tAll * 100).toFixed(1) + '%' : ''].map(esc).join(',')));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' })); a.download = `daily-handoffs-${ym}.csv`; a.click();
+  };
+  ['mHH', 'mAll', 'mPct'].forEach(id => $(id).onclick = () => { mode = id === 'mHH' ? 'hh' : id === 'mAll' ? 'all' : 'pct'; ['mHH', 'mAll', 'mPct'].forEach(x => $(x).classList.toggle('on', x === id)); render(); });
+  $('month').onchange = load; $('reload').onclick = load; $('incLC').onchange = render;
+  load();
+})();
+</script>
+<script src="sidebar-topnav.js?v=4"></script>
+</body>
+</html>
