@@ -676,7 +676,8 @@ function isAgentRequest(text) {
 //   (b) may handoff/transfer message ang bot ("connect you", "agent",
 //       "specialist", "endorse", …); o
 //   (c) may sumagot na human agent.
-const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your)|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|endors|i-?forward|ipapasa|ikokonekta|i-?connect|(agent|specialist)\s+will\s+(be|assist|attend|get)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
+// HANDOFF_MSG_RE (hinigpitan 2026-10-24, Chad): ang ipapasa/forward/endorse ay handoff LANG kapag ang ipinapasa ay ang customer o chat papunta sa agent/CSR/specialist/supervisor — HINDI kapag feedback/concern/request ang ipinapasa "sa team" (hal. "Ipapasa ko ang feedback niyo" ni Agent Jem = hindi handoff). PAREHO dapat sa chatwoot.js at customers.html.
+const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your\s+(chat|conversation|concern|case))|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|(endors\w*|i-?forward(ing)?|ipapasa|ipasa|ikokonekta|i-?connect)\s+(ko\s+)?(po\s+)?(kayo|ka|you|your\s+(chat|conversation|case))\b|(endors\w*|forward(ing)?|ipapasa|ipasa)[\s\S]{0,40}\b(sa\s+|to\s+)(aming\s+|our\s+|isang\s+|a\s+|an\s+|the\s+)?(agent|csr|specialist|supervisor|team\s*leader|human)|(agent|specialist)\s+will\s+(be|assist|attend|get)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
 function isHandoffBotMessage(text) {
   return !!text && HANDOFF_MSG_RE.test(String(text).slice(0, 400));
 }
