@@ -1400,7 +1400,7 @@ router.get('/handoff-split', requireAuth, shortCache(60000), async (req, res) =>
 // LiveChat iisang chat id ang returning customer kaya dati nawawala sa
 // susunod na araw); HH sa araw na iyon kung may tunay na human reply o bot
 // transfer message sa parehong araw o kinabukasan (LiveChat = laging HH).
-router.get('/handoff-daily', requireAuth, shortCache(120000), async (req, res) => {
+router.get('/handoff-daily', requireAuth, shortCache(30000), async (req, res) => {   // 30s cache (realtime, Chad 2026-10-24)
   try {
     const from = req.query.from, to = req.query.to;
     if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
