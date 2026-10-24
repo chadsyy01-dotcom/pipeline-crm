@@ -1519,8 +1519,10 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // Team tab (2026-10-15): lahat ng brand ng team ay nasa dropdown kahit 0
     // pa ang chats (hal. Swabe Gaming sa FOXTROT bago pa pumasok ang unang chat).
     if (TEAM && TEAM.show) TEAM.show.forEach(b => { counts[b] = 0; });
-    const inWindow = allConversations.filter(matchesDateFilter);   // (2026-10-24) bilang = Activity window lang
+    // (2026-10-24, Chad) bilang = Activity window + lahat ng ibang filter (Catered by, Admin, Category, CSAT, search) — maliban sa Brand mismo
+    const inWindow = otherFilters(allConversations.filter(matchesDateFilter).filter(c => currentStatus === 'all' || currentStatus === 'active' || (c.status || '').toLowerCase() === currentStatus));
     inWindow.forEach(c => { counts[c.brand] = (counts[c.brand] || 0) + 1; });
+    if (currentBrand !== 'all' && counts[currentBrand] == null) counts[currentBrand] = 0;   // huwag mawala ang napiling brand
     // huwag doblehin kapag lumang slug ang may chats (hal. 'tmtplay' vs 'Tmtplay')
     if (TEAM && TEAM.show) TEAM.show.forEach(b => { if (!counts[b] && Object.keys(counts).some(k => k !== b && counts[k] && brandLabel(k) === brandLabel(b))) delete counts[b]; });
     const select = document.getElementById('brandFilter');
@@ -1823,7 +1825,13 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   function renderConcernFilter() {
     const counts = {};
     let others = 0;
-    const inWindow = allConversations.filter(matchesDateFilter);   // (2026-10-24) bilang = Activity window lang
+    // (2026-10-24, Chad) bilang = Activity window + Brand + ibang filter — maliban sa Category mismo
+    const savedConcern = currentConcern; currentConcern = 'all';
+    let inWindow = allConversations.filter(matchesDateFilter);
+    if (currentBrand !== 'all') inWindow = inWindow.filter(c => c.brand === currentBrand);
+    if (currentStatus !== 'all' && currentStatus !== 'active') inWindow = inWindow.filter(c => (c.status || '').toLowerCase() === currentStatus);
+    inWindow = otherFilters(inWindow);
+    currentConcern = savedConcern;
     inWindow.forEach(c => {
       if (c.concern) counts[c.concern] = (counts[c.concern] || 0) + 1;
       else others++;
@@ -1836,6 +1844,10 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       `<option value="__others">Others / General (${others.toLocaleString()})</option>`;
     if (previousValue === 'all' || previousValue === '__others' || labels.includes(previousValue)) {
       select.value = previousValue;
+    } else if (previousValue && previousValue !== 'all') {
+      // (2026-10-24) panatilihin ang napiling category kahit 0 sa ibang filters
+      select.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(previousValue)}">${escapeHtml(previousValue)} (0)</option>`);
+      select.value = previousValue;
     }
     currentConcern = select.value;
   }
@@ -1846,6 +1858,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   });
 
   function applyFiltersAndRender() {
+    if (!searchMode) { try { renderBrandTabs(); renderConcernFilter(); } catch (e) {} }   // (2026-10-24) counts sumusunod sa filters
     if (searchMode) {
       if (lastSearchResults) renderSearchResults(lastSearchResults, lastSearchQuery);
       return; // nasa chat-content search mode — hindi tinatablan ng filters/auto-refresh
