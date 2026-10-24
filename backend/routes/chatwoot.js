@@ -1395,10 +1395,11 @@ router.get('/handoff-split', requireAuth, shortCache(60000), async (req, res) =>
 
 // GET /api/chatwoot/handoff-daily?from=...&to=...
 // (2026-10-24, Chad: "daily handoff per brand, this month") Kapareho ng
-// handoff-split pero naka-group KADA ARAW (Asia/Manila). Ang araw ng isang
-// conversation = araw ng UNANG customer message niya sa window; HH kung
-// may tunay na human reply o bot transfer message sa parehong araw (o
-// LiveChat brand = laging HH). Isang pass lang sa DB (3 grouped queries).
+// handoff-split pero naka-group KADA ARAW (Asia/Manila). Ang conversation ay
+// bilang sa BAWAT araw na may customer message ito (2026-10-24 fix: sa
+// LiveChat iisang chat id ang returning customer kaya dati nawawala sa
+// susunod na araw); HH sa araw na iyon kung may tunay na human reply o bot
+// transfer message sa parehong araw o kinabukasan (LiveChat = laging HH).
 router.get('/handoff-daily', requireAuth, shortCache(120000), async (req, res) => {
   try {
     const from = req.query.from, to = req.query.to;
@@ -1407,10 +1408,9 @@ router.get('/handoff-daily', requireAuth, shortCache(120000), async (req, res) =
     const day = `to_char(("createdAt" AT TIME ZONE 'Asia/Manila')::date, 'YYYY-MM-DD')`;
     const [custRows, humanRows, botHoRows] = await Promise.all([
       sequelize.query(`
-        SELECT "brand", "conversationId", MIN(${day}) AS d FROM "ChatwootEvents"
+        SELECT DISTINCT "brand", "conversationId", ${day} AS d FROM "ChatwootEvents"
         WHERE event = 'message_created' AND "senderType" = 'contact' AND "isPrivate" = false
           AND "conversationId" IS NOT NULL AND "createdAt" BETWEEN :from AND :to
-        GROUP BY "brand", "conversationId"
       `, { replacements: repl, type: QueryTypes.SELECT }),
       sequelize.query(`
         SELECT DISTINCT "brand", "conversationId", "senderName", ${day} AS d FROM "ChatwootEvents"
