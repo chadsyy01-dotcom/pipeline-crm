@@ -43,6 +43,17 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1849805921&single=true&output=csv", kind: 'followup', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU", name: "TMTCash — Follow Up" }, // TMTCash — Follow Up (different columns: Reference ID / Query / Query Type instead of Ticket ID / Username)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLVCyL7fxmBpMn0Vlt1H3W5WhcMJSLzWX4NcEDol6mVrJf_et9J9Ai3cbLzdB4wtU_SsXsQ-c1p_f/pub?gid=1915138821&single=true&output=csv", kind: 'callback', sheetId: "1JbqhUcOTIwF-YLA7Eo6FWomUS8c8t8EKMeXeBsQTeQU", name: "TMTCash — Callback" }, // TMTCash — Callback (Reference ID / Username / Mobile / Concern / Concern Category)
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2finxr4w7O8FK0KhhGQFB7s7Xs8arcLIZOk4vFS_DxpbJNUElnIN802VNzOYcy0HT-zJUIcGvDjso/pub?output=csv", brandOverride: { code: 'TMT_PLAY', label: 'TMTPLAY' }, sheetId: "12lRRNvsG_o-AOD6_FggRA87yvqxVwJPXDTgV79TcTpI", name: "TMTPLAY — shares the \"TMT\" ticket-ID prefix with TMTCash, " }, // TMTPLAY — shares the "TMT" ticket-ID prefix with TMTCash, disambiguated by source sheet
+    // PRIMO GAMING (2026-10-24, Chad): sariling WebForm ticket sheet; brandOverride
+    // para iisa ang "Primo Gaming" tab anuman ang Ticket ID prefix na gamitin nila.
+    // PRIMO GAMING (2026-10-24, Chad): 6 tabs (gids mula kay Chad); brandOverride
+    // para iisa ang "Primo Gaming" tab anuman ang Ticket ID prefix. Standard
+    // WebForm schema ang inaasahan sa lahat (gaya ng Buenas PH tabs).
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTr5w0aIfGwUi7Uqdm2oPKaxd-9w5bz5rYXisANLqHS1PndUa_YUwluqKAcI7fF-QTdH2OqRP7ufAYv/pub?gid=0&single=true&output=csv", brandOverride: { code: 'PGM', label: 'Primo Gaming' }, sheetId: "1mVTeSxNKZXcis2e2cuHPgNQGBZTFPQhY8hpnUGRGxp8", name: "Primo Gaming — Account" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTr5w0aIfGwUi7Uqdm2oPKaxd-9w5bz5rYXisANLqHS1PndUa_YUwluqKAcI7fF-QTdH2OqRP7ufAYv/pub?gid=1496440570&single=true&output=csv", brandOverride: { code: 'PGM', label: 'Primo Gaming' }, sheetId: "1mVTeSxNKZXcis2e2cuHPgNQGBZTFPQhY8hpnUGRGxp8", name: "Primo Gaming — Website Error/Bug" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTr5w0aIfGwUi7Uqdm2oPKaxd-9w5bz5rYXisANLqHS1PndUa_YUwluqKAcI7fF-QTdH2OqRP7ufAYv/pub?gid=1584064999&single=true&output=csv", brandOverride: { code: 'PGM', label: 'Primo Gaming' }, sheetId: "1mVTeSxNKZXcis2e2cuHPgNQGBZTFPQhY8hpnUGRGxp8", name: "Primo Gaming — Bonus" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTr5w0aIfGwUi7Uqdm2oPKaxd-9w5bz5rYXisANLqHS1PndUa_YUwluqKAcI7fF-QTdH2OqRP7ufAYv/pub?gid=1975497134&single=true&output=csv", brandOverride: { code: 'PGM', label: 'Primo Gaming' }, sheetId: "1mVTeSxNKZXcis2e2cuHPgNQGBZTFPQhY8hpnUGRGxp8", name: "Primo Gaming — Promo & Raffle" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTr5w0aIfGwUi7Uqdm2oPKaxd-9w5bz5rYXisANLqHS1PndUa_YUwluqKAcI7fF-QTdH2OqRP7ufAYv/pub?gid=1765937284&single=true&output=csv", brandOverride: { code: 'PGM', label: 'Primo Gaming' }, sheetId: "1mVTeSxNKZXcis2e2cuHPgNQGBZTFPQhY8hpnUGRGxp8", name: "Primo Gaming — Submit OTP Verification" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTr5w0aIfGwUi7Uqdm2oPKaxd-9w5bz5rYXisANLqHS1PndUa_YUwluqKAcI7fF-QTdH2OqRP7ufAYv/pub?gid=2049152746&single=true&output=csv", brandOverride: { code: 'PGM', label: 'Primo Gaming' }, sheetId: "1mVTeSxNKZXcis2e2cuHPgNQGBZTFPQhY8hpnUGRGxp8", name: "Primo Gaming — Callback" },
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpnmq17Q7n0uLYDgH2WvE2SZFNkvqPgQKnTLY0LT8gqJPlxQQZUmyL1JSlHF9xPGYfvBDLpCpK2Cjp/pub?gid=648660778&single=true&output=csv", kind: 'division', sheetId: "1YB5OBsZ3aqY5Hs5CZeNEU0yO36GcQI74pJYJvjADOww", name: "SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITO" }, // SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITORING tab (brand comes from the Division column per row, see DIVISION_BRAND_MAP; any other Division value is filtered out)
     // BAGONG TICKET SHEETS (2026-10-01): sariling WebForm ticket sheets na ng
     // Manila Casino at SuperScatter PH (standard Ticket ID schema). Ang MC
@@ -87,7 +98,8 @@
     SSP: 'SuperScatter PH',
     TMT_PLAY: 'TMTPLAY',
     MNC: 'Manila Casino',
-    MC: 'Manila Casino'   // "MC-" Ticket ID prefix = Manila Casino din (Chad 2026-10-19); MCP ang Mobile Casino Play
+    MC: 'Manila Casino',   // "MC-" Ticket ID prefix = Manila Casino din (Chad 2026-10-19); MCP ang Mobile Casino Play
+    PGM: 'Primo Gaming', PG: 'Primo Gaming'   // Primo Gaming (2026-10-24)
   };
 
   function brandFromTicketId(ticketId) {
