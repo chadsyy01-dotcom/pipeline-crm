@@ -1519,12 +1519,13 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // Team tab (2026-10-15): lahat ng brand ng team ay nasa dropdown kahit 0
     // pa ang chats (hal. Swabe Gaming sa FOXTROT bago pa pumasok ang unang chat).
     if (TEAM && TEAM.show) TEAM.show.forEach(b => { counts[b] = 0; });
-    allConversations.forEach(c => { counts[c.brand] = (counts[c.brand] || 0) + 1; });
+    const inWindow = allConversations.filter(matchesDateFilter);   // (2026-10-24) bilang = Activity window lang
+    inWindow.forEach(c => { counts[c.brand] = (counts[c.brand] || 0) + 1; });
     // huwag doblehin kapag lumang slug ang may chats (hal. 'tmtplay' vs 'Tmtplay')
     if (TEAM && TEAM.show) TEAM.show.forEach(b => { if (!counts[b] && Object.keys(counts).some(k => k !== b && counts[k] && brandLabel(k) === brandLabel(b))) delete counts[b]; });
     const select = document.getElementById('brandFilter');
     if (!select) return;
-    select.innerHTML = `<option value="all">All Brands (${allConversations.length})</option>` +
+    select.innerHTML = `<option value="all">All Brands (${inWindow.length})</option>` +
       Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(brand =>
         `<option value="${escapeHtml(brand)}">${escapeHtml(brandLabel(brand))} (${counts[brand]})</option>`
       ).join('');
@@ -1822,14 +1823,15 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   function renderConcernFilter() {
     const counts = {};
     let others = 0;
-    allConversations.forEach(c => {
+    const inWindow = allConversations.filter(matchesDateFilter);   // (2026-10-24) bilang = Activity window lang
+    inWindow.forEach(c => {
       if (c.concern) counts[c.concern] = (counts[c.concern] || 0) + 1;
       else others++;
     });
     const select = document.getElementById('concernFilter');
     const previousValue = select.value || 'all';
     const labels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
-    select.innerHTML = `<option value="all">All categories (${allConversations.length.toLocaleString()})</option>` +
+    select.innerHTML = `<option value="all">All categories (${inWindow.length.toLocaleString()})</option>` +
       labels.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)} (${counts[l].toLocaleString()})</option>`).join('') +
       `<option value="__others">Others / General (${others.toLocaleString()})</option>`;
     if (previousValue === 'all' || previousValue === '__others' || labels.includes(previousValue)) {
