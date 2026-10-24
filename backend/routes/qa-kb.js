@@ -57,7 +57,7 @@ const AI_BOT_SENDER_NAMES = new Set([
 ]);
 // SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad): ang mga superadmin
 // login (Love, Buenas88 Admin, OM - AOM, …) ay tao na — HINDI bot.
-const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin'];
+const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin', 'Primo Admin'];
 SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_SENDER_NAMES.delete(n));
 
 // Brand-scoped bot personas — KEEP IN SYNC with chatwoot.js. 'Admin Hanna'
@@ -66,6 +66,7 @@ const BRAND_BOT_SENDER_NAMES = {
   hypleplayph: new Set(['Admin Hanna']),
   hypeplayph: new Set(['Admin Hanna']),
   swabegaming: new Set(['Admin Bea', 'Agent Bea', 'Bea']),   // Swabe AI sender (2026-10-15)
+  primogaming: new Set(['Pixie', 'Admin Pixie', 'Agent Pixie']),   // Primo Gaming AI (bot@primo.local), 2026-10-24
 };
 function isBotSender(brand, senderName) {
   if (!senderName) return false;
