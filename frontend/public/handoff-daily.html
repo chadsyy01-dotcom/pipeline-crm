@@ -69,6 +69,7 @@ td.tot,th.tot{border-left:2px solid var(--line);font-weight:800}
       <label style="font-weight:600;color:var(--soft)"><input type="checkbox" id="incLC"> include LiveChat</label>
       <button id="csv" type="button">Export CSV</button>
       <button id="reload" class="primary" type="button">↻ Refresh</button>
+      <span id="live" style="font-size:12px;color:var(--soft);font-weight:600"></span>
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -87,18 +88,25 @@ td.tot,th.tot{border-left:2px solid var(--line);font-weight:800}
   for (let i = 0; i < 3; i++) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     $('month').insertAdjacentHTML('beforeend', `<option value="${v}">${d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</option>`); }
 
-  async function load() {
+  let loading = false;
+  async function load(silent) {
+    if (loading) return; loading = true;
     ym = $('month').value; const [y, m] = ym.split('-').map(Number);
     const from = new Date(y, m - 1, 1, 0, 0, 0, 0), end = new Date(y, m, 0, 23, 59, 59, 999), to = end < now ? end : now;
-    $('tbl').querySelector('tbody').innerHTML = '<tr><td style="color:var(--soft)">Loading…</td></tr>';
+    if (!silent) $('tbl').querySelector('tbody').innerHTML = '<tr><td style="color:var(--soft)">Loading…</td></tr>';
     try {
       const res = await fetch(`${API_BASE}/chatwoot/handoff-daily?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`, { headers: { Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` } });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       data = await res.json(); data.y = y; data.m = m; data.lastDay = to.getDate();
       data.hours = Math.max(1, (to - from) / 3600000);   // oras na lumipas sa buwan (hanggang ngayon kung kasalukuyang buwan)
       render();
-    } catch (e) { $('tbl').querySelector('tbody').innerHTML = `<tr><td style="color:#DC2626">Could not load: ${e.message}</td></tr>`; }
+      $('live').innerHTML = `<span style="color:#16A34A">●</span> Live · ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}`;
+    } catch (e) { if (!silent) $('tbl').querySelector('tbody').innerHTML = `<tr><td style="color:#DC2626">Could not load: ${e.message}</td></tr>`; $('live').innerHTML = `<span style="color:#DC2626">●</span> ${e.message}`; }
+    finally { loading = false; }
   }
+  // REALTIME (2026-10-24, Chad): kusang refresh kada 60s habang nakikita ang tab
+  setInterval(() => { if (!document.hidden) load(true); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
 
   function render() {
     if (!data) return;
@@ -134,7 +142,7 @@ td.tot,th.tot{border-left:2px solid var(--line);font-weight:800}
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' })); a.download = `daily-handoffs-${ym}.csv`; a.click();
   };
   ['mHH', 'mAll', 'mPct'].forEach(id => $(id).onclick = () => { mode = id === 'mHH' ? 'hh' : id === 'mAll' ? 'all' : 'pct'; ['mHH', 'mAll', 'mPct'].forEach(x => $(x).classList.toggle('on', x === id)); render(); });
-  $('month').onchange = load; $('reload').onclick = load; $('incLC').onchange = render;
+  $('month').onchange = () => load(); $('reload').onclick = () => load(); $('incLC').onchange = render;
   load();
 })();
 </script>
