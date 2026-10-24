@@ -171,7 +171,7 @@ const AI_BOT_SENDER_NAMES = new Set([
 // real agent", hal. Buenas88 Admin sa Buenas Credit na sumagot pagkatapos ng
 // handoff). Tinatanggal sila sa bot list. Exception: ang automated na
 // mensahe nila (survey / "Rate our support") ay hindi pa rin human reply.
-const SUPERADMIN_NAMES = new Set(['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin']);
+const SUPERADMIN_NAMES = new Set(['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin', 'Primo Admin']);
 SUPERADMIN_NAMES.forEach(n => AI_BOT_SENDER_NAMES.delete(n));
 const AUTOMATED_MSG_RE = /rate\s+(our|your|the)\s+(support|conversation|chat|experience|service)|please\s+rate|how\s+would\s+you\s+rate|customer\s+satisfaction\s+survey|i-?rate\s+ang/i;
 
@@ -186,6 +186,7 @@ const BRAND_BOT_SENDER_NAMES = {
   // Swabe (hal. "Let me connect you now with our team") — BOT doon lang; TAO
   // pa rin si Admin Bea sa Buenas Cash.
   swabegaming: new Set(['Admin Bea', 'Agent Bea', 'Bea']),
+  primogaming: new Set(['Pixie', 'Admin Pixie', 'Agent Pixie']),   // Primo Gaming AI (bot@primo.local), 2026-10-24
 };
 
 // ANG opisyal na tanong na "bot ba ito?" — brand-aware. Gamitin ito sa lahat
