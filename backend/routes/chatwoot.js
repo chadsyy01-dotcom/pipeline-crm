@@ -678,8 +678,16 @@ function isAgentRequest(text) {
 //   (c) may sumagot na human agent.
 // HANDOFF_MSG_RE (hinigpitan 2026-10-24, Chad): ang ipapasa/forward/endorse ay handoff LANG kapag ang ipinapasa ay ang customer o chat papunta sa agent/CSR/specialist/supervisor — HINDI kapag feedback/concern/request ang ipinapasa "sa team" (hal. "Ipapasa ko ang feedback niyo" ni Agent Jem = hindi handoff). PAREHO dapat sa chatwoot.js at customers.html.
 const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your\s+(chat|conversation|concern|case))|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|(endors\w*|i-?forward(ing)?|ipapasa|ipasa|ikokonekta|i-?connect)\s+(ko\s+)?(po\s+)?(kayo|ka|you|your\s+(chat|conversation|case))\b|(endors\w*|forward(ing)?|ipapasa|ipasa)[\s\S]{0,40}\b(sa\s+|to\s+)(aming\s+|our\s+|isang\s+|a\s+|an\s+|the\s+)?(agent|csr|specialist|supervisor|team\s*leader|human)|(agent|specialist)\s+will\s+(be|assist|attend|get)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
+// BOT NA NAGPAPAKILALANG TAO (2026-10-24, Chad): "I'm Admin Mona po, a real CSR
+// here at Mobile Casino Play" — AI pa rin si Mona, hindi ito transfer. Kapag
+// ang bot mismo ang nagsasabing siya ay real/live/human agent, HINDI handoff.
+// PAREHO sa customers.html.
+const SELF_CLAIM_RE = /\b(i'?m|i\s+am|this\s+is|ako\s+(po\s+)?(si|ay)|ito\s+(po\s+)?si)\b[\s\S]{0,60}\b(real|live|human|actual)\s+(agent|csr|cs|specialist|person|human)/i;
 function isHandoffBotMessage(text) {
-  return !!text && HANDOFF_MSG_RE.test(String(text).slice(0, 400));
+  if (!text) return false;
+  const t = String(text).slice(0, 400);
+  if (SELF_CLAIM_RE.test(t) && !/connect(ing)?\s+you|transfer(r(ing|ed))?\s+you|ipapasa\s+(ko\s+)?(po\s+)?(kayo|ka)/i.test(t)) return false;
+  return HANDOFF_MSG_RE.test(t);
 }
 // LiveChat: walang AI — bawat chat ay human-handled mula simula (ang
 // conversation_created row ang 'pending', at wala iyon sa message query),
@@ -689,9 +697,18 @@ function sessionHasHandoff(allMessages, session, brand) {
   if (LIVECHAT_BRAND_SET.has(brand)) return true;
   const startIdx = allMessages.length - session.length;
   let prev = startIdx > 0 ? (allMessages[startIdx - 1].handoffStage || null) : null;
+  // STALE LABEL KAHIT NULL ANG NAUNANG ROW (2026-10-24, Chad: "napupunta sa
+  // Waiting kahit hindi pinasa"): hindi lahat ng message_created payload ay may
+  // dalang conversation.labels, kaya sa loob ng bagong session ay puwedeng
+  // null → 'pending' ang sunod-sunod na rows kahit LUMANG label lang iyon
+  // (hindi tinatanggal ng Chatwoot). Kaya: ang 'pending' ay BAGONG handoff lang
+  // kung WALANG handoff-related stage ang conversation sa KAHIT ANONG row bago
+  // ang session. Kapag may dati nang label, ang transfer message ng bot
+  // (rule b) ang magsasabi kung tunay na naipasa ulit.
+  const hadLabelBefore = allMessages.slice(0, startIdx).some(m => !!m.handoffStage);
   for (const m of session) {
     const st = m.handoffStage || null;
-    if (st === 'pending' && !prev) return true;                     // (a)
+    if (st === 'pending' && !prev && !hadLabelBefore) return true;  // (a)
     if (m.senderType === 'user' && isBotSender(brand, m.senderName, m.content)) {
       if (isHandoffBotMessage(m.content)) return true;               // (b)
     }
