@@ -510,7 +510,7 @@
   ]);
   // SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad): ang mga superadmin
   // login (Love, Buenas88 Admin, OM - AOM, …) ay tao na — HINDI bot.
-  const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin'];
+  const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin', 'Primo Admin'];
   SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_NAMES_CLIENT.delete(n));
   // 'Admin Hanna' ay BOT sa Hype PH pero TUNAY NA TAO sa TMTCash — brand-scoped.
   const BRAND_BOT_CLIENT = {
@@ -520,6 +520,7 @@
     // Swabe (hal. "Let me connect you now with our team") — BOT doon lang; TAO
     // pa rin si Admin Bea sa Buenas Cash.
     swabegaming: new Set(['Admin Bea', 'Agent Bea', 'Bea']),
+    primogaming: new Set(['Pixie', 'Admin Pixie', 'Agent Pixie']),   // Primo Gaming AI (bot@primo.local), 2026-10-24
   };
   function isBotClient(brand, senderName) {
     if (!senderName) return false;
