@@ -589,7 +589,7 @@ body.presenting .panel-head h3{font-size:14px;}
 }
 @media (max-width:860px){ .titlebar h1,.titlebar .period{font-size:15px;} }
 </style>
-<!-- build 2026-10-22v --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
+<!-- build 2026-10-24a --><!-- CHATS SHOW (2026-10-21, Chad): slides-style comparison sa itaas ng Chats tab -->
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
 <style>
 .cs-wrap{margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
@@ -1452,13 +1452,15 @@ const DIVISION_TO_CHAT_SLUG = {
   'luckystacks':        'LuckystacksPH',
   'swabe gaming':       'SwabeGaming',
   'swabe':              'SwabeGaming',
+  'primo gaming':       'primogaming',
+  'primo':              'primogaming',
   // 'gwin' has no chat slug yet — add one here when it is set up.
 };
 
 const CHAT_BRAND_LABELS = {
   buenasph: 'Buenas Cash', tmtcash: 'TMT Cash', mcp: 'Mobile Play Casino', manilaplayph: 'Manila Play',
   HypleplayPH: 'Hype Play', HypeplayBD: 'Hype BDT', Tmtplay: 'TMT Play', MGK: 'MGK',
-  BuenasCredit: 'Buenas Credits', LuckystacksPH: 'LuckyStacks', swabegaming: 'Swabe Gaming', SwabeGaming: 'Swabe Gaming',
+  BuenasCredit: 'Buenas Credits', LuckystacksPH: 'LuckyStacks', swabegaming: 'Swabe Gaming', SwabeGaming: 'Swabe Gaming', primogaming: 'Primo Gaming',
   casinyeam: 'Casinyeam', manilacasino: 'Mc88', superscatterph: 'Super Scatter PH',
   'livechat-general': 'LC General',
 };
@@ -1737,7 +1739,7 @@ async function loadPeriodChats(info, sheetPromise) {
 // sheet. Kapag nilagyan na ng row sa sheet ang brand, ang sheet na ang
 // masusunod (hindi na dodoblehin). Ang window ay hanggang sa huling araw na
 // may laman ang sheet para patas ang per-day.
-const LIVE_ONLY_SLUGS = ['SwabeGaming'];
+const LIVE_ONLY_SLUGS = ['SwabeGaming', 'primogaming'];   // primogaming (2026-10-24): wala pa sa sheet
 async function fillLiveOnlyBrands(info, res) {
   if (!res || !res.ok) return;
   const need = LIVE_ONLY_SLUGS.filter(slug => !res.byKey.has(slug));
@@ -3142,7 +3144,7 @@ const CS_B = { start: new Date(2026, 9, 16), end: new Date(2026, 9, 22), label: 
 const CS_M = { start: new Date(2026, 9, 10), end: new Date(2026, 9, 15), label: 'Oct 10–15' };
 const CS_COLORS = { buenasph: '#3B82F6', tmtcash: '#F97316', mcp: '#A855F7', manilaplayph: '#06B6D4', Tmtplay: '#EF4444',
   BuenasCredit: '#14B8A6', HypleplayPH: '#EC4899', HypeplayBD: '#F472B6', LuckystacksPH: '#EAB308', MGK: '#84CC16',
-  SwabeGaming: '#F43F5E', casinyeam: '#22D3EE', manilacasino: '#FB923C', superscatterph: '#C084FC' };
+  SwabeGaming: '#F43F5E', casinyeam: '#22D3EE', manilacasino: '#FB923C', superscatterph: '#C084FC', primogaming: '#A3E635' };
 const CS_EXTRA = ['#60A5FA', '#34D399', '#FBBF24', '#F87171', '#A78BFA', '#2DD4BF', '#FB7185', '#A3E635'];
 const csState = { data: null, slide: 0, mode: 'slides', per: null, loading: false, updatedAt: null };
 const csReduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
