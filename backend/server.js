@@ -57,6 +57,7 @@ app.use('/api/kb', require('./routes/kb'));
 app.use('/api/qa', require('./routes/qa-kb')); // KB Accuracy QA (added 2026-09-22) — needs OPENAI_API_KEY
 app.use('/api/chat', require('./routes/chat-search')); // Chat-content search para sa Customers page (2026-09-24)
 app.use('/api/divbilling', require('./routes/divbilling'));
+app.use('/api/mc-remarks', require('./routes/mc-remarks')); // Internal remarks ng Missed Chats — CSR reason + TL validation, hindi nakikita ng player (2026-10-25)
 app.use('/api/geo', require('./routes/geo')); // Concerns Map: IP → lungsod + mapa ng PH (2026-10-18)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
