@@ -678,7 +678,7 @@ function isAgentRequest(text) {
 //       "specialist", "endorse", …); o
 //   (c) may sumagot na human agent.
 // HANDOFF_MSG_RE (hinigpitan 2026-10-24, Chad): ang ipapasa/forward/endorse ay handoff LANG kapag ang ipinapasa ay ang customer o chat papunta sa agent/CSR/specialist/supervisor — HINDI kapag feedback/concern/request ang ipinapasa "sa team" (hal. "Ipapasa ko ang feedback niyo" ni Agent Jem = hindi handoff). PAREHO dapat sa chatwoot.js at customers.html.
-const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your\s+(chat|conversation|concern|case))|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|(endors\w*|i-?forward(ing)?|ipapasa|ipasa|ikokonekta|i-?connect)\s+(ko\s+)?(po\s+)?(kayo|ka|you|your\s+(chat|conversation|case))\b|(endors\w*|forward(ing)?|ipapasa|ipasa)[\s\S]{0,40}\b(sa\s+|to\s+)(aming\s+|our\s+|isang\s+|a\s+|an\s+|the\s+)?(agent|csr|specialist|supervisor|team\s*leader|human)|(agent|specialist)\s+will\s+(be|assist|attend|get)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
+const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your\s+(chat|conversation|concern|case))|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|(endors\w*|i-?forward(ing)?|ipapasa|ipasa|ikokonekta|i-?connect)(\s+(ko|na|po|muna|kita))*\s+(kayo|ka|you|your\s+(chat|conversation|case))\b|(endors\w*|forward(ing)?|ipapasa|ipasa|ikokonekta)[\s\S]{0,40}\b(sa\s+|to\s+)(isa\s+sa\s+)?(aming\s+|our\s+|isang\s+|mga\s+|a\s+|an\s+|the\s+|one\s+of\s+(our|my)\s+)?(agent|csr|specialist|supervisor|team\s*leader|human|kasamahan|kasama|teammate|team\s*mate|colleague|team\s+member|representative)|(agent|specialist|kasamahan|colleague)\s+will\s+(be|assist|attend|get|reply)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
 // BOT NA NAGPAPAKILALANG TAO (2026-10-24, Chad): "I'm Admin Mona po, a real CSR
 // here at Mobile Casino Play" — AI pa rin si Mona, hindi ito transfer. Kapag
 // ang bot mismo ang nagsasabing siya ay real/live/human agent, HINDI handoff.
@@ -709,7 +709,8 @@ function sessionHasHandoff(allMessages, session, brand) {
   const hadLabelBefore = allMessages.slice(0, startIdx).some(m => !!m.handoffStage);
   for (const m of session) {
     const st = m.handoffStage || null;
-    if (st === 'pending' && !prev && !hadLabelBefore) return true;  // (a)
+    // (2026-10-25) 'handoff' = plain humanhandoff label (hal. MCP "tmhumanhandoff") — unang paglitaw = handoff din
+    if ((st === 'pending' || st === 'handoff') && !prev && !hadLabelBefore) return true;  // (a)
     if (m.senderType === 'user' && isBotSender(brand, m.senderName, m.content)) {
       if (isHandoffBotMessage(m.content)) return true;               // (b)
     }
@@ -746,7 +747,7 @@ function computeArtFtr(allMessages, brand) {
   for (const m of messages) {
     const t = new Date(m.createdAt).getTime();
     const st = m.handoffStage || null;
-    if (st === 'pending' && !prevStage) handoffSeen = true;   // bagong label, hindi lumang dala
+    if ((st === 'pending' || st === 'handoff') && !prevStage) handoffSeen = true;   // bagong label, hindi lumang dala
     prevStage = st;
     // NULL senderType na may pangalan = customer message (luma, bago ang
     // resolveSenderType fallback); ang agent/bot ay laging 'user'.
