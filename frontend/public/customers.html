@@ -1431,8 +1431,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     nearAlerted = new Set([...nearAlerted].filter(k => now.has(k)));
     if (fresh.length) {
       playWaitingChime(1);
-      // (2026-10-25, Chad) banggitin ang brands kahit marami ang sabay
-      const msg = fresh.length === 1 ? `New chat waiting. ${brandSay(fresh[0].brand)}.` : `${fresh.length} new chats waiting. ${brandBreakdown(fresh)}.`;
+      const msg = fresh.length === 1 ? `New chat waiting. ${brandSay(fresh[0].brand)}.` : `${fresh.length} new chats waiting.`;
       setTimeout(() => speak(msg), 700);
       notifyDesktop('New chat waiting', `${fresh.length} chat ang naghihintay ng agent — Team ${TEAM.label}`);
     }
@@ -1444,16 +1443,11 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         playAlertChime();
         const msg = near.length === 1
           ? `Alert! Chat waiting almost 3 minutes. ${brandSay(near[0].brand)}. Please pick it up.`
-          : `Alert! ${near.length} chats waiting almost 3 minutes. ${brandBreakdown(near)}. Please pick them up.`;
+          : `Alert! ${near.length} chats waiting almost 3 minutes. Please pick them up.`;
         setTimeout(() => speak(msg), 800);
         notifyDesktop('⚠ Malapit nang maging Missed Chat', `${near.length} chat ang halos 3 minuto nang naghihintay — Team ${TEAM.label}`);
       }, fresh.length ? 3500 : 0);
     }
-  }
-  // "TMT Cash 2, Hype Play 1" — para sa voice alert kapag maraming brand ang sabay
-  function brandBreakdown(list) {
-    const m = new Map(); list.forEach(c => m.set(c.brand, (m.get(c.brand) || 0) + 1));
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([b, n]) => `${brandSay(b)} ${n}`).join(', ');
   }
   function idleMinOf(c) {
     return c.lastActivityAt ? (Date.now() - new Date(c.lastActivityAt).getTime()) / 60000 : 0;
@@ -2774,7 +2768,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // ang transfer message ng bot ("connect you", "specialist", …).
     // Kapareho ng HANDOFF_MSG_RE sa backend/routes/chatwoot.js.
     // HANDOFF_MSG_RE (hinigpitan 2026-10-24, Chad): ang ipapasa/forward/endorse ay handoff LANG kapag ang ipinapasa ay ang customer o chat papunta sa agent/CSR/specialist/supervisor — HINDI kapag feedback/concern/request ang ipinapasa "sa team" (hal. "Ipapasa ko ang feedback niyo" ni Agent Jem = hindi handoff). PAREHO dapat sa chatwoot.js at customers.html.
-    const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your\s+(chat|conversation|concern|case))|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|(endors\w*|i-?forward(ing)?|ipapasa|ipasa|ikokonekta|i-?connect)\s+(ko\s+)?(po\s+)?(kayo|ka|you|your\s+(chat|conversation|case))\b|(endors\w*|forward(ing)?|ipapasa|ipasa)[\s\S]{0,40}\b(sa\s+|to\s+)(aming\s+|our\s+|isang\s+|a\s+|an\s+|the\s+)?(agent|csr|specialist|supervisor|team\s*leader|human)|(agent|specialist)\s+will\s+(be|assist|attend|get)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
+    const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your\s+(chat|conversation|concern|case))|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|(endors\w*|i-?forward(ing)?|ipapasa|ipasa|ikokonekta|i-?connect)(\s+(ko|na|po|muna|kita))*\s+(kayo|ka|you|your\s+(chat|conversation|case))\b|(endors\w*|forward(ing)?|ipapasa|ipasa|ikokonekta)[\s\S]{0,40}\b(sa\s+|to\s+)(isa\s+sa\s+)?(aming\s+|our\s+|isang\s+|mga\s+|a\s+|an\s+|the\s+|one\s+of\s+(our|my)\s+)?(agent|csr|specialist|supervisor|team\s*leader|human|kasamahan|kasama|teammate|team\s*mate|colleague|team\s+member|representative)|(agent|specialist|kasamahan|colleague)\s+will\s+(be|assist|attend|get|reply)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
     const pendingTimes = [];
     {
       // (2026-10-24) pareho sa sessionHasHandoff: ang 'pending' ay bagong handoff
@@ -2783,7 +2777,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       let prevSt = null, seenAny = false;
       [...messages].sort((a, b) => (tOf(a) ?? 0) - (tOf(b) ?? 0)).forEach(m => {
         const st = m.handoffStage || null;
-        if (st === 'pending' && !prevSt && !seenAny && tOf(m) != null) pendingTimes.push(tOf(m));
+        if ((st === 'pending' || st === 'handoff') && !prevSt && !seenAny && tOf(m) != null) pendingTimes.push(tOf(m));
         if (st) seenAny = true;
         prevSt = st;
       });
