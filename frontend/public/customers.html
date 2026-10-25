@@ -1431,7 +1431,8 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     nearAlerted = new Set([...nearAlerted].filter(k => now.has(k)));
     if (fresh.length) {
       playWaitingChime(1);
-      const msg = fresh.length === 1 ? `New chat waiting. ${brandSay(fresh[0].brand)}.` : `${fresh.length} new chats waiting.`;
+      // (2026-10-25, Chad) banggitin ang brands kahit marami ang sabay
+      const msg = fresh.length === 1 ? `New chat waiting. ${brandSay(fresh[0].brand)}.` : `${fresh.length} new chats waiting. ${brandBreakdown(fresh)}.`;
       setTimeout(() => speak(msg), 700);
       notifyDesktop('New chat waiting', `${fresh.length} chat ang naghihintay ng agent — Team ${TEAM.label}`);
     }
@@ -1443,11 +1444,16 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         playAlertChime();
         const msg = near.length === 1
           ? `Alert! Chat waiting almost 3 minutes. ${brandSay(near[0].brand)}. Please pick it up.`
-          : `Alert! ${near.length} chats waiting almost 3 minutes. Please pick them up.`;
+          : `Alert! ${near.length} chats waiting almost 3 minutes. ${brandBreakdown(near)}. Please pick them up.`;
         setTimeout(() => speak(msg), 800);
         notifyDesktop('⚠ Malapit nang maging Missed Chat', `${near.length} chat ang halos 3 minuto nang naghihintay — Team ${TEAM.label}`);
       }, fresh.length ? 3500 : 0);
     }
+  }
+  // "TMT Cash 2, Hype Play 1" — para sa voice alert kapag maraming brand ang sabay
+  function brandBreakdown(list) {
+    const m = new Map(); list.forEach(c => m.set(c.brand, (m.get(c.brand) || 0) + 1));
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([b, n]) => `${brandSay(b)} ${n}`).join(', ');
   }
   function idleMinOf(c) {
     return c.lastActivityAt ? (Date.now() - new Date(c.lastActivityAt).getTime()) / 60000 : 0;
