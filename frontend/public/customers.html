@@ -582,6 +582,13 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
 .conv-table tbody tr.row-waiting:hover td{background:#FFF2DC;}
 .conv-table tbody tr.row-ongoing td{background:#F3FBF7;}
 .conv-table tbody tr.row-ongoing:hover td{background:#E7F7EF;}
+/* NEW REPLY (2026-10-25): ongoing chat na nag-reply ang player, hindi pa nasasagot */
+.conv-table tbody tr.row-newreply td{background:#FFF7E6;}
+.conv-table tbody tr.row-newreply:hover td{background:#FFEFCC;}
+.conv-table tbody tr.row-newreply td:first-child{box-shadow:inset 4px 0 0 #F5A524;}
+.new-reply-tag{display:inline-block;flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:.03em;padding:2px 7px;border-radius:20px;background:#F5A524;color:#fff;margin-right:7px;animation:newReplyPulse 1.6s ease-in-out infinite;}
+@keyframes newReplyPulse{0%,100%{opacity:1}50%{opacity:.55}}
+.qnew{position:absolute;top:-8px;left:-6px;height:20px;padding:0 7px;border-radius:999px;background:#F5A524;color:#fff;font-size:11px;font-weight:800;line-height:20px;white-space:nowrap;box-shadow:0 0 0 2px #fff;}
 
 /* ---------- TICKETS ROWS ---------- */
 .t-id{font-family:var(--mono);font-size:13px;color:#4A35D6;white-space:nowrap;}
@@ -1941,9 +1948,11 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   // Resolved / HH Closed).
   function updateQuickCounts(scoped) {
     const n = { ongoing: 0, waiting: 0, missed: 0, closedx: 0, late: 0, all: 0 };
+    let newReplies = 0;
     scoped.forEach(c => {
       const k = chatStatusKey(c);
       if (n[k.cls] != null) n[k.cls]++;
+      if (k.cls === 'ongoing' && playerReplied(c)) newReplies++;
       if (k.late) n.late++;
       const st = (c.status || '').toLowerCase();
       if (currentStatus !== 'active' || (st !== 'resolved' && c.handoffStage !== 'closed')) n.all++;
@@ -1955,6 +1964,14 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       b.textContent = v > 999 ? '999+' : v;
       b.classList.toggle('zero', !v);
     });
+    // Orange "N new" sa Ongoing tab = ilang ongoing chats ang may bagong reply ng player
+    const ot = document.querySelector('#quickTabs .qtab[data-qs="ongoing"]');
+    if (ot) {
+      let nb = ot.querySelector('.qnew');
+      if (!nb) { nb = document.createElement('span'); nb.className = 'qnew'; ot.appendChild(nb); }
+      nb.textContent = newReplies ? `${newReplies} new` : '';
+      nb.style.display = newReplies ? '' : 'none';
+    }
   }
 
   function handoffPillHtml(stage) {
@@ -2024,6 +2041,13 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     if (!humanNow) return { cls: 'aichat', label: 'AI Chat', late };
     return { cls: 'ongoing', label: 'Ongoing Chats', late };
   }
+  // NEW REPLY SA ONGOING (2026-10-25, utos ni Chad): kapag Ongoing ang chat at
+  // ang HULING mensahe ay galing sa player (hindi pa nasasagot ng admin),
+  // lalagyan ng "NEW REPLY" pill at mas matingkad na row para mapansin agad.
+  function playerReplied(c) {
+    return c.lastMessageSenderType === 'contact' && !!(c.lastMessage && String(c.lastMessage).trim())
+      && chatStatusKey(c).cls === 'ongoing';
+  }
   function chatStatusHtml(c) {
     const k = chatStatusKey(c);
     const tag = (k.late && k.cls !== 'missed') ? '<br><span class="late-tag" title="Lumagpas sa 3 minuto bago nakasagot ang agent">MISSED 3MIN</span>'
@@ -2054,10 +2078,11 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       const csatBadge = c.csatRating != null
         ? `<span style="display:inline-flex;align-items:center;gap:2px;font-weight:800;font-size:12px;color:${c.csatRating >= 4 ? 'var(--success)' : c.csatRating <= 2 ? 'var(--danger)' : 'var(--warning)'};margin-right:7px;flex-shrink:0;">★ ${c.csatRating}/5</span>`
         : '';
+      const newReply = playerReplied(c);
       const preview = hasFeedback
         ? escapeHtml(c.csatFeedback)
         : (c.lastMessage
-          ? `${c.lastMessageSenderType === 'user' ? `<span class="sender">${escapeHtml(c.lastMessageSender || 'Agent')}:</span> ` : ''}${escapeHtml(c.lastMessage)}`
+          ? `${newReply ? `<span class="new-reply-tag" title="Nag-reply ang player — hindi pa nasasagot">NEW REPLY</span><span class="sender">${escapeHtml(name)}:</span> ` : ''}${c.lastMessageSenderType === 'user' ? `<span class="sender">${escapeHtml(c.lastMessageSender || 'Agent')}:</span> ` : ''}${escapeHtml(c.lastMessage)}`
           : '<span></span>');
       // The NAME opens the customer profile; the rest of the row still opens
       // the conversation thread (2026-09-18).
@@ -2065,7 +2090,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         ? `<div class="c-cname cust-link" data-cust-name="${escapeHtml(name)}" data-cust-brand="${escapeHtml(c.brand)}" title="View customer profile">${escapeHtml(name)}</div>`
         : `<div class="c-cname">${escapeHtml(name)}</div>`;
       return `
-        <tr class="row-${chatStatusKey(c).cls}" data-conversation-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
+        <tr class="row-${chatStatusKey(c).cls}${newReply ? ' row-newreply' : ''}" data-conversation-id="${c.conversationId}" data-brand="${escapeHtml(c.brand)}" data-customer-name="${escapeHtml(name)}" data-customer-sub="${escapeHtml(c.contactEmail || c.inboxName || '')}">
           <td>
             <div class="c-customer">
               <div class="c-av" style="background:${colorForName(name)};">${initialsForName(name)}</div>
