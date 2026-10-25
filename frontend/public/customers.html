@@ -614,6 +614,20 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
 .mcr-val.pending{border-color:#FCD9A8;background:#FFF7E6;}
 .mcr-val input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:12.5px;margin:8px 0;}
 .mcr-err{color:var(--danger);font-size:12px;font-weight:700;display:none;}
+.mcr-files{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;}
+.mcr-thumb{position:relative;width:108px;height:80px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.mcr-thumb img,.mcr-thumb video{width:100%;height:100%;object-fit:cover;display:block;}
+.mcr-thumb .mcr-vid{position:absolute;left:6px;bottom:6px;font-size:10px;font-weight:800;background:rgba(15,23,42,.75);color:#fff;padding:2px 6px;border-radius:6px;}
+.mcr-thumb .mcr-del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(15,23,42,.7);color:#fff;font-size:11px;cursor:pointer;line-height:20px;padding:0;}
+.mcr-thumb .mcr-del:hover{background:var(--danger);}
+.mcr-thumb .mcr-ph{font-size:22px;color:var(--muted);}
+.mcr-hint{font-size:11.5px;color:var(--muted);}
+.mcr-up{font-size:12px;font-weight:700;color:var(--primary);}
+#mcrViewer{z-index:140;}
+#mcrViewer .mcr-viewbox{max-width:min(96vw,1100px);max-height:92vh;display:flex;flex-direction:column;align-items:center;gap:8px;}
+#mcrViewer img,#mcrViewer video{max-width:96vw;max-height:84vh;border-radius:12px;background:#000;}
+#mcrViewer .mcr-viewname{color:#fff;font-size:12px;font-weight:700;}
+.mc-rem .mc-clip{flex-shrink:0;font-size:10px;opacity:.85;}
 .qnew{position:absolute;top:-8px;left:-6px;height:20px;padding:0 7px;border-radius:999px;background:#F5A524;color:#fff;font-size:11px;font-weight:800;line-height:20px;white-space:nowrap;box-shadow:0 0 0 2px #fff;}
 
 /* ---------- TICKETS ROWS ---------- */
@@ -1042,6 +1056,10 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       </div>
       <div class="mcr-body" id="mcrBody"></div>
     </div>
+  </div>
+  <div class="modal-overlay" id="mcrViewer" style="background:rgba(15,23,42,.88);">
+    <button type="button" class="modal-close mcr-viewclose" style="position:fixed;top:16px;right:16px;color:#fff;" aria-label="Close">✕</button>
+    <div class="mcr-viewbox"></div>
   </div>
   <div class="modal-overlay" id="convModalOverlay" style="z-index:120;">
     <div class="modal-panel">
@@ -2172,7 +2190,8 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     if (!r) return `<span class="mc-ic">＋</span><span class="mc-txt">Add reason</span>`;
     const ic = r.validated ? '✓' : '📝';
     const who = r.validated ? `Validated · ${r.validatedBy || ''}` : `${r.remarkBy || ''} · for validation`;
-    return `<span class="mc-ic">${ic}</span><span class="mc-txt" title="${escapeHtml(r.reason)} — ${escapeHtml(who)}">${escapeHtml(r.reason)}</span>`;
+    const nf = (r.files || []).length;
+    return `<span class="mc-ic">${ic}</span><span class="mc-txt" title="${escapeHtml(r.reason)} — ${escapeHtml(who)}">${escapeHtml(r.reason)}</span>${nf ? `<span class="mc-clip" title="${nf} proof file(s)">📎${nf}</span>` : ''}`;
   }
   function paintMcRemark(k) {
     const r = mcRemarks.get(k);
@@ -2232,12 +2251,118 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         <button type="button" class="mcr-btn" id="mcrCancel">Close</button>
         <span class="mcr-err" id="mcrErr"></span>
       </div>
+      ${r ? `<div>
+        <div class="mcr-label">Proof — screenshot o video (max 3 min)</div>
+        <div class="mcr-files" id="mcrFiles"></div>
+        <div class="mcr-row">
+          <button type="button" class="mcr-btn" id="mcrAddFile">📎 Add screenshot / video</button>
+          <span class="mcr-hint">o i-paste ang screenshot dito (Ctrl+V)</span>
+          <span class="mcr-up" id="mcrUpStatus"></span>
+        </div>
+        <input type="file" id="mcrFileInput" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,video/quicktime" multiple hidden>
+      </div>` : `<div class="mcr-hint">I-save muna ang dahilan para makapag-attach ng proof (screenshot o video).</div>`}
       ${valBlock}`;
     document.getElementById('mcrSave').onclick = saveMcRemark;
+    const af = document.getElementById('mcrAddFile');
+    if (af) {
+      af.onclick = () => document.getElementById('mcrFileInput').click();
+      document.getElementById('mcrFileInput').onchange = e => { uploadMcFiles([...e.target.files]); e.target.value = ''; };
+      renderMcFiles();
+    }
     document.getElementById('mcrCancel').onclick = closeMcRemark;
     const v = document.getElementById('mcrValidate'); if (v) v.onclick = () => validateMcRemark(true);
     const u = document.getElementById('mcrUnvalidate'); if (u) u.onclick = () => validateMcRemark(false);
   }
+  // ---- PROOF FILES (screenshot / video ≤ 3 min) ----
+  // Ang <img>/<video> ay hindi makakapagpadala ng Authorization header, kaya
+  // kinukuha ang file via fetch (may token) at ipinapakita bilang blob URL.
+  const mcBlobUrls = new Map();   // file id → object URL
+  async function mcFileUrl(id) {
+    if (mcBlobUrls.has(id)) return mcBlobUrls.get(id);
+    const res = await fetch(`${API_BASE}/mc-remarks/files/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const url = URL.createObjectURL(await res.blob());
+    mcBlobUrls.set(id, url);
+    return url;
+  }
+  const fmtBytes = n => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+  function renderMcFiles() {
+    const box = document.getElementById('mcrFiles'); if (!box || !mcCurrent) return;
+    const r = mcRemarks.get(mcCurrent.k); const files = (r && r.files) || [];
+    box.innerHTML = files.length ? files.map(f => `
+      <div class="mcr-thumb" data-fid="${f.id}" data-ftype="${escapeHtml(f.type)}" data-fname="${escapeHtml(f.name || '')}" title="${escapeHtml(f.name || '')} · ${fmtBytes(f.size)} · ${escapeHtml(f.uploadedBy || '')}">
+        <span class="mcr-ph">${/^video/.test(f.type) ? '🎬' : '🖼'}</span>
+        ${/^video/.test(f.type) ? '<span class="mcr-vid">VIDEO</span>' : ''}
+        <button type="button" class="mcr-del" title="Tanggalin">✕</button>
+      </div>`).join('') : '<div class="mcr-hint">Wala pang proof.</div>';
+    files.forEach(f => {
+      if (!/^image/.test(f.type)) return;
+      mcFileUrl(f.id).then(url => { const t = box.querySelector(`.mcr-thumb[data-fid="${f.id}"]`); if (t) { const img = document.createElement('img'); img.src = url; img.alt = f.name || ''; t.insertBefore(img, t.firstChild); const ph = t.querySelector('.mcr-ph'); if (ph) ph.remove(); } }).catch(() => {});
+    });
+    box.onclick = async (e) => {
+      const t = e.target.closest('.mcr-thumb'); if (!t) return;
+      if (e.target.closest('.mcr-del')) { e.stopPropagation(); return deleteMcFile(Number(t.dataset.fid)); }
+      try { openMcViewer(await mcFileUrl(Number(t.dataset.fid)), t.dataset.ftype, t.dataset.fname); } catch (err) { mcrErr('Hindi mabuksan ang file: ' + err.message); }
+    };
+  }
+  function openMcViewer(url, type, name) {
+    const v = document.getElementById('mcrViewer');
+    v.querySelector('.mcr-viewbox').innerHTML = (/^video/.test(type)
+      ? `<video src="${url}" controls autoplay playsinline></video>`
+      : `<img src="${url}" alt="">`) + `<div class="mcr-viewname">${escapeHtml(name || '')}</div>`;
+    v.classList.add('open');
+  }
+  function closeMcViewer() { const v = document.getElementById('mcrViewer'); v.classList.remove('open'); v.querySelector('.mcr-viewbox').innerHTML = ''; }
+  function videoDuration(file) {
+    return new Promise(resolve => {
+      const url = URL.createObjectURL(file); const vid = document.createElement('video'); vid.preload = 'metadata';
+      const done = d => { URL.revokeObjectURL(url); resolve(d); };
+      vid.onloadedmetadata = () => done(isFinite(vid.duration) ? vid.duration : 0);
+      vid.onerror = () => done(0);
+      setTimeout(() => done(0), 8000);
+      vid.src = url;
+    });
+  }
+  async function uploadMcFiles(files) {
+    if (!mcCurrent || !files.length) return;
+    const st = document.getElementById('mcrUpStatus'); mcrErr('');
+    for (const f of files) {
+      const isImg = /^image\/(png|jpe?g|gif|webp)$/i.test(f.type), isVid = /^video\/(mp4|webm|quicktime|x-matroska)$/i.test(f.type);
+      if (!isImg && !isVid) { mcrErr(`${f.name}: larawan o video lang.`); continue; }
+      if (isImg && f.size > 5 * 1048576) { mcrErr(`${f.name}: max 5 MB ang larawan.`); continue; }
+      if (isVid && f.size > 40 * 1048576) { mcrErr(`${f.name}: max 40 MB ang video — i-trim o i-compress muna.`); continue; }
+      let dur = 0;
+      if (isVid) { dur = await videoDuration(f); if (dur > 181) { mcrErr(`${f.name}: ${Math.round(dur)}s — max 3 minuto lang ang video.`); continue; } }
+      if (st) st.textContent = `Uploading ${f.name}…`;
+      try {
+        const res = await fetch(`${API_BASE}/mc-remarks/${encodeURIComponent(mcCurrent.brand)}/${mcCurrent.conversationId}/files`, {
+          method: 'POST', body: f,
+          headers: { 'Content-Type': f.type, 'X-File-Name': encodeURIComponent(f.name || 'screenshot'), 'X-Duration': String(Math.round(dur)), Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        const r = mcRemarks.get(mcCurrent.k); if (r) { r.files = [...(r.files || []), data.file]; }
+      } catch (e) { mcrErr(`${f.name}: ${e.message}`); }
+    }
+    if (st) st.textContent = '';
+    renderMcFiles(); paintMcRemark(mcCurrent.k);
+  }
+  async function deleteMcFile(id) {
+    if (!mcCurrent || !confirm('Tanggalin ang proof na ito?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/mc-remarks/files/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const r = mcRemarks.get(mcCurrent.k); if (r) r.files = (r.files || []).filter(f => f.id !== id);
+      renderMcFiles(); paintMcRemark(mcCurrent.k);
+    } catch (e) { mcrErr(e.message); }
+  }
+  document.getElementById('mcRemarkOverlay').addEventListener('paste', e => {
+    if (!mcCurrent || !mcRemarks.get(mcCurrent.k)) return;
+    const files = [...(e.clipboardData && e.clipboardData.items || [])].filter(i => i.kind === 'file').map(i => i.getAsFile()).filter(Boolean);
+    if (files.length) { e.preventDefault(); uploadMcFiles(files); }
+  });
+  document.getElementById('mcrViewer').addEventListener('click', e => { if (e.target.id === 'mcrViewer' || e.target.classList.contains('mcr-viewclose')) closeMcViewer(); });
   function mcrErr(msg) { const e = document.getElementById('mcrErr'); if (!e) return; e.textContent = msg || ''; e.style.display = msg ? '' : 'none'; }
   async function saveMcRemark() {
     if (!mcCurrent) return;
@@ -2495,6 +2620,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (document.getElementById('mcrViewer').classList.contains('open')) { closeMcViewer(); return; }
     if (document.getElementById('mcRemarkOverlay').classList.contains('open')) { closeMcRemark(); return; }
     // Close the thread first if both are open (it sits on top).
     if (document.getElementById('convModalOverlay').classList.contains('open')) closeConversationModal();
