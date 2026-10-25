@@ -588,6 +588,32 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
 .conv-table tbody tr.row-newreply td:first-child{box-shadow:inset 4px 0 0 #F5A524;}
 .new-reply-tag{display:inline-block;flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:.03em;padding:2px 7px;border-radius:20px;background:#F5A524;color:#fff;margin-right:7px;animation:newReplyPulse 1.6s ease-in-out infinite;}
 @keyframes newReplyPulse{0%,100%{opacity:1}50%{opacity:.55}}
+/* INTERNAL REMARKS ng Missed Chats (2026-10-25): dahilan mula sa CSR, validation ng TL. Internal lang. */
+.mc-rem{display:inline-flex;align-items:center;gap:5px;margin-top:5px;max-width:230px;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:8px;cursor:pointer;border:1px dashed var(--line);color:var(--muted);background:var(--card);line-height:1.3;}
+.mc-rem:hover{border-color:var(--primary);color:var(--primary);}
+.mc-rem.has{border-style:solid;border-color:#FCD9A8;background:#FFF7E6;color:#8A5A00;}
+.mc-rem.ok{border-color:#B7E4CF;background:#EDFBF4;color:#0F7A55;}
+.mc-rem .mc-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px;}
+.mc-rem .mc-ic{flex-shrink:0;}
+#mcRemarkOverlay{z-index:130;}
+#mcRemarkOverlay .modal-panel{max-width:520px;width:100%;}
+.mcr-body{padding:18px 20px;display:flex;flex-direction:column;gap:14px;}
+.mcr-note{font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:10px;padding:9px 12px;line-height:1.45;}
+.mcr-label{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.mcr-body textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:90px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--card);line-height:1.45;}
+.mcr-body textarea:focus{outline:2px solid var(--primary);outline-offset:-1px;}
+.mcr-meta{font-size:12px;color:var(--muted);}
+.mcr-meta b{color:var(--ink);}
+.mcr-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.mcr-btn{padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+.mcr-btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
+.mcr-btn.ok{background:#12A574;border-color:#12A574;color:#fff;}
+.mcr-btn:disabled{opacity:.6;cursor:progress;}
+.mcr-val{border:1px solid var(--line);border-radius:12px;padding:12px 14px;}
+.mcr-val.ok{border-color:#B7E4CF;background:#EDFBF4;}
+.mcr-val.pending{border-color:#FCD9A8;background:#FFF7E6;}
+.mcr-val input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:12.5px;margin:8px 0;}
+.mcr-err{color:var(--danger);font-size:12px;font-weight:700;display:none;}
 .qnew{position:absolute;top:-8px;left:-6px;height:20px;padding:0 7px;border-radius:999px;background:#F5A524;color:#fff;font-size:11px;font-weight:800;line-height:20px;white-space:nowrap;box-shadow:0 0 0 2px #fff;}
 
 /* ---------- TICKETS ROWS ---------- */
@@ -1002,6 +1028,21 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
        from inside the customer profile, it has to paint above it, and paint
        order plus an inline z-index survives a stale cached stylesheet. The
        profile stays open underneath — closing the thread returns to it. -->
+  <!-- Internal remark ng Missed Chat (2026-10-25) — hindi nakikita ng player -->
+  <div class="modal-overlay" id="mcRemarkOverlay">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="mcrName">—</div>
+          <div class="modal-sub" id="mcrSub">—</div>
+        </div>
+        <button class="modal-close" id="mcrCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="mcr-body" id="mcrBody"></div>
+    </div>
+  </div>
   <div class="modal-overlay" id="convModalOverlay" style="z-index:120;">
     <div class="modal-panel">
       <div class="modal-head">
@@ -2103,7 +2144,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
           </td>
           <td><span class="c-brand">${escapeHtml(brandLabel(c.brand))}</span></td>
           <td><div class="c-preview ${c.lastMessage || hasFeedback ? '' : 'empty'}" style="display:flex;align-items:center;">${csatBadge}${sevPill}${c.lastMessage || hasFeedback ? preview : 'No messages yet'}</div></td>
-          <td>${chatStatusHtml(c)}</td>
+          <td>${chatStatusHtml(c)}${mcRemarkCellHtml(c)}</td>
           <td>${concernPillHtml(c)}</td>
           <td><div class="c-time">${formatDuration(c.ftr)}</div></td>
           <td><div class="c-time">${formatDuration(c.art)}</div></td>
@@ -2111,6 +2152,122 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         </tr>
       `;
     }).join('');
+    loadMcRemarks(conversations);
+  }
+
+  // =========================================================================
+  // INTERNAL REMARKS NG MISSED CHATS (2026-10-25, utos ni Chad)
+  // CSR naglalagay ng dahilan ng MC; Team Leader / Admin ang nagva-validate.
+  // Nakaimbak sa dashboard DB (McRemarks) — HINDI ipinapadala sa
+  // Chatwoot/LiveChat kaya hindi makikita ng player.
+  // =========================================================================
+  const mcRemarks = new Map();   // "brand:conversationId" → remark row
+  const mcKey = c => `${c.brand}:${c.conversationId}`;
+  const canValidateMc = () => /^(admin|team leader)$/i.test(String(window.__userRole || localStorage.getItem('csr_role') || ''));
+  function mcRemarkCellHtml(c) {
+    if (chatStatusKey(c).cls !== 'missed') return '';
+    return `<div class="mc-rem" data-mck="${escapeHtml(mcKey(c))}" title="Internal remark — hindi nakikita ng player">${mcRemarkInner(mcRemarks.get(mcKey(c)))}</div>`;
+  }
+  function mcRemarkInner(r) {
+    if (!r) return `<span class="mc-ic">＋</span><span class="mc-txt">Add reason</span>`;
+    const ic = r.validated ? '✓' : '📝';
+    const who = r.validated ? `Validated · ${r.validatedBy || ''}` : `${r.remarkBy || ''} · for validation`;
+    return `<span class="mc-ic">${ic}</span><span class="mc-txt" title="${escapeHtml(r.reason)} — ${escapeHtml(who)}">${escapeHtml(r.reason)}</span>`;
+  }
+  function paintMcRemark(k) {
+    const r = mcRemarks.get(k);
+    document.querySelectorAll(`.mc-rem[data-mck="${CSS.escape(k)}"]`).forEach(el => {
+      el.innerHTML = mcRemarkInner(r);
+      el.classList.toggle('has', !!r && !r.validated);
+      el.classList.toggle('ok', !!r && !!r.validated);
+    });
+  }
+  async function loadMcRemarks(list) {
+    const items = list.filter(c => chatStatusKey(c).cls === 'missed').map(c => ({ brand: c.brand, conversationId: c.conversationId }));
+    if (!items.length) return;
+    try {
+      const res = await fetch(`${API_BASE}/mc-remarks/lookup`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` },
+        body: JSON.stringify({ items }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      items.forEach(i => { const k = `${i.brand}:${i.conversationId}`; const r = data.remarks && data.remarks[k]; if (r) mcRemarks.set(k, r); else mcRemarks.delete(k); paintMcRemark(k); });
+    } catch (e) { /* tahimik — optional ang remarks */ }
+  }
+
+  let mcCurrent = null;   // { brand, conversationId, name, k }
+  function openMcRemark(k, name, brand) {
+    const [, idStr] = [k, k.slice(k.indexOf(':') + 1)];
+    mcCurrent = { brand, conversationId: Number(idStr), name, k };
+    renderMcRemarkModal();
+    document.getElementById('mcRemarkOverlay').classList.add('open');
+    setTimeout(() => { const t = document.getElementById('mcrReason'); if (t) t.focus(); }, 50);
+  }
+  function closeMcRemark() { document.getElementById('mcRemarkOverlay').classList.remove('open'); mcCurrent = null; }
+  function fmtWhen(d) { if (!d) return ''; try { return new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } }
+  function renderMcRemarkModal() {
+    if (!mcCurrent) return;
+    const r = mcRemarks.get(mcCurrent.k);
+    document.getElementById('mcrName').textContent = mcCurrent.name || 'Unknown';
+    document.getElementById('mcrSub').textContent = `${brandLabel(mcCurrent.brand)} · Missed Chat · internal remark`;
+    const val = canValidateMc();
+    const valBlock = !r ? '' : r.validated
+      ? `<div class="mcr-val ok"><div class="mcr-label" style="color:#0F7A55;">✓ Validated</div>
+           <div class="mcr-meta">ni <b>${escapeHtml(r.validatedBy || '')}</b> · ${fmtWhen(r.validatedAt)}${r.validationNote ? `<br>Note: ${escapeHtml(r.validationNote)}` : ''}</div>
+           ${val ? `<div class="mcr-row" style="margin-top:10px;"><button type="button" class="mcr-btn" id="mcrUnvalidate">Bawiin ang validation</button></div>` : ''}</div>`
+      : `<div class="mcr-val pending"><div class="mcr-label" style="color:#8A5A00;">Waiting for TL validation</div>
+           ${val ? `<input type="text" id="mcrValNote" placeholder="Note ng TL (optional)" maxlength="300">
+             <div class="mcr-row"><button type="button" class="mcr-btn ok" id="mcrValidate">✓ Validate</button></div>`
+                 : `<div class="mcr-meta">Ang Team Leader / Admin ang magva-validate nito.</div>`}</div>`;
+    document.getElementById('mcrBody').innerHTML = `
+      <div class="mcr-note">🔒 Internal lang ito. Nakaimbak sa dashboard at <b>hindi</b> ipinapadala sa Chatwoot/LiveChat — hindi ito makikita ng player.</div>
+      <div>
+        <div class="mcr-label">Reason for missed chat</div>
+        <textarea id="mcrReason" maxlength="2000" placeholder="Hal. Sabay-sabay na 4 chats, nasa break, system lag, player nag-leave agad…">${r ? escapeHtml(r.reason) : ''}</textarea>
+        ${r ? `<div class="mcr-meta" style="margin-top:6px;">Inilagay ni <b>${escapeHtml(r.remarkBy || '')}</b> · ${fmtWhen(r.remarkAt)}${r.validated ? '' : ' · kapag binago, kailangang i-validate ulit'}</div>` : ''}
+      </div>
+      <div class="mcr-row">
+        <button type="button" class="mcr-btn primary" id="mcrSave">${r ? 'Update reason' : 'Save reason'}</button>
+        <button type="button" class="mcr-btn" id="mcrCancel">Close</button>
+        <span class="mcr-err" id="mcrErr"></span>
+      </div>
+      ${valBlock}`;
+    document.getElementById('mcrSave').onclick = saveMcRemark;
+    document.getElementById('mcrCancel').onclick = closeMcRemark;
+    const v = document.getElementById('mcrValidate'); if (v) v.onclick = () => validateMcRemark(true);
+    const u = document.getElementById('mcrUnvalidate'); if (u) u.onclick = () => validateMcRemark(false);
+  }
+  function mcrErr(msg) { const e = document.getElementById('mcrErr'); if (!e) return; e.textContent = msg || ''; e.style.display = msg ? '' : 'none'; }
+  async function saveMcRemark() {
+    if (!mcCurrent) return;
+    const reason = (document.getElementById('mcrReason').value || '').trim();
+    if (!reason) { mcrErr('Ilagay ang dahilan.'); return; }
+    const btn = document.getElementById('mcrSave'); btn.disabled = true; mcrErr('');
+    try {
+      const res = await fetch(`${API_BASE}/mc-remarks/${encodeURIComponent(mcCurrent.brand)}/${mcCurrent.conversationId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      mcRemarks.set(mcCurrent.k, data.remark); paintMcRemark(mcCurrent.k); renderMcRemarkModal();
+    } catch (e) { mcrErr(e.message); btn.disabled = false; }
+  }
+  async function validateMcRemark(validated) {
+    if (!mcCurrent) return;
+    const noteEl = document.getElementById('mcrValNote');
+    const note = noteEl ? noteEl.value.trim() : '';
+    mcrErr('');
+    try {
+      const res = await fetch(`${API_BASE}/mc-remarks/${encodeURIComponent(mcCurrent.brand)}/${mcCurrent.conversationId}/validate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` },
+        body: JSON.stringify({ validated, note }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      mcRemarks.set(mcCurrent.k, data.remark); paintMcRemark(mcCurrent.k); renderMcRemarkModal();
+    } catch (e) { mcrErr(e.message); }
   }
 
   // ---- EXPORT CSV (2026-10-10): ine-export ang kasalukuyang FILTERED view —
@@ -2125,7 +2282,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     const rows = [[
       'Customer','Email/Inbox','IP','Brand','Chat Status','Late Reply (3min+)','Concern',
       'Last Message Sender','Last Message','First Reply Time (sec)','Chatting Time (sec)',
-      'Last Activity','Conversation ID'
+      'Last Activity','Conversation ID','MC Remark','MC Remark By','MC Validated By'
     ].join(',')];
     list.forEach(c => {
       const k = chatStatusKey(c);
@@ -2134,7 +2291,9 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         brandLabel(c.brand), k.label, k.late ? 'YES' : '', c.concern || '',
         c.lastMessageSender || '', c.lastMessage || '', c.ftr != null ? c.ftr : '',
         c.art != null ? c.art : '', c.lastActivityAt ? new Date(c.lastActivityAt).toISOString() : '',
-        c.conversationId
+        c.conversationId,
+        (mcRemarks.get(mcKey(c)) || {}).reason || '', (mcRemarks.get(mcKey(c)) || {}).remarkBy || '',
+        (mcRemarks.get(mcKey(c)) || {}).validated ? ((mcRemarks.get(mcKey(c)) || {}).validatedBy || 'YES') : ''
       ].map(esc_).join(','));
     });
     const blob = new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -2319,8 +2478,12 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     }
     const row = e.target.closest('tr[data-conversation-id]');
     if (!row) return;
+    const rem = e.target.closest('.mc-rem');
+    if (rem) { e.stopPropagation(); openMcRemark(rem.dataset.mck, row.dataset.customerName, row.dataset.brand); return; }
     openConversationModal(row.dataset.conversationId, row.dataset.customerName, row.dataset.customerSub, row.dataset.brand);
   });
+  document.getElementById('mcrCloseBtn').addEventListener('click', closeMcRemark);
+  document.getElementById('mcRemarkOverlay').addEventListener('click', (e) => { if (e.target.id === 'mcRemarkOverlay') closeMcRemark(); });
 
   document.getElementById('modalCloseBtn').addEventListener('click', closeConversationModal);
   document.getElementById('convModalOverlay').addEventListener('click', (e) => {
@@ -2332,6 +2495,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (document.getElementById('mcRemarkOverlay').classList.contains('open')) { closeMcRemark(); return; }
     // Close the thread first if both are open (it sits on top).
     if (document.getElementById('convModalOverlay').classList.contains('open')) closeConversationModal();
     else closeCustomerModal();
