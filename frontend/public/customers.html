@@ -2877,19 +2877,41 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
             new Promise(r => setTimeout(() => r(null), 8000)),
           ])
         : Promise.resolve(null);
-      const res = await fetch(`${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&limit=200${typeof brand !== 'undefined' && brand ? `&brand=${encodeURIComponent(brand)}` : ''}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      // (2026-10-26) "Could not load this conversation" sa LiveChat chat ni
+      // Paldogwapa09: awtomatikong 2 retry (may 20s timeout bawat isa) at
+      // ipinapakita ang TOTOONG dahilan + "Try again" button para hindi
+      // manghula kung network, 5xx, o render error.
+      const url = `${API_BASE}/chatwoot/events?conversationId=${encodeURIComponent(conversationId)}&limit=200${brand ? `&brand=${encodeURIComponent(brand)}` : ''}`;
+      let data = null, lastErr = null;
+      for (let attempt = 0; attempt < 3 && !data; attempt++) {
+        if (attempt) await new Promise(r => setTimeout(r, 700 * attempt));
+        const ac = new AbortController(); const to = setTimeout(() => ac.abort(), 20000);
+        try {
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: ac.signal });
+          if (res.status === 401) throw Object.assign(new Error('Expired na ang login — mag-login ulit.'), { fatal: true });
+          if (!res.ok) { let d = ''; try { d = (await res.json()).error || ''; } catch {} throw new Error(`HTTP ${res.status}${d ? ' — ' + d : ''}`); }
+          data = await res.json();
+        } catch (e) {
+          lastErr = e.name === 'AbortError' ? new Error('Naubusan ng oras (20s) — mabagal ang server') : e;
+          if (e.fatal) break;
+        } finally { clearTimeout(to); }
+      }
+      if (!data) throw lastErr || new Error('Walang sagot ang server');
       // API returns newest-first — reverse for natural top-to-bottom reading order.
       const messages = (data.events || []).slice().reverse();
       // Kapag galing sa chat-content search, ipasa ang query para
       // ma-highlight at ma-scroll diretso sa tumamang mensahe.
-      renderMessageThread(messages, searchMode ? lastSearchQuery : '', await actP);
+      const acts = await actP;
+      try {
+        renderMessageThread(messages, searchMode ? lastSearchQuery : '', acts);
+      } catch (re) {
+        throw Object.assign(new Error('Hindi ma-display ang thread: ' + re.message), { render: true });
+      }
     } catch (err) {
       console.error('Failed to load conversation thread:', err);
-      body.innerHTML = '<div class="empty-note">Could not load this conversation. Please try again.</div>';
+      body.innerHTML = `<div class="empty-note">Could not load this conversation.<br><span style="font-size:12px;color:var(--muted);">${escapeHtml(err && err.message ? err.message : 'Unknown error')}</span><br><button type="button" class="mcr-btn" id="convRetryBtn" style="margin-top:12px;">↻ Try again</button></div>`;
+      const rb = document.getElementById('convRetryBtn');
+      if (rb) rb.onclick = () => openConversationModal(conversationId, customerName, customerSub, brand);
     }
   }
 
