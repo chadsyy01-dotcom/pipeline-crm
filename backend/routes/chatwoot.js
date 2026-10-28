@@ -743,11 +743,12 @@ function computeArtFtr(allMessages, brand) {
   const sIdx = allMessages.length - messages.length;
   let prevStage = sIdx > 0 ? (allMessages[sIdx - 1].handoffStage || null) : null;
   let handoffSeen = false, botSeen = false, lastCustAny = null, ftrExemptWhy = null;
+  let handoffAt = null;            // (2026-10-28) oras ng UNANG handoff signal sa session — panimula ng 3-min wait
 
   for (const m of messages) {
     const t = new Date(m.createdAt).getTime();
     const st = m.handoffStage || null;
-    if ((st === 'pending' || st === 'handoff') && !prevStage) handoffSeen = true;   // bagong label, hindi lumang dala
+    if ((st === 'pending' || st === 'handoff') && !prevStage) { handoffSeen = true; if (handoffAt === null) handoffAt = t; }   // bagong label, hindi lumang dala
     prevStage = st;
     // NULL senderType na may pangalan = customer message (luma, bago ang
     // resolveSenderType fallback); ang agent/bot ay laging 'user'.
@@ -762,7 +763,7 @@ function computeArtFtr(allMessages, brand) {
       if (lastCustomerMsgTime !== null) lastBotMsgTime = t; // handoff/transfer point ng bot
       reqPending = false; // sumagot/nag-transfer na ang AI pagkatapos ng request
       botSeen = true;
-      if (isHandoffBotMessage(m.content)) handoffSeen = true;
+      if (isHandoffBotMessage(m.content)) { handoffSeen = true; if (handoffAt === null) handoffAt = t; }
       continue; // bot reply — not a human response
     } else if (m.senderType === 'user' && lastCustomerMsgTime !== null) {
       if (firstAgentGap === null) {
@@ -812,6 +813,7 @@ function computeArtFtr(allMessages, brand) {
     waitExempt: reqPending,       // naghihintay pa, pero request lang — hindi pa naipapasa ng AI
     sessionHandoff,               // false = walang AI handoff sa session (lumang label lang / kusang kinuha ng agent)
     humanReplied,
+    handoffAt,                    // ms | null
   };
 }
 
@@ -1161,12 +1163,36 @@ router.get('/conversations', requireAuth, conversationsMicroCache, async (req, r
       allMessages.forEach(m => {
         (byConversation[ck(m.brand, m.conversationId)] ??= []).push(m);
       });
+      // Oras ng bawat "resolved" status change (para sa 3-minutong rule)
+      const resolvedRows = await sequelize.query(`
+        SELECT "conversationId", "brand", "createdAt" FROM "ChatwootEvents"
+        WHERE event = 'conversation_status_changed' AND status = 'resolved'
+          AND "conversationId" IN (:handoffIds)
+        ORDER BY "createdAt" ASC
+      `, { replacements: { handoffIds }, type: QueryTypes.SELECT });
+      const resolvedByConv = {};
+      resolvedRows.forEach(r => { (resolvedByConv[ck(r.brand, r.conversationId)] ??= []).push(new Date(r.createdAt).getTime()); });
+      const CLOSING_SPIEL_RE_BE = /rate\s+(our|your|the)\s+(support|conversation|chat|experience|service)|kumusta\s+ang\s+(iyong|inyong)\s+experience|how\s+was\s+your\s+(experience|chat)|please\s+rate|we'?d\s+love\s+to\s+hear\s+your\s+feedback/i;
 
       conversations.forEach(c => {
         if (!needsCalc(c)) return;
         const msgs = byConversation[ck(c.brand, c.conversationId)];
         if (!msgs) return;
-        const { art, ftr, ftrExempt, ftrExemptWhy, waitExempt, sessionHandoff, humanReplied } = computeArtFtr(msgs, c.brand);
+        const { art, ftr, ftrExempt, ftrExemptWhy, waitExempt, sessionHandoff, humanReplied, handoffAt } = computeArtFtr(msgs, c.brand);
+        // 3-MINUTO RULE (2026-10-28, utos ni Chad): ang Missed Chat ay kapag
+        // 3 minutong naghintay ang player na WALANG sagot habang BUKAS pa ang
+        // chat. Kung umalis/na-resolve ang chat bago mag-3 minuto mula handoff,
+        // hindi MC. closedAfterSec = segundo mula handoff hanggang sa unang
+        // resolve (status resolved o closing spiel / CSAT prompt).
+        if (handoffAt != null) {
+          const lim = handoffAt - 5000;
+          const resolvedT = resolvedByConv[ck(c.brand, c.conversationId)] || [];
+          let closeAt = resolvedT.find(t => t >= lim);
+          const spiel = msgs.find(m => new Date(m.createdAt).getTime() >= lim && m.senderType !== 'contact' && CLOSING_SPIEL_RE_BE.test(String(m.content || '').slice(0, 300)));
+          if (spiel) { const st = new Date(spiel.createdAt).getTime(); if (closeAt == null || st < closeAt) closeAt = st; }
+          c.handoffAt = new Date(handoffAt).toISOString();
+          c.closedAfterSec = closeAt != null ? Math.max(0, Math.round((closeAt - handoffAt) / 1000)) : null;
+        }
         c.ftrExemptWhy = ftrExemptWhy;
         c.sessionHandoff = sessionHandoff;
         c.humanReplied = humanReplied;
