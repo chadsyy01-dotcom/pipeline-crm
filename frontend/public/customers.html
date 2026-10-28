@@ -2080,7 +2080,12 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // kung may sumagot.
     const closedOut = (c.status || '').toLowerCase() === 'resolved' || c.handoffStage === 'closed'
       || CLOSING_SPIEL_RE.test(String(c.lastMessage || '').slice(0, 300));
-    if (handedOff && !answered && !agentSpokeLast && !c.waitExempt) {
+    // 3-MINUTO RULE (2026-10-28, utos ni Chad): MC lang kapag 3 minutong naghintay
+    // ang player na walang sagot habang bukas pa ang chat. Kung umalis/na-resolve
+    // ang chat bago mag-3 minuto mula handoff (closedAfterSec < 180), hindi MC —
+    // Closed lang (hal. kisett22: handoff 1:34, na-resolve ng player sa loob ng 1 min).
+    const leftEarly = closedOut && c.closedAfterSec != null && c.closedAfterSec < MISSED_SLA_SEC;
+    if (handedOff && !answered && !agentSpokeLast && !c.waitExempt && !leftEarly) {
       if (closedOut || idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
       return { cls: 'waiting', label: 'Waiting', late };
     }
@@ -3084,6 +3089,15 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // bot message bago ang unang human reply) — HINDI sa lumang customer
     // message. Ang mga player message bago ang handoff ay hindi binibilang.
     const SESSION_GAP_MS = 60 * 60 * 1000;
+    // Oras ng "resolved" (webhook status change) at closing spiel/CSAT prompt — para sa 3-min rule
+    const CLOSE_SPIEL = /rate\s+(our|your|the)\s+(support|conversation|chat|experience|service)|kumusta\s+ang\s+(iyong|inyong)\s+experience|how\s+was\s+your\s+(experience|chat)|please\s+rate|we'?d\s+love\s+to\s+hear\s+your\s+feedback/i;
+    const resolveTimes = [];
+    messages.forEach(m => {
+      const t0 = m && m.createdAt ? new Date(m.createdAt).getTime() : null;
+      if (t0 == null) return;
+      if ((m.event === 'conversation_status_changed' && m.status === 'resolved') || (m.senderType !== 'contact' && CLOSE_SPIEL.test(String(m.content || '').slice(0, 300)))) resolveTimes.push(t0);
+    });
+    resolveTimes.sort((a, b) => a - b);
     const isHumanAgent = m => m.senderType === 'user' && m.senderName && !isBotClient(m.brand, m.senderName);
     const isBotMsg = m => m.senderType === 'user' && m.senderName && isBotClient(m.brand, m.senderName);
     const tOf = m => m && m.createdAt ? new Date(m.createdAt).getTime() : null;
@@ -3175,7 +3189,12 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       }
       if (runIdx != null) {
         const isLastSession = idxs === sessions[sessions.length - 1];
-        const until = isLastSession ? Date.now() : sEnd;
+        let until = isLastSession ? Date.now() : sEnd;
+        // 3-MINUTO RULE (2026-10-28): kung na-resolve/umalis ang player bago
+        // mag-3 minuto mula handoff, doon nagtatapos ang paghihintay — hindi
+        // hanggang "ngayon" (kisett22: resolved sa loob ng 1 min ≠ WALANG SAGOT).
+        const closeAt = resolveTimes.find(t => t >= runAt - 5000);
+        if (closeAt != null && closeAt < until) until = closeAt;
         if ((until - runAt) / 1000 > 180) {
           const info = reqIdx != null ? { req: true, waiting: true } : { late: false };
           if (runAt === ho) { hoEntry.miss = info; hoEntry.tagAfter = idxs[idxs.length - 1]; } else missInfo.set(runIdx, info);
