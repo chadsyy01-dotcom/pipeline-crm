@@ -3168,7 +3168,8 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
           if (mm.senderType === 'user' && CLOSE_SPIEL.test(String(mm.content || '').slice(0, 400))) continue;   // CSAT / auto-close notice ay hindi "nagsalita"
           lastSp = mm; break;
         }
-        if (lastSp && isBotMsg(lastSp) && !isHandoffText(lastSp.content) && tOf(lastSp) >= ho - 2000) return;
+        const custAfterHo = idxs.some(k => { const mm = withContent[k]; return mm.senderType === 'contact' && tOf(mm) > ho && tOf(mm) < tOf(lastSp || mm) + 1; });
+        if (lastSp && isBotMsg(lastSp) && !isHandoffText(lastSp.content) && custAfterHo && tOf(lastSp) > ho) return;
       }
       hoAt = ho;
       const hoEntry = { at: ho, miss: null };
