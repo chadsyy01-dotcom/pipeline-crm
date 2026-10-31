@@ -2086,7 +2086,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // Closed lang (hal. kisett22: handoff 1:34, na-resolve ng player sa loob ng 1 min).
     const leftEarly = closedOut && c.closedAfterSec != null && c.closedAfterSec < MISSED_SLA_SEC;
     if (handedOff && !answered && !agentSpokeLast && !c.waitExempt && !leftEarly) {
-      if (closedOut || idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late };
+      if (closedOut || idleMin >= MISSED_SLA_SEC / 60) return { cls: 'missed', label: 'Missed Chat', late: false };   // (2026-10-31) nasa Missed Chat na — hindi na isinasama sa Missed 3min
       return { cls: 'waiting', label: 'Waiting', late };
     }
     if (closedOut) return { cls: 'closedx', label: 'Closed', late };
