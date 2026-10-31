@@ -756,7 +756,7 @@ function computeArtFtr(allMessages, brand) {
   const sIdx = allMessages.length - messages.length;
   let prevStage = sIdx > 0 ? (allMessages[sIdx - 1].handoffStage || null) : null;
   let handoffSeen = false, botSeen = false, lastCustAny = null, ftrExemptWhy = null;
-  let lastSpk = null, lastSpkAt = null, lastSpkTransfer = false;   // huling nagsalita sa session
+  let lastSpk = null, lastSpkAt = null, lastSpkTransfer = false, custAfterHoAt = null;   // huling nagsalita sa session
   let handoffAt = null;            // (2026-10-28) oras ng UNANG handoff signal sa session — panimula ng 3-min wait
 
   for (const m of messages) {
@@ -770,7 +770,7 @@ function computeArtFtr(allMessages, brand) {
     // AI-LAST RULE (2026-10-31): sino ang HULING nagsalita (customer / bot / tao)?
     // (fix 2026-10-31) Hindi binibilang ang automated CSAT / "auto-closed" notice bilang "nagsalita";
     // ang huling bot message ay hindi dapat transfer text.
-    if (isCustomer) { lastSpk = 'customer'; lastSpkAt = t; }
+    if (isCustomer) { lastSpk = 'customer'; lastSpkAt = t; if (handoffAt != null && t > handoffAt) custAfterHoAt = t; }
     else if (m.senderType === 'user' && !isCloseNoticeRow(m) && !AUTOMATED_MSG_RE.test(String(m.content || '').slice(0, 400))) {
       if (isBotSender(brand, m.senderName, m.content)) { lastSpk = 'bot'; lastSpkTransfer = isHandoffBotMessage(m.content); }
       else lastSpk = 'human';
@@ -839,7 +839,7 @@ function computeArtFtr(allMessages, brand) {
     // kapag walang taong sumagot at ANG AI ANG HULING NAGSALITA (hindi transfer
     // message) pagkatapos ng handoff signal, bumalik/nanatili ang usapan sa AI —
     // hindi handoff, hindi Waiting/Missed.
-    sessionHandoff: (sessionHandoff && !humanReplied && lastSpk === 'bot' && !lastSpkTransfer && handoffAt != null && lastSpkAt >= handoffAt - 2000) ? false : sessionHandoff,
+    sessionHandoff: (sessionHandoff && !humanReplied && lastSpk === 'bot' && !lastSpkTransfer && handoffAt != null && custAfterHoAt != null && lastSpkAt > custAfterHoAt) ? false : sessionHandoff,
     humanReplied,
     handoffAt,                    // ms | null
   };
