@@ -3090,7 +3090,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // message. Ang mga player message bago ang handoff ay hindi binibilang.
     const SESSION_GAP_MS = 60 * 60 * 1000;
     // Oras ng "resolved" (webhook status change) at closing spiel/CSAT prompt — para sa 3-min rule
-    const CLOSE_SPIEL = /rate\s+(our|your|the)\s+(support|conversation|chat|experience|service)|kumusta\s+ang\s+(iyong|inyong)\s+experience|how\s+was\s+your\s+(experience|chat)|please\s+rate|we'?d\s+love\s+to\s+hear\s+your\s+feedback/i;
+    const CLOSE_SPIEL = /automatically\s+closed|will\s+now\s+be\s+(auto\w*\s+)?closed|rate\s+(our|your|the)\s+(support|conversation|chat|experience|service)|kumusta\s+ang\s+(iyong|inyong)\s+experience|how\s+was\s+your\s+(experience|chat)|please\s+rate|we'?d\s+love\s+to\s+hear\s+your\s+feedback/i;
     const resolveTimes = [];
     messages.forEach(m => {
       const t0 = m && m.createdAt ? new Date(m.createdAt).getTime() : null;
@@ -3106,11 +3106,15 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     const missInfo = new Map();
     const hoList = [];   // bawat handoff (isa bawat session) + miss info kung lumampas   // index sa withContent -> {late:bool, mins}
     const sessions = [];
-    let cur = null, prevAt = null;
+    let cur = null, prevAt = null, lastContactAt = null;
     withContent.forEach((m, i) => {
       const at = tOf(m);
       if (at == null) return;
-      if (!cur || (prevAt != null && at - prevAt > SESSION_GAP_MS)) { cur = []; sessions.push(cur); }
+      // (2026-10-31) bumalik ang player pagkatapos ng resolve/auto-close = BAGONG session,
+      // kahit wala pang 60 min (Zyriene: resolved 11:55, balik 12:41, AI lang → hindi dapat madala ang lumang handoff)
+      const reopened = lastContactAt != null && m.senderType === 'contact' && resolveTimes.some(r => r > lastContactAt && r <= at);
+      if (!cur || (prevAt != null && (at - prevAt > SESSION_GAP_MS || reopened))) { cur = []; sessions.push(cur); }
+      if (m.senderType === 'contact') lastContactAt = at;
       cur.push(i); prevAt = at;
     });
     // Lumang "pending" label na dala-dala ng conversation (hindi tinatanggal
@@ -3139,10 +3143,13 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     withContent.forEach(m => { if (isBotMsg(m) && isHandoffText(m.content) && tOf(m) != null) pendingTimes.push(tOf(m)); });
     pendingTimes.sort((a, b) => a - b);
     let hoAt = null;   // para sa divider: handoff ng pinakahuling session na may handoff
-    sessions.forEach(idxs => {
+    sessions.forEach((idxs, si) => {
       const sStart = tOf(withContent[idxs[0]]), sEnd = tOf(withContent[idxs[idxs.length - 1]]);
       const firstHumanPos = idxs.findIndex(i => isHumanAgent(withContent[i]));
-      let ho = pendingTimes.find(t => t >= sStart - 5000 && t <= sEnd + SESSION_GAP_MS) ?? null;
+      // Hindi puwedeng kunin ng session ang handoff ng SUSUNOD na session (na ngayon ay maaaring wala pang 60 min ang pagitan)
+      const nextStartT = sessions[si + 1] ? tOf(withContent[sessions[si + 1][0]]) : null;
+      const hiLim = nextStartT != null ? Math.min(sEnd + SESSION_GAP_MS, nextStartT - 5000) : sEnd + SESSION_GAP_MS;
+      let ho = pendingTimes.find(t => t >= sStart - 5000 && t <= hiLim) ?? null;
       // (INALIS 2026-10-13: ang "huling bot message bago ang unang human
       // reply" ay hindi na itinuturing na handoff — normal na sagot lang iyon
       // ng AI, hal. "Wala pa rin pong update…". Handoff lang kapag may
