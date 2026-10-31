@@ -3161,14 +3161,14 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       // ANG AI ANG HULING NAGSALITA (hindi transfer message) pagkatapos ng handoff signal →
       // nanatili sa AI ang usapan, hindi handoff / hindi MC.
       if (firstHumanPos === -1) {
-        let lastSp = null, xferSeen = false;
+        let lastSp = null;
         for (let k = idxs.length - 1; k >= 0; k--) {
           const mm = withContent[idxs[k]];
           if (mm.senderType !== 'contact' && mm.senderType !== 'user') continue;
-          if (mm.senderType === 'user' && isBotMsg(mm) && isHandoffText(mm.content)) xferSeen = true;
-          if (!lastSp && !(mm.senderType === 'user' && CLOSE_SPIEL.test(String(mm.content || '').slice(0, 400)))) lastSp = mm;
+          if (mm.senderType === 'user' && CLOSE_SPIEL.test(String(mm.content || '').slice(0, 400))) continue;   // CSAT / auto-close notice ay hindi "nagsalita"
+          lastSp = mm; break;
         }
-        if (!xferSeen && lastSp && isBotMsg(lastSp) && tOf(lastSp) >= ho - 2000) return;
+        if (lastSp && isBotMsg(lastSp) && !isHandoffText(lastSp.content) && tOf(lastSp) >= ho - 2000) return;
       }
       hoAt = ho;
       const hoEntry = { at: ho, miss: null };
