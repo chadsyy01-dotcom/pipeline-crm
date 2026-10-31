@@ -199,6 +199,21 @@ function isBotSender(brand, senderName, content) {
   return !!(scoped && scoped.has(senderName));
 }
 
+// MONITOR / TEST ACCOUNTS (2026-10-31, utos ni Chad — "wag isama sa list"):
+// mga automated na "customer" na nagcha-chat para mag-monitor, hal.
+// "Promo Accuracy Monitor" at "Dify System Monitor" (HypePlay PH). Hindi
+// sila tunay na player, kaya HINDI sila ipinapakita sa mga listahan
+// (/conversations, /pending, /top-customers, /customer-search). Lahat ng
+// contact name na nagtatapos sa "Monitor" ay tinatanggal; idagdag sa
+// MONITOR_CONTACT_NAMES ang ibang pangalan na hindi tumatama sa pattern.
+const MONITOR_CONTACT_NAMES = new Set(['promo accuracy monitor', 'dify system monitor']);
+const MONITOR_CONTACT_RE = /\bmonitor\s*$/i;
+function isMonitorContact(name) {
+  if (!name) return false;
+  const n = String(name).trim();
+  return MONITOR_CONTACT_NAMES.has(n.toLowerCase()) || MONITOR_CONTACT_RE.test(n);
+}
+
 function isRealHumanAgentReply(senderName, senderType, brand, content) {
   return senderType === 'user' && !!senderName && !isBotSender(brand, senderName, content);
 }
@@ -1234,6 +1249,7 @@ router.get('/conversations', requireAuth, conversationsMicroCache, async (req, r
     // No global slice when showing all brands — the per-brand cap above
     // already bounds the result (<= PER_BRAND_LIMIT x number of brands).
     const sorted = conversations
+      .filter(c => !isMonitorContact(c.contactName))
       .sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt))
       .slice(0, brand ? limit : conversations.length);
 
@@ -1694,7 +1710,7 @@ router.get('/pending', requireAuth, shortCache(20000), async (req, res) => {
     const activityMap = new Map(activity.map(r => [r.conversationId, r.lastActivityAt]));
 
     res.json({
-      pending: ids.map(id => ({
+      pending: ids.filter(id => !isMonitorContact(contactMap.get(id))).map(id => ({
         conversationId: id,
         brand: brandMap.get(id),
         contactName: contactMap.get(id) || null,
@@ -1964,7 +1980,7 @@ router.get('/customer-search', requireAuth, async (req, res) => {
       LIMIT :limit
     `, { replacements: { q: `%${qRaw}%`, limit }, type: QueryTypes.SELECT });
 
-    res.json({ results: rows.map(r => ({ name: r.name, brand: r.brand, chats: Number(r.chats), lastActivityAt: r.lastActivityAt })) });
+    res.json({ results: rows.filter(r => !isMonitorContact(r.name)).map(r => ({ name: r.name, brand: r.brand, chats: Number(r.chats), lastActivityAt: r.lastActivityAt })) });
   } catch (err) {
     console.error('Customer search error:', err);
     res.status(500).json({ error: err.message });
@@ -1992,6 +2008,7 @@ router.get('/top-customers', requireAuth, async (req, res) => {
       FROM "ChatwootEvents"
       WHERE "contactName" IS NOT NULL
         AND "contactName" <> ''
+        AND TRIM("contactName") NOT ILIKE '%monitor'   -- monitor/test accounts (tingnan ang isMonitorContact)
         AND "conversationId" IS NOT NULL
         ${dateClause}
       GROUP BY "contactName", "brand"
@@ -2000,7 +2017,7 @@ router.get('/top-customers', requireAuth, async (req, res) => {
     `, { replacements: { from, to, limit }, type: QueryTypes.SELECT });
 
     res.json({
-      customers: rows.map(r => ({
+      customers: rows.filter(r => !isMonitorContact(r.contactName)).map(r => ({
         name: r.contactName,
         brand: r.brand,
         chats: Number(r.chats),
