@@ -756,6 +756,7 @@ function computeArtFtr(allMessages, brand) {
   const sIdx = allMessages.length - messages.length;
   let prevStage = sIdx > 0 ? (allMessages[sIdx - 1].handoffStage || null) : null;
   let handoffSeen = false, botSeen = false, lastCustAny = null, ftrExemptWhy = null;
+  let lastSpk = null, lastSpkAt = null, lastSpkTransfer = false;   // huling nagsalita sa session
   let handoffAt = null;            // (2026-10-28) oras ng UNANG handoff signal sa session — panimula ng 3-min wait
 
   for (const m of messages) {
@@ -766,6 +767,13 @@ function computeArtFtr(allMessages, brand) {
     // NULL senderType na may pangalan = customer message (luma, bago ang
     // resolveSenderType fallback); ang agent/bot ay laging 'user'.
     const isCustomer = m.senderType === 'contact' || (m.senderType == null && !!m.senderName);
+    // AI-LAST RULE (2026-10-31): sino ang HULING nagsalita (customer / bot / tao)?
+    if (isCustomer) { lastSpk = 'customer'; lastSpkAt = t; }
+    else if (m.senderType === 'user') {
+      if (isBotSender(brand, m.senderName, m.content)) { lastSpk = 'bot'; lastSpkTransfer = isHandoffBotMessage(m.content); }
+      else lastSpk = 'human';
+      lastSpkAt = t;
+    }
     if (isCustomer) {
       // Kapag nag-message ang customer PAGKATAPOS mag-handoff ang bot (hal.
       // "hello?" habang naghihintay), ang handoff pa rin ang simula ng timer.
@@ -824,7 +832,12 @@ function computeArtFtr(allMessages, brand) {
     ftrExempt,                    // MISSED 3MIN hindi bilang (request na hindi naipasa ng AI / walang AI handoff)
     ftrExemptWhy,                 // 'req' | 'noai'
     waitExempt: reqPending,       // naghihintay pa, pero request lang — hindi pa naipapasa ng AI
-    sessionHandoff,               // false = walang AI handoff sa session (lumang label lang / kusang kinuha ng agent)
+    // AI-LAST RULE (2026-10-31, utos ni Chad — Asilim, TMTPlay: "AI ang last na
+    // nakausap ng player, hindi naman pinasa sa HH, kaya hindi dapat MC"):
+    // kapag walang taong sumagot at ANG AI ANG HULING NAGSALITA (hindi transfer
+    // message) pagkatapos ng handoff signal, bumalik/nanatili ang usapan sa AI —
+    // hindi handoff, hindi Waiting/Missed.
+    sessionHandoff: (sessionHandoff && !humanReplied && lastSpk === 'bot' && !lastSpkTransfer && handoffAt != null && lastSpkAt >= handoffAt - 2000) ? false : sessionHandoff,
     humanReplied,
     handoffAt,                    // ms | null
   };
