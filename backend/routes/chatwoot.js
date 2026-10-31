@@ -756,7 +756,7 @@ function computeArtFtr(allMessages, brand) {
   const sIdx = allMessages.length - messages.length;
   let prevStage = sIdx > 0 ? (allMessages[sIdx - 1].handoffStage || null) : null;
   let handoffSeen = false, botSeen = false, lastCustAny = null, ftrExemptWhy = null;
-  let lastSpk = null, lastSpkAt = null, lastSpkTransfer = false;   // huling nagsalita sa session
+  let lastSpk = null, lastSpkAt = null, transferSeen = false;   // huling nagsalita sa session
   let handoffAt = null;            // (2026-10-28) oras ng UNANG handoff signal sa session — panimula ng 3-min wait
 
   for (const m of messages) {
@@ -768,9 +768,11 @@ function computeArtFtr(allMessages, brand) {
     // resolveSenderType fallback); ang agent/bot ay laging 'user'.
     const isCustomer = m.senderType === 'contact' || (m.senderType == null && !!m.senderName);
     // AI-LAST RULE (2026-10-31): sino ang HULING nagsalita (customer / bot / tao)?
+    // (fix 2026-10-31) Hindi binibilang ang automated CSAT / "auto-closed" notice bilang "nagsalita";
+    // at kapag may totoong transfer message na ang bot sa session, hindi na ina-apply ang rule.
     if (isCustomer) { lastSpk = 'customer'; lastSpkAt = t; }
-    else if (m.senderType === 'user') {
-      if (isBotSender(brand, m.senderName, m.content)) { lastSpk = 'bot'; lastSpkTransfer = isHandoffBotMessage(m.content); }
+    else if (m.senderType === 'user' && !isCloseNoticeRow(m) && !AUTOMATED_MSG_RE.test(String(m.content || '').slice(0, 400))) {
+      if (isBotSender(brand, m.senderName, m.content)) { lastSpk = 'bot'; if (isHandoffBotMessage(m.content)) transferSeen = true; }
       else lastSpk = 'human';
       lastSpkAt = t;
     }
@@ -837,7 +839,7 @@ function computeArtFtr(allMessages, brand) {
     // kapag walang taong sumagot at ANG AI ANG HULING NAGSALITA (hindi transfer
     // message) pagkatapos ng handoff signal, bumalik/nanatili ang usapan sa AI —
     // hindi handoff, hindi Waiting/Missed.
-    sessionHandoff: (sessionHandoff && !humanReplied && lastSpk === 'bot' && !lastSpkTransfer && handoffAt != null && lastSpkAt >= handoffAt - 2000) ? false : sessionHandoff,
+    sessionHandoff: (sessionHandoff && !humanReplied && lastSpk === 'bot' && !transferSeen && handoffAt != null && lastSpkAt >= handoffAt - 2000) ? false : sessionHandoff,
     humanReplied,
     handoffAt,                    // ms | null
   };
