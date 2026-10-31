@@ -3125,6 +3125,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // HANDOFF_MSG_RE (hinigpitan 2026-10-24, Chad): ang ipapasa/forward/endorse ay handoff LANG kapag ang ipinapasa ay ang customer o chat papunta sa agent/CSR/specialist/supervisor — HINDI kapag feedback/concern/request ang ipinapasa "sa team" (hal. "Ipapasa ko ang feedback niyo" ni Agent Jem = hindi handoff). PAREHO dapat sa chatwoot.js at customers.html.
     const HANDOFF_MSG_RE = /connect(ing)?\s+you|transfer(r(ing|ed))?\s+(you|your\s+(chat|conversation|concern|case))|(live|human|real)\s+(agent|specialist|cs|csr)|support\s+specialist|subject\s+matter\s+expert|(endors\w*|i-?forward(ing)?|ipapasa|ipasa|ikokonekta|i-?connect)(\s+(ko|na|po|muna|kita))*\s+(kayo|ka|you|your\s+(chat|conversation|case))\b|(endors\w*|forward(ing)?|ipapasa|ipasa|ikokonekta)[\s\S]{0,40}\b(sa\s+|to\s+)(isa\s+sa\s+)?(aming\s+|our\s+|isang\s+|mga\s+|a\s+|an\s+|the\s+|one\s+of\s+(our|my)\s+)?(agent|csr|specialist|supervisor|team\s*leader|human|kasamahan|kasama|teammate|team\s*mate|colleague|team\s+member|representative)|(agent|specialist|kasamahan|colleague)\s+will\s+(be|assist|attend|get|reply)|please\s+wait\s+(for|while)[\s\S]{0,30}(agent|specialist)/i;
     const pendingTimes = [];
+    const pendingWhy = new Map();   // oras → dahilan ng detection (ipinapakita sa pulang bar)
     {
       // (2026-10-24) pareho sa sessionHasHandoff: ang 'pending' ay bagong handoff
       // lang kung WALA pang handoff label ang conversation bago nito — kung may
@@ -3132,7 +3133,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       let prevSt = null, seenAny = false;
       [...messages].sort((a, b) => (tOf(a) ?? 0) - (tOf(b) ?? 0)).forEach(m => {
         const st = m.handoffStage || null;
-        if ((st === 'pending' || st === 'handoff') && !prevSt && !seenAny && tOf(m) != null) pendingTimes.push(tOf(m));
+        if ((st === 'pending' || st === 'handoff') && !prevSt && !seenAny && tOf(m) != null) { pendingTimes.push(tOf(m)); if (!pendingWhy.has(tOf(m))) pendingWhy.set(tOf(m), `label “${st}”${m.senderName ? ' (' + m.senderName + ')' : ''}`); }
         if (st) seenAny = true;
         prevSt = st;
       });
@@ -3140,7 +3141,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     // SELF_CLAIM_RE (2026-10-24): bot na nagpapakilalang "real CSR" = hindi handoff (pareho sa chatwoot.js)
     const SELF_CLAIM_RE = /\b(i'?m|i\s+am|this\s+is|ako\s+(po\s+)?(si|ay)|ito\s+(po\s+)?si)\b[\s\S]{0,60}\b(real|live|human|actual)\s+(agent|csr|cs|specialist|person|human)/i;
     const isHandoffText = c => { const t = String(c || '').slice(0, 400); if (SELF_CLAIM_RE.test(t) && !/connect(ing)?\s+you|transfer(r(ing|ed))?\s+you|ipapasa\s+(ko\s+)?(po\s+)?(kayo|ka)/i.test(t)) return false; return HANDOFF_MSG_RE.test(t); };
-    withContent.forEach(m => { if (isBotMsg(m) && isHandoffText(m.content) && tOf(m) != null) pendingTimes.push(tOf(m)); });
+    withContent.forEach(m => { if (isBotMsg(m) && isHandoffText(m.content) && tOf(m) != null) { pendingTimes.push(tOf(m)); if (!pendingWhy.has(tOf(m))) pendingWhy.set(tOf(m), `mensahe ng bot: “${String(m.content).replace(/\s+/g, ' ').slice(0, 70)}”`); } });
     pendingTimes.sort((a, b) => a - b);
     let hoAt = null;   // para sa divider: handoff ng pinakahuling session na may handoff
     sessions.forEach((idxs, si) => {
@@ -3156,6 +3157,14 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       // transfer message ang AI o BAGONG pending label. Kapag kusang pumasok
       // ang agent nang walang AI handoff, hindi MC.)
       if (ho == null) return;   // walang handoff sa session na ito -> bot lang, walang i-flag
+      // AI-LAST RULE (2026-10-31, utos ni Chad — Asilim): walang taong sumagot sa session at
+      // ANG AI ANG HULING NAGSALITA (hindi transfer message) pagkatapos ng handoff signal →
+      // nanatili sa AI ang usapan, hindi handoff / hindi MC.
+      if (firstHumanPos === -1) {
+        let lastSp = null;
+        for (let k = idxs.length - 1; k >= 0; k--) { const mm = withContent[idxs[k]]; if (mm.senderType === 'contact' || mm.senderType === 'user') { lastSp = mm; break; } }
+        if (lastSp && isBotMsg(lastSp) && !isHandoffText(lastSp.content) && tOf(lastSp) >= ho - 2000) return;
+      }
       hoAt = ho;
       const hoEntry = { at: ho, miss: null };
       hoList.push(hoEntry);
@@ -3293,7 +3302,8 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         const hTag = !hm ? ''
           : hm.req ? `<div class="ho-miss"><span class="req-tag">HUMINGI NG AGENT · ${hm.waiting ? 'hindi pa naipasa ni AI' : `nasagot after ${hm.mins}`} · hindi bilang sa MC</span></div>`
           : `<div class="ho-miss"><span class="miss-tag">${hm.late ? `MISSED 3MIN · unang sagot ng agent after ${hm.mins} mula handoff` : 'WALANG SAGOT mula handoff'}</span></div>`;
-        divider += `<div class="ho-divider${hm && !hm.req ? ' is-miss' : ''}"><span>Handoff sa human agent · ${escapeHtml(hoWhen)}</span></div>`;
+        const hoWhy = pendingWhy.get(h.at);
+        divider += `<div class="ho-divider${hm && !hm.req ? ' is-miss' : ''}"><span>Handoff sa human agent · ${escapeHtml(hoWhen)}${hoWhy ? ` · <i style="font-weight:600;opacity:.85;">dahil sa ${escapeHtml(hoWhy)}</i>` : ''}</span></div>`;
         // Ang tag ay ilalagay sa PAGITAN ng handoff at ng unang sagot ng real
         // agent (o sa dulo ng session kung walang sumagot) — hindi sa divider.
         if (hTag) { if (h.tagBefore != null) tagsBefore.set(h.tagBefore, hTag); else if (h.tagAfter != null) tagsAfter.set(h.tagAfter, hTag); else divider += hTag; }
