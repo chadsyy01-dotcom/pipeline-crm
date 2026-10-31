@@ -637,12 +637,25 @@ router.post('/webhook/:brand', async (req, res) => {
 // mga mensahe. Ang PINAKABAGONG session lang ang sinusukat para sa ftr at
 // chatting time — ang kasalukuyang usapan, hindi ang buong history.
 const SESSION_GAP_MS = 60 * 60 * 1000;
+// BALIK NG PLAYER PAGKATAPOS NG RESOLVE = BAGONG SESSION (2026-10-31, utos ni
+// Chad — Zyriene/Asilim, TMTPlay): na-resolve ang chat 11:55 AM (may auto-close
+// notice / "Kumusta ang iyong experience…"), bumalik ang player 12:41 PM (46 min
+// lang — mas maikli sa 60-min gap) at AI lang ang sumagot, pero nadala sa bagong
+// usapan ang naunang handoff kaya na-tag na "WALANG SAGOT mula handoff". Ngayon,
+// ang mensahe ng player pagkatapos ng closing notice ay simula ng bagong session.
+// Kapareho ng sessions loop sa renderMessageThread (customers.html).
+const SESSION_CLOSE_RE = /automatically\s+closed|will\s+now\s+be\s+(auto\w*\s+)?closed|rate\s+(our|your|the)\s+(support|conversation|chat|experience|service)|kumusta\s+ang\s+(iyong|inyong)\s+experience|how\s+was\s+your\s+(experience|chat)|please\s+rate|we'?d\s+love\s+to\s+hear\s+your\s+feedback/i;
+const isCustomerRow = (m) => m.senderType === 'contact' || (m.senderType == null && !!m.senderName);
+const isCloseNoticeRow = (m) => !isCustomerRow(m) && SESSION_CLOSE_RE.test(String(m.content || '').slice(0, 400));
 function latestSession(messages) {
   if (messages.length <= 1) return messages;
-  let start = 0;
+  let start = 0, closed = false;
   for (let i = 1; i < messages.length; i++) {
+    if (isCloseNoticeRow(messages[i - 1])) closed = true;
     const gap = new Date(messages[i].createdAt).getTime() - new Date(messages[i - 1].createdAt).getTime();
-    if (gap >= SESSION_GAP_MS) start = i;   // bagong usapan — simulan dito
+    if (gap >= SESSION_GAP_MS) { start = i; closed = false; }   // bagong usapan — simulan dito
+    else if (closed && isCustomerRow(messages[i])) { start = i; closed = false; }   // bumalik ang player pagkatapos ng resolve
+    else if (isCustomerRow(messages[i])) closed = false;
   }
   return messages.slice(start);
 }
