@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tickets · CSR Dashboard</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js?v=20"></script>
+<style>
+  :root{
+    --primary:#2563EB;
+    --primary-dark:#1D4ED8;
+    --primary-tint:#EFF4FF;
+    --success:#22C55E;
+    --success-tint:#EAFBF1;
+    --warning:#F59E0B;
+    --warning-tint:#FEF6E7;
+    --danger:#EF4444;
+    --danger-tint:#FDECEC;
+    --purple:#8B5CF6;
+    --purple-tint:#F3EEFE;
+    --teal:#14B8A6;
+    --teal-tint:#E9FAF8;
+    --bg:#F8FAFC;
+    --card:#FFFFFF;
+    --ink:#0F172A;
+    --ink-soft:#475569;
+    --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-sm:10px;
+    --radius-md:14px;
+    --radius-lg:18px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;}
+
+  .app{display:flex;min-height:100vh;}
+
+  /* SIDEBAR */
+  .sidebar{
+    width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;
+    display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+
+  .nav-group{margin-bottom:6px;}
+  .nav-item{
+    display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
+    font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;transition:background .15s,color .15s;
+    margin-bottom:2px;position:relative;
+  }
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;}
+
+  .sidebar-status{
+    margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;
+    display:flex;align-items:center;gap:8px;color:#AEBBD1;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+
+  /* MAIN */
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .search{
+    display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);
+    padding:9px 14px;border-radius:10px;min-width:260px;color:var(--ink-faint);font-size:13px;box-shadow:var(--shadow);
+  }
+  .search svg{width:16px;height:16px;flex-shrink:0;}
+  .icon-btn{position:relative;width:38px;height:38px;border-radius:10px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer;}
+  .icon-btn svg{width:17px;height:17px;color:var(--ink-soft);}
+  .icon-btn .badge{position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:20px;}
+  .notif-dropdown{position:absolute;top:calc(100% + 10px);right:0;background:var(--card);border-radius:12px;box-shadow:var(--shadow);width:320px;max-height:380px;overflow-y:auto;display:none;z-index:50;cursor:default;}
+  .notif-dropdown.open{display:block;}
+  .notif-dropdown .notif-head{padding:12px 14px;font-size:13px;font-weight:700;border-bottom:1px solid var(--line);}
+  .notif-tabs{display:flex;border-bottom:1px solid var(--line);}
+  .notif-tab{flex:1;text-align:center;padding:10px 8px;font-size:12px;font-weight:700;color:var(--ink-faint);cursor:pointer;border-bottom:2px solid transparent;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;}
+  .notif-tab.active{color:var(--primary);border-bottom-color:var(--primary);}
+  .notif-item{display:block;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .notif-item:last-child{border-bottom:none;}
+  .notif-item:hover{background:var(--bg);}
+  .notif-item .n-id{font-size:12px;font-weight:700;color:var(--primary);}
+  .notif-item .n-name{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:2px;}
+  .notif-item .n-time{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .notif-empty{padding:24px 14px;text-align:center;color:var(--ink-faint);font-size:12.5px;}
+  .profile{display:flex;align-items:center;gap:9px;cursor:pointer;position:relative;}
+  .profile-dropdown{position:absolute;top:calc(100% + 10px);right:0;background:var(--card);border-radius:12px;box-shadow:var(--shadow);width:200px;padding:8px;display:none;z-index:50;}
+  .profile-dropdown.open{display:block;}
+  .profile-dropdown a, .profile-dropdown button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--ink-soft);background:none;border:none;cursor:pointer;font-family:inherit;}
+  .profile-dropdown a:hover, .profile-dropdown button:hover{background:var(--bg);}
+  .profile-dropdown svg{width:16px;height:16px;flex-shrink:0;}
+  .profile-dropdown .divider{height:1px;background:var(--line);margin:6px 4px;}
+  .profile-dropdown .logout-item{color:var(--danger);}
+  .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#EC4899);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;}
+  .profile-name{font-size:13px;font-weight:700;line-height:1.3;}
+  .profile-name span{display:block;font-size:11px;color:var(--ink-faint);font-weight:500;}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+
+  /* FILTER TABS */
+  .filter-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+  .ftab{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);}
+  .ftab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ftab .count{margin-left:6px;opacity:.75;}
+  .issue-select{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:8px;color:var(--ink-soft);cursor:pointer;border:1px solid var(--line);background:var(--card);max-width:240px;}
+  .filter-bar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;}
+  .f-group{display:flex;flex-direction:column;gap:5px;}
+  .f-label{font-size:10.5px;font-weight:700;letter-spacing:.07em;color:var(--ink-faint);text-transform:uppercase;padding-left:2px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spinning{animation:spin .8s linear infinite;}
+  .date-filter-wrap{position:relative;}
+  .custom-date-pop{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:60;width:210px;}
+  .custom-date-pop.open{display:block;}
+  .custom-date-pop label{display:block;font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;}
+  .custom-date-pop label:first-child{margin-top:0;}
+  .custom-date-pop input[type="date"]{width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--line);font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--bg);}
+  .custom-date-actions{display:flex;gap:8px;margin-top:14px;}
+  .custom-date-actions button{flex:1;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid var(--line);}
+  #customDateCancel{background:var(--card);color:var(--ink-soft);}
+  #customDateApply{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+  /* TICKET TABLE */
+  .t-table{width:100%;border-collapse:collapse;}
+  .t-table th{
+    text-align:left;font-size:11.5px;letter-spacing:.02em;color:var(--ink-faint);font-weight:700;
+    text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--line);
+  }
+  .t-table td{padding:13px 12px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  .t-table tr:last-child td{border-bottom:none;}
+  .t-table tbody tr{cursor:pointer;transition:background .15s;}
+  .t-table tbody tr:hover{background:#F8FAFC;}
+  .t-id{font-weight:700;color:var(--primary);}
+  .t-id a:hover{text-decoration:underline;}
+  .t-customer{display:flex;align-items:center;gap:9px;}
+  .t-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;}
+  .t-cname{font-weight:700;font-size:13px;}
+  .t-csub{font-size:11.5px;color:var(--ink-faint);}
+  .pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;}
+  .pill.high{background:var(--danger-tint);color:var(--danger);}
+  .pill.medium{background:var(--warning-tint);color:var(--warning);}
+  .pill.low{background:var(--success-tint);color:var(--success);}
+  .status{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;}
+  .status::before{content:'';width:6px;height:6px;border-radius:50%;}
+  .status.new{background:var(--primary-tint);color:var(--primary);}
+  .status.new::before{background:var(--primary);}
+  .status.progress{background:var(--warning-tint);color:var(--warning);}
+  .status.progress::before{background:var(--warning);}
+  .status.waiting{background:var(--purple-tint);color:var(--purple);}
+  .status.waiting::before{background:var(--purple);}
+  .status.escalated{background:var(--danger-tint);color:var(--danger);}
+  .status.escalated::before{background:var(--danger);}
+  .status.pending{background:var(--primary-tint);color:var(--primary);}
+  .status.pending::before{background:var(--primary);}
+  .status.checking{background:var(--warning-tint);color:var(--warning);}
+  .status.checking::before{background:var(--warning);}
+  .status.done{background:var(--success-tint);color:var(--success);}
+  .status.done::before{background:var(--success);}
+  .status.rejected{background:var(--danger-tint);color:var(--danger);}
+  .status.rejected::before{background:var(--danger);}
+  .status.unknown{background:#F1F5F9;color:var(--ink-faint);}
+  .status.unknown::before{background:var(--ink-faint);}
+  .rej-modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;}
+  .rej-modal{background:#fff;border-radius:14px;box-shadow:var(--shadow);width:min(440px,92vw);max-height:82vh;overflow-y:auto;padding:18px;}
+  .rej-modal h4{margin:0 0 3px;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .rej-modal .rej-sub{font-size:12px;color:var(--ink-faint);margin-bottom:12px;}
+  .rej-modal .rej-reason{background:var(--danger-tint);color:#9B1C1C;border-radius:10px;padding:12px 14px;font-size:13px;font-weight:600;line-height:1.6;white-space:pre-wrap;overflow-wrap:break-word;}
+  .rej-modal .rej-reason.none{background:#F1F5F9;color:var(--ink-soft);font-weight:500;}
+  .rej-meta{font-size:12px;color:var(--ink-soft);margin-top:10px;line-height:1.8;}
+  .rej-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;}
+  .rej-photos{margin-top:12px;}
+  .rej-photos-title{font-size:12px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;}
+  .rej-photos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;}
+  .rej-photo{display:block;border:1px solid var(--line);border-radius:10px;overflow:hidden;text-decoration:none;background:var(--bg);}
+  .rej-photo img{width:100%;height:90px;object-fit:cover;display:block;}
+  .rej-photo span{display:block;font-size:10.5px;font-weight:700;color:var(--ink-soft);padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rej-photo.noimg img{display:none;}
+  .rej-photo.noimg{padding-top:10px;text-align:center;}
+  .rej-photos-note{font-size:10.5px;color:var(--ink-faint);margin-top:7px;line-height:1.5;}
+  .rej-btn{font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
+  .rej-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+  /* TICKET DETAIL POPUP (2026-09-25): i-click kahit saan sa row → lahat ng
+     info mula sa sheet, naka-grid (label sa taas, value sa baba). */
+  .td-modal{background:#fff;border-radius:16px;box-shadow:var(--shadow);width:min(900px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;}
+  .td-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px 14px;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .td-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .td-title h4{margin:0;font-size:17px;font-weight:800;letter-spacing:-.01em;}
+  .td-copy{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-family:inherit;}
+  .td-copy:hover{background:var(--bg);}
+  .td-sub{font-size:12.5px;color:var(--ink-faint);margin-top:4px;font-weight:600;}
+  .td-x{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:15px;color:var(--ink-soft);flex-shrink:0;}
+  .td-body{padding:6px 22px 18px;overflow-y:auto;}
+  .td-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:22px;}
+  .td-field{padding:12px 0 10px;border-bottom:1px dashed var(--line);min-width:0;}
+  .td-field.wide{grid-column:1 / -1;}
+  .td-label{font-size:11.5px;font-weight:600;color:var(--ink-faint);margin-bottom:4px;}
+  .td-value{font-size:14px;font-weight:600;color:var(--ink);overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.45;}
+  .td-value a{color:var(--primary);text-decoration:underline;}
+  .td-field.reject .td-value{color:#B91C1C;}
+  .td-section{margin-top:18px;}
+  .td-section-title{font-size:12px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+  .td-receipts{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;}
+  .td-receipt{display:block;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0F172A;text-decoration:none;}
+  .td-receipt img{width:100%;height:210px;object-fit:contain;display:block;background:#0F172A;cursor:zoom-in;}
+  .td-receipt span{display:block;font-size:11px;font-weight:700;color:var(--ink-soft);background:var(--bg);padding:6px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .td-receipt.noimg img{display:none;}
+  .td-receipt.noimg{background:var(--bg);padding-top:14px;text-align:center;}
+  .td-note{font-size:12px;color:var(--ink-faint);line-height:1.55;background:var(--bg);border-radius:10px;padding:10px 12px;}
+  .td-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 22px;border-top:1px solid var(--line);flex-shrink:0;flex-wrap:wrap;}
+  @media (max-width:760px){ .td-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  /* PHOTO VIEWER (2026-09-25): receipt/photo sa loob ng parehong tab. */
+  .pv-bg{position:fixed;inset:0;background:rgba(2,6,23,.92);z-index:120;display:flex;flex-direction:column;}
+  .pv-bar{display:flex;align-items:center;gap:10px;padding:12px 16px;color:#E2E8F0;flex-shrink:0;}
+  .pv-title{font-size:13px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pv-count{font-size:12px;color:#94A3B8;font-weight:600;}
+  .pv-btn{height:34px;min-width:34px;padding:0 12px;border-radius:9px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  .pv-btn:hover{background:rgba(255,255,255,.16);}
+  .pv-stage{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:0 16px 16px;position:relative;}
+  .pv-stage img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0F172A;}
+  .pv-stage.zoomed{align-items:flex-start;justify-content:flex-start;}
+  .pv-stage.zoomed img{max-width:none;max-height:none;cursor:zoom-out;}
+  .pv-stage iframe{width:min(900px,100%);height:100%;border:0;border-radius:8px;background:#fff;}
+  .pv-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:22px;cursor:pointer;}
+  .pv-nav:hover{background:rgba(255,255,255,.26);}
+  .pv-nav.prev{left:18px;} .pv-nav.next{right:18px;}
+
+  .t-channel{color:var(--ink-soft);font-size:12.5px;}
+  .t-ack{color:var(--ink-soft);font-size:12.5px;font-weight:600;}
+  .t-time{color:var(--ink-faint);font-size:12px;white-space:nowrap;}
+  .t-actions{display:flex;gap:6px;}
+  .t-btn{width:28px;height:28px;border-radius:8px;background:#F8FAFC;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .t-btn svg{width:14px;height:14px;color:var(--ink-soft);}
+
+  .table-wrap{overflow-x:auto;}
+  .t-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-size:12.5px;color:var(--ink-soft);flex-wrap:wrap;gap:10px;}
+  .pager{display:flex;gap:6px;}
+  .pg-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .pg-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+  @media (max-width:860px){
+    .sidebar{display:none;}
+    .main{padding:20px 16px 32px;}
+    .search{min-width:0;flex:1;}
+  }
+
+  /* sidebar sub-items (2026-10-12) */
+  .nav-sub{display:none;padding-left:16px;}
+  .nav-sub.open{display:block;}
+  .nav-sub .nav-item{font-size:12.5px;padding:8px 12px;}
+  .nav-sub .nav-item svg{width:15px;height:15px;}
+
+  /* Tabs sa itaas ng Tickets page (2026-10-13): Tickets | Agent Performance — wala na sa sidebar */
+  .page-tabs{display:inline-flex;gap:4px;padding:4px;margin:0 0 16px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);position:relative;z-index:2;}
+  .page-tabs a{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;color:rgba(255,255,255,.75);text-decoration:none;transition:background .15s,color .15s;}
+  .page-tabs a:hover{color:#fff;background:rgba(255,255,255,.1);}
+  .page-tabs a.active{background:#fff;color:#1E3A8A;box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  .page-tabs svg{width:15px;height:15px;}
+</style>
+<!-- Redesign 2026-10-10: bagong itsura (hero band, queue cards, row highlights) -->
+<link rel="stylesheet" href="redesign.css?v=4">
+</head>
+<body>
+<script>
+  // ---- Auth check: uses the same pipeline_token + Railway API as the React app ----
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) {
+      window.location.href = LOGIN_PATH;
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw Object.assign(new Error("Invalid session"), { authFail: res.status === 401 });
+      const data = await res.json();
+      const user = data.user || data; // /api/auth/me returns { user: {...} }
+      if (user) {
+        const nameEl = document.querySelector(".profile-name");
+        if (nameEl && user.name) {
+          nameEl.childNodes[0].nodeValue = user.name;
+        }
+        const roleEl = document.querySelector(".profile-name span");
+        if (roleEl) {
+          const roleLabels = { admin: 'Administrator', member: 'Team Member' };
+          roleEl.textContent = roleLabels[user.role] || (user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Team Member');
+        }
+        const avatarEl = document.querySelector(".profile .avatar");
+        if (avatarEl && user.name) {
+          avatarEl.textContent = user.name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+        }
+      }
+    } catch (err) {
+      // LOGIN LOOP FIX (2026-10-15): logout lang kapag 401 talaga. Ang network/abort
+      // error (hal. CSR na nire-redirect ng role guard habang naglo-load pa) ay hindi logout.
+      if (!err || !err.authFail) return;
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+
+  function toggleProfileMenu(e) {
+    e.stopPropagation();
+    document.getElementById('profileDropdown').classList.toggle('open');
+  }
+  document.addEventListener('click', () => {
+    const dd = document.getElementById('profileDropdown');
+    if (dd) dd.classList.remove('open');
+  });
+  function logoutUser(e) {
+    e.stopPropagation();
+    localStorage.removeItem('pipeline_token');
+    window.location.href = LOGIN_PATH;
+  }
+</script>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+
+    <div class="nav-group">
+      <a href="csr-dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="tickets.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+        Tickets
+      </a>
+      <a href="customers.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Customers
+      </a>
+      <a href="reports.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Reports
+      </a>
+      <a href="office.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 4l9 6.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>
+        Opisina
+      </a>
+      <a href="openai.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        OpenAI
+      </a>
+      <a href="agents.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Agents
+      </a>
+      <a href="settings.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
+      </a>
+    </div>
+
+    <div class="sidebar-status" style="margin-top:12px;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="hero">
+      <nav class="page-tabs" aria-label="Tickets">
+        <a href="tickets.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>Tickets</a>
+        <a href="agent-performance.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"/><path d="M17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/></svg>Agent Performance</a>
+      </nav>
+    <div class="topbar">
+      <div class="greeting">
+        <h1>Tickets</h1>
+        <p>All support tickets across chat, email, and social channels.</p>
+      </div>
+      <div class="topbar-right">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          Search ticket, customer or ID...
+        </div>
+        <div class="icon-btn" id="notifToggle" onclick="toggleNotifMenu(event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span class="badge" id="notifBadge" style="display:none;">0</span>
+          <div class="notif-dropdown" id="notifDropdown" onclick="event.stopPropagation()">
+            <div class="notif-tabs">
+              <button class="notif-tab active" id="notifTabNew" onclick="switchNotifTab('new')">New Tickets</button>
+              <button class="notif-tab" id="notifTabProgress" onclick="switchNotifTab('inprogress')">In Progress</button>
+            </div>
+            <div id="notifList"></div>
+          </div>
+        </div>
+        <div class="profile" id="profileToggle" onclick="toggleProfileMenu(event)">
+          <div class="avatar">—</div>
+          <div class="profile-name">&nbsp;<span>&nbsp;</span></div>
+          <div class="profile-dropdown" id="profileDropdown">
+            <a href="profile.html">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Profile
+            </a>
+            <div class="divider"></div>
+            <button class="logout-item" onclick="logoutUser(event)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+              Log Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div><!-- /hero -->
+
+    <!-- QUEUE AT A GLANCE (redesign 2026-10-10) — kinukwenta mula sa
+         kasalukuyang filtered view, nire-refresh sa bawat render. -->
+    <section class="kpi-row" id="queueStats" aria-label="Queue at a glance">
+      <div class="kpi-card">
+        <div class="kpi-head"><span class="kpi-label">Open tickets</span>
+          <span class="kpi-ico violet" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg></span>
+        </div>
+        <div class="kpi-val" id="qOpen">—</div>
+        <div class="kpi-sub">New + In Progress, kahit anong petsa</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-head"><span class="kpi-label">Not yet acknowledged</span><span class="kpi-flag red" id="qUnackFlag" hidden>Action</span></div>
+        <div class="kpi-val" id="qUnack">—</div>
+        <div class="kpi-sub">Waiting for an agent to pick up</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-head"><span class="kpi-label">Oldest waiting</span>
+          <span class="kpi-ico amber" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        </div>
+        <div class="kpi-val" id="qOldest">—</div>
+        <div class="kpi-sub" id="qOldestId">Walang naghihintay</div>
+      </div>
+      <!-- DONE vs REJECTED (2026-10-10) — sakop ang Brand/Category/Date/Search
+           filters pero HINDI ang Status filter. I-click para i-filter. -->
+      <div class="kpi-card res-card">
+        <div class="res-top">
+          <button type="button" class="res-side" id="resDoneBtn" data-status="done" title="I-click para ipakita ang Done tickets">
+            <span class="res-label">Done · Resolved</span>
+            <span class="res-val good" id="resDonePct">—</span>
+            <span class="kpi-sub" id="resDoneSub"></span>
+          </button>
+          <button type="button" class="res-side right" id="resRejBtn" data-status="rejected" title="I-click para ipakita ang Rejected tickets">
+            <span class="res-label">Rejected</span>
+            <span class="res-val bad" id="resRejPct">—</span>
+            <span class="kpi-sub" id="resRejSub"></span>
+          </button>
+        </div>
+        <div class="split-bar" role="img" id="resBar" aria-label="Done vs Rejected">
+          <span class="s-good" id="resGood"></span><span class="s-bad" id="resBad"></span>
+        </div>
+        <div class="split-note" id="resNote"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-head"><span class="kpi-label">Open by priority</span></div>
+        <div class="prio-list" id="qPriority"><div class="kpi-sub">—</div></div>
+      </div>
+    </section>
+
+    <!-- TICKETS PANEL -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>All Tickets <span id="liveIndicator" style="font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:8px;">● Live</span></h3>
+      </div>
+
+      <div class="filter-bar">
+        <div class="f-group">
+          <span class="f-label">Brand</span>
+          <select id="brandFilter" class="issue-select" style="max-width:240px;"></select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Status</span>
+          <select id="statusFilter" class="issue-select">
+            <option value="open" selected>New + In Progress (0)</option>
+            <option value="all">All statuses (0)</option>
+            <option value="pending">New (0)</option>
+            <option value="checking">In Progress (0)</option>
+            <option value="backlog">Backlog (0)</option>
+            <option value="done">Done (0)</option>
+            <option value="rejected">Rejected (0)</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Category</span>
+          <select id="issueFilter" class="issue-select">
+            <option value="all">All categories</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <span class="f-label">Submitted</span>
+          <div class="date-filter-wrap" id="dateFilterWrap">
+            <select id="dateFilter" class="issue-select">
+              <option value="all">Any time</option>
+              <option value="today" selected>Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="month">This Month</option>
+              <option value="custom" id="customDateOption">Custom Date</option>
+            </select>
+            <div class="custom-date-pop" id="customDatePop">
+              <label for="customDateFrom">From</label>
+              <input type="date" id="customDateFrom">
+              <label for="customDateTo">To</label>
+              <input type="date" id="customDateTo">
+              <div class="custom-date-actions">
+                <button type="button" id="customDateCancel">Cancel</button>
+                <button type="button" id="customDateApply">Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="f-group" style="margin-left:auto;">
+          <span class="f-label">&nbsp;</span>
+          <button id="hardRefreshBtn" onclick="hardRefreshTickets()" title="Hard refresh — kunin agad ang pinakabagong data mula sa sheets" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
+            <svg id="hardRefreshIcon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            Refresh
+          </button>
+        </div>
+        <div class="f-group">
+          <span class="f-label">&nbsp;</span>
+          <button id="exportCsvBtn" onclick="exportTicketsToCsv()" style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="t-table" id="ticketTable">
+          <thead>
+            <tr>
+              <th>Ticket ID</th>
+              <th>Customer</th>
+              <th>Issue</th>
+              <th>Channel</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Acknowledged By</th>
+              <th>Updated</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ticketBody"></tbody>
+        </table>
+      </div>
+
+      <div class="t-foot">
+        <div>Loading tickets…</div>
+        <div class="pager"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // ---- Live data source: shared TicketData module (see /ticket-data.js) ----
+  const PAGE_SIZE = Number(localStorage.getItem('csr_page_size')) || 10;
+  let allTickets = [];
+  let filteredTickets = [];
+
+  // Exports whatever is currently shown (respects all active filters:
+  // status tab, brand, date range, issue, and search box).
+  function exportTicketsToCsv() {
+    if (filteredTickets.length === 0) {
+      alert('No tickets to export with the current filters.');
+      return;
+    }
+    const rows = filteredTickets.map(t => ({
+      'Ticket ID': t.id,
+      'Brand': t.brandLabel,
+      'Customer': t.name,
+      'Issue': t.issue,
+      'Channel': t.channel,
+      'Priority': t.priorityLabel,
+      'Status': t.statusLabel,
+      'Reject Reason': t.rejectReason || '',
+      'Submitted At': t.submitted ? t.submitted.toLocaleString() : '',
+      'Acknowledged By': t.acknowledgedBy || '',
+      'Acknowledged At': t.acknowledgedAt ? t.acknowledgedAt.toLocaleString() : '',
+      'Resolved By': t.resolvedBy || '',
+      'Resolved At': t.resolvedAt ? t.resolvedAt.toLocaleString() : ''
+    }));
+    const csv = Papa.unparse(rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `tickets-export-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  let currentFilter = 'open'; // default view: New + In Progress (2026-10-12, utos ni Chad; dati All statuses)
+  let currentBrand = 'all';
+  let currentIssue = 'all';
+  let currentDateFilter = 'today'; // default: Today (2026-10-10, utos ni Chad)
+  let customDateFrom = null;
+  let customDateTo = null;
+  let pendingIssueParam = null;
+  let currentSearch = '';
+  let currentPage = 1;
+
+  const body = document.getElementById('ticketBody');
+  const { escapeHtml, relativeTime } = TicketData;
+
+  function showMessage(text) {
+    body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:36px;color:var(--ink-faint);">${escapeHtml(text)}</td></tr>`;
+  }
+
+  showMessage('Loading tickets from Google Sheet…');
+
+  let notifiedTicketIds = new Set();
+
+  // ---- NOTIFICATION SOUND (2026-09-23) ----
+  // Web Audio chime (dalawang tono) kapag may BAGONG ticket — walang audio
+  // file na kailangan. May toggle button (persisted sa localStorage). Ang
+  // browser ay nagba-block ng tunog bago ang unang user interaction, kaya
+  // ang AudioContext ay ina-unlock sa unang click kahit saan sa page.
+  // Flag para sa shared notif-sound.js: may sariling engine ang page na
+  // ito, kaya hindi na siya magpapatakbo dito (iwas dobleng tunog).
+  window.__CSR_NOTIF_INLINE__ = true;
+  // Cross-tab leader election (2026-09-23): kapareho ng notif-sound.js —
+  // kapag maraming bukas na dashboard tabs, IISA lang ang tutunog.
+  const NOTIF_LEADER_KEY = 'csr_notif_leader';
+  const NOTIF_TAB_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  function notifHeartbeat() {
+    let cur = null;
+    try { cur = JSON.parse(localStorage.getItem(NOTIF_LEADER_KEY) || 'null'); } catch (e) {}
+    const nowT = Date.now();
+    if (!cur || nowT - cur.t > 12000 || cur.id === NOTIF_TAB_ID) {
+      try { localStorage.setItem(NOTIF_LEADER_KEY, JSON.stringify({ id: NOTIF_TAB_ID, t: nowT })); } catch (e) {}
+    }
+  }
+  notifHeartbeat();
+  setInterval(notifHeartbeat, 5000);
+  function notifIsLeader() {
+    try {
+      const cur = JSON.parse(localStorage.getItem(NOTIF_LEADER_KEY) || 'null');
+      return !cur || cur.id === NOTIF_TAB_ID || Date.now() - cur.t > 12000;
+    } catch (e) { return true; }
+  }
+  let audioCtx = null;
+  // LAGING ON ang notification sound (desisyon 2026-09-23): walang in-app
+  // na off switch — kung gusto ng agent na patahimikin, browser tab mute o
+  // system volume ang paraan. (Dating toggle sa csr_sound_notif — tinanggal.)
+  function soundEnabled() { return true; }
+  function ensureAudioCtx() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { /* walang Web Audio support — tahimik lang */ }
+  }
+  document.addEventListener('click', ensureAudioCtx, { once: true });
+  // Ang sinasabing words kapag may bagong ticket — palitan dito kung may
+  // ibang gustong mensahe (per team decision 2026-09-23: English para
+  // pareho ang tunog sa lahat ng computers).
+  const NOTIF_SPEECH_TEXT = 'New ticket received!';
+  // VOICE PICKER (2026-09-23): ang napiling boses ay naka-save sa
+  // localStorage 'csr_notif_voice' (voice name, pinipili sa Settings page —
+  // admin only). Fallback: unang English voice ng computer kapag wala o
+  // hindi available sa machine na ito ang napiling boses.
+  function pickNotifVoice() {
+    const voices = speechSynthesis.getVoices();
+    const wanted = localStorage.getItem('csr_notif_voice');
+    if (wanted) {
+      const hit = voices.find(v => v.name === wanted);
+      if (hit) return hit;
+    }
+    return voices.find(v => /^en/i.test(v.lang)) || null;
+  }
+  function playNotifSound(force) {
+    if (!soundEnabled()) return;
+    if (!force && !notifIsLeader()) return; // ibang tab ang naka-duty sa tunog
+    try {
+      // 1) Triple ding — FULL BLAST: dalawang layer kada ding (pangunahing
+      //    tono + isang octave pababa para makapal), peak ~0.95, dumadaan sa
+      //    compressor para malakas nang hindi basag. (Naka-max na ito sa
+      //    kayang ilakas ng browser — ang system/speaker volume na ang
+      //    magpapalakas pa lampas dito.)
+      ensureAudioCtx();
+      if (audioCtx) {
+        const now = audioCtx.currentTime;
+        const comp = audioCtx.createDynamicsCompressor();
+        comp.threshold.setValueAtTime(-12, now);
+        comp.ratio.setValueAtTime(12, now);
+        comp.connect(audioCtx.destination);
+        [[1318.5, 0, 0.26], [1318.5, 0.24, 0.26], [1567.98, 0.48, 0.45]].forEach(trip => {
+          const freq = trip[0], delay = trip[1], len = trip[2];
+          [[freq, 'triangle', 0.95], [freq / 2, 'square', 0.35]].forEach(layer => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = layer[1];
+            osc.frequency.value = layer[0];
+            gain.gain.setValueAtTime(0.0001, now + delay);
+            gain.gain.exponentialRampToValueAtTime(layer[2], now + delay + 0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + len);
+            osc.connect(gain).connect(comp);
+            osc.start(now + delay);
+            osc.stop(now + delay + len + 0.05);
+          });
+        });
+      }
+      // 2) Pagkatapos ng ding: sabihin ang words (browser TTS, full volume)
+      if ('speechSynthesis' in window) {
+        setTimeout(() => {
+          try {
+            speechSynthesis.cancel(); // huwag magpatong-patong sa sunod-sunod na tickets
+            const u = new SpeechSynthesisUtterance(NOTIF_SPEECH_TEXT);
+            const chosenVoice = pickNotifVoice();
+            if (chosenVoice) u.voice = chosenVoice;
+            u.volume = 1;
+            u.rate = 1;
+            speechSynthesis.speak(u);
+          } catch (e) { console.warn('Speech failed:', e); }
+        }, 800);
+      }
+    } catch (e) { console.warn('Notif sound failed:', e); }
+  }
+  // ---- PENDING TICKET ALERT (2026-09-23) ----
+  // Kapag may ticket na 10+ minuto nang NEW (walang umaako), tutunog ang
+  // mas urgent na alarma + "Alert! Pending tickets!". Isang beses kada
+  // ticket sa pag-abot ng 10min, TAPOS paulit-ulit na paalala kada 5min
+  // habang may overdue pa rin — hindi ito titigil hangga't walang kumikilos.
+  const PENDING_ALERT_MINUTES = 10;   // kailan unang aalerto
+  const PENDING_REALERT_MINUTES = 5;  // gaano kadalas mag-remind habang may overdue
+  const PENDING_SPEECH_TEXT = 'Alert! Pending tickets!';
+  let pendingAlertedIds = new Set();
+  let lastPendingReminderAt = 0;
+  function playPendingAlertSound() {
+    if (!soundEnabled()) return;
+    if (!notifIsLeader()) return; // ibang tab ang naka-duty sa tunog
+    try {
+      ensureAudioCtx();
+      if (audioCtx) {
+        const now = audioCtx.currentTime;
+        const comp = audioCtx.createDynamicsCompressor();
+        comp.threshold.setValueAtTime(-12, now);
+        comp.ratio.setValueAtTime(12, now);
+        comp.connect(audioCtx.destination);
+        // Tatlong pataas na alarm sweep — ibang klase ng tunog kaysa sa
+        // new-ticket ding para agad na alam na ESCALATION ito.
+        [0, 0.4, 0.8].forEach(delay => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(500, now + delay);
+          osc.frequency.exponentialRampToValueAtTime(1600, now + delay + 0.3);
+          gain.gain.setValueAtTime(0.0001, now + delay);
+          gain.gain.exponentialRampToValueAtTime(0.9, now + delay + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.32);
+          osc.connect(gain).connect(comp);
+          osc.start(now + delay);
+          osc.stop(now + delay + 0.36);
+        });
+      }
+      if ('speechSynthesis' in window) {
+        setTimeout(() => {
+          try {
+            speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(PENDING_SPEECH_TEXT);
+            const chosenVoice = pickNotifVoice();
+            if (chosenVoice) u.voice = chosenVoice;
+            u.volume = 1;
+            u.rate = 1;
+            speechSynthesis.speak(u);
+          } catch (e) { console.warn('Pending alert speech failed:', e); }
+        }, 1250);
+      }
+    } catch (e) { console.warn('Pending alert sound failed:', e); }
+  }
+  function checkPendingTicketAlerts() {
+    if (!initialLoadComplete) return;
+    const cutoff = Date.now() - PENDING_ALERT_MINUTES * 60000;
+    const overdue = allTickets.filter(t => t.statusCls === 'pending' && t.submitted && t.submitted.getTime() <= cutoff);
+    if (!overdue.length) return;
+    const fresh = overdue.filter(t => !pendingAlertedIds.has(t.id));
+    const remindDue = Date.now() - lastPendingReminderAt >= PENDING_REALERT_MINUTES * 60000;
+    if (fresh.length || remindDue) {
+      fresh.forEach(t => pendingAlertedIds.add(t.id));
+      lastPendingReminderAt = Date.now();
+      playPendingAlertSound();
+      if (localStorage.getItem('csr_desktop_notif') === 'true' &&
+          typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('ALERT: Pending tickets!', { body: `${overdue.length} ticket${overdue.length === 1 ? '' : 's'} ${PENDING_ALERT_MINUTES}+ mins na walang umaako` });
+      }
+    }
+  }
+
+  // ---- IN-PROGRESS STUCK ALERT (2026-09-23) ----
+  // Kapag 10+ minuto nang In Progress ang ticket (may umako na pero hindi
+  // pa natatapos), alarma + "Ticket pending! <pangalan ng nag-acknowledge>"
+  // na SINASABI NG 3 BESES SUNOD-SUNOD — para malinaw kung kanino
+  // nakabinbin. Umuulit din kada 5 minuto habang may stuck pa rin.
+  const INPROG_ALERT_MINUTES = 10;
+  const INPROG_REALERT_MINUTES = 5;
+  // SPECIAL RULE (2026-09-23): may mga pangalan sa "Acknowledged By" na iba
+  // ang dapat banggitin sa alert. Idagdag dito ang iba pang aliases kung
+  // kailangan (lowercase ang key, kahit anong case sa sheet ay tatama).
+  const SPOKEN_NAME_ALIASES = { 'sapphire': 'Johnlloyd' };
+  function spokenName(n) {
+    const key = String(n || '').trim().toLowerCase();
+    return SPOKEN_NAME_ALIASES[key] || n;
+  }
+  let inprogAlertedIds = new Set();
+  let lastInprogReminderAt = 0;
+  function playInProgressAlertSound(names) {
+    if (!soundEnabled()) return;
+    if (!notifIsLeader()) return;
+    try {
+      ensureAudioCtx();
+      if (audioCtx) {
+        const now = audioCtx.currentTime;
+        const comp = audioCtx.createDynamicsCompressor();
+        comp.threshold.setValueAtTime(-12, now);
+        comp.ratio.setValueAtTime(12, now);
+        comp.connect(audioCtx.destination);
+        [0, 0.4, 0.8].forEach(delay => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(1600, now + delay);
+          osc.frequency.exponentialRampToValueAtTime(500, now + delay + 0.3); // pababa — kabaligtaran ng pending alarm
+          gain.gain.setValueAtTime(0.0001, now + delay);
+          gain.gain.exponentialRampToValueAtTime(0.9, now + delay + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.32);
+          osc.connect(gain).connect(comp);
+          osc.start(now + delay);
+          osc.stop(now + delay + 0.36);
+        });
+      }
+      if ('speechSynthesis' in window) {
+        const phrase = 'Ticket pending! ' + (names && names.length ? names.join(', ') : '');
+        setTimeout(() => {
+          try {
+            speechSynthesis.cancel();
+            // ISANG beses lang babanggitin (binago 2026-09-23, dating 3x)
+            const u = new SpeechSynthesisUtterance(phrase);
+            const chosenVoice = pickNotifVoice();
+            if (chosenVoice) u.voice = chosenVoice;
+            u.volume = 1;
+            u.rate = 1;
+            speechSynthesis.speak(u);
+          } catch (e) { console.warn('In-progress alert speech failed:', e); }
+        }, 1250);
+      }
+    } catch (e) { console.warn('In-progress alert sound failed:', e); }
+  }
+  function checkInProgressTicketAlerts() {
+    if (!initialLoadComplete) return;
+    const cutoff = Date.now() - INPROG_ALERT_MINUTES * 60000;
+    // Basehan ng oras: kailan ito naging In Progress (acknowledgedAt);
+    // fallback sa submitted kapag walang timestamp.
+    const overdue = allTickets.filter(t => {
+      if (t.statusCls !== 'checking') return false;
+      const basis = t.acknowledgedAt || t.submitted;
+      return basis && basis.getTime() <= cutoff;
+    });
+    if (!overdue.length) return;
+    const fresh = overdue.filter(t => !inprogAlertedIds.has(t.id));
+    const remindDue = Date.now() - lastInprogReminderAt >= INPROG_REALERT_MINUTES * 60000;
+    if (fresh.length || remindDue) {
+      fresh.forEach(t => inprogAlertedIds.add(t.id));
+      lastInprogReminderAt = Date.now();
+      const names = [...new Set(overdue.map(t => spokenName(t.acknowledgedBy)).filter(Boolean))];
+      playInProgressAlertSound(names);
+      if (localStorage.getItem('csr_desktop_notif') === 'true' &&
+          typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('TICKET PENDING!', { body: `${overdue.length} In Progress ${INPROG_ALERT_MINUTES}+ mins — ${names.join(', ') || 'walang pangalan'}` });
+      }
+    }
+  }
+
+
+
+  function checkForNewTicketNotifications() {
+    const pending = allTickets.filter(t => t.statusCls === 'pending');
+    // Habang progressive pa ang initial load, ang mga "bagong dating" na
+    // pending ay pre-existing lang mula sa mga kasunod na sheets — i-seed
+    // nang tahimik, huwag i-notify.
+    if (!initialLoadComplete) { pending.forEach(t => notifiedTicketIds.add(t.id)); return; }
+    const fresh = pending.filter(t => !notifiedTicketIds.has(t.id));
+    if (!fresh.length) return;
+    fresh.forEach(t => notifiedTicketIds.add(t.id));
+    // Tunog: sariling toggle (\uD83D\uDD14 button), hindi nakadepende sa desktop notifs.
+    playNotifSound();
+    // Desktop notification: dating behavior, naka-gate pa rin sa Settings.
+    if (localStorage.getItem('csr_desktop_notif') === 'true' &&
+        typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      fresh.forEach(t => new Notification('New ticket', { body: `${t.id} — ${t.name}: ${t.issue}` }));
+    }
+  }
+
+  // PROGRESSIVE FIRST PAINT (2026-09-23): hindi na hinihintay ang lahat ng
+  // sheets — pagdating ng unang may lamang sheet, render agad; ang mga
+  // susunod ay idinadagdag habang dumarating (kita sa "Loading n/N sheets").
+  let firstPaintDone = false;
+  let initialLoadComplete = false;
+  function initialRender(tickets) {
+    allTickets = tickets;
+    // Mark everything already pending at load time as "seen" so opening
+    // the page doesn't flood-notify for the existing backlog.
+    allTickets.filter(t => t.statusCls === 'pending').forEach(t => notifiedTicketIds.add(t.id));
+    renderBrandTabs();
+    renderIssueFilter();
+    if (pendingIssueParam) {
+      const select = document.getElementById('issueFilter');
+      const matchExists = Array.from(select.options).some(opt => opt.value === pendingIssueParam);
+      if (matchExists) {
+        select.value = pendingIssueParam;
+        currentIssue = pendingIssueParam;
+      }
+    }
+    applyFilters();
+    renderNotifBadge();
+  }
+  TicketData.fetchTickets(false, (partial, done, total) => {
+    const ind = document.getElementById('liveIndicator');
+    if (ind && done < total) { ind.textContent = `\u25CF Loading ${done}/${total} sheets\u2026`; ind.style.color = 'var(--warning)'; }
+    if (!partial.length) return;
+    if (!firstPaintDone) { firstPaintDone = true; initialRender(partial); }
+    else { handleAutoRefresh(partial); }
+  })
+    .then(tickets => {
+      initialLoadComplete = true;
+      if (!firstPaintDone) { firstPaintDone = true; initialRender(tickets); }
+      else { handleAutoRefresh(tickets); }
+      markLiveUpdated();
+      TicketData.startAutoRefresh(handleAutoRefresh, Number(localStorage.getItem('csr_refresh_interval')) || 10000); // 10s refresh (2026-09-23)
+    })
+    .catch(err => {
+      console.error(err);
+      showMessage('Could not load tickets from the Google Sheet. Please check the sheet link and try again.');
+    });
+
+  // HARD REFRESH (2026-09-23): force-fetch mula sa sheets ngayon mismo,
+  // hindi hinihintay ang 10s auto-refresh at nilalagpasan ang cache.
+  function hardRefreshTickets() {
+    const btn = document.getElementById('hardRefreshBtn');
+    const icon = document.getElementById('hardRefreshIcon');
+    const ind = document.getElementById('liveIndicator');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    icon.classList.add('spinning');
+    if (ind) { ind.textContent = '\u25CF Refreshing\u2026'; ind.style.color = 'var(--warning)'; }
+    TicketData.fetchTickets(true)
+      .then(tickets => { handleAutoRefresh(tickets); })
+      .catch(err => {
+        console.error('Hard refresh failed:', err);
+        if (ind) { ind.textContent = '\u25CF Refresh failed'; ind.style.color = 'var(--danger)'; }
+      })
+      .finally(() => { btn.disabled = false; icon.classList.remove('spinning'); });
+  }
+
+  // Refreshes the underlying data in the background every ~60s without
+  // resetting the page/filters the agent currently has open.
+  function handleAutoRefresh(tickets) {
+    allTickets = tickets;
+    syncFilterOptionLists();
+    checkForNewTicketNotifications();
+    checkPendingTicketAlerts();
+    checkInProgressTicketAlerts();
+    renderFilterCounts();
+    renderBrandTabCounts();
+    renderIssueFilterCounts();
+    filteredTickets = allTickets.filter(t => ticketMatchesFilters(t));
+    const totalPages = Math.max(1, Math.ceil(filteredTickets.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    renderPage();
+    markLiveUpdated();
+    renderNotifBadge();
+  }
+
+  let notifActiveTab = 'new';
+
+  // The bell badge always reflects "New" tickets specifically — the ones
+  // nobody has acknowledged yet. Once acked (In Progress or further), a
+  // ticket drops off the badge count automatically.
+  function renderNotifBadge() {
+    const newTickets = allTickets.filter(t => t.statusCls === 'pending');
+    const badge = document.getElementById('notifBadge');
+    if (badge) {
+      if (newTickets.length > 0) {
+        badge.textContent = newTickets.length > 99 ? '99+' : newTickets.length;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+    renderNotifList();
+  }
+
+  function switchNotifTab(tab) {
+    notifActiveTab = tab;
+    document.getElementById('notifTabNew').classList.toggle('active', tab === 'new');
+    document.getElementById('notifTabProgress').classList.toggle('active', tab === 'inprogress');
+    renderNotifList();
+  }
+
+  function renderNotifList() {
+    const list = document.getElementById('notifList');
+    if (!list) return;
+    const statusCls = notifActiveTab === 'new' ? 'pending' : 'checking';
+    const emptyText = notifActiveTab === 'new' ? 'No new tickets right now' : 'No tickets in progress right now';
+    const tickets = allTickets.filter(t => t.statusCls === statusCls).sort((a, b) => b.submitted - a.submitted);
+    if (tickets.length === 0) {
+      list.innerHTML = `<div class="notif-empty">${emptyText}</div>`;
+      return;
+    }
+    list.innerHTML = tickets.slice(0, 20).map(t => `
+      <a class="notif-item" href="tickets.html?search=${encodeURIComponent(t.id)}">
+        <div class="n-id">${TicketData.escapeHtml(t.id)}</div>
+        <div class="n-name">${TicketData.escapeHtml(t.name)} — ${TicketData.escapeHtml(t.issue)}</div>
+        <div class="n-time">${TicketData.relativeTime(t.submitted)}</div>
+      </a>
+    `).join('');
+  }
+
+  function toggleNotifMenu(e) {
+    e.stopPropagation();
+    document.getElementById('notifDropdown').classList.toggle('open');
+  }
+  document.addEventListener('click', () => {
+    const notifDd = document.getElementById('notifDropdown');
+    if (notifDd) notifDd.classList.remove('open');
+  });
+
+  function markLiveUpdated() {
+    const el = document.getElementById('liveIndicator');
+    if (!el) return;
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    el.textContent = `● Updated ${time}`;
+    el.style.color = 'var(--success)';
+    setTimeout(() => { el.style.color = 'var(--ink-faint)'; }, 3000);
+  }
+
+  function matchesDateFilter(t) {
+    if (currentDateFilter === 'all') return true;
+    const now = new Date();
+    if (currentDateFilter === 'today') return TicketData.isSameLocalDay(t.submitted, now);
+    if (currentDateFilter === 'yesterday') {
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      return TicketData.isSameLocalDay(t.submitted, y);
+    }
+    if (currentDateFilter === '7d') {
+      const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7); cutoff.setHours(0, 0, 0, 0);
+      return t.submitted >= cutoff;
+    }
+    if (currentDateFilter === '30d') {
+      const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 30); cutoff.setHours(0, 0, 0, 0);
+      return t.submitted >= cutoff;
+    }
+    if (currentDateFilter === 'month') {
+      return t.submitted.getFullYear() === now.getFullYear() && t.submitted.getMonth() === now.getMonth();
+    }
+    if (currentDateFilter === 'custom') {
+      if (!customDateFrom || !customDateTo) return true;
+      return t.submitted >= customDateFrom && t.submitted <= customDateTo;
+    }
+    return true;
+  }
+
+  // Formats the "Custom Date" <option> label to show the picked range, e.g. "Sep 1 – Sep 7".
+  function updateCustomDateOptionLabel() {
+    const opt = document.getElementById('customDateOption');
+    if (!opt || !customDateFrom || !customDateTo) return;
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    opt.textContent = `${fmt(customDateFrom)} – ${fmt(customDateTo)}`;
+  }
+
+  // Checks a ticket against all active filters. Pass e.g. {skipStatus:true} to
+  // check against every filter EXCEPT status — used to compute "what would this
+  // count be if I picked this tab" for each facet (status/brand/issue).
+  function ticketMatchesFilters(t, skip = {}) {
+    if (!skip.skipStatus) {
+      // SEARCH OVERRIDE (2026-09-23): kapag may search query at nasa
+      // DEFAULT na "New" pa ang dropdown, huwag itago ang
+      // Done/Rejected — ang hinahanap ay dapat mahanap anuman ang status.
+      // Kapag SADYANG pumili ng specific na status, nirerespeto pa rin.
+      // (2026-10-14) Ipinatupad na: kapag may search at nasa default pa ang
+      // status ('open'), hinahanap sa LAHAT ng status.
+      const effFilter = (currentSearch && currentFilter === 'open') ? 'all' : currentFilter; // default 'open' = New + In Progress
+      if (effFilter === 'backlog') {
+        const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
+        const isToday = TicketData.isSameLocalDay(t.submitted, new Date());
+        if (!(isOpen && !isToday)) return false;
+      } else if (effFilter === 'open') {
+        if (!(t.statusCls === 'pending' || t.statusCls === 'checking')) return false;
+      } else if (effFilter !== 'all' && t.statusCls !== effFilter) {
+        return false;
+      }
+    }
+    if (!skip.skipBrand && currentBrand !== 'all' && t.brandCode !== currentBrand) return false;
+    if (!skip.skipIssue && currentIssue !== 'all' && t.issue !== currentIssue) return false;
+    // SEARCH (2026-10-14, utos ni Chad): kapag may hinahanap at nasa default
+    // pa ang Submitted ("Today"), hinahanap sa LAHAT ng petsa. Kapag sadyang
+    // pumili ng ibang petsa, nirerespeto pa rin.
+    const searchAllDates = currentSearch && currentDateFilter === 'today';
+    if (!skip.skipDate && !searchAllDates && !matchesDateFilter(t)) return false;
+    if (!skip.skipSearch && currentSearch) {
+      const q = currentSearch.toLowerCase();
+      // Hinahanap din sa lahat ng column ng row (username, phone, reference, atbp.)
+      if (t._hay == null) {
+        let raw = '';
+        try { raw = t.raw ? Object.values(t.raw).join(' ') : ''; } catch (e) {}
+        t._hay = [t.id, t.name, t.issue, t.category, t.brandLabel, raw].filter(Boolean).join(' \u0001 ').toLowerCase();
+      }
+      if (!t._hay.includes(q)) return false;
+    }
+    return true;
+  }
+
+  function applyFilters() {
+    filteredTickets = allTickets.filter(t => ticketMatchesFilters(t));
+    currentPage = 1;
+    renderPage();
+    renderFilterCounts();
+    renderBrandTabCounts();
+    renderIssueFilterCounts();
+  }
+
+  // -------------------------------------------------------------------------
+  // TICKET DETAIL POPUP (2026-09-25) — i-click kahit saan sa row. Ipinapakita
+  // ang LAHAT ng column ng row mula sa sheet (t.raw, galing ticket-data.js
+  // v13), sa parehong pagkakasunod ng sheet — kaya kapag may bagong column,
+  // kusang lalabas dito nang walang code change.
+  //   * Hindi ipinapakita (per Chad): Source, Channel, Priority, Status,
+  //     Acknowledged By. Idagdag/bawasan sa TD_HIDDEN_FIELDS.
+  //   * Photos/receipts (Drive o image links sa kahit anong column) ay
+  //     ipinapakita bilang larawan sa ibaba, hindi bilang raw link.
+  //   * Cash In / Cash Out: may "Receipt" section; kapag walang naka-attach,
+  //     sinasabi ito nang malinaw.
+  // Pumalit ito sa dating Rejected-reason popup — ang Reject Reason ay
+  // kasama na sa grid (naka-pula).
+  // -------------------------------------------------------------------------
+  const TD_HIDDEN_FIELDS = new Set(['source', 'channel', 'priority', 'status', 'acknowledged by']);
+  const TD_ID_FIELDS = new Set(['ticket id', 'reference id']);
+  const TD_URL_RE = /https?:\/\/[^\s,;|]+/g;
+
+  // INTERNAL COLUMNS (2026-09-25): mga variable ng ticket automation na
+  // nakasulat sa sheet (rowData, shouldUpdate, refId, command...). Sinasala
+  // DITO mismo sa popup — hindi lang sa ticket-data.js — para kahit luma pa
+  // ang naka-cache na ticket-data.js sa browser, hindi pa rin sila lalabas.
+  const TD_INTERNAL_NAMES = new Set(['rowdata', 'row_number', 'shouldupdate', 'valid', 'type', 'refid',
+    'command', 'rejreason', 'doneremarks', 'otpdigits', 'fromuser', 'chatid', 'messageid', 'threadid',
+    'replytomsgid', 'now', 'newstatus', 'updatedata', '_waitseconds']);
+  function tdIsInternal(col, val) {
+    const name = String(col || '').trim();
+    if (!name || name === '__rowNumber') return true;
+    if (TD_INTERNAL_NAMES.has(name.toLowerCase())) return true;
+    if (/^[a-z_]/.test(name)) return true; // camelCase/snake_case = automation, hindi sheet column
+    const v = String(val ?? '').trim();
+    return /^[\[{]/.test(v) && /[\]}]$/.test(v) && v.indexOf('":') !== -1; // JSON blob
+  }
+
+  function tdIsCashInOut(t) {
+    const hay = [t.category, t.issue, t.raw && (t.raw['Category'] || t.raw['Concern Type'])].join(' ');
+    return /deposit|cash\s*-?\s*in|cashin|withdraw|cash\s*-?\s*out|cashout/i.test(hay);
+  }
+  function tdPhotoThumb(url) {
+    const m = url.match(/\/d\/([\w-]{10,})/) || url.match(/[?&]id=([\w-]{10,})/);
+    if (m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w800`;
+    return /\.(jpe?g|png|gif|webp)([?#].*)?$/i.test(url) ? url : null;
+  }
+  function tdValueHtml(val) {
+    return escapeHtml(val).replace(/https?:\/\/[^\s<]+/g, u =>
+      `<a href="${u}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${u.length > 60 ? u.slice(0, 57) + '\u2026' : u}</a>`);
+  }
+
+  // -------------------------------------------------------------------------
+  // PHOTO VIEWER (2026-09-25): ang pag-click sa receipt/photo ay nagbubukas
+  // ng malaking view SA PAREHONG TAB (hindi na bagong tab). Drive links →
+  // high-res thumbnail; kapag hindi ma-load bilang larawan (hal. PDF o
+  // restricted file), ang Drive preview ang ipapakita sa loob ng viewer.
+  //   ← / → = lipat ng photo, Esc = sara (viewer lang, hindi ang ticket),
+  //   click sa larawan = zoom in/out.
+  // -------------------------------------------------------------------------
+  function driveFileId(url) {
+    const m = String(url).match(/\/d\/([\w-]{10,})/) || String(url).match(/[?&]id=([\w-]{10,})/);
+    return m ? m[1] : null;
+  }
+  function openPhotoViewer(list, startIdx) {
+    let idx = startIdx || 0;
+    const bg = document.createElement('div');
+    bg.className = 'pv-bg';
+    bg.innerHTML = `
+      <div class="pv-bar">
+        <div class="pv-title"></div>
+        <span class="pv-count"></span>
+        <a class="pv-btn" data-drive target="_blank" rel="noopener" title="Buksan sa Google Drive (bagong tab)">Drive \u2197</a>
+        <button type="button" class="pv-btn" data-pv-close title="Close (Esc)">\u2715</button>
+      </div>
+      <div class="pv-stage"></div>`;
+    const stage = bg.querySelector('.pv-stage');
+    const render = () => {
+      const p = list[idx];
+      const id = driveFileId(p.url);
+      bg.querySelector('.pv-title').textContent = p.label;
+      bg.querySelector('.pv-count').textContent = list.length > 1 ? `${idx + 1} / ${list.length}` : '';
+      bg.querySelector('[data-drive]').href = p.url;
+      stage.classList.remove('zoomed');
+      const src = id ? `https://drive.google.com/thumbnail?id=${id}&sz=w2000` : p.url;
+      stage.innerHTML = `<img alt="${escapeHtml(p.label)}" referrerpolicy="no-referrer">` +
+        (list.length > 1 ? `<button type="button" class="pv-nav prev" data-prev aria-label="Previous">\u2039</button><button type="button" class="pv-nav next" data-next aria-label="Next">\u203A</button>` : '');
+      const img = stage.querySelector('img');
+      img.onerror = () => {
+        // Hindi larawan o hindi ma-thumbnail → Drive preview sa loob ng viewer.
+        if (id) img.outerHTML = `<iframe src="https://drive.google.com/file/d/${id}/preview" allow="autoplay"></iframe>`;
+        else img.outerHTML = `<div style="color:#CBD5E1;font-size:13px;">Hindi ma-preview ang file na ito \u2014 gamitin ang "Drive \u2197".</div>`;
+      };
+      img.src = src;
+    };
+    const close = () => { if (bg.parentNode) bg.parentNode.removeChild(bg); window.removeEventListener('keydown', onKey, true); };
+    const go = (d) => { idx = (idx + d + list.length) % list.length; render(); };
+    // Capture phase + stopImmediatePropagation: Esc ay isasara ang VIEWER lang,
+    // hindi aabot sa Esc handler ng ticket popup sa ilalim.
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopImmediatePropagation(); close(); }
+      else if (e.key === 'ArrowLeft' && list.length > 1) { e.stopImmediatePropagation(); go(-1); }
+      else if (e.key === 'ArrowRight' && list.length > 1) { e.stopImmediatePropagation(); go(1); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    bg.addEventListener('click', (e) => {
+      if (e.target.closest('[data-pv-close]') || e.target === stage) return close();
+      if (e.target.closest('[data-prev]')) return go(-1);
+      if (e.target.closest('[data-next]')) return go(1);
+      if (e.target.tagName === 'IMG') stage.classList.toggle('zoomed');
+    });
+    document.body.appendChild(bg);
+    render();
+  }
+
+  function showTicketDetail(t) {
+    const raw = t.raw || {};
+    // Photos: alisin ang galing sa internal columns (hal. "rowData") at ang doble.
+    const seenPhotoUrls = new Set();
+    const photos = (t.photos || []).filter(p => {
+      if (tdIsInternal(p.label, '') || seenPhotoUrls.has(p.url)) return false;
+      seenPhotoUrls.add(p.url);
+      return true;
+    });
+    const photoUrls = new Set(photos.map(p => p.url));
+    const fields = [];
+    for (const col in raw) {
+      const key = col.trim().toLowerCase();
+      const val = String(raw[col] ?? '').trim();
+      if (!val || TD_HIDDEN_FIELDS.has(key) || TD_ID_FIELDS.has(key) || tdIsInternal(col, val)) continue;
+      // Column na puro photo link lang → sa Receipt/Photos section na ipapakita.
+      const urls = val.match(TD_URL_RE) || [];
+      if (urls.length && urls.every(u => photoUrls.has(u)) && !val.replace(TD_URL_RE, '').replace(/[\s,;|]/g, '')) continue;
+      const wide = val.length > 48 || val.includes('\n');
+      const reject = /reject/.test(key);
+      fields.push(`<div class="td-field${wide ? ' wide' : ''}${reject ? ' reject' : ''}"><div class="td-label">${escapeHtml(col.trim())}</div><div class="td-value">${tdValueHtml(val)}</div></div>`);
+    }
+    // Fallback kapag lumang ticket-data.js pa ang naka-cache (walang raw).
+    if (!Object.keys(raw).length) {
+      fields.push(`<div class="td-field wide"><div class="td-value" style="color:var(--ink-faint);font-weight:500;">Hindi mabasa ang buong row \u2014 i-hard refresh ang page (Ctrl+Shift+R) para ma-load ang bagong ticket-data.js.</div></div>`);
+    }
+
+    const cash = tdIsCashInOut(t);
+    let mediaHtml = '';
+    if (photos.length) {
+      mediaHtml = `<div class="td-section">
+        <div class="td-section-title">${cash ? 'Receipt' : 'Uploaded Photos'}</div>
+        <div class="td-receipts">${photos.map(p => {
+          const thumb = tdPhotoThumb(p.url);
+          return `<a class="td-receipt" href="${escapeHtml(p.url)}" data-photo-idx="${photos.indexOf(p)}" title="${escapeHtml(p.label)} \u2014 i-click para palakihin">
+            ${thumb ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(p.label)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('noimg')">` : ''}
+            <span>${escapeHtml(p.label)}</span></a>`;
+        }).join('')}</div>
+        <div class="td-note" style="margin-top:8px;">I-click ang larawan para palakihin dito mismo (\u2190 \u2192 para sa susunod, Esc para isara). Kung walang preview, i-set ang sharing ng Drive folder sa "Anyone with the link \u2192 Viewer".</div>
+      </div>`;
+    } else if (cash) {
+      mediaHtml = `<div class="td-section"><div class="td-section-title">Receipt</div>
+        <div class="td-note">Walang receipt na naka-attach sa ticket na ito (walang Drive o image link sa row nito sa sheet).</div></div>`;
+    }
+
+    const bg = document.createElement('div');
+    bg.className = 'rej-modal-bg';
+    bg.innerHTML = `<div class="td-modal" role="dialog" aria-label="Ticket ${escapeHtml(t.id)}">
+      <div class="td-head">
+        <div>
+          <div class="td-title"><h4>${escapeHtml(t.id)}</h4><button type="button" class="td-copy" data-copy>copy ID</button></div>
+          <div class="td-sub">${escapeHtml(t.brandLabel)} \u00B7 ${escapeHtml(t.name)} \u00B7 ${escapeHtml(t.issue)}</div>
+        </div>
+        <button type="button" class="td-x" data-close aria-label="Close">\u2715</button>
+      </div>
+      <div class="td-body">
+        <div class="td-grid">${fields.join('')}</div>
+        ${mediaHtml}
+      </div>
+      <div class="td-foot">
+        ${t.sheetLink ? `<a class="rej-btn" href="${escapeHtml(t.sheetLink)}" target="_blank" rel="noopener">Open sa Sheet</a>` : ''}
+        <button type="button" class="rej-btn primary" data-close>Close</button>
+      </div></div>`;
+    const close = () => { if (bg.parentNode) bg.parentNode.removeChild(bg); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    bg.addEventListener('click', (e) => {
+      if (e.target === bg || e.target.closest('[data-close]')) return close();
+      const photoLink = e.target.closest('[data-photo-idx]');
+      if (photoLink) {
+        e.preventDefault(); // huwag nang magbukas ng bagong tab
+        return openPhotoViewer(photos, Number(photoLink.dataset.photoIdx) || 0);
+      }
+      const copyBtn = e.target.closest('[data-copy]');
+      if (copyBtn) {
+        const done = () => { copyBtn.textContent = 'Copied!'; setTimeout(() => { copyBtn.textContent = 'copy ID'; }, 1500); };
+        if (navigator.clipboard) navigator.clipboard.writeText(t.id).then(done).catch(() => {});
+      }
+    });
+    document.body.appendChild(bg);
+  }
+
+  // CLEAR FILTERS (2026-10-10): ibalik sa default view (New + In Progress,
+  // lahat ng brand/category, any time, walang search).
+  function clearAllTicketFilters() {
+    currentFilter = 'open'; currentBrand = 'all'; currentIssue = 'all';
+    currentDateFilter = 'all'; currentSearch = '';
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('statusFilter', 'open'); set('brandFilter', 'all'); set('issueFilter', 'all'); set('dateFilter', 'all');
+    const si = document.querySelector('.topbar-right .search input'); if (si) si.value = '';
+    applyFilters();
+  }
+
+  function renderPage() {
+    if (filteredTickets.length === 0) {
+      // Kapag may open tickets pero natatago dahil sa filters, sabihin ito
+      // nang malinaw — dati "No tickets found." lang kahit may 3 pending.
+      // STATUS-AWARE (2026-10-11): kapag may tugma sa ibang status (hal.
+      // Done/Rejected) pero wala sa napiling status, sabihin iyon at mag-alok
+      // ng "All statuses" — dati "open ticket na natatago" lang ang sinasabi.
+      const scopeAny = currentFilter !== 'all' ? allTickets.filter(t => ticketMatchesFilters(t, { skipStatus: true })) : [];
+      if (scopeAny.length > 0) {
+        const SL = { pending: 'New', checking: 'In Progress', done: 'Done', rejected: 'Rejected' };
+        const by = {};
+        scopeAny.forEach(t => { const k = SL[t.statusCls] || t.statusCls; by[k] = (by[k] || 0) + 1; });
+        const parts = Object.keys(by).map(k => `<b>${by[k].toLocaleString()}</b> ${k}`).join(' · ');
+        const curLabel = { pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected', open: 'New / In Progress' }[currentFilter] || currentFilter;
+        body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:36px;">
+          <div style="font-weight:800;font-size:15px;color:var(--ink);">Walang ${curLabel} ticket sa filters mo</div>
+          <div style="color:var(--ink-faint);margin:6px 0 14px;">Pero may ${scopeAny.length.toLocaleString()} ticket sa ibang status: ${parts}</div>
+          <button type="button" id="showAllStatusBtn" style="height:40px;padding:0 18px;border-radius:12px;border:0;background:var(--primary);color:#fff;font-weight:700;font-family:inherit;cursor:pointer;">Ipakita lahat ng status</button>
+        </td></tr>`;
+        document.getElementById('showAllStatusBtn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          currentFilter = 'all';
+          const sel = document.getElementById('statusFilter'); if (sel) sel.value = 'all';
+          applyFilters();
+        });
+        renderFooter();
+        return;
+      }
+      const hiddenOpen = allTickets.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
+      if (hiddenOpen > 0) {
+        body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:36px;">
+          <div style="font-weight:800;font-size:15px;color:var(--ink);">Walang tugma sa filters mo</div>
+          <div style="color:var(--ink-faint);margin:6px 0 14px;">May <b style="color:var(--danger);">${hiddenOpen.toLocaleString()}</b> open ticket na natatago dahil sa naka-select na Brand / Category / Date / Search.</div>
+          <button type="button" id="clearFiltersBtn" style="height:40px;padding:0 18px;border-radius:12px;border:0;background:var(--primary);color:#fff;font-weight:700;font-family:inherit;cursor:pointer;">Ipakita lahat ng open tickets</button>
+        </td></tr>`;
+        document.getElementById('clearFiltersBtn').addEventListener('click', (e) => { e.stopPropagation(); clearAllTicketFilters(); });
+      } else {
+        showMessage('No tickets found.');
+      }
+      renderFooter();
+      return;
+    }
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = filteredTickets.slice(start, start + PAGE_SIZE);
+    body.innerHTML = '';
+    pageItems.forEach(t => {
+      const tr = document.createElement('tr');
+      const isOpen = t.statusCls === 'pending' || t.statusCls === 'checking';
+      // Redesign 2026-10-10: open + walang umaako = naka-highlight ang row
+      if (isOpen && !t.acknowledgedBy) tr.className = 'row-unclaimed';
+      const ackCell = t.acknowledgedBy
+        ? escapeHtml(t.acknowledgedBy)
+        : (isOpen ? '<span class="unclaimed">Unclaimed</span>' : '<span style="color:var(--ink-faint);">—</span>');
+      tr.innerHTML = `
+        <td class="t-id">${escapeHtml(t.id)}</td>
+        <td>
+          <div class="t-customer">
+            <div class="t-av" style="background:${t.color};">${escapeHtml(t.init)}</div>
+            <div><div class="t-cname">${escapeHtml(t.name)}</div><div class="t-csub">Customer</div></div>
+          </div>
+        </td>
+        <td>${escapeHtml(t.issue)}</td>
+        <td class="t-channel">${escapeHtml(t.channel)}</td>
+        <td><span class="pill ${t.priority}">${escapeHtml(t.priorityLabel)}</span></td>
+        <td><span class="status ${t.statusCls}">${escapeHtml(t.statusLabel)}</span></td>
+        <td class="t-ack">${ackCell}</td>
+        <td class="t-time">${relativeTime(t.submitted)}</td>
+        <td>
+          <div class="t-actions">
+            <div class="t-btn" title="Open ticket"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+          </div>
+        </td>
+      `;
+      // Kahit saan sa row → ticket detail popup (2026-09-25). Ang "Open sa
+      // Sheet" ay nasa loob na ng popup.
+      tr.addEventListener('click', () => showTicketDetail(t));
+      body.appendChild(tr);
+    });
+    renderFooter();
+  }
+
+  // ---- QUEUE AT A GLANCE (redesign 2026-10-10) ----
+  // Galing sa filteredTickets (kung ano ang naka-filter sa table). Open =
+  // New (pending) + In Progress (checking). Unacknowledged = open na walang
+  // "Acknowledged By".
+  function compactAge(date) {
+    if (!date) return '—';
+    const mins = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+    if (mins < 60) return mins + 'm';
+    const h = Math.floor(mins / 60);
+    if (h < 24) return h + 'h ' + (mins % 60) + 'm';
+    return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+  }
+  function renderQueueStats() {
+    const openEl = document.getElementById('qOpen');
+    if (!openEl) return;
+    // QUEUE CARDS (2026-10-11): ang Open / Not yet acknowledged / Oldest
+    // waiting / Open by priority ay ang KASALUKUYANG queue — hindi sakop ng
+    // Status at Submitted (date) filter, para makita pa rin ang open tickets
+    // kahit naka-"All statuses" + "Today" (hal. open ticket na kahapon pa
+    // na-file). Sinusunod pa rin ang Brand, Category at Search.
+    const open = allTickets
+      .filter(t => t.statusCls === 'pending' || t.statusCls === 'checking')
+      .filter(t => ticketMatchesFilters(t, { skipStatus: true, skipDate: true }));
+    const unack = open.filter(t => !t.acknowledgedBy);
+    openEl.textContent = open.length.toLocaleString();
+
+    const unackEl = document.getElementById('qUnack');
+    unackEl.textContent = unack.length.toLocaleString();
+    unackEl.classList.toggle('bad', unack.length > 0);
+    document.getElementById('qUnackFlag').hidden = unack.length === 0;
+
+    const oldest = unack.filter(t => t.submitted).sort((a, b) => a.submitted - b.submitted)[0];
+    document.getElementById('qOldest').textContent = oldest ? compactAge(oldest.submitted) : '—';
+    document.getElementById('qOldestId').textContent = oldest ? oldest.id : 'Walang naghihintay';
+
+    // Done vs Rejected — hindi sakop ng Status filter, para may makita
+    // kahit nasa default na "New".
+    const scope = allTickets.filter(t => ticketMatchesFilters(t, { skipStatus: true }));
+    const nDone = scope.filter(t => t.statusCls === 'done').length;
+    const nRej = scope.filter(t => t.statusCls === 'rejected').length;
+    const nOpenScope = scope.filter(t => t.statusCls === 'pending' || t.statusCls === 'checking').length;
+    const closed = nDone + nRej;
+    const pDone = closed ? +(nDone / closed * 100).toFixed(1) : 0;
+    const pRej = closed ? +(100 - pDone).toFixed(1) : 0;
+    const plural = n => `${n.toLocaleString()} ticket${n === 1 ? '' : 's'}`;
+    document.getElementById('resDonePct').textContent = closed ? pDone + '%' : '—';
+    document.getElementById('resRejPct').textContent = closed ? pRej + '%' : '—';
+    document.getElementById('resDoneSub').textContent = plural(nDone);
+    document.getElementById('resRejSub').textContent = plural(nRej);
+    document.getElementById('resGood').style.width = pDone + '%';
+    document.getElementById('resBad').style.width = pRej + '%';
+    document.getElementById('resBar').setAttribute('aria-label', `Done ${pDone}%, Rejected ${pRej}%`);
+    document.getElementById('resNote').textContent = nOpenScope
+      ? `${plural(nOpenScope)} pa ang open (New / In Progress)`
+      : (closed ? 'Walang open ticket' : 'Wala pang natapos na ticket');
+    document.getElementById('resDoneBtn').classList.toggle('active', currentFilter === 'done');
+    document.getElementById('resRejBtn').classList.toggle('active', currentFilter === 'rejected');
+
+    const groups = {};
+    open.forEach(t => {
+      const key = t.priorityLabel || 'Unset';
+      if (!groups[key]) groups[key] = { n: 0, cls: t.priority || '' };
+      groups[key].n++;
+    });
+    const order = { high: 0, medium: 1, low: 2 };
+    const rows = Object.entries(groups).sort((a, b) => (order[a[1].cls] ?? 9) - (order[b[1].cls] ?? 9));
+    const max = Math.max(1, ...rows.map(r => r[1].n));
+    document.getElementById('qPriority').innerHTML = rows.length
+      ? rows.map(([label, g]) => `
+          <div class="prio-row ${escapeHtml(g.cls)}">
+            <span class="p-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+            <span class="p-track"><span class="p-fill" style="display:block;width:${(g.n / max * 100).toFixed(1)}%"></span></span>
+            <span class="p-n">${g.n.toLocaleString()}</span>
+          </div>`).join('')
+      : '<div class="kpi-sub">Walang open ticket</div>';
+  }
+
+  function renderFooter() {
+    renderQueueStats();
+    const total = filteredTickets.length;
+    const start = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+    const end = Math.min(currentPage * PAGE_SIZE, total);
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+    const footText = document.querySelector('.t-foot > div:first-child');
+    if (footText) footText.textContent = `Showing ${start}–${end} of ${total.toLocaleString()} tickets`;
+
+    const pager = document.querySelector('.pager');
+    if (!pager) return;
+    pager.innerHTML = '';
+
+    const prev = document.createElement('div');
+    prev.className = 'pg-btn';
+    prev.textContent = '‹';
+    prev.onclick = () => { if (currentPage > 1) { currentPage--; renderPage(); } };
+    pager.appendChild(prev);
+
+    const maxButtons = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+    startPage = Math.max(1, endPage - maxButtons + 1);
+
+    for (let p = startPage; p <= endPage; p++) {
+      const btn = document.createElement('div');
+      btn.className = 'pg-btn' + (p === currentPage ? ' active' : '');
+      btn.textContent = p;
+      btn.onclick = () => { currentPage = p; renderPage(); };
+      pager.appendChild(btn);
+    }
+
+    const next = document.createElement('div');
+    next.className = 'pg-btn';
+    next.textContent = '›';
+    next.onclick = () => { if (currentPage < totalPages) { currentPage++; renderPage(); } };
+    pager.appendChild(next);
+  }
+
+  function renderFilterCounts() {
+    const subset = allTickets.filter(t => ticketMatchesFilters(t, { skipStatus: true }));
+    const now = new Date();
+    const counts = { all: subset.length, open: 0, pending: 0, checking: 0, done: 0, rejected: 0, backlog: 0 };
+    subset.forEach(t => {
+      if (counts[t.statusCls] !== undefined) counts[t.statusCls]++;
+      if (t.statusCls === 'pending' || t.statusCls === 'checking') {
+        counts.open++;
+        if (!TicketData.isSameLocalDay(t.submitted, now)) counts.backlog++;
+      }
+    });
+    const STATUS_LABELS = { open: 'New + In Progress', all: 'All statuses', pending: 'New', checking: 'In Progress', backlog: 'Backlog', done: 'Done', rejected: 'Rejected' };
+    const select = document.getElementById('statusFilter');
+    if (!select) return;
+    Array.from(select.options).forEach(opt => {
+      if (counts[opt.value] !== undefined) opt.textContent = `${STATUS_LABELS[opt.value]} (${counts[opt.value].toLocaleString()})`;
+    });
+  }
+
+  // Done / Rejected card click (2026-10-10): i-filter sa status na iyon;
+  // i-click ulit para bumalik sa default na "New + In Progress".
+  document.querySelectorAll('#resDoneBtn, #resRejBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = btn.dataset.status;
+      currentFilter = (currentFilter === s) ? 'open' : s;
+      const sel = document.getElementById('statusFilter');
+      if (sel) sel.value = currentFilter;
+      applyFilters();
+      document.getElementById('ticketTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // Status filter dropdown (converted from tabs, 2026-09-23)
+  document.getElementById('statusFilter').addEventListener('change', (e) => {
+    currentFilter = e.target.value;
+    applyFilters();
+  });
+
+  // Deep-linking: read ?status=, ?date=, ?issue=, and ?search= from the URL (used by
+  // links from the dashboard, e.g. "tickets.html?issue=Cash%20In%20Delay&date=today").
+  (function applyQueryParams() {
+    const params = new URLSearchParams(window.location.search);
+    const statusParam = params.get('status');
+    const dateParam = params.get('date');
+    const dateFromParam = params.get('dateFrom');
+    const dateToParam = params.get('dateTo');
+    const searchParam = params.get('search');
+    pendingIssueParam = params.get('issue');
+    if (statusParam) {
+      currentFilter = statusParam;
+      const statusSelect = document.getElementById('statusFilter');
+      if (statusSelect) statusSelect.value = statusParam;
+    }
+    if (dateParam === 'custom' && dateFromParam && dateToParam) {
+      customDateFrom = new Date(dateFromParam + 'T00:00:00');
+      customDateTo = new Date(dateToParam + 'T23:59:59.999');
+      currentDateFilter = 'custom';
+      const dateSelect = document.getElementById('dateFilter');
+      if (dateSelect) dateSelect.value = 'custom';
+      const fromInput = document.getElementById('customDateFrom');
+      const toInput = document.getElementById('customDateTo');
+      if (fromInput) fromInput.value = dateFromParam;
+      if (toInput) toInput.value = dateToParam;
+      updateCustomDateOptionLabel();
+    } else if (dateParam) {
+      currentDateFilter = dateParam;
+      const dateSelect = document.getElementById('dateFilter');
+      if (dateSelect) dateSelect.value = dateParam;
+    }
+    if (searchParam) {
+      currentSearch = searchParam;
+    }
+  })();
+
+  // Brand filter dropdown — built dynamically from whatever brand prefixes
+  // appear in the data (converted from tabs to a select, 2026-09-23).
+  function renderBrandTabs() {
+    const counts = {};
+    allTickets.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || 0) + 1; });
+    const codes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const select = document.getElementById('brandFilter');
+    select.innerHTML = `<option value="all" selected>All Brands (${allTickets.length.toLocaleString()})</option>` +
+      codes.map(code => {
+        const label = TicketData.BRAND_MAP[code] || code;
+        return `<option value="${escapeHtml(code)}">${escapeHtml(label)} (${counts[code].toLocaleString()})</option>`;
+      }).join('');
+    select.onchange = () => {
+      currentBrand = select.value;
+      applyFilters();
+    };
+  }
+
+  // Kapag may BAGONG brand/issue na dumating (progressive load o bagong data
+  // sa auto-refresh), i-rebuild ang dropdown lists nang hindi nawawala ang
+  // kasalukuyang selection at hindi nagdodoble ang listeners.
+  function syncFilterOptionLists() {
+    const brandSelect = document.getElementById('brandFilter');
+    if (brandSelect && brandSelect.options.length) {
+      const codesNow = new Set(allTickets.map(t => t.brandCode));
+      const inSelect = new Set(Array.from(brandSelect.options).map(o => o.value).filter(v => v !== 'all'));
+      const changed = codesNow.size !== inSelect.size || [...codesNow].some(c => !inSelect.has(c));
+      if (changed) {
+        renderBrandTabs();
+        // FIX 2026-10-10: i-reset din ang variable, hindi lang ang dropdown —
+        // dati "All Brands" ang nakikita pero naka-filter pa rin sa luma.
+        if (currentBrand !== 'all' && !codesNow.has(currentBrand)) currentBrand = 'all';
+        brandSelect.value = currentBrand;
+      }
+    }
+    const issueSelect = document.getElementById('issueFilter');
+    if (issueSelect && issueSelect.options.length) {
+      const issuesNow = new Set(allTickets.map(t => t.issue));
+      const inSel = new Set(Array.from(issueSelect.options).map(o => o.value).filter(v => v !== 'all'));
+      const changed = issuesNow.size !== inSel.size || [...issuesNow].some(x => !inSel.has(x));
+      if (changed) {
+        renderIssueFilter();
+        if (currentIssue !== 'all' && !issuesNow.has(currentIssue)) currentIssue = 'all';
+        issueSelect.value = currentIssue;
+      }
+    }
+  }
+
+  // Updates just the counts in the brand dropdown labels (based on the other
+  // active filters) without rebuilding the list or losing the selection.
+  function renderBrandTabCounts() {
+    const subset = allTickets.filter(t => ticketMatchesFilters(t, { skipBrand: true }));
+    const counts = {};
+    subset.forEach(t => { counts[t.brandCode] = (counts[t.brandCode] || 0) + 1; });
+    const select = document.getElementById('brandFilter');
+    if (!select) return;
+    Array.from(select.options).forEach(opt => {
+      if (opt.value === 'all') {
+        opt.textContent = `All Brands (${subset.length.toLocaleString()})`;
+      } else {
+        const label = TicketData.BRAND_MAP[opt.value] || opt.value;
+        opt.textContent = `${label} (${(counts[opt.value] || 0).toLocaleString()})`;
+      }
+    });
+  }
+
+  // Date range filter
+  const dateFilterSelect = document.getElementById('dateFilter');
+  const customDatePop = document.getElementById('customDatePop');
+  const customDateFromInput = document.getElementById('customDateFrom');
+  const customDateToInput = document.getElementById('customDateTo');
+
+  dateFilterSelect.addEventListener('change', (e) => {
+    if (e.target.value === 'custom') {
+      // Don't apply yet — open the picker and wait for "Apply".
+      customDatePop.classList.add('open');
+      customDateFromInput.focus();
+      return;
+    }
+    customDatePop.classList.remove('open');
+    currentDateFilter = e.target.value;
+    applyFilters();
+  });
+
+  document.getElementById('customDateApply').addEventListener('click', () => {
+    const fromVal = customDateFromInput.value;
+    const toVal = customDateToInput.value;
+    if (!fromVal || !toVal) {
+      alert('Please pick both a start and end date.');
+      return;
+    }
+    if (fromVal > toVal) {
+      alert('Start date must be before the end date.');
+      return;
+    }
+    customDateFrom = new Date(fromVal + 'T00:00:00');
+    customDateTo = new Date(toVal + 'T23:59:59.999');
+    currentDateFilter = 'custom';
+    dateFilterSelect.value = 'custom';
+    updateCustomDateOptionLabel();
+    customDatePop.classList.remove('open');
+    applyFilters();
+  });
+
+  document.getElementById('customDateCancel').addEventListener('click', () => {
+    customDatePop.classList.remove('open');
+    dateFilterSelect.value = currentDateFilter; // revert to whatever was actually applied
+  });
+
+  // Close the popover on outside click without discarding an already-applied custom range.
+  document.addEventListener('click', (e) => {
+    if (!customDatePop.classList.contains('open')) return;
+    if (document.getElementById('dateFilterWrap').contains(e.target)) return;
+    customDatePop.classList.remove('open');
+    dateFilterSelect.value = currentDateFilter;
+  });
+
+  // Issue filter dropdown — built dynamically from distinct issue/subcategory values
+  function renderIssueFilter() {
+    const counts = {};
+    allTickets.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
+    const issues = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const select = document.getElementById('issueFilter');
+    select.innerHTML = `<option value="all">All categories (${allTickets.length.toLocaleString()})</option>` +
+      issues.map(issue => `<option value="${escapeHtml(issue)}">${escapeHtml(issue)} (${counts[issue].toLocaleString()})</option>`).join('');
+    select.onchange = () => {
+      currentIssue = select.value;
+      applyFilters();
+    };
+  }
+
+  // Updates just the counts shown in each <option> label (based on the other
+  // active filters) without rebuilding the list or losing the current selection.
+  function renderIssueFilterCounts() {
+    const subset = allTickets.filter(t => ticketMatchesFilters(t, { skipIssue: true }));
+    const counts = {};
+    subset.forEach(t => { counts[t.issue] = (counts[t.issue] || 0) + 1; });
+    const select = document.getElementById('issueFilter');
+    Array.from(select.options).forEach(opt => {
+      if (opt.value === 'all') {
+        opt.textContent = `All categories (${subset.length.toLocaleString()})`;
+      } else {
+        opt.textContent = `${opt.value} (${(counts[opt.value] || 0).toLocaleString()})`;
+      }
+    });
+  }
+
+  // Wire up the search box for live filtering by ticket ID, customer, or issue
+  (function setupSearch() {
+    const wrapper = document.querySelector('.topbar-right .search');
+    if (!wrapper) return;
+    const icon = wrapper.querySelector('svg');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Search ticket, customer or ID...';
+    input.style.cssText = 'border:none;outline:none;background:transparent;font:inherit;color:inherit;width:100%;';
+    if (currentSearch) input.value = currentSearch;
+    wrapper.innerHTML = '';
+    wrapper.appendChild(icon);
+    wrapper.appendChild(input);
+    input.addEventListener('input', (e) => {
+      currentSearch = e.target.value.trim();
+      applyFilters();
+    });
+  })();
+</script>
+
+<!-- SOURCE DIAGNOSTICS (2026-10-11): i-click ang "Updated" chip para makita
+     ang status ng bawat Google Sheet — kung na-load, pumalya, o luma. -->
+<style>
+  #liveIndicator{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+  .srcdiag-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .srcdiag{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(980px,96vw);max-height:86vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;}
+  .srcdiag-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #EEF1F6;gap:12px;}
+  .srcdiag-h h4{margin:0;font-size:15px;font-weight:800;color:#0F172A;}
+  .srcdiag-h small{display:block;font-size:12px;color:#64748B;font-weight:600;margin-top:2px;}
+  .srcdiag-h button{border:1px solid #E2E8F0;background:#fff;border-radius:8px;padding:6px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .srcdiag-b{overflow:auto;padding:4px 20px 18px;}
+  .srcdiag table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .srcdiag th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:#94A3B8;padding:10px 8px;border-bottom:1px solid #EEF1F6;position:sticky;top:0;background:#fff;}
+  .srcdiag td{padding:8px;border-bottom:1px solid #F1F5F9;color:#0F172A;white-space:nowrap;}
+  .srcdiag td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;}
+  .srcdiag .st{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:99px;}
+  .srcdiag .st.ok{background:#EAFBF1;color:#15803D;} .srcdiag .st.kept{background:#FEF6E7;color:#B45309;}
+  .srcdiag .st.failed{background:#FDECEC;color:#B42318;} .srcdiag .st.loading{background:#EFF4FF;color:#2563EB;}
+  .srcdiag .err{color:#B42318;font-size:11.5px;white-space:normal;max-width:260px;}
+  .srcdiag .warn{color:#B45309;font-weight:700;}
+</style>
+<script>
+(function () {
+  const ind = document.getElementById('liveIndicator');
+  if (!ind || !window.TicketData || !TicketData.getSourceStats) return;
+  ind.title = 'I-click para makita ang status ng bawat sheet';
+  const ago = d => { if (!d) return '—'; const m = Math.round((Date.now() - d.getTime()) / 60000); if (m < 60) return m + 'm ago'; const h = Math.round(m / 60); if (h < 48) return h + 'h ago'; return Math.round(h / 24) + 'd ago'; };
+  const fmt = d => d ? d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function open() {
+    const stats = TicketData.getSourceStats().filter(Boolean);
+    const order = { failed: 0, kept: 1, loading: 2, ok: 3 };
+    stats.sort((a, b) => (order[a.state] - order[b.state]) || a.i - b.i);
+    const totToday = stats.reduce((s, x) => s + (x.today || 0), 0);
+    const bad = stats.filter(s => s.state !== 'ok').length;
+    const LABEL = { ok: 'OK', kept: 'LUMANG KOPYA', failed: 'PUMALYA', loading: 'NAGLO-LOAD' };
+    const rowsHtml = stats.map(s => {
+      const stale = s.kind === 'ticket' && s.newest && (Date.now() - s.newest.getTime()) > 6 * 3600e3;
+      return `<tr>
+        <td>${esc(s.name)}${s.kind !== 'ticket' ? ` <span style="color:#94A3B8">(${esc(s.kind)})</span>` : ''}</td>
+        <td><span class="st ${s.state}">${LABEL[s.state] || s.state}</span></td>
+        <td class="n">${(s.rows || 0).toLocaleString()}</td>
+        <td class="n">${(s.tickets || 0).toLocaleString()}</td>
+        <td class="n">${s.today || 0}</td>
+        <td class="${stale ? 'warn' : ''}" title="${esc(fmt(s.newest))}">${esc(fmt(s.newest))} <span style="color:#94A3B8">(${ago(s.newest)})</span></td>
+        <td class="n">${s.ms ? (s.ms / 1000).toFixed(1) + 's' : '—'}</td>
+        <td class="err">${esc(s.error || '')}</td>
+      </tr>`;
+    }).join('');
+    const bg = document.createElement('div');
+    bg.className = 'srcdiag-bg';
+    bg.innerHTML = `<div class="srcdiag" role="dialog" aria-label="Sheet sources">
+      <div class="srcdiag-h"><div><h4>Data sources — ${stats.length} sheets</h4>
+        <small>${bad ? `<span style="color:#B42318">${bad} sheet may problema</span> · ` : 'Lahat OK · '}Ticket ngayong araw (bago i-dedupe): <b>${totToday}</b> · Huling load: ${esc(fmt(stats[0] && stats[0].at))}</small></div>
+        <button type="button">Close</button></div>
+      <div class="srcdiag-b"><table>
+        <thead><tr><th>Sheet</th><th>Status</th><th style="text-align:right">Rows</th><th style="text-align:right">Tickets</th><th style="text-align:right">Today</th><th>Pinakabagong ticket</th><th style="text-align:right">Load</th><th>Error</th></tr></thead>
+        <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;color:#94A3B8;padding:24px">Wala pang na-load</td></tr>'}</tbody>
+      </table>
+      <div style="font-size:11.5px;color:#64748B;margin-top:10px;line-height:1.6">
+        <b>Rows</b> = linya sa published CSV · <b>Tickets</b> = rows na nabasa bilang ticket (may Ticket ID at valid na Submitted At) ·
+        <b>Pinakabagong ticket</b> na kulay orange = lampas 6 oras na ang pinakabago — posibleng luma ang published copy ng sheet.
+      </div></div></div>`;
+    const close = () => bg.remove();
+    bg.addEventListener('click', e => { if (e.target === bg || e.target.tagName === 'BUTTON') close(); });
+    document.addEventListener('keydown', function k(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', k); } });
+    document.body.appendChild(bg);
+  }
+  ind.addEventListener('click', open);
+})();
+</script>
+<script src="sidebar-topnav.js?v=4"></script>
+</body>
+</html>

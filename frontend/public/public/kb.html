@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knowledge Base — CSR Dashboard</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#2563EB; --primary-tint:#EFF4FF;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --danger:#EF4444; --danger-tint:#FDECEC;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-md:14px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;margin-bottom:2px;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+
+  .brand-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .brand-tab{font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;}
+  .brand-tab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .brand-tab .kb-has{width:7px;height:7px;border-radius:50%;background:var(--success);}
+  .brand-tab.active .kb-has{background:#fff;}
+  .brand-tab .kb-none{width:7px;height:7px;border-radius:50%;background:var(--line);}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+  .kb-meta{font-size:11.5px;font-weight:600;color:var(--ink-faint);}
+  .kb-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .kb-btn{font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-family:inherit;display:flex;align-items:center;gap:6px;}
+  .kb-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .kb-btn:disabled{opacity:.55;cursor:wait;}
+
+  .kb-search{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .kb-search input{flex:1;max-width:380px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:13px;background:#fff;color:var(--ink);}
+  .kb-search input:focus{outline:2px solid var(--primary);outline-offset:-1px;}
+  .kb-hits{font-size:12px;font-weight:600;color:var(--ink-faint);}
+
+  .kb-view{position:relative;white-space:pre-wrap;overflow-wrap:break-word;font-size:13px;line-height:1.65;color:var(--ink);background:#FBFCFE;border:1px solid var(--line);border-radius:10px;padding:16px 18px;max-height:65vh;overflow-y:auto;}
+  .kb-view mark{background:#FDE68A;border-radius:3px;padding:0 1px;}
+  .kb-empty{color:var(--ink-faint);font-size:13px;padding:36px 12px;text-align:center;}
+  .kb-editor{width:100%;min-height:56vh;padding:14px 16px;border:1px solid var(--line);border-radius:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;color:var(--ink);background:#fff;resize:vertical;}
+  .kb-editor:focus{outline:2px solid var(--primary);outline-offset:-1px;}
+
+  .kb-layout{display:flex;gap:0;min-height:60vh;}
+  .kb-seclist{width:252px;flex-shrink:0;border-right:1px solid var(--line);padding-right:14px;margin-right:16px;display:flex;flex-direction:column;}
+  .kb-seclist-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .kb-seclist-head span{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-faint);}
+  .kb-addbtn{border:none;background:var(--primary-tint);color:var(--primary);font-size:15px;font-weight:800;width:26px;height:26px;border-radius:8px;cursor:pointer;line-height:1;}
+  .kb-secitems{overflow-y:auto;max-height:62vh;display:flex;flex-direction:column;gap:2px;}
+  .kb-secitem{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;text-align:left;font-family:inherit;width:100%;}
+  .kb-secitem svg{width:15px;height:15px;flex-shrink:0;color:var(--ink-faint);}
+  .kb-secitem:hover{background:#F1F5F9;}
+  .kb-secitem.active{background:var(--primary-tint);color:var(--primary);}
+  .kb-secitem.active svg{color:var(--primary);}
+  .kb-secitem .kb-link-dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;margin-left:auto;}
+  .kb-alert-badge{font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;flex-shrink:0;margin-left:auto;}
+  .kb-alert-badge.expired{background:var(--danger-tint);color:var(--danger);}
+  .kb-alert-badge.soon{background:var(--warning-tint);color:#92620A;}
+  .brand-tab .kb-dot-expired{width:7px;height:7px;border-radius:50%;background:var(--danger);box-shadow:0 0 0 2.5px var(--danger-tint);}
+  .brand-tab .kb-dot-soon{width:7px;height:7px;border-radius:50%;background:var(--warning);box-shadow:0 0 0 2.5px var(--warning-tint);}
+  .kb-warn-banner{border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;line-height:1.6;margin-bottom:12px;}
+  .kb-warn-banner.expired{background:var(--danger-tint);color:#9B1C1C;}
+  .kb-warn-banner.soon{background:var(--warning-tint);color:#92620A;}
+  .kb-warn-banner .kb-jump{cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:800;}
+  .kb-mark-exp{background:#FDE2E2;color:#B91C1C;font-weight:800;padding:0 4px;border-radius:4px;box-shadow:0 0 0 1.5px var(--danger);}
+  .kb-mark-soon{background:var(--warning-tint);color:#92620A;font-weight:800;padding:0 4px;border-radius:4px;box-shadow:0 0 0 1.5px var(--warning);}
+  .kb-alert-badge.mixed{background:#F3E8FF;color:#7E22CE;}
+  .kb-warn-banner.mixed{background:#F3E8FF;color:#6B21A8;}
+  .kb-mark-brand{background:#F3E8FF;color:#7E22CE;font-weight:800;padding:0 4px;border-radius:4px;box-shadow:0 0 0 1.5px #A855F7;}
+  .kb-content{flex:1;min-width:0;}
+  .kb-empty-side{color:var(--ink-faint);font-size:12.5px;padding:18px 6px;text-align:center;line-height:1.6;}
+  .kb-modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:50;}
+  .kb-modal{background:#fff;border-radius:14px;box-shadow:var(--shadow);width:min(500px,92vw);max-height:82vh;display:flex;flex-direction:column;padding:18px;}
+  .kb-modal h4{margin:0 0 4px;font-size:14.5px;}
+  .kb-modal-sub{font-size:12px;color:var(--ink-soft);line-height:1.5;margin-bottom:10px;}
+  .kb-modal-list{overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:6px;flex:1;min-height:120px;}
+  .kb-modal-item{display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:12.5px;font-weight:600;border-radius:8px;cursor:pointer;}
+  .kb-modal-item:hover{background:#F1F5F9;}
+  .kb-modal-item .warn{font-size:10px;font-weight:800;color:#92620A;background:var(--warning-tint);padding:2px 7px;border-radius:12px;margin-left:auto;flex-shrink:0;}
+  .kb-modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;}
+  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} .kb-layout{flex-direction:column;} .kb-seclist{width:100%;border-right:none;border-bottom:1px solid var(--line);padding:0 0 12px;margin:0 0 14px;} }
+
+  /* ===== KB REDESIGN (2026-10-10) — hero band, brand tabs on navy, cleaner reader ===== */
+  .hero-band{position:relative;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);
+    margin:-26px -32px 0;padding:26px 32px 76px;border-radius:0 0 20px 20px;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .hero-band .topbar{margin-bottom:18px;}
+  .hero-band .greeting h1{color:#fff;}
+  .hero-band .greeting p{color:#9FB2D8;}
+  .hero-stats{display:flex;gap:8px;flex-wrap:wrap;}
+  .hero-stat{display:flex;flex-direction:column;align-items:flex-start;min-width:96px;padding:9px 14px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);}
+  .hero-stat b{font-size:18px;font-weight:800;color:#fff;line-height:1.1;}
+  .hero-stat span{font-size:11px;font-weight:600;color:#9FB2D8;margin-top:2px;}
+  .hero-stat.warn b{color:#FCD34D;} .hero-stat.bad b{color:#FCA5A5;}
+  .hero-band .brand-tabs{margin-bottom:0;gap:6px;}
+  .hero-band .brand-tab{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#D7E1F5;border-radius:99px;padding:7px 13px;transition:background .15s,border-color .15s;}
+  .hero-band .brand-tab:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff;}
+  .hero-band .brand-tab.active{background:#fff;color:var(--primary);border-color:#fff;box-shadow:0 6px 18px -8px rgba(0,0,0,.5);}
+  .hero-band .brand-tab.active .kb-has{background:var(--success);}
+  .hero-band .brand-tab .kb-none{background:rgba(255,255,255,.28);}
+  .kb-panel{margin-top:-52px;position:relative;z-index:2;padding:20px;}
+
+  .kb-seclist{width:268px;}
+  .kb-seclist-head span{font-size:11px;}
+  .kb-seccount{font-size:10.5px;font-weight:800;color:var(--primary);background:var(--primary-tint);padding:2px 8px;border-radius:99px;margin-left:6px;letter-spacing:0;text-transform:none;}
+  .kb-doctools{background:#F8FAFC;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:12px;}
+  .kb-doctools-t{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint);margin:0 2px 8px;}
+  .kb-doctools .kb-btn{background:#fff;}
+  .kb-doctools #kbSyncStatus{margin-bottom:0 !important;}
+  .kb-secfilter{position:relative;margin-bottom:8px;}
+  .kb-secfilter svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--ink-faint);}
+  .kb-secfilter input{width:100%;padding:8px 10px 8px 30px;border:1px solid #E2E8F0;border-radius:9px;font:inherit;font-size:12.5px;background:#fff;color:var(--ink);outline:none;}
+  .kb-secfilter input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+  .kb-secitems{gap:3px;max-height:56vh;padding-right:2px;}
+  .kb-secitem{position:relative;padding:9px 10px 9px 12px;border-radius:10px;transition:background .12s,color .12s;}
+  .kb-secitem.active{font-weight:700;box-shadow:inset 3px 0 0 var(--primary);}
+  .kb-secitem.kb-hide{display:none;}
+
+  .kb-content .panel-head{align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:14px;}
+  #kbTitle{font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.3;}
+  .kb-actions .kb-btn{border-color:#E2E8F0;border-radius:9px;transition:border-color .12s,color .12s,background .12s;}
+  .kb-actions .kb-btn:not(.primary):hover{border-color:var(--primary);color:var(--primary);}
+  .kb-actions .kb-btn.primary{box-shadow:0 6px 14px -8px rgba(37,99,235,.7);}
+  .kb-search input{max-width:none;padding-left:34px;border-color:#E2E8F0;border-radius:10px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E") no-repeat 11px center/15px 15px;}
+  .kb-search input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+  .kb-view{background:#fff;font-size:13.5px;line-height:1.8;padding:22px 26px;max-height:68vh;border-color:#E8EDF5;border-radius:12px;box-shadow:inset 0 1px 0 #F1F5F9;}
+  .kb-view::-webkit-scrollbar{width:8px;} .kb-view::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:8px;}
+  .kb-empty{padding:60px 12px;}
+  @media (max-width:860px){ .hero-band{margin:-20px -16px 0;padding:20px 16px 72px;} .kb-seclist{width:100%;} }
+</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw Object.assign(new Error("Invalid session"), { authFail: res.status === 401 });
+    } catch (err) {
+      // LOGIN LOOP FIX (2026-10-15): logout lang kapag 401 talaga. Ang network/abort
+      // error (hal. CSR na nire-redirect ng role guard habang naglo-load pa) ay hindi logout.
+      if (!err || !err.authFail) return;
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <a href="csr-dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a href="tickets.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+      Tickets
+    </a>
+    <a href="customers.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Customers
+    </a>
+    <a href="qa.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      Quality Assurance
+    </a>
+    <a href="kb.html" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+      Knowledge Base
+    </a>
+    <a href="reports.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      Reports
+    </a>
+    <a href="office.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 4l9 6.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>
+      Opisina
+    </a>
+    <a href="openai.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      OpenAI
+    </a>
+    <a href="settings.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </a>
+    <div class="sidebar-status"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <main class="main">
+    <div class="hero-band">
+    <div class="topbar">
+      <div class="greeting">
+        <h1>Knowledge Base</h1>
+        <p>The Chatwoot KB for every brand — one shared, editable source of truth for the whole team.</p>
+      </div>
+      <div class="hero-stats" id="kbHeroStats"></div>
+    </div>
+
+    <div class="brand-tabs" id="brandTabs"></div>
+    </div><!-- /hero-band -->
+
+    <div class="panel kb-panel">
+      <div id="kbBrandNotice"></div>
+      <div class="kb-layout">
+        <div class="kb-seclist">
+          <div class="kb-seclist-head">
+            <span>Sections<span class="kb-seccount" id="kbSecCount" style="display:none"></span></span>
+            <button class="kb-addbtn" id="kbAddBtn" title="Add a new section">+</button>
+          </div>
+          <div class="kb-doctools"><div class="kb-doctools-t">Google Doc sync</div>
+          <button class="kb-btn" id="kbDocLinkBtn" style="width:100%;justify-content:center;margin-bottom:6px;" title="Set this brand's published Google Doc link (File → Share → Publish to web)">🔗 Doc link</button>
+          <button class="kb-btn" id="kbImportBtn" title="Basahin ang naka-link na doc, awtomatikong gawing sections ang bawat tab heading (hal. LLM Instruction, 00 admin persona, 01 about …), tapos i-sync agad ang laman" style="display:none;width:100%;justify-content:center;margin-bottom:6px;color:var(--success);border-color:var(--success-tint);">⬇ Import from doc</button>
+          <button class="kb-btn" id="kbSyncAllBtn" title="I-sync LAHAT ng sections ng brand na ito mula sa doc" style="display:none;width:100%;justify-content:center;margin-bottom:8px;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync All</button>
+          <div id="kbSyncStatus" style="font-size:10.5px;font-weight:600;color:var(--ink-faint);text-align:center;margin-bottom:8px;min-height:14px;"></div>
+          </div>
+          <div class="kb-secfilter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" id="kbSecFilter" placeholder="Filter sections…" autocomplete="off">
+          </div>
+          <div class="kb-secitems" id="kbSecItems"><div class="kb-empty-side">Loading…</div></div>
+        </div>
+        <div class="kb-content">
+          <div class="panel-head">
+            <h3 id="kbTitle">—</h3>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <span class="kb-meta" id="kbMeta"></span>
+              <div class="kb-actions" id="kbViewActions">
+                <button class="kb-btn" id="kbSyncBtn" title="I-sync LANG ang bukas na section na ito mula sa doc — hindi galaw ang ibang sections" style="display:none;color:var(--primary);border-color:var(--primary-tint);">⟳ Sync section</button>
+                <button class="kb-btn" id="kbCopyBtn" title="Copy this section's text">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                  Copy
+                </button>
+                <button class="kb-btn" id="kbDownloadBtn" title="Download this section as .txt">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                  .txt
+                </button>
+                <button class="kb-btn primary" id="kbEditBtn">Edit</button>
+              </div>
+              <div class="kb-actions" id="kbEditActions" style="display:none;">
+                <button class="kb-btn" id="kbDeleteBtn" style="color:var(--danger);border-color:var(--danger-tint);">Delete</button>
+                <button class="kb-btn primary" id="kbSaveBtn">Save</button>
+                <button class="kb-btn" id="kbCancelBtn">Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="kb-search" id="kbSearchRow">
+            <input type="text" id="kbSearch" placeholder="Search inside this section…">
+            <span class="kb-hits" id="kbHits"></span>
+          </div>
+
+          <div id="kbEditFields" style="display:none;margin-bottom:10px;">
+            <input type="hidden" id="kbSourceUrl" value="">
+            <label style="font-size:12px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;">Section title</label>
+            <input type="text" id="kbSecTitle" maxlength="120" placeholder="e.g. 02 deposits" style="width:100%;max-width:420px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:13px;font-weight:700;margin-bottom:10px;">
+          </div>
+
+          <div id="kbViewWrap"><div class="kb-empty">Pumili ng section sa kaliwa.</div></div>
+          <textarea class="kb-editor" id="kbEditor" style="display:none;" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  const BRANDS = [
+    { key: 'buenasph',       label: 'Buenas PH' },
+    { key: 'tmtcash',        label: 'TMTCash' },
+    { key: 'mcp',            label: 'Mobile Casino Play' },
+    { key: 'manilaplayph',   label: 'Manila Play PH' },
+    { key: 'HypleplayPH',    label: 'HypePlay PH' },
+    { key: 'HypeplayBD',     label: 'HypePlay BD' },
+    { key: 'Tmtplay',        label: 'TMTPlay' },
+    { key: 'MGK',            label: '88MGK' },
+    { key: 'BuenasCredit',   label: 'Buenas Credit' },
+    { key: 'LuckystacksPH',  label: 'LuckyStacks PH' },
+    { key: 'SwabeGaming',    label: 'Swabe Gaming' },
+    { key: 'primogaming',    label: 'Primo Gaming' },
+    { key: 'casinyeam',      label: 'Casinyeam' },
+    { key: 'manilacasino',   label: 'Manila Casino' },
+    { key: 'superscatterph', label: 'SuperScatter PH' },
+  ];
+
+  let currentBrand = 'buenasph';
+  let kbIndex = {};            // brand -> { sections, chars, updatedAt }
+  let sections = [];           // current brand's section list (metadata)
+  let brandSourceUrl = null;   // ONE published doc link per brand (whole doc)
+  let brandDocHash = null;     // fingerprint of the last-synced doc text
+  let autoSyncing = false;     // guard vs overlapping auto-syncs
+  let currentSection = null;   // { id, title, content, sourceUrl, updatedAt, updatedBy }
+  let editing = false;
+  let creating = false;        // Add-section mode (no id yet)
+
+  const $ = id => document.getElementById(id);
+  const authHeaders = () => ({ Authorization: 'Bearer ' + localStorage.getItem('pipeline_token') });
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const brandLabel = key => (BRANDS.find(b => b.key === key) || { label: key }).label;
+  const FILE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>';
+
+  // ---- brand tabs ----
+  function renderTabs() {
+    $('brandTabs').innerHTML = BRANDS.map(b => {
+      const meta = kbIndex[b.key];
+      const has = meta && meta.sections > 0;
+      const dot = meta && meta.alert === 'expired' ? 'kb-dot-expired'
+        : meta && meta.alert === 'soon' ? 'kb-dot-soon'
+        : has ? 'kb-has' : 'kb-none';
+      return `<button class="brand-tab${b.key === currentBrand ? ' active' : ''}" data-brand="${b.key}" ${meta && meta.alert ? 'title="May petsang expired/malapit nang matapos sa KB ng brand na ito"' : ''}>
+        <span class="${dot}"></span>${esc(b.label)}
+      </button>`;
+    }).join('');
+    // Hero stats (UI only)
+    try {
+      const metas = BRANDS.map(b => kbIndex[b.key]).filter(Boolean);
+      const withKb = metas.filter(m => m.sections > 0).length;
+      const secs = metas.reduce((s, m) => s + (Number(m.sections) || 0), 0);
+      const exp = metas.filter(m => m.alert === 'expired').length;
+      const soon = metas.filter(m => m.alert === 'soon').length;
+      $('kbHeroStats').innerHTML =
+        `<div class="hero-stat"><b>${withKb}/${BRANDS.length}</b><span>brands with KB</span></div>` +
+        `<div class="hero-stat"><b>${secs}</b><span>sections</span></div>` +
+        `<div class="hero-stat ${exp ? 'bad' : ''}"><b>${exp}</b><span>expired dates</span></div>` +
+        `<div class="hero-stat ${soon ? 'warn' : ''}"><b>${soon}</b><span>ending soon</span></div>`;
+    } catch (_) {}
+    document.querySelectorAll('.brand-tab').forEach(btn => btn.addEventListener('click', () => {
+      if (editing && !confirm('Discard unsaved changes?')) return;
+      setEditing(false);
+      currentBrand = btn.dataset.brand;
+      currentSection = null;
+      renderTabs();
+      loadSections();
+    }));
+  }
+
+  async function loadIndex() {
+    try {
+      const res = await fetch(`${API_BASE}/kb`, { headers: authHeaders() });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const body = await res.json();
+      kbIndex = {};
+      (body.brands || []).forEach(r => { kbIndex[r.brand] = r; });
+    } catch (e) {
+      console.warn('KB index load failed:', e.message);
+    }
+    renderTabs();
+  }
+
+  // ---- brand-level notice (added 2026-09-20): isang buod sa TAAS ng
+  // lahat ng problema sa buong brand — hindi na kailangang isa-isahin
+  // ang bawat section para makita kung saan may expired/soon/leak. ----
+  function renderBrandNotice() {
+    const el = $('kbBrandNotice');
+    if (!el) return;
+    const exp = sections.filter(s => s.alert && s.alert.level === 'expired');
+    const soon = sections.filter(s => s.alert && s.alert.level === 'soon');
+    const leak = sections.filter(s => s.brandLeaks);
+    if (!exp.length && !soon.length && !leak.length) { el.innerHTML = ''; return; }
+    const chip = s => `<span class="kb-jump" data-open="${s.id}" title="I-click para buksan ang section na ito">${esc(s.title)}</span>`;
+    let html = '';
+    if (exp.length) html += `<div class="kb-warn-banner expired">\u26A0\uFE0F <b>MAY EXPIRED NA PETSA \u2014 ${exp.length} section(s) ng ${esc(brandLabel(currentBrand))}:</b> ${exp.map(chip).join(', ')}</div>`;
+    if (soon.length) html += `<div class="kb-warn-banner soon">\u23F3 <b>Matatapos sa loob ng 7 araw \u2014 ${soon.length} section(s):</b> ${soon.map(chip).join(', ')}</div>`;
+    if (leak.length) html += `<div class="kb-warn-banner mixed">\ud83d\udd00 <b>May IBANG BRAND na nabanggit \u2014 ${leak.length} section(s):</b> ${leak.map(chip).join(', ')}</div>`;
+    el.innerHTML = html;
+    el.querySelectorAll('.kb-jump').forEach(x => x.addEventListener('click', () => {
+      if (editing && !confirm('Discard unsaved changes?')) return;
+      setEditing(false);
+      openSection(Number(x.dataset.open));
+    }));
+  }
+
+  // ---- section list (left column) ----
+  function renderSectionList() {
+    renderBrandNotice();
+    const wrap = $('kbSecItems');
+    $('kbSyncAllBtn').style.display = brandSourceUrl ? '' : 'none';
+    $('kbImportBtn').style.display = brandSourceUrl ? '' : 'none';
+    $('kbDocLinkBtn').style.color = brandSourceUrl ? 'var(--success)' : '';
+    $('kbDocLinkBtn').textContent = brandSourceUrl ? '🔗 Doc linked ✓' : '🔗 Doc link';
+    if (!sections.length) {
+      wrap.innerHTML = brandSourceUrl
+        ? '<div class="kb-empty-side">Wala pang sections.<br>I-click ang <b>⬇ Import from doc</b> —<br>awtomatikong gagawin LAHAT<br>mula sa tab headings ng doc.</div>'
+        : '<div class="kb-empty-side">Wala pang sections.<br>I-click ang <b>+</b> para magdagdag<br>(hal. "00 admin persona").</div>';
+      return;
+    }
+    wrap.innerHTML = sections.map(s => `
+      <button class="kb-secitem${currentSection && currentSection.id === s.id ? ' active' : ''}" data-id="${s.id}">
+        ${FILE_ICON}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.title)}</span>
+        ${s.alert && s.alert.level === 'expired' ? '<span class="kb-alert-badge expired" title="May lumipas nang petsa sa laman">EXPIRED</span>'
+          : s.alert && s.alert.level === 'soon' ? '<span class="kb-alert-badge soon" title="May petsang matatapos sa loob ng 7 araw">SOON</span>'
+          : s.brandLeaks ? '<span class="kb-alert-badge mixed" title="May IBANG brand na nabanggit sa laman — posibleng copy-paste leftover">IBANG BRAND</span>'
+          : ''}
+      </button>`).join('');
+    wrap.querySelectorAll('.kb-secitem').forEach(btn => btn.addEventListener('click', () => {
+      if (editing && !confirm('Discard unsaved changes?')) return;
+      setEditing(false);
+      openSection(Number(btn.dataset.id));
+    }));
+  }
+
+  async function loadSections(openFirst = true) {
+    $('kbSecItems').innerHTML = '<div class="kb-empty-side">Loading…</div>';
+    try {
+      const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/sections`, { headers: authHeaders() });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
+      sections = body.sections || [];
+      brandSourceUrl = body.brandSourceUrl || null;
+      brandDocHash = body.brandDocHash || null;
+      renderSectionList();
+      if (openFirst) setTimeout(autoSyncBrand, 50); // fresh view first, sync in background
+      if (sections.length && openFirst) openSection(sections[0].id);
+      else if (!sections.length) {
+        currentSection = null;
+        $('kbTitle').textContent = brandLabel(currentBrand);
+        $('kbMeta').textContent = '';
+        $('kbSyncBtn').style.display = 'none';
+        $('kbViewWrap').innerHTML = brandSourceUrl
+          ? `<div class="kb-empty">Walang sections pa ang ${esc(brandLabel(currentBrand))}.<br>May naka-link nang doc — i-click ang <b>⬇ Import from doc</b> sa kaliwa para awtomatikong gawin at punuin ang LAHAT ng sections mula sa tab headings.</div>`
+          : `<div class="kb-empty">Walang sections pa ang ${esc(brandLabel(currentBrand))}.<br>I-click ang <b>+</b> sa kaliwa para gumawa — isang section kada topic/tab (LLM Instruction, 00 admin persona, 01 about, …).</div>`;
+      }
+    } catch (e) {
+      $('kbSecItems').innerHTML = `<div class="kb-empty-side">Error: ${esc(e.message)}</div>`;
+      $('kbViewWrap').innerHTML = `<div class="kb-empty">Could not load — ${esc(e.message)}.<br>If the backend was just updated, confirm the /api/kb route is wired in server.js.</div>`;
+    }
+  }
+
+  async function openSection(id) {
+    $('kbViewWrap').innerHTML = '<div class="kb-empty">Loading…</div>';
+    $('kbSearch').value = ''; $('kbHits').textContent = '';
+    try {
+      const res = await fetch(`${API_BASE}/kb/section/${id}`, { headers: authHeaders() });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
+      currentSection = body;
+      renderSectionList();
+      renderView();
+    } catch (e) {
+      $('kbViewWrap').innerHTML = `<div class="kb-empty">Could not load section — ${esc(e.message)}</div>`;
+    }
+  }
+
+  // ---- view ----
+  function metaText() {
+    if (!currentSection) return '';
+    const chars = (currentSection.content || '').length;
+    const words = (currentSection.content || '').trim() ? currentSection.content.trim().split(/\s+/).length : 0;
+    const upd = currentSection.updatedAt
+      ? ` · saved ${new Date(currentSection.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${currentSection.updatedBy ? ' by ' + currentSection.updatedBy : ''}`
+      : '';
+    return chars ? `${chars.toLocaleString()} chars · ${words.toLocaleString()} words${upd}` : '';
+  }
+
+  // Locate the actual date strings in the text that produced the alert,
+  // mark them inline (red = expired, orange = soon) and enable jumping.
+  const KB_MONTHS_C = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
+  const MONTH_RE_SRC = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+  function isoOfMonth(name) { return KB_MONTHS_C[name.slice(0, 4).toLowerCase()] ?? KB_MONTHS_C[name.slice(0, 3).toLowerCase()]; }
+  function markAlertDates(html, alert) {
+    const expired = new Set(alert.expired || []);
+    const soon = new Set(alert.soon || []);
+    const wrapMatch = (matched, iso) => {
+      if (expired.has(iso)) return `<mark class="kb-mark-exp" data-iso="${iso}">${matched}</mark>`;
+      if (soon.has(iso)) return `<mark class="kb-mark-soon" data-iso="${iso}">${matched}</mark>`;
+      return matched;
+    };
+    // "February 21, 2026" / "Feb 21 2026"
+    html = html.replace(new RegExp('\\b' + MONTH_RE_SRC + '\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})\\b', 'gi'), (m0, mon, day, yr) => {
+      const d = new Date(Date.UTC(Number(yr), isoOfMonth(mon), Number(day)));
+      return isNaN(d) ? m0 : wrapMatch(m0, d.toISOString().slice(0, 10));
+    });
+    // "June 2026" -> end of month (only when not already inside a mark from above)
+    html = html.replace(new RegExp('\\b' + MONTH_RE_SRC + '\\.?\\s+(\\d{4})\\b(?![^<]*</mark>)', 'gi'), (m0, mon, yr) => {
+      const d = new Date(Date.UTC(Number(yr), isoOfMonth(mon) + 1, 0));
+      return isNaN(d) ? m0 : wrapMatch(m0, d.toISOString().slice(0, 10));
+    });
+    // ISO 2026-09-30 (guard: skip matches sitting inside an already-made mark's attributes)
+    html = html.replace(/\b(20\d{2})-(\d{2})-(\d{2})\b(?![^<]*<\/mark>)/g, (m0, y, mo, dd) => {
+      if (Number(mo) < 1 || Number(mo) > 12) return m0;
+      return wrapMatch(m0, `${y}-${mo}-${dd}`);
+    });
+    return html;
+  }
+
+  function renderView(searchTerm) {
+    if (!currentSection) return;
+    $('kbTitle').textContent = brandLabel(currentBrand) + ' — ' + currentSection.title;
+    $('kbMeta').textContent = metaText();
+    $('kbSyncBtn').style.display = brandSourceUrl ? '' : 'none';
+    $('kbEditBtn').textContent = brandSourceUrl ? '\u2699\uFE0F Manage' : 'Edit';
+    const wrap = $('kbViewWrap');
+    const content = currentSection.content || '';
+    const a = currentSection.alert;
+    const fmtD = iso => new Date(iso + 'T00:00:00').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+    const chip = iso => `<span class="kb-jump" data-jump="${iso}" title="I-click para tumalon sa petsang ito sa text">${fmtD(iso)}</span>`;
+    const leaks = currentSection.brandLeaks || null;
+    const leakChip = l => {
+      const terms = (l.terms && l.terms.length ? l.terms : [l.name]);
+      const aka = terms.filter(t => t.toLowerCase() !== l.name.toLowerCase());
+      return `<span class="kb-jump" data-bjump="${esc(l.name)}" title="I-click para tumalon sa unang banggit">${esc(l.name)} (${l.count}x${aka.length ? ' bilang \u201C' + esc(aka.join('\u201D, \u201C')) + '\u201D' : ''})</span>`;
+    };
+    const leakBanner = !leaks ? '' :
+      `<div class="kb-warn-banner mixed">\ud83d\udd00 <b>May IBANG BRAND na nabanggit sa KB ng ${esc(brandLabel(currentBrand))}:</b> ${leaks.map(leakChip).join(', ')}.<br>Malamang copy-paste leftover \u2014 linisin sa doc at mag-\u27F3 Sync ulit. Naka-highlight (violet) sa text sa ibaba.</div>`;
+    const banner = !a ? '' : a.level === 'expired'
+      ? `<div class="kb-warn-banner expired">\u26A0\uFE0F <b>MAY LUMIPAS NANG PETSA sa section na ito:</b> ${a.expired.map(chip).join(', ')}${a.soon.length ? ` \u00B7 malapit nang matapos: ${a.soon.map(chip).join(', ')}` : ''}.<br>Naka-highlight ang petsa sa text sa ibaba \u2014 i-update ang doc at mag-\u27F3 Sync ulit.</div>`
+      : `<div class="kb-warn-banner soon">\u23F3 <b>May petsang matatapos sa loob ng ${7} araw:</b> ${a.soon.map(chip).join(', ')} \u2014 ihanda na ang kapalit na laman.</div>`;
+    const banners = banner + leakBanner;
+    if (!content) {
+      wrap.innerHTML = brandSourceUrl
+        ? `<div class="kb-empty">Walang laman pa ang "${esc(currentSection.title)}".<br>Mapupuno ito sa susunod na <b>\u27F3 Sync All</b> \u2014 siguraduhing ang title ay EKSAKTONG tugma sa tab name sa doc.</div>`
+        : `<div class="kb-empty">Walang laman pa ang "${esc(currentSection.title)}".<br>Click <b>Edit</b> to paste it.</div>`;
+      $('kbHits').textContent = '';
+      return;
+    }
+    let html = esc(content);
+    if (a && !searchTerm) html = markAlertDates(html, a);
+    if (leaks && !searchTerm) {
+      for (const l of leaks) {
+        // i-highlight ang mga AKTWAL na tumamang termino (aliases kasama),
+        // hindi lang ang display name
+        for (const term of (l.terms && l.terms.length ? l.terms : [l.name])) {
+          const safe = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+          html = html.replace(new RegExp('\\b(' + safe + ')\\b(?![^<]*</mark>)', 'gi'),
+            `<mark class="kb-mark-brand" data-brand="${esc(l.name)}">$1</mark>`);
+        }
+      }
+    }
+    if (searchTerm) {
+      const safe = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(safe.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), 'gi');
+      let hits = 0;
+      html = html.replace(re, m => { hits++; return '<mark>' + m + '</mark>'; });
+      $('kbHits').textContent = hits ? `${hits} match${hits === 1 ? '' : 'es'}` : 'No matches';
+    } else {
+      $('kbHits').textContent = '';
+    }
+    wrap.innerHTML = banners + `<div class="kb-view">${html}</div>`;
+    // Scroll the CONTENT BOX itself (deterministic — scrollIntoView can
+    // silently no-op on nested scroll containers), one frame after layout.
+    const view = wrap.querySelector('.kb-view');
+    const centerOn = (el, smooth) => {
+      if (!el || !view) return;
+      const top = Math.max(0, el.offsetTop - view.clientHeight / 2);
+      if (smooth) view.scrollTo({ top, behavior: 'smooth' });
+      else view.scrollTop = top;
+    };
+    if (searchTerm) {
+      requestAnimationFrame(() => centerOn(wrap.querySelector('mark'), false));
+    } else if (a || leaks) {
+      // jump straight to the offending data: expired > soon > foreign brand
+      requestAnimationFrame(() => centerOn(
+        wrap.querySelector('.kb-mark-exp') || wrap.querySelector('.kb-mark-soon') || wrap.querySelector('.kb-mark-brand'),
+        false
+      ));
+      // banner chips jump to their own first occurrence
+      wrap.querySelectorAll('.kb-jump').forEach(el => el.addEventListener('click', () => {
+        const t = el.dataset.jump
+          ? wrap.querySelector(`mark[data-iso="${el.dataset.jump}"]`)
+          : wrap.querySelector(`mark[data-brand="${el.dataset.bjump}"]`);
+        centerOn(t, true);
+      }));
+    }
+  }
+
+  // ---- edit / create ----
+  function setEditing(on, isNew = false) {
+    editing = on;
+    creating = on && isNew;
+    $('kbViewActions').style.display = on ? 'none' : 'flex';
+    $('kbEditActions').style.display = on ? 'flex' : 'none';
+    $('kbSearchRow').style.display = on ? 'none' : 'flex';
+    $('kbEditFields').style.display = on ? '' : 'none';
+    $('kbViewWrap').style.display = on ? 'none' : '';
+    // Doc-linked brands: content comes ONLY from the Google Doc (any manual
+    // text would be overwritten by the next sync), so the content editor is
+    // hidden — Manage mode covers title / advanced link / delete.
+    const docDriven = !!brandSourceUrl;
+    $('kbEditor').style.display = (on && !docDriven) ? '' : 'none';
+    $('kbDeleteBtn').style.display = (on && !isNew) ? '' : 'none';
+    if (on) {
+      if (isNew) {
+        $('kbTitle').textContent = brandLabel(currentBrand) + ' — bagong section' + (docDriven ? ' (title = tab name sa doc)' : '');
+        $('kbSecTitle').value = '';
+        $('kbSourceUrl').value = '';
+        $('kbEditor').value = '';
+        $('kbSecTitle').focus();
+      } else {
+        $('kbSecTitle').value = currentSection.title;
+        $('kbSourceUrl').value = ''; // per-section links retired 2026-09-17 — brand 🔗 Doc link only
+        $('kbEditor').value = currentSection.content || '';
+        $('kbEditor').focus();
+      }
+    }
+  }
+
+  $('kbDocLinkBtn').addEventListener('click', async () => {
+    const url = prompt(
+      'I-paste ang PUBLISHED link ng buong KB doc ng brand na ito\n(File \u2192 Share \u2192 Publish to web \u2014 nagsisimula sa docs.google.com/document/d/e/2PACX\u2026/pub).\n\nVE-VERIFY-HIN ito: tatanggapin LANG kung ang doc title ay may pangalan ng brand na ito (hal. "TMTCash KB").\n\nIwanang blanko para tanggalin.',
+      brandSourceUrl || ''
+    );
+    if (url === null) return;
+    const trimmed = url.trim();
+    if (trimmed && !/^https:\/\/docs\.google\.com\/document\/d\/e\/[A-Za-z0-9_-]+\/pub(\?.*)?$/.test(trimmed)) {
+      alert('Hindi published link ang na-paste. Kunin ito sa File \u2192 Share \u2192 Publish to web (may /pub sa dulo), hindi ang /edit link.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/source`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ sourceUrl: trimmed || null }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
+      brandSourceUrl = trimmed || null;
+      renderSectionList();
+    } catch (e) {
+      alert('Could not save doc link: ' + e.message);
+    }
+  });
+
+  $('kbAddBtn').addEventListener('click', () => {
+    if (editing && !confirm('Discard unsaved changes?')) return;
+    setEditing(true, true);
+  });
+  $('kbEditBtn').addEventListener('click', () => { if (currentSection) setEditing(true); });
+  $('kbCancelBtn').addEventListener('click', () => { setEditing(false); if (currentSection) renderView(); });
+
+  $('kbSaveBtn').addEventListener('click', async () => {
+    const btn = $('kbSaveBtn');
+    const title = $('kbSecTitle').value.trim();
+    if (!title) { alert('Lagyan ng title ang section (hal. "02 deposits").'); return; }
+    const content = $('kbEditor').value;
+    const sourceUrl = $('kbSourceUrl').value.trim();
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      let res, body;
+      const docDriven = !!brandSourceUrl;
+      if (creating) {
+        const payload = docDriven ? { title, sourceUrl: sourceUrl || null } : { title, content, sourceUrl: sourceUrl || null };
+        res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/sections`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        const payload = docDriven ? { title, sourceUrl } : { title, content, sourceUrl };
+        res = await fetch(`${API_BASE}/kb/section/${currentSection.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify(payload),
+        });
+      }
+      body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
+      const openId = creating ? body.id : currentSection.id;
+      setEditing(false);
+      await loadIndex();
+      await loadSections(false);
+      openSection(openId);
+    } catch (e) {
+      alert('Could not save: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  });
+
+  $('kbDeleteBtn').addEventListener('click', async () => {
+    if (!currentSection) return;
+    if (!confirm(`Delete section "${currentSection.title}"? Hindi ito maibabalik.`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/kb/section/${currentSection.id}`, { method: 'DELETE', headers: authHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) throw new Error(body.error || 'delete failed');
+      setEditing(false);
+      currentSection = null;
+      await loadIndex();
+      loadSections();
+    } catch (e) {
+      alert('Could not delete: ' + e.message);
+    }
+  });
+
+  // ---- sync (per section, from its own tab link) ----
+  $('kbSyncBtn').addEventListener('click', async () => {
+    if (!currentSection) return;
+    const btn = $('kbSyncBtn');
+    btn.disabled = true; btn.textContent = '⟳ Syncing…';
+    try {
+      let content;
+      if (brandSourceUrl) {
+        // normal: fetch the brand doc once, cut out just this section
+        const text = await fetchDocText(brandSourceUrl);
+        const mm = docBrandMismatch(text);
+        if (mm) throw new Error(`Ang naka-link na doc ay mukhang sa "${mm}" \u2014 i-check ang \ud83d\udd17 Doc link ng ${brandLabel(currentBrand)}.`);
+        const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
+        if (!bodies.has(currentSection.title)) {
+          throw new Error(`Hindi nakita ang "${currentSection.title}" sa doc — dapat EKSAKTONG tugma sa tab title.${missing.length ? ' Wala rin: ' + missing.join(', ') : ''}`);
+        }
+        content = bodies.get(currentSection.title);
+      } else {
+        throw new Error('Walang doc link — i-set muna ang 🔗 Doc link ng brand.');
+      }
+      await saveSectionContent(currentSection.id, content);
+      currentSection.content = content;
+      currentSection.updatedAt = new Date().toISOString();
+      currentSection.updatedBy = 'you (sync)';
+      await loadSections(false);
+      renderSectionList();
+      renderView();
+    } catch (e) {
+      alert('Sync failed: ' + e.message + '\n\nTandaan: ~5 minutong lag ang published docs pagkatapos ng edit.');
+    } finally {
+      btn.disabled = false; btn.textContent = '⟳ Sync section';
+    }
+  });
+
+  // ---- Doc split sync (v3, 2026-09-16) ----
+  // Google's published page always renders the WHOLE doc (?tab= is
+  // ignored), so sync fetches the doc ONCE and splits it into sections
+  // using the section TITLES as delimiters: each title must appear in the
+  // doc as its tab's own standalone heading line (which published tabs do).
+  const normLine = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+  function splitDocByTitles(text, titles) {
+    const lines = text.split('\n');
+    const wanted = new Map(titles.map(t => [normLine(t), t]));
+    const found = []; // { title, lineIdx } in document order
+    lines.forEach((line, idx) => {
+      const n = normLine(line);
+      if (wanted.has(n)) {
+        found.push({ title: wanted.get(n), lineIdx: idx });
+        wanted.delete(n); // first standalone occurrence wins
+      }
+    });
+    const bodies = new Map();
+    found.forEach((f, k) => {
+      const from = f.lineIdx + 1;
+      const to = k + 1 < found.length ? found[k + 1].lineIdx : lines.length;
+      bodies.set(f.title, lines.slice(from, to).join('\n').trim());
+    });
+    return { bodies, missing: [...wanted.values()] };
+  }
+
+  // ---- Import sections from doc (added 2026-09-20 after the full KB
+  // wipe): reads the linked doc ONCE, detects the tab-heading lines
+  // ("LLM Instruction" + "NN <name>"), creates every missing section,
+  // then runs the normal brand sync to fill them — one click per brand. ----
+  function detectDocTitles(text) {
+    const seen = new Set();
+    const cands = [];
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      // tab headings: "01 about buenas ph" style (2 digits + name, walang
+      // colon para hindi mahuli ang mga "09 TOPIC:" na content lines),
+      // plus the special "LLM Instruction" tab
+      const looksTab = /^\d{2}\.?\s+[^:]{2,70}$/.test(line)
+        || /^tab\s+\d{1,3}\.?\s+[^:]{2,70}$/i.test(line)
+        || /^llm( instruction)?$/i.test(line)
+        || /^agent system( walkthrough)?$/i.test(line);
+      if (!looksTab) continue;
+      // HINDI kasama ang mga row ng games list table (hal. "10 Slot CQ9
+      // All Wild…", "11 Fishing JILI …"): number + game-category word.
+      // Ang totoong tab headings ay hindi nagsisimula sa category word.
+      if (/^\d+\s+(slot|slots|fishing|live|poker|arcade|table|bingo|lottery|sports|casino|crash)\b/i.test(line)) continue;
+      // laktawan ang promo/content lines: may =, ×, o "N x N" math
+      // (hal. "12 consecutive wins = 2024 iPad Air", "20 × 10 = 200
+      // required turnover") — walang ganyang symbols ang tab headings
+      if (/[=×✕±%₱$]|\b\d+\s*[xX*]\s*\d+\b/.test(line)) continue;
+      // laktawan din ang mga linyang may TAB character o malawak na
+      // column spacing — mga table rows yun, hindi headings
+      if (/\t|\s{3,}/.test(raw)) continue;
+      const n = normLine(line);
+      if (seen.has(n)) continue; // first standalone occurrence wins
+      seen.add(n);
+      const m = line.match(/^(\d{1,3})(\.)?(\s|$)/);
+      cands.push({ title: line, num: m ? String(Number(m[1])) : null, dotted: !!(m && m[2]), checked: true, warn: null });
+    }
+    // Kapag DALAWANG candidate ang pareho ang numero (hal. tab na
+    // "10 bonus reward concerns" vs content list na "10. MODIFY ADDRESS"),
+    // ang bersyong may tuldok ay malamang numbered list sa LOOB ng isang
+    // section — naka-UNCHECK ito by default, may "kaparehong numero" na
+    // babala pareho para ma-review sa modal.
+    const byNum = {};
+    cands.forEach(c => { if (c.num !== null) (byNum[c.num] = byNum[c.num] || []).push(c); });
+    for (const num in byNum) {
+      const group = byNum[num];
+      if (group.length < 2) continue;
+      const hasPlain = group.some(c => !c.dotted);
+      group.forEach(c => {
+        c.warn = 'kaparehong numero';
+        if (hasPlain && c.dotted) c.checked = false;
+      });
+    }
+    return cands;
+  }
+
+  // Checkbox picker: ipinapakita LAHAT ng detected candidates para
+  // ma-review at ma-alis ang mga maling nahuli bago gawing sections.
+  function pickTitlesModal(cands) {
+    return new Promise(resolve => {
+      const bg = document.createElement('div');
+      bg.className = 'kb-modal-bg';
+      bg.innerHTML = `<div class="kb-modal">
+        <h4>\u2B07 Import from doc \u2014 ${esc(brandLabel(currentBrand))}</h4>
+        <div class="kb-modal-sub">I-check LANG ang mga TOTOONG tab headings (i-compare sa Document tabs ng Google Doc). Ang mga may <b>kaparehong numero</b> na may tuldok ay malamang content lines \u2014 naka-uncheck na sila.</div>
+        <div class="kb-modal-list">${cands.map((c, i) => `
+          <label class="kb-modal-item"><input type="checkbox" data-i="${i}"${c.checked ? ' checked' : ''}> <span style="overflow-wrap:anywhere;">${esc(c.title)}</span>${c.warn ? `<span class="warn">${esc(c.warn)}</span>` : ''}</label>`).join('')}
+        </div>
+        <div class="kb-modal-foot">
+          <button class="kb-btn" data-act="all">Check all</button>
+          <button class="kb-btn" data-act="none">Uncheck all</button>
+          <button class="kb-btn" data-act="cancel">Cancel</button>
+          <button class="kb-btn primary" data-act="ok">Create + Sync</button>
+        </div></div>`;
+      document.body.appendChild(bg);
+      bg.addEventListener('click', e => {
+        const act = e.target && e.target.dataset ? e.target.dataset.act : null;
+        if (!act) return;
+        if (act === 'all' || act === 'none') {
+          bg.querySelectorAll('input').forEach(cb => { cb.checked = act === 'all'; });
+          return;
+        }
+        const picked = act === 'ok'
+          ? [...bg.querySelectorAll('input')].filter(cb => cb.checked).map(cb => cands[Number(cb.dataset.i)].title)
+          : null;
+        document.body.removeChild(bg);
+        resolve(picked);
+      });
+    });
+  }
+
+  $('kbImportBtn').addEventListener('click', async () => {
+    if (editing) { alert('Tapusin muna ang edit bago mag-Import.'); return; }
+    if (!brandSourceUrl) { alert('I-set muna ang \ud83d\udd17 Doc link ng brand na ito.'); return; }
+    const btn = $('kbImportBtn');
+    btn.disabled = true; btn.textContent = '⬇ Reading doc…';
+    try {
+      const text = await fetchDocText(brandSourceUrl);
+      const mm = docBrandMismatch(text);
+      if (mm) throw new Error(`HINARANG: ang naka-link na doc ay kay "${mm}" \u2014 palitan muna ang \ud83d\udd17 Doc link ng ${brandLabel(currentBrand)}.`);
+      const existing = new Set(sections.map(s => normLine(s.title)));
+      const cands = detectDocTitles(text).filter(c => !existing.has(normLine(c.title)));
+      if (!cands.length) {
+        throw new Error(sections.length
+          ? 'Walang BAGONG tab headings na nakita — mukhang kumpleto na ang sections. Gamitin ang \u27F3 Sync All para i-refresh ang laman.'
+          : 'Walang nakitang tab headings sa doc (hal. "01 about \u2026" o "LLM Instruction"). Siguraduhing bawat tab ay may sariling heading line sa published doc.');
+      }
+      btn.textContent = '⬇ Import from doc';
+      const titles = await pickTitlesModal(cands);
+      if (titles === null) return; // cancelled
+      if (!titles.length) { alert('Walang napiling section — walang ginawa.'); return; }
+      let made = 0;
+      for (const title of titles) {
+        made++;
+        btn.textContent = `⬇ Creating ${made}/${titles.length}…`;
+        const res = await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/sections`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ title }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.ok) throw new Error(`"${title}": ${body.error || 'create failed'}`);
+      }
+      // refresh the in-memory section list, then reuse the normal sync
+      await loadSections(false);
+      btn.textContent = '⬇ Syncing…';
+      const { done, failures, missing } = await runBrandSync(
+        (n, total, title) => { btn.textContent = `⬇ Syncing ${n}/${total} \u2014 ${title.slice(0, 14)}\u2026`; }
+      );
+      await loadIndex();
+      await loadSections(false);
+      if (sections.length) openSection(sections[0].id);
+      let msg = `Import tapos: ${titles.length} section(s) ginawa, ${done - failures.length} napunan mula sa doc.`;
+      if (missing.length) msg += `\n\nHindi napunan (walang tugmang heading):\n\u2022 ` + missing.join('\n\u2022 ');
+      if (failures.length) msg += `\n\nHindi na-save:\n\u2022 ` + failures.join('\n\u2022 ');
+      alert(msg);
+    } catch (e) {
+      alert('Import failed: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '⬇ Import from doc';
+    }
+  });
+
+  let lastFetchedDocTitle = null; // <title> ng huling na-fetch na doc
+  async function fetchDocText(url) {
+    const res = await fetch(`${API_BASE}/kb/doc-proxy?url=${encodeURIComponent(url)}`, { headers: authHeaders() });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
+    if (!body.text) throw new Error('Doc came back empty.');
+    lastFetchedDocTitle = body.docTitle || null;
+    return body.text;
+  }
+
+  async function saveSectionContent(id, content) {
+    const save = await fetch(`${API_BASE}/kb/section/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ content }),
+    });
+    const body = await save.json().catch(() => ({}));
+    if (!save.ok || !body.ok) throw new Error(body.error || 'save failed');
+  }
+
+  // Doc identity guard (added 2026-09-17 after the TMTCash brand link was
+  // accidentally set to the Buenas PH doc and a sync cross-contaminated
+  // matching sections): the published page's first line is the doc title
+  // ("TMTCash KB") — if it names a DIFFERENT brand, the sync is stopped.
+  function docBrandMismatch(text) {
+    const head = (lastFetchedDocTitle || String(text).split('\n')[0] || '').slice(0, 120).toLowerCase();
+    for (const b of BRANDS) {
+      if (b.key === currentBrand) continue;
+      if (head.includes(b.label.toLowerCase())) return b.label;
+    }
+    return null;
+  }
+
+  // djb2 + length: cheap, stable fingerprint of the fetched doc text
+  function docHash(text) {
+    let h = 5381;
+    for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) >>> 0;
+    return h.toString(36) + '-' + text.length;
+  }
+
+  async function saveDocHash(hash) {
+    try {
+      await fetch(`${API_BASE}/kb/${encodeURIComponent(currentBrand)}/source`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ docHash: hash }),
+      });
+      brandDocHash = hash;
+    } catch (e) { console.warn('KB: hash save failed', e); }
+  }
+
+  // Fetch the brand doc, split by titles, save every matched section.
+  // Returns { done, failures, missing, hash } — shared by manual + auto sync.
+  async function runBrandSync(progress) {
+    const text = await fetchDocText(brandSourceUrl);
+    const mm = docBrandMismatch(text);
+    if (mm) {
+      // STRICT: walang override — ang maling doc ay hindi kailanman isusulat
+      throw new Error(`HINARANG: ang naka-link na doc ay kay "${mm}" (title: "${text.split('\n')[0].slice(0, 60)}"). Palitan ang \ud83d\udd17 Doc link ng tamang doc ng ${brandLabel(currentBrand)}.`);
+    }
+    const hash = docHash(text);
+    const { bodies, missing } = splitDocByTitles(text, sections.map(s => s.title));
+    let done = 0;
+    const failures = [];
+    for (const sec of sections) {
+      if (!bodies.has(sec.title)) continue;
+      done++;
+      if (progress) progress(done, bodies.size, sec.title);
+      try { await saveSectionContent(sec.id, bodies.get(sec.title)); }
+      catch (e) { failures.push(`${sec.title}: ${e.message}`); }
+    }
+    if (!failures.length) await saveDocHash(hash);
+    return { done, failures, missing, hash };
+  }
+
+  // Auto-sync on brand open (added 2026-09-17): one Google fetch; if the
+  // doc's fingerprint matches the last sync, NOTHING is written — the KB
+  // is already fresh. Only a changed doc triggers the split + saves, so
+  // the expiry warnings stay current without anyone pressing Sync.
+  async function autoSyncBrand() {
+    if (!brandSourceUrl || !sections.length || editing || autoSyncing) return;
+    const brandAtStart = currentBrand;
+    autoSyncing = true;
+    const st = $('kbSyncStatus');
+    try {
+      st.textContent = 'Checking doc for updates…';
+      const text = await fetchDocText(brandSourceUrl);
+      if (currentBrand !== brandAtStart) return; // user switched tabs mid-fetch
+      const mm = docBrandMismatch(text);
+      if (mm) {
+        st.textContent = `\u26A0 Doc mismatch \u2014 mukhang sa "${mm}" ang naka-link. I-check ang \ud83d\udd17`;
+        return; // walang isusulat — protektahan ang sections
+      }
+      const hash = docHash(text);
+      if (brandDocHash && hash === brandDocHash) {
+        st.textContent = 'Up to date ✓';
+        return;
+      }
+      st.textContent = 'Auto-syncing…';
+      const { bodies } = splitDocByTitles(text, sections.map(s => s.title));
+      let saved = 0;
+      for (const sec of sections) {
+        if (!bodies.has(sec.title)) continue;
+        try { await saveSectionContent(sec.id, bodies.get(sec.title)); saved++; }
+        catch (e) { console.warn('KB auto-sync save failed:', sec.title, e); }
+      }
+      await saveDocHash(hash);
+      if (currentBrand !== brandAtStart) return;
+      const openId = currentSection ? currentSection.id : null;
+      await loadIndex();
+      await loadSections(false);
+      if (openId) openSection(openId);
+      st.textContent = `Auto-synced ${saved} section${saved === 1 ? '' : 's'} ✓ ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } catch (e) {
+      console.warn('KB auto-sync failed:', e);
+      st.textContent = 'Auto-sync failed — use ⟳ Sync All';
+    } finally {
+      autoSyncing = false;
+    }
+  }
+
+  $('kbSyncAllBtn').addEventListener('click', async () => {
+    if (editing) { alert('Tapusin muna ang edit bago mag-Sync All.'); return; }
+    if (!sections.length) { alert('Gumawa muna ng sections \u2014 gamitin ang \u2B07 Import from doc, o isang section kada tab (EKSAKTONG pangalan, hal. "02 deposits").'); return; }
+    if (!brandSourceUrl) { alert('I-set muna ang \ud83d\udd17 Doc link ng brand na ito.'); return; }
+    const btn = $('kbSyncAllBtn');
+    btn.disabled = true; btn.textContent = '\u27F3 Fetching doc\u2026';
+    try {
+      const { done, failures, missing } = await runBrandSync(
+        (n, total, title) => { btn.textContent = `\u27F3 Saving ${n}/${total} \u2014 ${title.slice(0, 16)}\u2026`; }
+      );
+      const openId = currentSection ? currentSection.id : null;
+      await loadIndex();
+      await loadSections(false);
+      if (openId) openSection(openId);
+      let msg = `Sync All: ${done - failures.length}/${sections.length} sections na-update.`;
+      if (missing.length) msg += `\n\nHINDI NAKITA sa doc (dapat eksaktong tugma sa tab title):\n\u2022 ` + missing.join('\n\u2022 ');
+      if (failures.length) msg += `\n\nHindi na-save:\n\u2022 ` + failures.join('\n\u2022 ');
+      if (missing.length || failures.length) alert(msg);
+    } catch (e) {
+      alert('Sync All failed: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '\u27F3 Sync All';
+    }
+  });
+
+  // ---- copy / download / search ----
+  $('kbCopyBtn').addEventListener('click', async () => {
+    if (!currentSection || !currentSection.content) return;
+    try {
+      await navigator.clipboard.writeText(currentSection.content);
+      $('kbCopyBtn').innerHTML = '✓ Copied';
+      setTimeout(() => { $('kbCopyBtn').innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy'; }, 1600);
+    } catch (e) { alert('Copy failed — select the text manually.'); }
+  });
+
+  $('kbDownloadBtn').addEventListener('click', () => {
+    if (!currentSection || !currentSection.content) return;
+    const slug = currentSection.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'section';
+    const blob = new Blob([currentSection.content], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kb-${currentBrand}-${slug}.txt`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  let searchTimer = null;
+  $('kbSearch').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderView(e.target.value.trim()), 200);
+  });
+
+  window.addEventListener('beforeunload', e => {
+    if (editing) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  // ---- boot: metadata + default brand's sections. No polling. ----
+  loadIndex().then(() => loadSections());
+})();
+</script>
+<script>
+  // KB section filter + count (UI only, 2026-10-10)
+  (function () {
+    const list = document.getElementById('kbSecItems');
+    const input = document.getElementById('kbSecFilter');
+    const count = document.getElementById('kbSecCount');
+    if (!list || !input) return;
+    function apply() {
+      const q = input.value.trim().toLowerCase();
+      const items = list.querySelectorAll('.kb-secitem');
+      let shown = 0;
+      items.forEach(it => { const hit = !q || it.textContent.toLowerCase().includes(q); it.classList.toggle('kb-hide', !hit); if (hit) shown++; });
+      if (items.length) { count.style.display = ''; count.textContent = q ? `${shown}/${items.length}` : items.length; }
+      else count.style.display = 'none';
+    }
+    input.addEventListener('input', apply);
+    new MutationObserver(apply).observe(list, { childList: true });
+    apply();
+    // Clear filter when switching brand
+    document.getElementById('brandTabs').addEventListener('click', e => { if (e.target.closest('.brand-tab')) { input.value = ''; } });
+  })();
+</script>
+<script src="sidebar-topnav.js?v=4"></script>
+</body>
+</html>

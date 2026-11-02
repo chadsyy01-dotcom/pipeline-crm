@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenAI — CSR Dashboard</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --primary:#2563EB; --primary-tint:#EFF4FF;
+    --success:#22C55E; --success-tint:#EAFBF1;
+    --warning:#F59E0B; --warning-tint:#FEF6E7;
+    --danger:#EF4444; --danger-tint:#FDECEC;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ink:#0F172A; --ink-soft:#475569; --ink-faint:#94A3B8;
+    --line:#EEF1F6;
+    --radius-md:14px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{width:248px;flex-shrink:0;background:#0B1220;color:#CBD5E1;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .brand-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .brand-name{font-size:14px;font-weight:700;color:#fff;line-height:1.25;}
+  .brand-name span{display:block;font-weight:500;color:#8DA2C0;font-size:12px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:#AEBBD1;cursor:pointer;margin-bottom:2px;}
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+  .nav-item:hover{background:#151E30;color:#fff;}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  /* OpenAI section with sub-tabs (added 2026-09-19). The parent is a section
+     header when a child is active — the blue highlight belongs to the child. */
+  .nav-item.open{background:#151E30;color:#fff;}
+  .nav-item .nav-caret{margin-left:auto;width:14px;height:14px;opacity:.7;}
+  .nav-sub{margin:2px 0 6px 19px;padding-left:10px;border-left:1px solid #1E293B;}
+  .nav-sub .nav-item{font-size:13px;padding:8px 12px;}
+  .nav-sub .nav-item svg{width:15px;height:15px;}
+  .sidebar-status{margin-top:auto;background:#151E30;border-radius:12px;padding:11px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px;color:#AEBBD1;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+
+  .main{flex:1;min-width:0;padding:26px 32px 40px;}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;}
+  .greeting h1{font-size:23px;margin:0 0 4px;font-weight:800;}
+  .greeting p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .tabs{display:flex;gap:4px;background:#F1F5F9;border-radius:8px;padding:3px;}
+  .tab{font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:6px;color:var(--ink-soft);cursor:pointer;border:none;background:transparent;font-family:inherit;}
+  .tab.active{background:var(--card);color:var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+
+  .kpi-card{background:var(--card);border-radius:var(--radius-md);padding:20px;box-shadow:var(--shadow);margin-bottom:16px;}
+  .kpi-label{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-bottom:8px;}
+  .kpi-value{font-size:34px;font-weight:800;letter-spacing:-.01em;}
+
+  .panel{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .panel-head h3{margin:0;font-size:14.5px;font-weight:700;}
+
+  .li-table{width:100%;border-collapse:collapse;}
+  .li-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);font-weight:700;padding:0 8px 10px;border-bottom:1px solid var(--line);}
+  .li-table td{padding:10px 8px;font-size:13px;border-bottom:1px solid var(--line);}
+  .li-table tr:last-child td{border-bottom:none;}
+  .li-table td.num{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+  .li-table th.num{text-align:right;}
+
+  .empty-note{color:var(--ink-faint);font-size:13px;padding:24px 4px;text-align:center;}
+  .setup-note{background:var(--warning-tint);color:#92620A;border-radius:10px;padding:12px 14px;font-size:12.5px;font-weight:600;margin-bottom:16px;line-height:1.5;}
+
+  @media (max-width:860px){ .sidebar{display:none;} .main{padding:20px 16px 32px;} }
+
+  /* ===== OPENAI BILLING REDESIGN (2026-10-10) ===== */
+  .hero-band{position:relative;background:linear-gradient(118deg,#0B1220 0%,#152A56 55%,#1E3A8A 100%);
+    margin:-26px -32px 0;padding:26px 32px 96px;border-radius:0 0 20px 20px;}
+  .hero-band::after{content:'';position:absolute;right:-70px;top:-90px;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.32), transparent 65%);pointer-events:none;}
+  .hero-band > *{position:relative;z-index:1;}
+  .hero-band .topbar{margin-bottom:18px;}
+  .hero-band .greeting h1{color:#fff;}
+  .hero-band .greeting p{color:#9FB2D8;}
+  .oa-ctrl{font-family:inherit;font-size:12.5px;font-weight:700;padding:9px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:7px;}
+  .oa-ctrl:hover{background:rgba(255,255,255,.15);}
+  .oa-ctrl option{color:#0F172A;}
+  .oa-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .oa-filters input[type=date]{font-family:inherit;font-size:12.5px;font-weight:600;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.92);color:#0F172A;}
+  .oa-filters .to{color:#9FB2D8;font-size:12.5px;}
+  .oa-apply{font-family:inherit;font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:10px;border:none;background:#fff;color:var(--primary);cursor:pointer;}
+  .oa-compare{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#C7D5F0;cursor:pointer;margin-left:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);}
+  .oa-compare input{accent-color:#60A5FA;width:15px;height:15px;}
+
+  .oa-kpis{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:14px;margin-top:-70px;position:relative;z-index:2;margin-bottom:16px;}
+  .oa-kpi{background:var(--card);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px 20px;border:1px solid #E8EDF5;position:relative;overflow:hidden;}
+  .oa-kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc,#2563EB);}
+  .oa-kpi .l{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);margin-bottom:8px;}
+  .oa-kpi .v{font-size:24px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
+  .oa-kpi .s{font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:4px;}
+  .oa-kpi.main .kpi-value{font-size:36px;font-weight:800;letter-spacing:-.02em;line-height:1.1;}
+  .oa-kpi.main .kpi-label{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);margin-bottom:8px;}
+  #kpiCompare{display:inline-block !important;padding:3px 9px;border-radius:99px;background:#F8FAFC;}
+  #kpiCompare[style*="display: none"], #kpiCompare[style*="display:none"]{display:none !important;}
+
+  .oa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:14px;align-items:start;}
+  .oa-grid .panel{margin-bottom:0;}
+  .panel-head .sub{font-size:11.5px;font-weight:600;color:var(--ink-faint);}
+  .oa-rank{width:22px;height:22px;border-radius:7px;background:#F1F5F9;color:var(--ink-soft);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;}
+  tr:nth-child(1) .oa-rank{background:#FEF3C7;color:#B45309;}
+  tr:nth-child(2) .oa-rank{background:#E2E8F0;color:#334155;}
+  tr:nth-child(3) .oa-rank{background:#FFEDD5;color:#C2410C;}
+  .oa-name{font-weight:700;}
+  .oa-bar{height:8px;border-radius:99px;background:#EEF1F6;overflow:hidden;min-width:80px;}
+  .oa-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#3B82F6,#2563EB);}
+  .oa-pct{font-size:11px;font-weight:700;color:var(--ink-faint);margin-top:3px;}
+  .li-table td.php{text-align:right;color:var(--ink-soft);font-variant-numeric:tabular-nums;font-size:12.5px;}
+  .li-table th.php{text-align:right;}
+  .li-table tbody tr:hover{background:#F8FAFC;}
+  .li-table tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;padding-top:12px;}
+  .oa-more{display:block;width:100%;margin-top:10px;font-family:inherit;font-size:12px;font-weight:700;padding:8px;border-radius:9px;border:1px dashed #CBD5E1;background:#fff;color:var(--ink-soft);cursor:pointer;}
+  .oa-more:hover{border-color:var(--primary);color:var(--primary);}
+  .setup-note{margin-top:0;}
+  .cb-section{margin-top:22px;}
+  .cb-title h2{font-size:16px;}
+  .cb-card{border:1px solid #E8EDF5;position:relative;overflow:hidden;}
+  .cb-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#8B5CF6;}
+
+  @media (max-width:1100px){ .oa-kpis{grid-template-columns:1fr 1fr;} }
+  @media (max-width:860px){ .hero-band{margin:-20px -16px 0;padding:20px 16px 90px;} .oa-grid{grid-template-columns:1fr;} .oa-compare{margin-left:0;} }
+  @media (max-width:560px){ .oa-kpis{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<script>
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async function checkAuth() {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw Object.assign(new Error("Invalid session"), { authFail: res.status === 401 });
+    } catch (err) {
+      // LOGIN LOOP FIX (2026-10-15): logout lang kapag 401 talaga. Ang network/abort
+      // error (hal. CSR na nire-redirect ng role guard habang naglo-load pa) ay hindi logout.
+      if (!err || !err.authFail) return;
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="CSR Dashboard logo" class="brand-mark">
+      <div class="brand-name">CSR Dashboard<span>Support Console</span></div>
+    </div>
+    <a href="csr-dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a href="tickets.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z"/></svg>
+      Tickets
+    </a>
+    <a href="customers.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Customers
+    </a>
+    <a href="reports.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      Reports
+    </a>
+    <a href="office.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 4l9 6.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>
+      Opisina
+    </a>
+    <!-- OpenAI section — sub-tabs are only rendered on the pages inside this
+         section (openai.html, sms-monitoring.html). On every other page the
+         sidebar keeps the plain single "OpenAI" link. -->
+    <a href="openai.html" class="nav-item open">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      OpenAI
+      <svg class="nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </a>
+    <div class="nav-sub">
+      <a href="openai.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        Billing
+      </a>
+      <a href="sms-monitoring.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"/></svg>
+        SMS Monitoring
+      </a>
+      <a href="division-billing.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M9 21v-6h6v6"/></svg>
+        Division Billing
+      </a>
+    </div>
+    <a href="settings.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </a>
+    <div class="sidebar-status" style="margin-top:auto;"><span class="dot"></span> Online — Connected as CSR</div>
+  </aside>
+
+  <main class="main">
+    <div class="hero-band">
+    <div class="topbar">
+      <div class="greeting">
+        <h1>OpenAI Billing</h1>
+        <p>Spend on your connected OpenAI organization.</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <select id="accountSelect" class="oa-ctrl"></select>
+        <button onclick="exportBillingCsv()" class="oa-ctrl">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Export CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="oa-filters">
+      <select id="rangeSelect" class="oa-ctrl">
+        <option value="today">Today</option>
+        <option value="7d">7 Days</option>
+        <option value="month" selected>This Month</option>
+        <option value="prev_month">Previous Month</option>
+        <option value="all">All Time</option>
+        <option value="custom">Custom Range…</option>
+      </select>
+      <div id="customRangeRow" style="display:none;align-items:center;gap:8px;">
+        <input type="date" id="customStart">
+        <span class="to">to</span>
+        <input type="date" id="customEnd">
+        <button onclick="loadBilling()" class="oa-apply">Apply</button>
+      </div>
+      <label class="oa-compare">
+        <input type="checkbox" id="compareToggle" onchange="loadBilling()">
+        Compare to previous period
+      </label>
+    </div>
+    </div><!-- /hero-band -->
+
+    <div class="oa-kpis">
+      <div class="oa-kpi main" style="--acc:#2563EB;">
+        <div class="kpi-label" id="kpiLabel">Total spend — this month</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div id="kpiPhp" style="font-size:14px;font-weight:700;color:var(--ink-soft);margin-top:4px;"></div>
+        <div id="kpiCompare" style="font-size:12px;font-weight:700;margin-top:8px;display:none;"></div>
+      </div>
+      <div class="oa-kpi" style="--acc:#F59E0B;"><div class="l">Top spender</div><div class="v" id="oaTopName" style="font-size:18px;">—</div><div class="s" id="oaTopSub">&nbsp;</div></div>
+      <div class="oa-kpi" style="--acc:#22C55E;"><div class="l">Accounts with spend</div><div class="v" id="oaAcctCount">—</div><div class="s" id="oaAcctSub">&nbsp;</div></div>
+      <div class="oa-kpi" style="--acc:#8B5CF6;"><div class="l">Top cost item</div><div class="v" id="oaTopItem" style="font-size:15px;line-height:1.35;">—</div><div class="s" id="oaTopItemSub">&nbsp;</div></div>
+    </div>
+
+    <div id="setupNote" class="setup-note" style="display:none;"></div>
+
+    <div class="oa-grid">
+      <div class="panel" id="byAccountPanel" style="display:none;">
+        <div class="panel-head"><h3>Spend by Account</h3><span class="sub" id="byAccountSub"></span></div>
+        <table class="li-table">
+          <thead><tr><th style="width:34px;">#</th><th>Account</th><th>Share</th><th class="num">USD</th><th class="php">PHP</th></tr></thead>
+          <tbody id="byAccountBody"></tbody>
+          <tfoot id="byAccountFoot"></tfoot>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Cost by Line Item</h3><span class="sub" id="lineItemsSub"></span></div>
+        <table class="li-table">
+          <thead><tr><th>Line Item</th><th>Share</th><th class="num">Cost</th></tr></thead>
+          <tbody id="lineItemsBody"></tbody>
+        </table>
+        <button class="oa-more" id="lineItemsMore" type="button" style="display:none;"></button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let currentRange = 'month';
+let currentAccount = 0;
+let usdToPhpRate = null;
+
+// ---- Shared OpenAI summary cache (added 2026-09-21) ----
+// OpenAI's Costs API allows only 10 requests a minute per organization, and
+// this page used to spend that in one load: the Total spend card and the
+// Consolidated Billing block both asked for this month's all-accounts
+// summary separately, and the backend may page a month into several Costs
+// calls. Every summary request on the page now goes through here — an
+// identical request made within OA_CACHE_MS reuses the first answer instead
+// of calling OpenAI again. Failures are never cached, so a retry actually
+// retries.
+const OA_CACHE_MS = 5 * 60 * 1000;
+const oaSummaryCache = new Map();   // path -> { at, promise }
+function fetchOpenAiSummary(path) {
+  const hit = oaSummaryCache.get(path);
+  if (hit && Date.now() - hit.at < OA_CACHE_MS) return hit.promise;
+  const promise = (async () => {
+    const token = localStorage.getItem('pipeline_token');
+    const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  })();
+  oaSummaryCache.set(path, { at: Date.now(), promise });
+  promise.then(r => { if (!r.ok) oaSummaryCache.delete(path); }, () => oaSummaryCache.delete(path));
+  return promise;
+}
+window.fetchOpenAiSummary = fetchOpenAiSummary;
+
+// OpenAI answers 429 when the per-minute allowance is used up. The message it
+// sends back is a wall of JSON, so it's recognised and replaced with a plain
+// sentence, and the caller waits out the window before trying again.
+const OA_RETRY_MS = 65 * 1000;
+function isRateLimited(result) {
+  const msg = JSON.stringify((result && result.data) || '');
+  return (result && result.status === 429) || /429|rate limit/i.test(msg);
+}
+
+// Free, no-API-key exchange rate service — fetched once per page load and
+// cached, since exchange rates don't meaningfully change minute-to-minute.
+function fetchPhpRate() {
+  return fetch('https://open.er-api.com/v6/latest/USD')
+    .then(res => res.json())
+    .then(data => {
+      usdToPhpRate = data && data.rates && data.rates.PHP ? data.rates.PHP : null;
+    })
+    .catch(() => { usdToPhpRate = null; });
+}
+
+function phpEquivalent(usd) {
+  if (!usdToPhpRate) return '';
+  return ` (₱${(usd * usdToPhpRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+}
+let lastBillingData = null;
+document.getElementById('rangeSelect').addEventListener('change', (e) => {
+  currentRange = e.target.value;
+  document.getElementById('customRangeRow').style.display = currentRange === 'custom' ? 'flex' : 'none';
+  if (currentRange !== 'custom') loadBilling();
+});
+
+document.getElementById('accountSelect').addEventListener('change', (e) => {
+  currentAccount = e.target.value === 'all' ? 'all' : Number(e.target.value);
+  loadBilling();
+});
+
+function loadAccounts() {
+  const token = localStorage.getItem('pipeline_token');
+  fetch(`${API_BASE}/openai-billing/accounts`, { headers: { Authorization: `Bearer ${token}` } })
+    .then(res => res.ok ? res.json() : { accounts: [] })
+    .then(data => {
+      const select = document.getElementById('accountSelect');
+      const accounts = data.accounts || [];
+      if (accounts.length === 0) {
+        select.innerHTML = '<option value="0">No accounts configured</option>';
+        return;
+      }
+      const options = accounts.map(a => `<option value="${a.index}">${a.name}</option>`);
+      if (accounts.length > 1) {
+        options.unshift(`<option value="all">All Accounts (${accounts.length})</option>`);
+        // Default to "All Accounts" when there's more than one — matches
+        // what the dropdown visually shows as its first option, since
+        // otherwise currentAccount would stay at its initial value (0) and
+        // the billing data shown wouldn't match what the dropdown displays.
+        currentAccount = 'all';
+      } else {
+        currentAccount = accounts[0].index;
+      }
+      select.innerHTML = options.join('');
+      select.value = String(currentAccount);
+      loadBilling();
+    })
+    .catch(() => loadBilling());
+}
+
+function rangeLabelText(range) {
+  if (range === 'today') return 'Today';
+  if (range === '7d') return 'Last 7 days';
+  if (range === 'all') return 'All time';
+  if (range === 'prev_month') return 'Previous month';
+  if (range === 'custom') {
+    const s = document.getElementById('customStart').value;
+    const e = document.getElementById('customEnd').value;
+    return s ? `${s}${e ? ' to ' + e : ' onward'}` : 'Custom range';
+  }
+  return 'This month';
+}
+
+function showSetupNote(msg) {
+  const el = document.getElementById('setupNote');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+let billingRetryTimer = null;
+
+function loadBilling() {
+  if (currentRange === 'custom' && !document.getElementById('customStart').value) {
+    return; // wait for the user to pick a start date and click Apply
+  }
+  clearTimeout(billingRetryTimer);
+  document.getElementById('kpiLabel').textContent = `Total spend — ${rangeLabelText(currentRange)}`;
+  const compare = document.getElementById('compareToggle').checked;
+
+  let path = `/openai-billing/summary?range=${currentRange}&account=${currentAccount}&compare=${compare}`;
+  if (currentRange === 'custom') {
+    const start = document.getElementById('customStart').value;
+    const end = document.getElementById('customEnd').value;
+    path += `&start=${start}`;
+    if (end) path += `&end=${end}`;
+  }
+
+  fetchOpenAiSummary(path)
+    .then(result => {
+      if (result.status === 404) {
+        showSetupNote("⚠️ The /api/openai-billing/summary endpoint isn't live on the backend yet. Add the OpenAI proxy route to your Railway API to activate this page.");
+        return;
+      }
+      if (isRateLimited(result)) {
+        showSetupNote('⏳ OpenAI is limiting how often its billing data can be read (10 times a minute). Trying again in about a minute — no need to refresh.');
+        billingRetryTimer = setTimeout(loadBilling, OA_RETRY_MS);
+        return;
+      }
+      if (!result.ok) {
+        showSetupNote(`⚠️ ${result.data.error || 'Could not load OpenAI billing data.'}`);
+        return;
+      }
+      showSetupNote('');
+      renderBilling(result.data);
+    })
+    .catch(err => {
+      console.error(err);
+      showSetupNote('⚠️ Could not reach the billing endpoint. Check the backend proxy is deployed.');
+    });
+}
+
+function renderBilling(data) {
+  lastBillingData = data;
+  document.getElementById('kpiTotal').textContent = `$${data.totalUsd.toFixed(2)}`;
+  document.getElementById('kpiPhp').textContent = usdToPhpRate
+    ? `≈ ₱${(data.totalUsd * usdToPhpRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : '';
+
+  const compareEl = document.getElementById('kpiCompare');
+  if (data.comparison) {
+    const prev = data.comparison.totalUsd;
+    const diff = prev > 0 ? Math.round(((data.totalUsd - prev) / prev) * 100) : null;
+    const arrow = diff === null ? '' : (diff >= 0 ? '↑' : '↓');
+    const color = diff === null ? 'var(--ink-faint)' : (diff >= 0 ? 'var(--danger)' : 'var(--success)');
+    compareEl.style.display = 'block';
+    compareEl.style.color = color;
+    compareEl.textContent = diff === null
+      ? `Previous period: $${prev.toFixed(2)} (no prior spend to compare)`
+      : `${arrow} ${Math.abs(diff)}% vs previous period ($${prev.toFixed(2)}${phpEquivalent(prev)})`;
+  } else {
+    compareEl.style.display = 'none';
+  }
+
+  const total = data.totalUsd || 0;
+  const share = v => total > 0 ? Math.max(0, Math.min(100, (v / total) * 100)) : 0;
+  const phpTxt = usd => usdToPhpRate ? '₱' + (usd * usdToPhpRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const byAccountPanel = document.getElementById('byAccountPanel');
+  const accts = (data.byAccount || []).slice().sort((a, b) => b.totalUsd - a.totalUsd);
+  if (accts.length > 0) {
+    byAccountPanel.style.display = 'block';
+    document.getElementById('byAccountBody').innerHTML = accts.map((a, i) => `
+      <tr>
+        <td><span class="oa-rank">${i + 1}</span></td>
+        <td class="oa-name">${escH(a.name)}</td>
+        <td style="width:28%;"><div class="oa-bar"><i style="width:${share(a.totalUsd).toFixed(1)}%"></i></div><div class="oa-pct">${share(a.totalUsd).toFixed(1)}%</div></td>
+        <td class="num">$${a.totalUsd.toFixed(2)}</td>
+        <td class="php">${phpTxt(a.totalUsd)}</td>
+      </tr>
+    `).join('');
+    document.getElementById('byAccountFoot').innerHTML = `<tr><td></td><td>Total</td><td></td><td class="num">$${total.toFixed(2)}</td><td class="php">${phpTxt(total)}</td></tr>`;
+    document.getElementById('byAccountSub').textContent = `${accts.length} accounts`;
+  } else {
+    byAccountPanel.style.display = 'none';
+  }
+
+  // KPI cards
+  const withSpend = accts.filter(a => a.totalUsd > 0);
+  if (accts.length) {
+    document.getElementById('oaTopName').textContent = accts[0].name;
+    document.getElementById('oaTopSub').textContent = `$${accts[0].totalUsd.toFixed(2)} · ${share(accts[0].totalUsd).toFixed(0)}% of total`;
+    document.getElementById('oaAcctCount').textContent = `${withSpend.length}/${accts.length}`;
+    document.getElementById('oaAcctSub').textContent = withSpend.length ? `avg $${(total / withSpend.length).toFixed(2)} per account` : 'no spend yet';
+  } else {
+    document.getElementById('oaTopName').textContent = data.account || '—';
+    document.getElementById('oaTopSub').textContent = `$${total.toFixed(2)}`;
+    document.getElementById('oaAcctCount').textContent = '1';
+    document.getElementById('oaAcctSub').textContent = 'single account view';
+  }
+
+  const body = document.getElementById('lineItemsBody');
+  const items = (data.topLineItems || []).slice().sort((a, b) => b.amount - a.amount);
+  const moreBtn = document.getElementById('lineItemsMore');
+  document.getElementById('lineItemsSub').textContent = items.length ? `${items.length} items` : '';
+  if (items.length) {
+    document.getElementById('oaTopItem').textContent = items[0].label;
+    document.getElementById('oaTopItemSub').textContent = `$${items[0].amount.toFixed(2)} · ${share(items[0].amount).toFixed(0)}% of total`;
+  } else {
+    document.getElementById('oaTopItem').textContent = '—';
+    document.getElementById('oaTopItemSub').innerHTML = '&nbsp;';
+  }
+  if (items.length === 0) {
+    body.innerHTML = '<tr><td colspan="3"><div class="empty-note">No cost line items in this period</div></td></tr>';
+    moreBtn.style.display = 'none';
+  } else {
+    const LIMIT = 10;
+    const showAll = window.__oaShowAllItems === true;
+    const shown = showAll ? items : items.slice(0, LIMIT);
+    body.innerHTML = shown.map(li => `
+      <tr>
+        <td style="font-size:12.5px;">${escH(li.label)}</td>
+        <td style="width:30%;"><div class="oa-bar"><i style="width:${share(li.amount).toFixed(1)}%;background:linear-gradient(90deg,#A78BFA,#8B5CF6);"></i></div><div class="oa-pct">${share(li.amount).toFixed(1)}%</div></td>
+        <td class="num">$${li.amount.toFixed(4)}</td>
+      </tr>
+    `).join('');
+    if (items.length > LIMIT) {
+      moreBtn.style.display = 'block';
+      moreBtn.textContent = showAll ? 'Show top 10 only' : `Show all ${items.length} items`;
+      moreBtn.onclick = () => { window.__oaShowAllItems = !showAll; renderBilling(lastBillingData); };
+    } else moreBtn.style.display = 'none';
+  }
+}
+
+// Exports the cost/usage breakdown currently shown (daily spend, line items,
+// per-model token usage) as a CSV file. This is NOT an OpenAI invoice PDF —
+// OpenAI doesn't expose invoice history via API — it's the Costs/Usage data
+// this page already pulls, saved for your own records.
+function exportBillingCsv() {
+  if (!lastBillingData) {
+    alert('No billing data loaded yet.');
+    return;
+  }
+  const data = lastBillingData;
+  const sections = [];
+
+  sections.push(`Account,${data.account}`);
+  sections.push(`Range,${rangeLabelText(data.range)}`);
+  sections.push(`Total Spend (USD),${data.totalUsd.toFixed(4)}`);
+  sections.push('');
+
+  sections.push('Daily Spend');
+  sections.push(Papa.unparse((data.dailyTotals || []).map(d => ({ Date: d.date, 'Amount (USD)': d.amount.toFixed(4) }))));
+  sections.push('');
+
+  sections.push('Cost by Line Item');
+  sections.push(Papa.unparse((data.topLineItems || []).map(li => ({ 'Line Item': li.label, 'Amount (USD)': li.amount.toFixed(4) }))));
+
+  const csv = sections.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `openai-billing-${data.account.replace(/\s+/g, '-').toLowerCase()}-${data.range}-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// API Credit Balance by Brand and the Daily Spend chart were removed
+// 2026-09-21. The balance had to be typed in by hand after every top-up
+// (OpenAI has no balance API), which nobody could keep current, and it made
+// one Costs API call per brand on every load — the main reason the page
+// kept hitting OpenAI's 10-requests-a-minute limit. Balances can still be
+// read at platform.openai.com. The BillingConfig row that held the entered
+// balances (/api/billing/openai-credits) is left in place, unused.
+
+fetchPhpRate().then(() => { if (lastBillingData) renderBilling(lastBillingData); });
+loadAccounts();
+</script>
+<!-- ================================================================
+  CONSOLIDATED BILLING (MONTHLY) — v5 EDITABLE + LIVE OPEN AI (2026-09-19)
+  v5: added an SMS column immediately AFTER LiveChat — manual input only
+  (normal editable/stored column like Netlify/N8N), blank until amounts
+  are typed in via Edit. Self-migrates into saved data on first load.
+  v4: the "Open AI" column is now a LIVE overlay — pulled from this page's
+  own /api/openai-billing (this month, per account, USD→PHP at the live
+  rate) and folded into every TOTAL automatically. It is never stored in
+  the DB and can't be hand-edited (shown as "auto (live)" in Edit mode).
+  v3: sheet TOTAL/NOTE header columns are stripped (they doubled the
+  totals); the note now renders as a footnote under the table.
+  Source of truth: our own DB via /api/billing/consolidated (editable
+  in-dashboard, saved with the Save button). The Google Sheet is only
+  offered as a one-time import seed the first time the page loads with
+  no saved data. TOTAL column and footer are always auto-computed.
+
+  HOW TO INSTALL: in frontend/public/openai.html, DELETE the previous
+  "CONSOLIDATED BILLING" block (everything from its opening comment to
+  "END CONSOLIDATED BILLING BLOCK") if it was already pasted, then paste
+  this ENTIRE block just BEFORE </body>.
+================================================================= -->
+<style>
+  .cb-section{margin-top:24px;}
+  .cb-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px;gap:12px;flex-wrap:wrap;}
+  .cb-title h2{margin:0;font-size:15px;font-weight:800;letter-spacing:-.01em;}
+  .cb-title .cb-right{display:flex;align-items:center;gap:10px;}
+  .cb-title .cb-live{font-size:12px;color:var(--ink-faint,#94A3B8);font-weight:600;}
+  .cb-btn{font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line,#EEF1F6);background:var(--card,#fff);color:var(--ink-soft,#475569);font-family:inherit;}
+  .cb-btn.primary{background:var(--primary,#2563EB);color:#fff;border-color:var(--primary,#2563EB);}
+  .cb-btn.danger{color:var(--danger,#EF4444);}
+  .cb-btn:disabled{opacity:.55;cursor:wait;}
+  .cb-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+  @media (max-width:900px){.cb-cards{grid-template-columns:1fr;}}
+  .cb-card{background:var(--card,#fff);border-radius:14px;padding:16px;box-shadow:var(--shadow,0 1px 2px rgba(15,23,42,.04),0 8px 24px -12px rgba(15,23,42,.10));}
+  .cb-card .cb-label{font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint,#94A3B8);margin-bottom:6px;}
+  .cb-card .cb-value{font-size:22px;font-weight:800;letter-spacing:-.01em;}
+  .cb-card .cb-sub{font-size:11.5px;color:var(--ink-faint,#94A3B8);margin-top:4px;}
+  .cb-panel{background:var(--card,#fff);border-radius:14px;box-shadow:var(--shadow,0 1px 2px rgba(15,23,42,.04),0 8px 24px -12px rgba(15,23,42,.10));padding:18px;overflow-x:auto;}
+  .cb-table{width:100%;border-collapse:collapse;min-width:860px;}
+  .cb-table th{text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint,#94A3B8);font-weight:700;padding:0 10px 8px;border-bottom:1px solid var(--line,#EEF1F6);white-space:nowrap;}
+  .cb-table th:first-child{text-align:left;}
+  .cb-table th .cb-date{display:block;font-size:9.5px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--ink-faint,#94A3B8);opacity:.85;}
+  .cb-table td{padding:8px 10px;font-size:12.5px;border-bottom:1px solid var(--line,#EEF1F6);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .cb-table td:first-child{text-align:left;font-weight:700;}
+  .cb-table tbody tr:hover{background:#F8FAFC;}
+  .cb-table td.cb-total{font-weight:800;}
+  .cb-table tfoot td{font-weight:800;border-top:2px solid var(--line,#EEF1F6);border-bottom:none;background:#F8FAFC;}
+  .cb-empty{padding:32px 12px;text-align:center;color:var(--ink-faint,#94A3B8);font-size:13px;}
+  .cb-dim{color:var(--ink-faint,#94A3B8);font-weight:500;}
+  .cb-input{width:92px;padding:5px 7px;border:1px solid var(--line,#EEF1F6);border-radius:7px;font:inherit;font-size:12px;text-align:right;background:#fff;color:var(--ink,#0F172A);}
+  .cb-input.cb-name{width:170px;text-align:left;font-weight:700;}
+  .cb-input:focus{outline:2px solid var(--primary,#2563EB);outline-offset:-1px;}
+  .cb-rowdel{border:none;background:none;color:var(--danger,#EF4444);font-size:14px;cursor:pointer;padding:2px 6px;}
+  .cb-editbar{display:none;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .cb-editbar.on{display:flex;}
+  .cb-note{font-size:11.5px;color:var(--ink-faint,#94A3B8);}
+</style>
+<script>
+(function () {
+  const CB_API = (typeof API_BASE !== 'undefined' ? API_BASE : 'https://pipeline-crm-production-412d.up.railway.app/api');
+  const CB_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSPhoe4LCgJ1VWFE-fMUsH1D20E76eSxLq4ZJoA_XpLqGKqrvBiot6JIqkFmbWAMfYQOX--Y4k-DFgM/pub?gid=1411288339&single=true&output=csv';
+
+  let cbData = null;      // { services, dates, divisions:[{name, vals[]}] }
+  let cbEditing = false;
+  let cbMeta = {};
+
+  // ---- LIVE OPEN AI column (v4) ----
+  // Pulled from this page's own OpenAI billing backend: this-month spend
+  // per account, converted USD->PHP at the live rate. Matched to division
+  // rows by normalized name; add manual pairs below when an OpenAI account
+  // name doesn't match its division name.
+  //   key = OpenAI account name (as shown in the account dropdown)
+  //   value = division row name in this table
+  const OPENAI_ACCOUNT_TO_DIVISION = {
+    // Filled 2026-09-15 from the live unmatched list vs the division rows:
+    'BUENAS PH': 'BUENAS CASH',
+    'MOBILE CASINO PLAY': 'MOBILE PLAY CASINO',
+    'HYPE BD': 'HYPEPLAY BDT',
+    'LUCKSTACKS': 'LUCKYSTACKS PH',   // add a LUCKYSTACKS PH division row via Edit for this to land
+    // The rest (TMTCASH, TMTPLAY, MANILAPLAY, HYPEPLAY PH, MGK, BUENAS
+    // CREDIT) match automatically by normalized name.
+  };
+  let liveOpenAi = { ok: false, byDivision: new Map(), unmatched: [], rate: null, asOf: null };
+  function cbNorm(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
+  async function loadLiveOpenAi() {
+    try {
+      // Same request as the Total spend card's This Month view, sent through
+      // the page's shared cache — so opening the page asks OpenAI once for
+      // this, not twice (2026-09-21, after the Costs API's 10-a-minute limit
+      // was being hit on every load).
+      const summaryPath = '/openai-billing/summary?range=month&account=all&compare=false';
+      const [sumResult, rateRes] = await Promise.all([
+        window.fetchOpenAiSummary
+          ? window.fetchOpenAiSummary(summaryPath)
+          : fetch(`${CB_API}${summaryPath}`, { headers: authHeaders() }).then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+        fetch('https://open.er-api.com/v6/latest/USD').catch(() => null),
+      ]);
+      if (typeof isRateLimited === 'function' && isRateLimited(sumResult)) {
+        liveOpenAi = { ok: false, limited: true, byDivision: new Map(), unmatched: [], rate: null, asOf: null };
+        setTimeout(() => { loadLiveOpenAi().then(() => { if (!cbEditing && cbData) render(); }); }, typeof OA_RETRY_MS === 'number' ? OA_RETRY_MS : 65000);
+        return;
+      }
+      if (!sumResult.ok) throw new Error('openai-billing HTTP ' + sumResult.status);
+      const sum = sumResult.data;
+      let rate = null;
+      if (rateRes && rateRes.ok) {
+        const r = await rateRes.json();
+        rate = r && r.rates && r.rates.PHP ? r.rates.PHP : null;
+      }
+      if (!rate) throw new Error('no USD->PHP rate');
+      // Single-account setups return no byAccount — treat the org total as
+      // one entry named by the account, so it can still alias to a division.
+      const accounts = (sum.byAccount && sum.byAccount.length)
+        ? sum.byAccount
+        : [{ name: sum.account || 'OpenAI', totalUsd: sum.totalUsd || 0 }];
+      const divNorms = new Map(cbData ? cbData.divisions.map(d => [cbNorm(d.name), d.name]) : []);
+      const byDivision = new Map();
+      const unmatched = [];
+      for (const a of accounts) {
+        const aliased = OPENAI_ACCOUNT_TO_DIVISION[a.name];
+        let divName = aliased && divNorms.get(cbNorm(aliased)) ? divNorms.get(cbNorm(aliased)) : null;
+        if (!divName) {
+          const n = cbNorm(a.name);
+          divName = divNorms.get(n) || null;
+          if (!divName) { // containment fallback: "BUENAS CASH OPENAI" ~ "BUENAS CASH"
+            for (const [dn, orig] of divNorms) {
+              if (dn && n && (n.includes(dn) || dn.includes(n))) { divName = orig; break; }
+            }
+          }
+        }
+        const php = Math.round((a.totalUsd || 0) * rate * 100) / 100;
+        if (divName) byDivision.set(divName, (byDivision.get(divName) || 0) + php);
+        else if ((a.totalUsd || 0) > 0) unmatched.push(a.name + ' ($' + (a.totalUsd || 0).toFixed(2) + ')');
+      }
+      liveOpenAi = { ok: true, byDivision, unmatched, rate, asOf: new Date() };
+    } catch (err) {
+      console.warn('Live Open AI column unavailable:', err.message);
+      liveOpenAi = { ok: false, byDivision: new Map(), unmatched: [], rate: null, asOf: null };
+    }
+  }
+
+  function openAiColIdx() {
+    if (!cbData) return -1;
+    return cbData.services.findIndex(s => /open\s*ai/i.test(String(s || '')));
+  }
+  // Division vals with the live Open AI figure overlaid (render-time only —
+  // never persisted).
+  function effectiveVals(div) {
+    const idx = openAiColIdx();
+    if (idx < 0) return div.vals;
+    const out = div.vals.slice();
+    out[idx] = liveOpenAi.ok ? (liveOpenAi.byDivision.get(div.name) ?? null) : div.vals[idx];
+    return out;
+  }
+
+  // ---- helpers ----
+  function parseCsv(text) {
+    const rows = []; let row = [], field = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; } else field += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(field); field = ''; rows.push(row); row = []; }
+      else field += c;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+  function peso(v) { if (v == null) return null; const n = parseFloat(String(v).replace(/[₱,\s]/g, '')); return isNaN(n) ? null : n; }
+  function money(n) { return n == null ? null : '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmt(n) { return n == null ? '<span class="cb-dim">—</span>' : money(n); }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function authHeaders() { return { Authorization: 'Bearer ' + localStorage.getItem('pipeline_token') }; }
+  function rowTotal(d) { const nums = d.vals.filter(v => v != null); return nums.length ? nums.reduce((a, b) => a + b, 0) : null; }
+
+  // ---- mount ----
+  function buildSection() {
+    const main = document.querySelector('.main') || document.body;
+    const sec = document.createElement('div');
+    sec.className = 'cb-section';
+    sec.innerHTML = `
+      <div class="cb-title">
+        <h2>Consolidated Billing (Monthly)</h2>
+        <div class="cb-right">
+          <span class="cb-live" id="cbUpdated">Loading…</span>
+          <button class="cb-btn" id="cbEditBtn" style="display:none;">Edit</button>
+        </div>
+      </div>
+      <div class="cb-editbar" id="cbEditBar">
+        <button class="cb-btn primary" id="cbSaveBtn">Save changes</button>
+        <button class="cb-btn" id="cbCancelBtn">Cancel</button>
+        <button class="cb-btn" id="cbAddRowBtn">+ Add division</button>
+        <span class="cb-note">Amounts are in ₱. Leave a cell blank for “—”. TOTALs compute automatically.</span>
+      </div>
+      <div class="cb-cards" id="cbCards" style="display:none;">
+        <div class="cb-card"><div class="cb-label">Grand Total / Month</div><div class="cb-value" id="cbGrand">—</div><div class="cb-sub" id="cbGrandSub"></div></div>
+        <div class="cb-card"><div class="cb-label">Highest Division</div><div class="cb-value" id="cbTopDiv" style="font-size:17px;">—</div><div class="cb-sub" id="cbTopDivSub"></div></div>
+        <div class="cb-card"><div class="cb-label">Biggest Service Cost</div><div class="cb-value" id="cbTopSvc" style="font-size:17px;">—</div><div class="cb-sub" id="cbTopSvcSub"></div></div>
+      </div>
+      <div class="cb-panel"><div id="cbTableWrap"><div class="cb-empty">Loading billing data…</div></div></div>
+    `;
+    main.appendChild(sec);
+    document.getElementById('cbEditBtn').addEventListener('click', () => { cbEditing = true; render(); });
+    document.getElementById('cbCancelBtn').addEventListener('click', () => { cbEditing = false; loadFromDb(); });
+    document.getElementById('cbSaveBtn').addEventListener('click', saveEdits);
+    document.getElementById('cbAddRowBtn').addEventListener('click', () => {
+      collectEdits();
+      cbData.divisions.push({ name: 'NEW DIVISION', vals: cbData.services.map(() => null) });
+      render();
+    });
+  }
+
+  // ---- data loading ----
+  // Strips pseudo-service columns that come from the sheet layout: the
+  // sheet's own TOTAL column (we compute totals ourselves) and any column
+  // whose header is really a NOTE typed into the header row (seen 2026-09-14:
+  // the note lived in the TOTAL header cell, which doubled every total).
+  // The note text is kept and shown as a footnote under the table instead.
+  // Returns true when something was cleaned (so the caller can re-persist).
+  function sanitize() {
+    if (!cbData || !Array.isArray(cbData.services)) return false;
+    let changed = false;
+    const dropIdx = [];
+    cbData.services.forEach((s, i) => {
+      const up = String(s || '').trim().toUpperCase();
+      if (up.startsWith('TOTAL')) dropIdx.push(i);
+      else if (up.startsWith('NOTE')) { dropIdx.push(i); if (!cbData.note) cbData.note = String(s).trim(); }
+    });
+    if (dropIdx.length) {
+      const keep = i => !dropIdx.includes(i);
+      cbData.services = cbData.services.filter((_, i) => keep(i));
+      cbData.dates = (cbData.dates || []).filter((_, i) => keep(i));
+      cbData.divisions.forEach(d => { d.vals = d.vals.filter((_, i) => keep(i)); });
+      changed = true;
+    }
+    // Ensure a LiveChat column exists between Supabase and Open AI (added
+    // 2026-09-15 per ops request): a NORMAL editable/stored column like
+    // Netlify/N8N — blank until amounts are typed in via Edit. This is a
+    // one-time self-migration: it inserts the column into the saved data
+    // and the standard sanitize->persist flow saves it back.
+    if (!cbData.services.some(s => /live\s*chat/i.test(String(s || '')))) {
+      let at = cbData.services.findIndex(s => /open\s*ai/i.test(String(s || '')));
+      if (at < 0) at = cbData.services.length;
+      cbData.services.splice(at, 0, 'LiveChat');
+      cbData.dates = cbData.dates || [];
+      cbData.dates.splice(at, 0, '');
+      cbData.divisions.forEach(d => d.vals.splice(at, 0, null));
+      changed = true;
+    }
+    // Ensure an SMS column exists right AFTER LiveChat (added 2026-09-19 per
+    // ops request): manual input only — a NORMAL editable/stored column like
+    // Netlify/N8N, blank until amounts are typed in via Edit. Same one-time
+    // self-migration pattern as LiveChat above.
+    if (!cbData.services.some(s => /^\s*sms\s*$/i.test(String(s || '')))) {
+      let at = cbData.services.findIndex(s => /live\s*chat/i.test(String(s || '')));
+      at = at >= 0 ? at + 1 : cbData.services.findIndex(s => /open\s*ai/i.test(String(s || '')));
+      if (at < 0) at = cbData.services.length;
+      cbData.services.splice(at, 0, 'SMS');
+      cbData.dates = cbData.dates || [];
+      cbData.dates.splice(at, 0, '');
+      cbData.divisions.forEach(d => d.vals.splice(at, 0, null));
+      changed = true;
+    }
+    return changed;
+  }
+
+  async function loadFromDb() {
+    const upd = document.getElementById('cbUpdated');
+    try {
+      const res = await fetch(`${CB_API}/billing/consolidated`, { headers: authHeaders() });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const body = await res.json();
+      if (body.data) {
+        cbData = body.data; cbMeta = { updatedAt: body.updatedAt, updatedBy: body.updatedBy };
+        if (sanitize()) { try { await persist(); } catch (e) { console.warn('sanitize re-save failed:', e.message); } }
+        render();
+      } else {
+        // First use — offer a one-time seed from the Google Sheet.
+        await seedFromSheet();
+      }
+    } catch (err) {
+      console.error('Billing load failed:', err);
+      upd.textContent = '● Error loading'; upd.style.color = 'var(--danger,#EF4444)';
+      document.getElementById('cbTableWrap').innerHTML =
+        '<div class="cb-empty">Could not load billing data. If the backend was just updated, confirm the /api/billing route is wired in server.js.</div>';
+    }
+  }
+
+  async function seedFromSheet() {
+    const wrap = document.getElementById('cbTableWrap');
+    wrap.innerHTML = '<div class="cb-empty">No saved billing data yet — importing the Google Sheet as a starting point…</div>';
+    try {
+      const res = await fetch(CB_SHEET_CSV + '&t=' + Date.now());
+      if (!res.ok) throw new Error('sheet HTTP ' + res.status);
+      const rows = parseCsv(await res.text());
+      const rawServices = rows[0].slice(1).map(s => s.trim());
+      // Drop the sheet's TOTAL column — totals are computed, not stored.
+      const totalIdx = rawServices.findIndex(s => s.toUpperCase().startsWith('TOTAL'));
+      const services = rawServices.filter((s, i) => s && i !== totalIdx);
+      const dates = (rows[1] || []).slice(1).filter((_, i) => rawServices[i] && i !== totalIdx).map(s => (s || '').trim());
+      const divStart = rows.findIndex(r => (r[0] || '').trim().toUpperCase() === 'DIVISION') + 1;
+      if (divStart <= 0) throw new Error('DIVISION marker not found in sheet');
+      const divisions = [];
+      for (let i = divStart; i < rows.length; i++) {
+        const name = (rows[i][0] || '').trim();
+        if (!name) continue;
+        const vals = rawServices.map((_, k) => peso(rows[i][k + 1])).filter((_, k) => rawServices[k] && k !== totalIdx);
+        if (vals.every(v => v == null)) continue;
+        divisions.push({ name, vals });
+      }
+      if (!divisions.length) throw new Error('No division rows in sheet');
+      cbData = { services, dates, divisions };
+      sanitize();                            // sheet quirks (TOTAL/NOTE columns) out before saving
+      await persist();                       // save the seed so next load is DB-only
+      cbMeta = { updatedAt: new Date().toISOString(), updatedBy: 'sheet import' };
+      render();
+    } catch (err) {
+      console.error('Sheet seed failed:', err);
+      wrap.innerHTML = '<div class="cb-empty">No saved data, and the Google Sheet import failed. Click Edit to start from a blank table.</div>';
+      cbData = { services: ['Netlify','N8N','Claude','Host Server','Supabase','LiveChat','SMS','Open AI'], dates: ['','','','','','','',''], divisions: [] };
+      document.getElementById('cbEditBtn').style.display = '';
+    }
+  }
+
+  async function persist() {
+    const res = await fetch(`${CB_API}/billing/consolidated`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ data: cbData }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || 'save failed');
+  }
+
+  // ---- edit flow ----
+  function collectEdits() {
+    if (!cbEditing) return;
+    const rows = document.querySelectorAll('#cbTableWrap tbody tr');
+    const divisions = [];
+    rows.forEach(tr => {
+      const name = tr.querySelector('.cb-name')?.value.trim();
+      if (!name) return; // blank name = drop row
+      // Open AI column is live-only: its cell has no input, so rebuild vals
+      // by service index and keep that slot null in storage.
+      const vals = cbData.services.map(() => null);
+      tr.querySelectorAll('.cb-val').forEach(inp => {
+        const k = Number(inp.dataset.k);
+        const v = inp.value.trim();
+        if (v === '') { vals[k] = null; return; }
+        const n = parseFloat(v.replace(/[₱,\s]/g, ''));
+        vals[k] = isNaN(n) ? null : Math.round(n * 100) / 100;
+      });
+      divisions.push({ name, vals });
+    });
+    cbData.divisions = divisions;
+    const noteInp = document.getElementById('cbNoteInput');
+    if (noteInp) cbData.note = noteInp.value.trim() || undefined;
+  }
+
+  async function saveEdits() {
+    const btn = document.getElementById('cbSaveBtn');
+    collectEdits();
+    if (!cbData.divisions.length) { alert('At least one division row is required.'); return; }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      await persist();
+      cbEditing = false;
+      cbMeta = { updatedAt: new Date().toISOString(), updatedBy: 'you' };
+      await loadLiveOpenAi();   // re-pair accounts (a new/renamed row may now match)
+      render();
+    } catch (err) {
+      console.error('Billing save failed:', err);
+      alert('Save failed: ' + err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save changes';
+    }
+  }
+
+  // ---- render ----
+  function render() {
+    const upd = document.getElementById('cbUpdated');
+    const editBtn = document.getElementById('cbEditBtn');
+    const editBar = document.getElementById('cbEditBar');
+    const wrap = document.getElementById('cbTableWrap');
+    const d = cbData;
+    editBtn.style.display = cbEditing ? 'none' : '';
+    editBar.classList.toggle('on', cbEditing);
+
+    const effAll = d.divisions.map(div => effectiveVals(div));
+    const totals = effAll.map(vals => { const n = vals.filter(v => v != null); return n.length ? n.reduce((a, b) => a + b, 0) : null; });
+    const svcTotals = d.services.map((_, k) => {
+      const nums = effAll.map(vals => vals[k]).filter(v => v != null);
+      return nums.length ? nums.reduce((a, b) => a + b, 0) : null;
+    });
+    const grand = totals.filter(v => v != null).reduce((a, b) => a + b, 0);
+
+    // Cards (view mode only — hidden while editing to avoid stale numbers)
+    document.getElementById('cbCards').style.display = cbEditing ? 'none' : '';
+    if (!cbEditing && d.divisions.length) {
+      document.getElementById('cbGrand').textContent = money(grand) || '—';
+      document.getElementById('cbGrandSub').textContent = d.divisions.length + ' divisions · ' + d.services.length + ' services';
+      let ti = 0; totals.forEach((v, i) => { if ((v || 0) > (totals[ti] || 0)) ti = i; });
+      document.getElementById('cbTopDiv').textContent = d.divisions[ti]?.name || '—';
+      document.getElementById('cbTopDivSub').textContent = (money(totals[ti]) || '—') + ' / month';
+      let si = 0; svcTotals.forEach((v, i) => { if ((v || 0) > (svcTotals[si] || 0)) si = i; });
+      document.getElementById('cbTopSvc').textContent = d.services[si] || '—';
+      document.getElementById('cbTopSvcSub').textContent = (money(svcTotals[si]) || '—') + ' across all divisions';
+    }
+
+    // Table
+    const oaIdx = openAiColIdx();
+    const head = '<tr><th>Division</th>' + d.services.map((s, k) =>
+      `<th>${esc(s)}${k === oaIdx
+        ? `<span class="cb-date">${liveOpenAi.ok ? 'live · this month' : 'live · unavailable'}</span>`
+        : (d.dates[k] ? `<span class="cb-date">${esc(d.dates[k])}</span>` : '')}</th>`).join('')
+      + '<th>Total</th>' + (cbEditing ? '<th></th>' : '') + '</tr>';
+
+    // View mode lists divisions by TOTAL, highest first (2026-09-21), so the
+    // costliest brands are read first. Edit mode keeps the saved order: row
+    // delete buttons and collectEdits() work off each row's position in
+    // cbData.divisions, and re-sorting while someone types would also make
+    // rows jump around under the cursor.
+    const order = d.divisions.map((_, i) => i);
+    if (!cbEditing) order.sort((a, b) => (totals[b] ?? -1) - (totals[a] ?? -1));
+
+    const body = order.map(i => {
+      const div = d.divisions[i];
+      const eff = effAll[i];
+      const effTotal = totals[i];
+      if (cbEditing) {
+        return `<tr>
+          <td><input class="cb-input cb-name" value="${esc(div.name)}"></td>
+          ${div.vals.map((v, k) => k === oaIdx
+            ? `<td class="cb-oa-auto" style="font-size:11px;color:var(--ink-faint,#94A3B8);">${fmt(eff[k])}<br>auto (live)</td>`
+            : `<td><input class="cb-input cb-val" data-k="${k}" inputmode="decimal" value="${v == null ? '' : v}"></td>`).join('')}
+          <td class="cb-total cb-rowtotal">${fmt(effTotal)}</td>
+          <td><button class="cb-rowdel" title="Remove division" data-i="${i}">✕</button></td>
+        </tr>`;
+      }
+      return `<tr><td>${esc(div.name)}</td>${eff.map(v => `<td>${fmt(v)}</td>`).join('')}<td class="cb-total">${fmt(effTotal)}</td></tr>`;
+    }).join('');
+
+    const foot = `<tr><td>ALL DIVISIONS</td>${svcTotals.map(v => `<td>${fmt(v)}</td>`).join('')}<td>${fmt(grand || null)}</td>${cbEditing ? '<td></td>' : ''}</tr>`;
+
+    const liveNote = liveOpenAi.ok
+      ? (liveOpenAi.unmatched.length
+          ? `<div class="cb-note" style="margin-top:8px;color:var(--warning,#F59E0B);">Open AI accounts not matched to a division: ${esc(liveOpenAi.unmatched.join(', '))} — add them to OPENAI_ACCOUNT_TO_DIVISION in openai.html.</div>`
+          : '')
+      : (liveOpenAi.limited
+          ? `<div class="cb-note" style="margin-top:8px;">⏳ Open AI column is waiting on OpenAI's rate limit — it fills in on its own in about a minute. Totals below are shown without it for now.</div>`
+          : `<div class="cb-note" style="margin-top:8px;">Open AI live column unavailable right now — totals shown without it.</div>`);
+    const noteHtml = cbEditing
+      ? `<div style="margin-top:12px;"><input class="cb-input" id="cbNoteInput" style="width:100%;text-align:left;font-weight:500;" placeholder="Optional note shown under the table" value="${esc(d.note || '')}"></div>`
+      : (d.note ? `<div class="cb-note" style="margin-top:12px;">${esc(d.note)}</div>` : '');
+    const notesCombined = noteHtml + liveNote;
+    wrap.innerHTML = (d.divisions.length || cbEditing
+      ? `<table class="cb-table"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`
+      : '<div class="cb-empty">No billing data yet — click Edit to add divisions.</div>') + notesCombined;
+
+    if (cbEditing) {
+      // live row totals while typing + row delete
+      wrap.querySelectorAll('.cb-val').forEach(inp => inp.addEventListener('input', (e) => {
+        const tr = e.target.closest('tr');
+        const nums = [...tr.querySelectorAll('.cb-val')]
+          .map(x => parseFloat(x.value.replace(/[₱,\s]/g, '')))
+          .filter(n => !isNaN(n));
+        // include this row's live Open AI figure so the total matches view mode
+        const oaCell = tr.querySelector('.cb-oa-auto');
+        if (oaCell) { const oa = parseFloat(oaCell.textContent.replace(/[₱,\s]/g, '')); if (!isNaN(oa)) nums.push(oa); }
+        tr.querySelector('.cb-rowtotal').innerHTML = nums.length ? money(nums.reduce((a, b) => a + b, 0)) : '<span class="cb-dim">—</span>';
+      }));
+      wrap.querySelectorAll('.cb-rowdel').forEach(btn => btn.addEventListener('click', (e) => {
+        collectEdits();
+        cbData.divisions.splice(Number(e.target.dataset.i), 1);
+        render();
+      }));
+    }
+
+    upd.textContent = cbEditing ? 'Editing…'
+      : (cbMeta.updatedAt ? '● Saved ' + new Date(cbMeta.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + (cbMeta.updatedBy ? ' · ' + cbMeta.updatedBy : '') : '●');
+    upd.style.color = cbEditing ? 'var(--warning,#F59E0B)' : 'var(--success,#22C55E)';
+  }
+
+  buildSection();
+  // ORDER MATTERS (fixed 2026-09-15): the divisions table must load FIRST —
+  // account->division matching needs the division names, so running the
+  // live fetch before the data left everything "unmatched" on first paint.
+  (async () => {
+    await loadFromDb();                 // renders once with data
+    await loadLiveOpenAi();             // now matching has divisions to pair with
+    if (cbData && !cbEditing) render(); // repaint with the live column filled
+  })();
+  // Live Open AI refresh — billing moves slowly; 10 minutes is plenty.
+  setInterval(() => { loadLiveOpenAi().then(() => { if (!cbEditing && cbData) render(); }); }, 10 * 60 * 1000);
+})();
+</script>
+<!-- ============== END CONSOLIDATED BILLING BLOCK v5 ============== -->
+<!-- OpenAI credit alert — red banner when a brand's AI bot starts sending
+     its "technical issues" fallback, the sign its credits have run out. -->
+<script src="bot-health.js"></script>
+<script src="sidebar-topnav.js?v=4"></script>
+</body>
+</html>

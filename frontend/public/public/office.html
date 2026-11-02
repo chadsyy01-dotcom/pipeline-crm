@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Opisina — CSR Dashboard</title>
+<link rel="icon" href="logo.png">
+<script>
+  /* OPISINA (Ahente HQ) — isometric na mapa ng team: TLs sa main office, WFH agents sa
+     mga kwarto sa paligid. Live mula sa /chatwoot/conversations + /chatwoot/agent-messages.
+     Ang schedule (shift + day off) ay nasa ROSTER sa ibaba ng page. */
+  const API_BASE = "https://pipeline-crm-production-412d.up.railway.app/api";
+  const LOGIN_PATH = "/login";
+  (async () => {
+    const token = localStorage.getItem("pipeline_token");
+    if (!token) { window.location.href = LOGIN_PATH; return; }
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) throw new Error("auth");
+    } catch (e) {
+      if (String(e && e.message) !== "auth") return;
+      localStorage.removeItem("pipeline_token");
+      window.location.href = LOGIN_PATH;
+    }
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: night-shift isometric map (main office in the middle, ring of WFH homes around it) beside a console of live counts, team lists and a log; stacks on phones. Deliberately single dark theme. */
+:root{
+  color-scheme:dark;
+  --bg:#0b0c15;
+  --panel:#131524;
+  --panel-2:#1a1d31;
+  --line:#262a45;
+  --fg:#e8eaf6;
+  --muted:#8b90b2;
+  --accent:#38e1ff;
+  --online:#4ade80;
+  --busy:#fbbf24;
+  --offline:#6b7090;
+  --dayoff:#b48ce0;
+  --display:"Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.45}
+.wrap{min-height:100%;display:flex;flex-direction:column;gap:12px;padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.brand h1{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.01em;margin:0}
+.brand h1 span{color:var(--accent)}
+.badge{font-family:var(--mono);font-size:11px;color:var(--busy);border:1px dashed color-mix(in srgb,var(--busy) 60%,transparent);border-radius:6px;padding:2px 7px}
+.clock{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stats{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.chip b{color:var(--fg);font-weight:500}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--offline)}
+.dot.online{background:var(--online)} .dot.busy{background:var(--busy)} .dot.offline{background:var(--offline)}
+.dot.offshift{background:transparent;box-shadow:inset 0 0 0 1.5px var(--offline)} .dot.dayoff{background:var(--dayoff)}
+.shifts{display:flex;flex-direction:column;gap:10px}
+.shift{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.shift.now{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.shift h3{margin:0 0 4px;font-family:var(--mono);font-size:12px;font-weight:500;display:flex;justify-content:space-between;gap:8px}
+.shift h3 span{color:var(--accent);font-size:11px}
+.shift ul{list-style:none;margin:0;padding:0;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.shift li b{color:var(--fg);font-weight:500}
+.shift li.off b{text-decoration:line-through;color:var(--muted)}
+main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;min-height:0;align-items:start}
+.stage{position:relative;background:radial-gradient(110% 90% at 50% 45%,#151a30 0%,var(--bg) 72%);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-height:480px;height:calc(100vh - 90px);position:sticky;top:14px}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;display:block}
+canvas.dragging{cursor:grabbing}
+.toolbar{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.toolbar > *{pointer-events:auto}
+.seg{display:inline-flex;background:rgba(19,21,36,.9);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+.seg button{background:none;border:0;padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--fg)}
+.seg button + button{border-left:1px solid var(--line)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legend{position:absolute;left:12px;bottom:10px;display:flex;flex-wrap:wrap;gap:12px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:none}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between;gap:8px}
+.detail-head{display:flex;align-items:center;gap:12px}
+.avatar{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:18px;color:#0b0c15;flex:none}
+.detail-head h2{font-family:var(--display);font-weight:800;font-size:22px;margin:0;line-height:1.1}
+.detail-head p{margin:0;color:var(--muted);font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);margin-top:10px}
+.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.meta div{background:var(--panel-2);border-radius:10px;padding:8px 10px;min-width:0}
+.meta small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.meta b{font-family:var(--mono);font-weight:500;font-size:16px;font-variant-numeric:tabular-nums}
+.list{display:flex;flex-direction:column;gap:2px;margin:0 -6px}
+.row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;background:none;border:0;border-radius:8px;padding:5px 6px;text-align:left;width:100%}
+.row:hover{background:var(--panel-2)}
+.row[aria-current="true"]{background:var(--panel-2);box-shadow:inset 0 0 0 1px var(--line)}
+.row .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .nm em{font-style:normal;font-weight:400;color:var(--muted);margin-left:6px;font-size:12px}
+.row .ct{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto;font-size:12.5px}
+.log li{display:grid;grid-template-columns:42px minmax(0,1fr);gap:6px;color:var(--muted)}
+.log time{font-family:var(--mono);font-size:11px;padding-top:1px;font-variant-numeric:tabular-nums}
+.log b{color:var(--fg);font-weight:600}
+@media (max-width:900px){
+  main{grid-template-columns:minmax(0,1fr)}
+  .stage{min-height:0;height:64vh;max-height:600px;position:relative;top:auto}
+  .stats{margin-left:0}
+}
+.back{color:var(--accent);text-decoration:none;font-weight:600;font-size:13px}
+.badge.live{color:var(--online);border-color:color-mix(in srgb,var(--online) 60%,transparent);border-style:solid}
+.badge.err{color:#ff8a7a;border-color:#ff8a7a}
+.unmatched{font-size:12.5px;color:var(--muted);margin:0}
+.unmatched code{font-family:var(--mono);font-size:12px;color:var(--fg);background:var(--panel-2);padding:1px 6px;border-radius:5px;display:inline-block;margin:2px 4px 2px 0}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <a class="back" href="csr-dashboard.html">← Dashboard</a>
+      <h1>Ahente <span>HQ</span></h1>
+      <span class="badge" id="liveBadge">Kumokonekta…</span>
+      <span class="clock" id="clock"></span>
+      <span class="chip" id="shiftChip">Shift</span>
+    </div>
+    <div class="stats" aria-live="polite">
+      <span class="chip"><i class="dot online"></i>Online <b id="sOn">0</b></span>
+      <span class="chip"><i class="dot busy"></i>Busy <b id="sBusy">0</b></span>
+      <span class="chip"><i class="dot offline"></i>Offline <b id="sOff">0</b></span>
+      <span class="chip">Open chats <b id="sChats">0</b></span>
+      <span class="chip">Unassigned <b id="sQueue">0</b></span>
+      <span class="chip"><i class="dot offshift"></i>Off duty <b id="sOffDuty">0</b></span>
+    </div>
+  </header>
+
+  <main>
+    <section class="stage" id="stage">
+      <canvas id="cv" aria-label="Map of the main office with 9 team leads, surrounded by 12 work-from-home rooms"></canvas>
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Refresh">
+          <button id="refreshBtn">Refresh</button>
+        </div>
+        <div class="seg" role="group" aria-label="Show shift">
+          <button data-shift="now" aria-pressed="true">Now</button>
+          <button data-shift="0" aria-pressed="false">08–16</button>
+          <button data-shift="1" aria-pressed="false">16–00</button>
+          <button data-shift="2" aria-pressed="false">00–08</button>
+        </div>
+        <div class="seg" role="group" aria-label="Zoom">
+          <button id="zOut" aria-label="Zoom out">−</button>
+          <button id="zFit">Fit</button>
+          <button id="zIn" aria-label="Zoom in">+</button>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="dot online"></i>Online</span>
+        <span><i class="dot busy"></i>Busy · may hawak na open chat</span>
+        <span><i class="dot offline"></i>Walang reply sa huling 20 min</span>
+        <span><i class="dot offshift"></i>Wala sa shift</span>
+        <span><i class="dot dayoff"></i>Day off</span>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card">
+        <p class="label"><span>Selected</span></p>
+        <div class="detail-head">
+          <div class="avatar" id="dAv">A</div>
+          <div><h2 id="dName">—</h2><p id="dRole"></p></div>
+        </div>
+        <span class="pill"><i class="dot" id="dDot"></i><span id="dState"></span></span>
+        <div class="meta">
+          <div><small>Open chats</small><b id="dChats">0</b></div>
+          <div><small>Replied (12h)</small><b id="dDone">0</b></div>
+          <div><small>Shift</small><b id="dShift">—</b></div>
+        </div>
+      </div>
+      <div class="card">
+        <p class="label"><span>Team leads · Main office</span><span id="tlCount">9</span></p>
+        <div class="list" id="tlList"></div>
+      </div>
+      <div class="card">
+        <p class="label"><span>Agents · WFH (incl. buffers)</span><span id="agCount">12</span></p>
+        <div class="list" id="agList"></div>
+      </div>
+      <div class="card">
+        <p class="label"><span>Schedule · Nov 1–15</span></p>
+        <div class="shifts" id="shifts"></div>
+      </div>
+      <div class="card" id="unmatchedCard" hidden>
+        <p class="label"><span>Chatwoot names na walang katugma</span></p>
+        <p class="unmatched">Nag-reply ang mga pangalang ito sa Chatwoot pero hindi tugma sa roster. Idagdag sa <code>cw</code> ng tamang tao sa ROSTER ng office.html:<br><span id="unmatchedList"></span></p>
+      </div>
+      <div class="card">
+        <p class="label"><span>Activity</span></p>
+        <ul class="log" id="log"></ul>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+(() => {
+// ---------- Geometry ----------
+const TW = 20, TH = 10, WH = 22;
+const iso = (x, y) => ({ x: (x - y) * TW, y: (x + y) * TH });
+const up = (p, h) => ({ x: p.x, y: p.y - h });
+
+// Main office in the middle, 12 homes around it (clockwise from top-left)
+const OFFICE = { x: 9, y: 9, w: 10, h: 10, floor: '#18203a', wall: '#111830', acc: '#38e1ff' };
+const HS = 4; // home size in tiles
+const HOME_POS = [
+  [3,2],[9,2],[15,2],[21,2],      // top
+  [22,9],[22,15],                 // right
+  [21,22],[15,22],[9,22],[3,22],  // bottom
+  [2,15],[2,9],                   // left
+];
+const HOME_COLORS = [
+  ['#3a2f4f','#2b2240','#c4a7ff'],['#2c3f4a','#203039','#7fd3e6'],['#4a3a2a','#382b1f','#ffc983'],
+  ['#2f4433','#223326','#9be3a6'],['#4a2f3a','#38222c','#ff9fc0'],['#33364d','#25283a','#a9b4ff'],
+];
+
+// ---------- Sample roster (replace with the Google Sheet later) ----------
+const SHIFTS = [
+  { label: '08:00–16:00', start: 8, len: 8 },
+  { label: '16:00–00:00', start: 16, len: 8 },
+  { label: '00:00–08:00', start: 0, len: 8 },
+  { label: '08:00–20:00', start: 8, len: 12, buffer: true },
+  { label: '20:00–08:00', start: 20, len: 12, buffer: true },
+];
+// Team leads (main office, 8h). off = day-off dates for Nov 1–15. shift null = not yet in the schedule.
+const TLS = [
+  { short: 'Marian', full: 'Marian Dawn Vigo', shift: 0, off: [5, 6] },
+  { short: 'Jersey', full: 'Jersey Alcantara', shift: 0, off: [12, 13] },
+  { short: 'TL 7', full: 'TL 7 (to fill in)', shift: null, off: [] },
+  { short: 'Rowell', full: 'Rowell Ramos', shift: 1, off: [3, 4] },
+  { short: 'Manilyn', full: 'Manilyn Castillo', shift: 1, off: [10, 11] },
+  { short: 'TL 8', full: 'TL 8 (to fill in)', shift: null, off: [] },
+  { short: 'Patrick', full: 'Patrick Externon', shift: 2, off: [7, 8] },
+  { short: 'Ralph', full: 'Ralph Sagario', shift: 2, off: [14, 15] },
+  { short: 'TL 9', full: 'TL 9 (to fill in)', shift: null, off: [] },
+];
+// Agents (WFH). 8h regular shifts, plus 12h buffers who cover absences.
+// cw: ['Pangalan sa Chatwoot'] — idagdag kapag iba ang display name nila sa Chatwoot.
+const AGENTS = [
+  { short: 'Milky', full: 'Milky Guerero', shift: 0, off: [1, 2] },
+  { short: 'Carmelette', full: 'Carmelette Ancheta', shift: 0, off: [14, 15] },
+  { short: 'Carl John', full: 'Carl John Mercene', shift: 1, off: [12, 13] },
+  { short: 'Lloyd', full: 'Lloyd Russel Morados', shift: 1, off: [10, 11] },
+  { short: 'Charina', full: 'Charina Becas', shift: 2, off: [14, 15] },
+  { short: 'Arlinda', full: 'Arlinda Marasigan', shift: 2, off: [5, 6] },
+  { short: 'Edrian', full: 'Edrian Salonga', shift: 3, off: [6, 7], buffer: true },
+  { short: 'Nica', full: 'Nica Dimaandal', shift: 3, off: [3, 4], buffer: true },
+  { short: 'Arabela', full: 'Arabela Mabini', shift: 4, off: [7, 8], buffer: true },
+  { short: 'Jonnel', full: 'Jonnel Binuya', shift: 4, off: [9, 10], buffer: true },
+  { short: 'Shane', full: 'Shane Ching', shift: 0, off: [7, 8], kyc: true },
+  { short: 'Jhaylan', full: 'Jhaylan Palacios', shift: 1, off: [9, 10], kyc: true },
+];
+const SKIN = ['#f1c27d','#e0ac69','#c68642','#a0673a','#ffdbac','#d9a066'];
+const HAIR = ['#1d1a1a','#3b2a20','#5a3a22','#121212','#7a4b2a','#2b2b3a'];
+const SHIRTS = ['#38e1ff','#7dd3fc','#a5b4fc','#5eead4','#93c5fd','#c4b5fd','#67e8f9','#99f6e4','#bfdbfe'];
+const AG_SHIRTS = ['#f9a8d4','#fdba74','#86efac','#fca5a5','#d8b4fe','#fde047','#a7f3d0','#fbcfe8','#bef264','#fed7aa','#c7d2fe','#99f6e4'];
+
+const now = () => Date.now();
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+const people = [];
+TLS.forEach((tl, i) => { const name = tl.short;
+  const col = i % 3, row = Math.floor(i / 3);
+  const desk = { x: OFFICE.x + 0.8 + col * 3.2, y: OFFICE.y + 0.9 + row * 2.5, w: 2.2, d: 0.8 };
+  people.push({ id: 'tl' + i, name, full: tl.full, shift: tl.shift, off: tl.off, role: 'TL', where: 'Main office', desk,
+    seat: { x: desk.x + 1.1, y: desk.y + 1.45 }, shirt: SHIRTS[i], skin: SKIN[i % 6], hair: HAIR[(i * 5) % 6],
+    cw: tl.cw || [], status: 'online', chats: 0, done: 0, lastSeen: null,
+    since: now(), phase: Math.random() * 6 });
+});
+AGENTS.forEach((ag, i) => { const name = ag.short;
+  const [hx, hy] = HOME_POS[i];
+  const c = HOME_COLORS[i % HOME_COLORS.length];
+  const home = { x: hx, y: hy, floor: c[0], wall: c[1], acc: c[2] };
+  const desk = { x: hx + 1.1, y: hy + 0.6, w: 1.8, d: 0.7 };
+  people.push({ id: 'ag' + i, name, full: ag.full, shift: ag.shift, off: ag.off, buffer: !!ag.buffer, kyc: !!ag.kyc, role: 'Agent', where: 'WFH', home, desk,
+    seat: { x: desk.x + 0.9, y: desk.y + 1.3 }, shirt: AG_SHIRTS[i], skin: SKIN[(i + 2) % 6], hair: HAIR[(i * 7 + 1) % 6],
+    cw: ag.cw || [], status: 'offline', chats: 0, done: 0, lastSeen: null,
+    since: now(), phase: Math.random() * 6 });
+});
+const P = Object.fromEntries(people.map(p => [p.id, p]));
+
+// ---------- Duty (shift + day off) ----------
+let previewHour = null; // null = follow the clock
+const inShift = (S, h) => (h - S.start + 24) % 24 < S.len;
+function shiftStartDay(S, d, h) { const x = new Date(d); x.setHours(h); if (h < S.start) x.setDate(x.getDate() - 1); return x; }
+function updateDuty() {
+  const d = new Date(), h = previewHour ?? d.getHours();
+  people.forEach(p => {
+    let duty = 'offshift';
+    if (p.shift != null && inShift(SHIFTS[p.shift], h)) {
+      const sd = shiftStartDay(SHIFTS[p.shift], d, h);
+      duty = sd.getMonth() === 10 && p.off.includes(sd.getDate()) ? 'dayoff' : 'on';
+    }
+    if (duty === 'on' && p.duty && p.duty !== 'on') { p.status = 'online'; p.chats = 0; p.since = now(); }
+    p.duty = duty;
+    if (duty !== 'on') p.chats = 0;
+    p.view = duty === 'on' ? p.status : duty;
+    p.covering = null;
+  });
+  // Buffers on duty cover regular agents who are on day off or offline this shift
+  const absent = people.filter(p => p.role === 'Agent' && !p.buffer && !p.kyc && p.shift != null && inShift(SHIFTS[p.shift], h) && (p.duty === 'dayoff' || p.view === 'offline'));
+  const buffers = people.filter(p => p.buffer && p.duty === 'on' && p.view !== 'offline');
+  absent.forEach((a, k) => { if (buffers[k]) { buffers[k].covering = a.name; a.coveredBy = buffers[k].name; } else a.coveredBy = null; });
+  people.filter(p => !absent.includes(p)).forEach(p => p.coveredBy = null);
+  return h;
+}
+updateDuty();
+let queue = 0;
+
+// ---------- Log ----------
+const logEl = document.getElementById('log');
+const hhmm = d => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M/i, '');
+function log(html) {
+  const li = document.createElement('li');
+  li.innerHTML = `<time>${hhmm(new Date())}</time><span>${html}</span>`;
+  logEl.prepend(li);
+  while (logEl.children.length > 40) logEl.lastChild.remove();
+}
+
+
+// ---------- Live data (CRM backend) ----------
+// Status ng bawat naka-duty:
+//   busy    = may OPEN na conversation kung saan siya ang huling agent na nag-reply
+//   online  = nag-reply sa huling 20 minuto (o TL na naka-shift)
+//   offline = naka-shift pero walang reply sa huling 20 minuto
+// Queue = open conversations na naipasa na sa tao (handoff) pero wala pang human reply.
+const ACTIVE_MS = 20 * 60000, WINDOW_MS = 12 * 3600000, POLL_MS = 30000;
+function setStatus(p, s) { if (p.status !== s) { p.status = s; p.since = now(); } }
+const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+let nameIndex = new Map();
+function buildNameIndex(directory) {
+  nameIndex = new Map();
+  const add = (k, p) => { k = norm(k); if (k && !nameIndex.has(k)) nameIndex.set(k, p); };
+  people.forEach(p => { p.cw.forEach(n => add(n, p)); });            // explicit Chatwoot names win
+  people.forEach(p => { add(p.full, p); add(p.name, p); });
+  (directory || []).forEach(u => {                                    // CRM accounts: name + aliases
+    const p = nameIndex.get(norm(u.name)); if (!p) return;
+    String(u.aliases || '').split(/[,;\n]/).forEach(a => add(a, p));
+  });
+}
+function matchPerson(sender) {
+  const k = norm(sender); if (!k) return null;
+  if (nameIndex.has(k)) return nameIndex.get(k);
+  const first = k.split(' ')[0];                                      // "Milky G." → Milky
+  const hits = people.filter(p => norm(p.name) === first || norm(p.full).split(' ')[0] === first);
+  return hits.length === 1 ? hits[0] : null;
+}
+const auth = () => ({ Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` });
+async function getJSON(path) {
+  const r = await fetch(API_BASE + path, { headers: auth() });
+  if (r.status === 401) { localStorage.removeItem('pipeline_token'); location.href = LOGIN_PATH; throw new Error('auth'); }
+  if (!r.ok) throw new Error(`${path.split('?')[0]} → HTTP ${r.status}`);
+  return r.json();
+}
+let dirLoaded = false, firstLoad = true, loading = false;
+async function loadLive() {
+  if (loading) return; loading = true;
+  const badge = document.getElementById('liveBadge');
+  try {
+    if (!dirLoaded) {
+      const d = await getJSON('/auth/directory').catch(() => ({ users: [] }));
+      buildNameIndex(d.users); dirLoaded = true;
+    }
+    const to = new Date(), from = new Date(to.getTime() - WINDOW_MS);
+    const range = `from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+    const { conversations = [] } = await getJSON(`/chatwoot/conversations?limit=1000&${range}`);
+    const brands = [...new Set(conversations.map(c => c.brand).filter(Boolean))];
+    const { messages = [] } = brands.length
+      ? await getJSON(`/chatwoot/agent-messages?brands=${encodeURIComponent(brands.join(','))}&limit=5000&${range}`)
+      : { messages: [] };
+
+    // huling human agent bawat conversation + bilang ng reply bawat tao
+    const lastAgent = new Map(), replies = new Map(), seen = new Map(), unmatched = new Map();
+    messages.forEach(m => {                                            // newest first
+      const k = m.brand + ':' + m.conversationId, p = matchPerson(m.agent), t = Date.parse(m.createdAt);
+      if (!p) { unmatched.set(m.agent, (unmatched.get(m.agent) || 0) + 1); return; }
+      if (!lastAgent.has(k)) lastAgent.set(k, p);
+      replies.set(p, (replies.get(p) || 0) + 1);
+      if (!seen.has(p) || t > seen.get(p)) seen.set(p, t);
+    });
+    const openBy = new Map(); let q = 0;
+    conversations.forEach(c => {
+      if (String(c.status).toLowerCase() !== 'open') return;
+      const p = lastAgent.get(c.brand + ':' + c.conversationId);
+      if (p) openBy.set(p, (openBy.get(p) || 0) + 1);
+      else if (c.handoffAt && !c.humanReplied) q++;
+    });
+
+    const tnow = now();
+    people.forEach(p => {
+      const prevChats = p.chats, prevStatus = p.status;
+      p.chats = openBy.get(p) || 0;
+      p.done = replies.get(p) || 0;
+      p.lastSeen = seen.get(p) || null;
+      const active = p.lastSeen && tnow - p.lastSeen < ACTIVE_MS;
+      setStatus(p, p.chats ? 'busy' : (active || p.role === 'TL') ? 'online' : 'offline');
+      if (!firstLoad && p.duty === 'on') {
+        if (p.chats > prevChats) log(`<b>${p.name}</b> may bagong chat <span>(${p.chats} open)</span>`);
+        else if (p.chats < prevChats) log(`<b>${p.name}</b> natapos ang ${prevChats - p.chats} chat`);
+        else if (prevStatus !== p.status && p.status === 'offline') log(`<b>${p.name}</b> walang reply sa huling 20 min`);
+      }
+    });
+    if (!firstLoad && q !== queue) log(`Queue: <b>${q}</b> naghihintay ng agent`);
+    queue = q;
+    if (firstLoad) log(`Konektado. ${conversations.length} conversations, ${messages.length} agent replies sa huling 12 oras.`);
+    firstLoad = false;
+
+    const list = [...unmatched.entries()].sort((a, b) => b[1] - a[1]);
+    document.getElementById('unmatchedCard').hidden = !list.length;
+    const ul = document.getElementById('unmatchedList'); ul.textContent = '';
+    list.slice(0, 30).forEach(([n, c]) => { const el = document.createElement('code'); el.textContent = `${n} (${c})`; ul.appendChild(el); });
+
+    badge.className = 'badge live';
+    badge.textContent = 'LIVE · ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  } catch (e) {
+    if (String(e.message) === 'auth') return;
+    badge.className = 'badge err'; badge.textContent = 'Hindi ma-load';
+    log(`Error sa pagkuha ng data: ${String(e.message).replace(/</g, '&lt;')}`);
+  } finally { loading = false; }
+}
+loadLive(); setInterval(loadLive, POLL_MS);
+
+// ---------- Canvas ----------
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const stage = document.getElementById('stage');
+let W = 0, H = 0, dpr = 1;
+const view = { zoom: 1, panX: 0, panY: 0 };
+const WORLD = { cx: 0, cy: 265, w: 1160, h: 640 };
+function resize() {
+  const r = stage.getBoundingClientRect();
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = r.width; H = r.height;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+}
+new ResizeObserver(resize).observe(stage); resize();
+function cam() {
+  const s = Math.min(W / WORLD.w, (H - 60) / WORLD.h) * view.zoom;
+  return { s, ox: W / 2 + view.panX - WORLD.cx * s, oy: H / 2 + 14 + view.panY - WORLD.cy * s };
+}
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16), f = c => Math.max(0, Math.min(255, Math.round(c + amt * 255)));
+  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+function poly(pts, fill, stroke, lw) {
+  ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
+}
+function box(x, y, w, d, h, color) {
+  const a = iso(x, y), b = iso(x + w, y), c = iso(x + w, y + d), e = iso(x, y + d);
+  poly([e, c, up(c, h), up(e, h)], shade(color, -0.12));
+  poly([b, c, up(c, h), up(b, h)], shade(color, -0.2));
+  poly([up(a, h), up(b, h), up(c, h), up(e, h)], shade(color, 0.06));
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function rect4(x, y, w, h) { return [iso(x, y), iso(x + w, y), iso(x + w, y + h), iso(x, y + h)]; }
+function grid(x, y, w, h, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 1; i < w; i++) { const a = iso(x + i, y), b = iso(x + i, y + h); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+  for (let j = 1; j < h; j++) { const a = iso(x, y + j), b = iso(x + w, y + j); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+  ctx.stroke();
+}
+function wall(x0, y0, x1, y1, fill, acc) {
+  const a = iso(x0, y0), b = iso(x1, y1);
+  poly([a, b, up(b, WH), up(a, WH)], fill);
+  ctx.strokeStyle = acc; ctx.globalAlpha = 0.75; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y - WH); ctx.lineTo(b.x, b.y - WH); ctx.stroke(); ctx.globalAlpha = 1;
+}
+function windowOn(x0, y, x1, lit) {
+  const a = iso(x0, y), b = iso(x1, y);
+  poly([up(a, 7), up(b, 7), up(b, 16), up(a, 16)], lit ? 'rgba(255,214,140,0.35)' : 'rgba(150,170,220,0.08)');
+}
+
+// Static drawables
+function drawGround() {
+  // grounds + paths from each home to the office
+  poly(rect4(0.6, 0.6, 26.8, 26.8), '#11131f', '#1c1f33', 1.5);
+  ctx.strokeStyle = 'rgba(56,225,255,0.10)'; ctx.lineWidth = 6; ctx.setLineDash([2, 10]);
+  const oc = iso(OFFICE.x + OFFICE.w / 2, OFFICE.y + OFFICE.h / 2);
+  HOME_POS.forEach(([hx, hy]) => { const h = iso(hx + HS / 2, hy + HS / 2); ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.lineTo(oc.x, oc.y); ctx.stroke(); });
+  ctx.setLineDash([]);
+}
+function drawOffice(t) {
+  const O = OFFICE, c = rect4(O.x, O.y, O.w, O.h);
+  poly(c, O.floor); grid(O.x, O.y, O.w, O.h, 'rgba(255,255,255,0.045)');
+  ctx.save(); ctx.shadowColor = O.acc; ctx.shadowBlur = 12; poly(c, null, O.acc, 1.8); ctx.restore();
+  wall(O.x, O.y + O.h, O.x, O.y, O.wall, O.acc);
+  wall(O.x, O.y, O.x + O.w, O.y, O.wall, O.acc);
+  for (let i = 0.6; i < 3.5; i += 1.6) windowOn(O.x + i, O.y, O.x + i + 1.1, false);
+  for (let i = 6.6; i < O.w - 1; i += 1.6) windowOn(O.x + i, O.y, O.x + i + 1.1, false);
+  // queue screen on the back wall
+  const a = iso(O.x + 4, O.y), b = iso(O.x + 6.4, O.y);
+  poly([up(a, 4), up(b, 4), up(b, 19), up(a, 19)], '#07121a', queue > 5 ? '#fbbf24' : '#38e1ff', 1.2);
+}
+function drawHome(p) {
+  const h = p.home, lit = p.view === 'online' || p.view === 'busy', c = rect4(h.x, h.y, HS, HS);
+  poly(c, h.floor); grid(h.x, h.y, HS, HS, 'rgba(255,255,255,0.04)');
+  if (lit) {
+    const cc = iso(h.x + HS / 2, h.y + HS / 2);
+    const g = ctx.createRadialGradient(cc.x, cc.y, 4, cc.x, cc.y, 70);
+    g.addColorStop(0, 'rgba(255,214,140,0.28)'); g.addColorStop(1, 'rgba(255,214,140,0)');
+    poly(c, g);
+  }
+  ctx.save(); if (lit) { ctx.shadowColor = h.acc; ctx.shadowBlur = 8; }
+  poly(c, null, lit ? h.acc : '#3a3e58', 1.4); ctx.restore();
+  wall(h.x, h.y + HS, h.x, h.y, h.wall, lit ? h.acc : '#3a3e58');
+  wall(h.x, h.y, h.x + HS, h.y, h.wall, lit ? h.acc : '#3a3e58');
+  windowOn(h.x + 1.2, h.y, h.x + 2.8, lit);
+  windowOn(h.x, h.y + 1.2, h.x, h.y + 2.8, lit);
+}
+
+function drawDesk(p, t) {
+  const d = p.desk; box(d.x, d.y, d.w, d.d, 9, p.role === 'TL' ? '#4f4a5e' : '#6b5440');
+  const on = p.view === 'online' || p.view === 'busy';
+  const mons = p.role === 'TL' ? [0.55, 1.65] : [0.9];
+  const acc = p.view === 'busy' ? '#fbbf24' : '#38e1ff';
+  mons.forEach(k => {
+    const m = iso(d.x + k, d.y + 0.28);
+    ctx.fillStyle = '#0d1120'; ctx.fillRect(m.x - 7, m.y - 21, 14, 10);
+    ctx.fillStyle = on ? acc : '#1f2438'; ctx.globalAlpha = on ? 0.5 + 0.25 * Math.sin(t * 3 + k * 5 + d.x) : 1;
+    ctx.fillRect(m.x - 6, m.y - 20, 12, 8); ctx.globalAlpha = 1;
+  });
+  const s = iso(p.seat.x, p.seat.y + 0.12);
+  ctx.fillStyle = '#272b3d'; ctx.beginPath(); ctx.ellipse(s.x, s.y - 4, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+}
+function drawHomeProps(p) {
+  const h = p.home;
+  box(h.x + 0.3, h.y + 2.4, 1.4, 1.3, 5, '#5a6b8a');                 // bed
+  box(h.x + 0.35, h.y + 2.45, 0.5, 1.2, 7, '#dfe4ee');               // pillow
+  box(h.x + 3.2, h.y + 3.2, 0.5, 0.5, 7, '#7a5a44');                 // plant pot
+  const pp = iso(h.x + 3.45, h.y + 3.45);
+  ctx.fillStyle = '#3f9a5c'; ctx.beginPath(); ctx.arc(pp.x, pp.y - 15, 6.5, 0, Math.PI * 2); ctx.fill();
+}
+function drawOfficeProps(t) {
+  const O = OFFICE;
+  box(O.x + 0.6, O.y + 8.5, 2.8, 0.8, 12, '#6b5640');                 // pantry counter
+  box(O.x + 3.8, O.y + 8.5, 0.9, 0.9, 28, '#c9d1dc');                 // fridge
+  box(O.x + 6.2, O.y + 8.3, 2.4, 1.1, 6, '#3d4a6b');                   // meeting table
+  [[9.4, 0.4], [9.4, 9.4], [0.4, 0.4]].forEach(([x, y]) => {
+    box(O.x + x - 0.25, O.y + y - 0.25, 0.5, 0.5, 7, '#7a5a44');
+    const pp = iso(O.x + x, O.y + y); ctx.fillStyle = '#3f9a5c'; ctx.beginPath(); ctx.arc(pp.x, pp.y - 15, 6.5, 0, Math.PI * 2); ctx.fill();
+  });
+}
+function drawPerson(p, t, selected) {
+  const s = iso(p.seat.x, p.seat.y);
+  p._head = { x: s.x, y: s.y - 22 };
+  if (p.view !== 'online' && p.view !== 'busy') return;
+  const busy = p.view === 'busy';
+  const bob = Math.sin(p.phase + t * (busy ? 9 : 3)) * (busy ? 0.8 : 0.4);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(s.x, s.y, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+  if (selected) {
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5);
+    ctx.beginPath(); ctx.ellipse(s.x, s.y, 12, 6, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  const top = s.y - 17 - bob;
+  ctx.fillStyle = p.shirt; roundRect(s.x - 5.5, top, 11, 12, 4); ctx.fill();
+  ctx.fillStyle = p.skin; ctx.beginPath(); ctx.arc(s.x, top - 5, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = p.hair; ctx.beginPath(); ctx.arc(s.x, top - 6.5, 5.2, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+  if (p.role === 'Agent') { // headset
+    ctx.strokeStyle = '#1b1e2e'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(s.x, top - 5, 6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+  }
+  p._head = { x: s.x, y: top - 5 };
+}
+
+const COLORS = { online: '#4ade80', busy: '#fbbf24', offline: '#6b7090', offshift: '#3a3e58', dayoff: '#b48ce0' };
+let selectedId = 'tl0';
+function draw(t) {
+  const { s, ox, oy } = cam();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
+  drawGround();
+  // Homes behind the office first, then office, then homes in front (painter's order by depth)
+  const homes = people.filter(p => p.role === 'Agent');
+  const officeDepth = OFFICE.x + OFFICE.y + OFFICE.w;
+  const drawHomeFull = p => { drawHome(p); drawDesk(p, t); drawHomeProps(p); drawPerson(p, t, p.id === selectedId); };
+  homes.filter(p => p.home.x + p.home.y + HS < officeDepth).forEach(drawHomeFull);
+  drawOffice(t);
+  const tls = people.filter(p => p.role === 'TL').sort((a, b) => (a.seat.x + a.seat.y) - (b.seat.x + b.seat.y));
+  tls.forEach(p => { drawDesk(p, t); drawPerson(p, t, p.id === selectedId); });
+  drawOfficeProps(t);
+  homes.filter(p => p.home.x + p.home.y + HS >= officeDepth).forEach(drawHomeFull);
+
+  // Screen-space labels
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const toS = p => ({ x: ox + p.x * s, y: oy + p.y * s });
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  // office title + queue screen text
+  ctx.font = '500 10px "IBM Plex Mono", monospace';
+  const ot = toS(up(iso(OFFICE.x, OFFICE.y), WH + 14));
+  const ttl = 'MAIN OFFICE · TEAM LEADS', tw = ctx.measureText(ttl).width + 16;
+  ctx.fillStyle = 'rgba(11,12,21,0.88)'; roundRect(ot.x - tw / 2, ot.y - 8, tw, 16, 8); ctx.fill();
+  ctx.strokeStyle = OFFICE.acc; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = OFFICE.acc; ctx.fillText(ttl, ot.x, ot.y + 0.5);
+  if (s > 0.45) {
+    const qs = toS(up(iso(OFFICE.x + 5.2, OFFICE.y), 11.5));
+    ctx.font = `600 ${Math.max(8, 10 * s)}px "IBM Plex Mono", monospace`;
+    ctx.fillStyle = queue > 5 ? '#fbbf24' : '#38e1ff'; ctx.fillText(`QUEUE ${queue}`, qs.x, qs.y);
+  }
+  // name tags
+  ctx.font = '600 11px "IBM Plex Sans", system-ui, sans-serif';
+  people.forEach(p => {
+    if (!p._head) return;
+    const hp = toS({ x: p._head.x, y: p._head.y - 13 });
+    const sel = p.id === selectedId, off = p.view !== 'online' && p.view !== 'busy';
+    if (p.view === 'offshift' && !sel) { p._label = null; return; }
+    const label = p.role === 'Agent' ? p.name : p.name;
+    const extra = p.chats ? 18 : 0;
+    const w = ctx.measureText(label).width + 22 + extra;
+    ctx.globalAlpha = off && !sel ? 0.6 : 1;
+    ctx.fillStyle = sel ? '#e8eaf6' : 'rgba(11,12,21,0.86)'; roundRect(hp.x - w / 2, hp.y - 8, w, 16, 8); ctx.fill();
+    if (p.role === 'TL' && !sel) { ctx.strokeStyle = 'rgba(56,225,255,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
+    ctx.fillStyle = COLORS[p.view]; ctx.beginPath(); ctx.arc(hp.x - w / 2 + 8, hp.y, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.textAlign = 'left'; ctx.fillStyle = sel ? '#0b0c15' : '#e8eaf6';
+    ctx.fillText(label, hp.x - w / 2 + 15, hp.y + 0.5);
+    if (p.chats) {
+      const bx = hp.x + w / 2 - 17;
+      ctx.fillStyle = '#fbbf24'; roundRect(bx, hp.y - 6, 13, 12, 4); ctx.fill();
+      ctx.fillStyle = '#1a1300'; ctx.textAlign = 'center'; ctx.font = '600 10px "IBM Plex Mono", monospace';
+      ctx.fillText(p.chats, bx + 6.5, hp.y + 0.5); ctx.font = '600 11px "IBM Plex Sans", system-ui, sans-serif';
+    }
+    ctx.globalAlpha = 1; ctx.textAlign = 'center';
+    p._label = { x: hp.x - w / 2, y: hp.y - 8, w, h: 16 };
+  });
+}
+function frame(ms) { const t = ms / 1000; people.forEach(p => p.phase += 0.016); draw(t); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- Input ----------
+let down = null;
+cv.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, px: view.panX, py: view.panY, moved: false }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => {
+  if (!down) return;
+  const dx = e.clientX - down.x, dy = e.clientY - down.y;
+  if (!down.moved && Math.hypot(dx, dy) > 5) { down.moved = true; cv.classList.add('dragging'); }
+  if (down.moved) { view.panX = down.px + dx; view.panY = down.py + dy; }
+});
+cv.addEventListener('pointerup', e => {
+  if (down && !down.moved) {
+    const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    const { s, ox, oy } = cam();
+    let best = null, bd = Infinity;
+    people.forEach(p => {
+      const L = p._label;
+      if (L && mx >= L.x && mx <= L.x + L.w && my >= L.y && my <= L.y + L.h) { best = p; bd = -1; return; }
+      if (!p._head || bd < 0) return;
+      const d = Math.hypot(mx - (ox + p._head.x * s), my - (oy + (p._head.y + 10) * s));
+      if (d < Math.max(16, 18 * s) && d < bd) { bd = d; best = p; }
+    });
+    if (best) select(best.id);
+  }
+  down = null; cv.classList.remove('dragging');
+});
+function zoomAt(f, mx, my) {
+  const b = cam(), wx = (mx - b.ox) / b.s, wy = (my - b.oy) / b.s;
+  view.zoom = Math.max(0.6, Math.min(4, view.zoom * f));
+  const a = cam(); view.panX += mx - (a.ox + wx * a.s); view.panY += my - (a.oy + wy * a.s);
+}
+cv.addEventListener('wheel', e => {
+  e.preventDefault(); const r = cv.getBoundingClientRect();
+  zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+document.getElementById('zIn').onclick = () => zoomAt(1.3, W / 2, H / 2);
+document.getElementById('zOut').onclick = () => zoomAt(1 / 1.3, W / 2, H / 2);
+document.getElementById('zFit').onclick = () => { view.zoom = 1; view.panX = 0; view.panY = 0; };
+document.getElementById('refreshBtn').onclick = () => loadLive();
+
+// ---------- Panel ----------
+const $ = id => document.getElementById(id);
+const rows = {};
+function buildList(el, list) {
+  list.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'row'; b.id = 'row-' + p.id;
+    b.innerHTML = `<i class="dot"></i><span class="nm">${p.name}<em></em></span><span class="ct"></span>`;
+    b.onclick = () => select(p.id);
+    el.appendChild(b); rows[p.id] = b;
+  });
+}
+buildList($('tlList'), people.filter(p => p.role === 'TL'));
+buildList($('agList'), people.filter(p => p.role === 'Agent'));
+const STATUS_TXT = { online: 'Online', busy: 'Busy', offline: 'Offline', offshift: 'Off shift', dayoff: 'Day off' };
+const mins = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; };
+function select(id) { selectedId = id; render(); }
+function render() {
+  const hr = updateDuty();
+  const c = { online: 0, busy: 0, offline: 0, offshift: 0, dayoff: 0 }; let chats = 0;
+  people.forEach(p => {
+    c[p.view]++; if (p.duty === 'on') chats += p.chats;
+    const r = rows[p.id];
+    r.querySelector('.dot').className = 'dot ' + p.view;
+    r.querySelector('em').textContent = p.covering ? `Covering ${p.covering}` : (p.buffer ? 'Buffer · ' : p.kyc ? 'KYC · ' : '') + (p.shift == null ? 'No schedule yet' : STATUS_TXT[p.view]) + (p.coveredBy ? ` · ${p.coveredBy} covers` : '');
+    r.querySelector('.ct').textContent = p.duty !== 'on' ? (p.shift == null ? '—' : SHIFTS[p.shift].label.slice(0, 5)) : p.chats ? p.chats + ' chat' + (p.chats > 1 ? 's' : '') : '—';
+    r.setAttribute('aria-current', p.id === selectedId);
+  });
+  $('sOn').textContent = c.online; $('sBusy').textContent = c.busy; $('sOff').textContent = c.offline;
+  $('sChats').textContent = chats; $('sOffDuty').textContent = c.offshift + c.dayoff;
+  const cur = SHIFTS.map((S, i) => i).filter(i => inShift(SHIFTS[i], hr));
+  $('shiftChip').textContent = (previewHour === null ? 'Now: ' : 'Preview: ') + cur.map(i => SHIFTS[i].label + (SHIFTS[i].buffer ? ' (buffer)' : '')).join(' + ');
+  renderShifts(hr); $('sQueue').textContent = queue;
+  const tlOn = people.filter(p => p.role === 'TL' && p.duty === 'on').length;
+  const agOn = people.filter(p => p.role === 'Agent' && p.duty === 'on').length;
+  $('tlCount').textContent = `${tlOn} on duty`; $('agCount').textContent = `${agOn} on duty`;
+  $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const p = P[selectedId];
+  $('dAv').textContent = p.name[0]; $('dAv').style.background = p.shirt;
+  $('dName').textContent = p.full || p.name;
+  $('dRole').textContent = p.role === 'TL' ? 'Team lead · Main office' : (p.buffer ? 'Buffer agent (12h) · WFH' : p.kyc ? 'KYC agent · WFH' : 'Agent · Work from home') + (p.covering ? ` · covering ${p.covering}` : '');
+  $('dDot').className = 'dot ' + p.view;
+  $('dState').textContent = STATUS_TXT[p.view] + (p.off.length ? ` · Off Nov ${p.off.join('–')}` : '') + (p.duty === 'on' ? ` · ${mins(now() - p.since)}` : '') + (p.lastSeen ? ` · huling reply ${mins(now() - p.lastSeen)} ago` : '');
+  $('dChats').textContent = p.chats; $('dDone').textContent = p.done; $('dShift').textContent = p.shift == null ? '—' : SHIFTS[p.shift].label.replace(/:00/g, '');
+}
+const shiftsEl = $('shifts'); let shiftsKey = '';
+function renderShifts(hr) {
+  const d = new Date();
+  const key = hr + '|' + d.getDate(); if (key === shiftsKey) return; shiftsKey = key;
+  shiftsEl.innerHTML = SHIFTS.map((S, i) => {
+    const live = inShift(S, hr), sd = shiftStartDay(S, d, hr), day = sd.getMonth() === 10 ? sd.getDate() : null;
+    const crew = people.filter(p => p.shift === i).sort((a, b) => (a.role === 'TL' ? 0 : 1) - (b.role === 'TL' ? 0 : 1));
+    return `<div class="shift${live ? ' now' : ''}"><h3>${S.label}${S.buffer ? ' · buffer 12h' : ''}${live ? '<span>ON DUTY</span>' : ''}</h3><ul>` +
+      crew.map(p => { const off = live && day && p.off.includes(day);
+        return `<li class="${off ? 'off' : ''}"><b>${p.full}</b> · ${p.role === 'TL' ? 'TL' : p.kyc ? 'KYC' : 'agent'} · off ${p.off.join('–')}${off ? ' · day off today' : ''}</li>`; }).join('') + '</ul></div>';
+  }).join('');
+}
+document.querySelectorAll('[data-shift]').forEach(b => b.onclick = () => {
+  previewHour = b.dataset.shift === 'now' ? null : ({ 0: 10, 1: 18, 2: 3 })[b.dataset.shift];
+  document.querySelectorAll('[data-shift]').forEach(o => o.setAttribute('aria-pressed', o === b));
+  render();
+});
+render(); setInterval(render, 500);
+})();
+</script>
+<script src="sidebar-topnav.js?v=4"></script>
+</body>
+</html>
