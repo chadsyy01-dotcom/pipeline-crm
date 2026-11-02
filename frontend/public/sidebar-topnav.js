@@ -23,7 +23,7 @@
   // 2026-10-15 (utos ni Chad): Customers + BRAVO/DELTA/FOXTROT/ECHO LANG ang
   // nakikita ng CSR — tinanggal na ang Settings. (Profile = sariling account,
   // wala sa menu, mabubuksan lang mula sa avatar.)
-  const CSR_ALLOWED = new Set(['customers', 'profile']);
+  const CSR_ALLOWED = new Set(['customers', 'profile', 'office']); // office: Opisina (2026-11-02, lahat may access)
   const pageKey = h => String(h || '').split(/[?#]/)[0].split('/').pop().replace(/\.html$/, '').toLowerCase();
   const isLimited = r => String(r || '').toUpperCase() === 'CSR';
   const getRole = () => { try { return localStorage.getItem(ROLE_KEY) || ''; } catch (e) { return ''; } };
