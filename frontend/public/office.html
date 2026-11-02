@@ -246,8 +246,8 @@ const HOME_POS = [
   [25,27],[18,27],[11,27],[4,27], // bottom
   [2,18],[2,11],                  // left
 ];
-const CHAD_ROOM = { x: 37, y: 4, w: 6, h: 5, floor: '#2c2538', wall: '#1f1a2b', acc: '#f5c26b', label: "CHAD'S OFFICE" };
-const FAYE_ROOM = { x: 38, y: 25, w: 6, h: 5, floor: '#2b2436', wall: '#1f1a28', acc: '#f0abfc', label: "OPERATIONS MANAGER · FAYE" };
+const CHAD_ROOM = { x: 37, y: 4, w: 6, h: 5, floor: '#2c2538', wall: '#1f1a2b', acc: '#f5c26b', label: 'ASSISTANT OPERATIONS MANAGER' };
+const FAYE_ROOM = { x: 38, y: 25, w: 6, h: 5, floor: '#2b2436', wall: '#1f1a28', acc: '#f0abfc', label: 'OPERATIONS MANAGER' };
 const CONF = { x: 37, y: 14, w: 8, h: 7, floor: '#1c2a33', wall: '#142028', acc: '#7dd3fc', label: 'CONFERENCE ROOM' };
 const GROUND = { x0: 0.6, y0: 0.6, x1: 47, y1: 33 };
 const HOME_COLORS = [
@@ -321,7 +321,7 @@ AGENTS.forEach((ag, i) => { const name = ag.short;
 });
 // Manager — sariling kwarto, walking distance mula sa main office
 [
-  { id: 'mgr', name: 'Chad', full: 'Chad Syy', title: 'Manager', where: "Chad's office", room: CHAD_ROOM },
+  { id: 'mgr', name: 'Chad', full: 'Chad Syy', title: 'Assistant Operations Manager', where: "Chad's office", room: CHAD_ROOM },
   { id: 'head', name: 'Faye', full: 'Faye', title: 'Operations Manager', where: "Faye's office", room: FAYE_ROOM },
 ].forEach((m, i) => {
   const desk = { x: m.room.x + 1.9, y: m.room.y + 0.8, w: 2.2, d: 0.8 };
