@@ -201,7 +201,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         <div class="aliases" id="dAliases" hidden></div>
         <div class="meta">
           <div><small>Open chats</small><b id="dChats">0</b></div>
-          <div><small>Replied (12h)</small><b id="dDone">0</b></div>
+          <div><small>Handoffs (12h)</small><b id="dDone">0</b></div>
           <div><small>Shift</small><b id="dShift">—</b></div>
         </div>
       </div>
@@ -471,13 +471,23 @@ async function loadLive() {
 
     // huling human agent bawat conversation + bilang ng reply bawat tao
     const lastAgent = new Map(), replies = new Map(), seen = new Map(), unmatched = new Map();
+    // HANDOFF LANG (2026-11-02): mga chat na naipasa sa tao (o LiveChat brand, laging tao),
+    // at ang mga reply lang pagkatapos ng handoff — hindi kasama ang sagot ng AI.
+    const LIVECHAT_BRANDS = new Set(['casinyeam', 'manilacasino', 'superscatterph', 'livechatgeneral']);
+    const convByKey = new Map(conversations.map(c => [c.brand + ':' + c.conversationId, c]));
+    const isHandoff = c => !!c && (LIVECHAT_BRANDS.has(brandKey(c.brand)) || !!c.handoffAt || c.sessionHandoff === true
+      || (!!c.handoffStage && c.sessionHandoff !== false) || c.humanReplied === true);
     messages.forEach(m => {                                            // newest first
       const k = m.brand + ':' + m.conversationId, t = Date.parse(m.createdAt);
+      const conv = convByKey.get(k);
+      if (!isHandoff(conv)) return;                                    // AI-only na chat
+      if (conv.handoffAt && t < Date.parse(conv.handoffAt) - 5000) return;   // bago ang handoff = AI pa
       // 1) naka-link na Chatwoot name; 2) kung hindi, ang may-hawak ng brand sa oras ng reply
       const p = matchPerson(m.agent) || ownerAt(m.brand, new Date(t));
       if (!p) { unmatched.set(m.agent, (unmatched.get(m.agent) || 0) + 1); return; }
       if (!lastAgent.has(k)) lastAgent.set(k, p);
-      replies.set(p, (replies.get(p) || 0) + 1);
+      if (!replies.has(p)) replies.set(p, new Set());
+      replies.get(p).add(k);                                          // bilang ng chat, hindi ng mensahe
       if (!seen.has(p) || t > seen.get(p)) seen.set(p, t);
     });
     const openBy = new Map(); let q = 0;
@@ -497,7 +507,7 @@ async function loadLive() {
     people.forEach(p => {
       const prevChats = p.chats, prevStatus = p.status;
       p.chats = openBy.get(p) || 0;
-      p.done = replies.get(p) || 0;
+      p.done = replies.has(p) ? replies.get(p).size : 0;
       p.lastSeen = seen.get(p) || null;
       const active = p.lastSeen && tnow - p.lastSeen < ACTIVE_MS;
       setStatus(p, p.chats ? 'busy' : (active || p.role === 'TL' || (p.role === 'Manager' && p.present)) ? 'online' : 'offline');
@@ -509,7 +519,7 @@ async function loadLive() {
     });
     if (!firstLoad && q !== queue) log(`Queue: <b>${q}</b> waiting for an agent`);
     queue = q;
-    if (firstLoad) log(`Connected. ${conversations.length} conversations, ${messages.length} agent replies in the last 12 hours.`);
+    if (firstLoad) log(`Connected. ${conversations.filter(isHandoff).length} handoff chats in the last 12 hours.`);
     firstLoad = false;
 
     const list = [...unmatched.entries()].sort((a, b) => b[1] - a[1]);
