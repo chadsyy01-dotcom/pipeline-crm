@@ -83,6 +83,51 @@ router.post('/say', async (req, res) => {
   }
 });
 
+// ---------- CHATWOOT NAME MAPPING (2026-11-02) ----------
+// Persona name sa Chatwoot (hal. "Admin Hope") → tunay na tao sa roster ng
+// office.html (full name, hal. "Milky Guerero"). Admin / Team Leader lang ang
+// puwedeng magbago; lahat ay puwedeng magbasa.
+const aliasesReady = sequelize.query(`
+  CREATE TABLE IF NOT EXISTS "OfficeAliases" (
+    "alias" TEXT PRIMARY KEY,
+    "person" TEXT NOT NULL,
+    "updatedBy" INTEGER,
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`).catch(err => console.error('OfficeAliases table error:', err.message));
+const canMap = role => ['admin', 'team leader'].includes(String(role || '').toLowerCase());
+
+// GET /api/office/aliases
+router.get('/aliases', async (req, res) => {
+  try {
+    await aliasesReady;
+    const rows = await sequelize.query('SELECT "alias", "person" FROM "OfficeAliases" ORDER BY "alias"', { type: QueryTypes.SELECT });
+    res.json({ aliases: rows, canEdit: canMap(req.user.role) });
+  } catch (err) {
+    console.error('Office aliases error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/office/aliases  body: { alias, person }  (person = null → tanggalin)
+router.put('/aliases', async (req, res) => {
+  try {
+    if (!canMap(req.user.role)) return res.status(403).json({ error: 'Only admins and team leaders can map names' });
+    const alias = String(req.body?.alias || '').trim().slice(0, 120);
+    const person = req.body?.person == null ? null : String(req.body.person).trim().slice(0, 120);
+    if (!alias) return res.status(400).json({ error: 'alias is required' });
+    await aliasesReady;
+    if (!person) await sequelize.query('DELETE FROM "OfficeAliases" WHERE "alias" = :alias', { replacements: { alias } });
+    else await sequelize.query(`
+      INSERT INTO "OfficeAliases" ("alias", "person", "updatedBy", "updatedAt") VALUES (:alias, :person, :by, NOW())
+      ON CONFLICT ("alias") DO UPDATE SET "person" = EXCLUDED."person", "updatedBy" = EXCLUDED."updatedBy", "updatedAt" = NOW()`,
+      { replacements: { alias, person, by: req.user.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Office alias save error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/office/avatars — itsura ng lahat (para sa mapa)
 router.get('/avatars', async (req, res) => {
   try {
