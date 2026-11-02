@@ -124,6 +124,11 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
 .um-list{display:flex;flex-direction:column;gap:6px}
 .um-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .um-row select{flex:1;min-width:140px;background:var(--panel-2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font:inherit;font-size:12.5px}
+.tlist{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.tlist li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:baseline;background:var(--panel-2);border-radius:8px;padding:5px 8px}
+.tlist code{font-family:var(--mono);font-size:11px;color:#93c5fd}
+.tlist span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.tlist em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--muted)}
 .brands{margin:10px 0 0;font-size:12.5px;color:var(--muted)}
 .aliases{margin-top:10px;font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .aliases button{background:var(--panel-2);border:1px solid var(--line);color:var(--fg);border-radius:999px;padding:2px 8px;font-family:var(--mono);font-size:11.5px}
@@ -147,6 +152,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
       <span class="chip"><i class="dot offline"></i>Idle <b id="sOff">0</b></span>
       <span class="chip">Open chats <b id="sChats">0</b></span>
       <span class="chip">Unassigned <b id="sQueue">0</b></span>
+      <span class="chip" title="New tickets nobody has acknowledged yet"><i class="dot" style="background:#60a5fa"></i>Pending tickets <b id="sTickets">–</b></span>
       <span class="chip"><i class="dot offshift"></i>Off duty <b id="sOffDuty">0</b></span>
     </div>
   </header>
@@ -200,13 +206,14 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         <p class="brands" id="dBrands" hidden></p>
         <div class="aliases" id="dAliases" hidden></div>
         <div class="meta">
-          <div><small>Open chats</small><b id="dChats">0</b></div>
-          <div><small>Handoffs (12h)</small><b id="dDone">0</b></div>
+          <div><small id="mL1">Open chats</small><b id="dChats">0</b></div>
+          <div><small id="mL2">Handoffs (12h)</small><b id="dDone">0</b></div>
           <div><small>Shift</small><b id="dShift">—</b></div>
         </div>
+        <ul class="tlist" id="dTickets" hidden></ul>
       </div>
       <div class="card" id="unmatchedCard" hidden>
-        <p class="label"><span>Unmatched Chatwoot names</span></p>
+        <p class="label"><span>Unmatched names</span></p>
         <p class="unmatched" id="unmatchedHelp"></p>
         <div id="unmatchedList" class="um-list"></div>
       </div>
@@ -230,6 +237,8 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="ticket-data.js?v=20"></script>
 <script src="office-avatar.js?v=1"></script>
 <script>
 (() => {
@@ -460,6 +469,7 @@ async function loadLive() {
       const al = await getJSON('/office/aliases').catch(() => ({ aliases: [], canEdit: false }));
       officeAliases = al.aliases || []; canMapNames = !!al.canEdit;
       buildNameIndex(d.users); dirLoaded = true;
+      setTimeout(() => loadTickets(false), 0);
     }
     const to = new Date(), from = new Date(to.getTime() - WINDOW_MS);
     const range = `from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
@@ -510,7 +520,7 @@ async function loadLive() {
       p.done = replies.has(p) ? replies.get(p).size : 0;
       p.lastSeen = seen.get(p) || null;
       const active = p.lastSeen && tnow - p.lastSeen < ACTIVE_MS;
-      setStatus(p, p.chats ? 'busy' : (active || p.role === 'TL' || (p.role === 'Manager' && p.present)) ? 'online' : 'offline');
+      setStatus(p, (p.chats || (p.role === 'TL' && p.tHandling && p.tHandling.length)) ? 'busy' : (active || p.role === 'TL' || (p.role === 'Manager' && p.present)) ? 'online' : 'offline');
       if (!firstLoad && p.duty === 'on') {
         if (p.chats > prevChats) log(`<b>${p.name}</b> picked up a chat <span>(${p.chats} open)</span>`);
         else if (p.chats < prevChats) log(`<b>${p.name}</b> closed ${prevChats - p.chats} chat${prevChats - p.chats > 1 ? 's' : ''}`);
@@ -522,7 +532,21 @@ async function loadLive() {
     if (firstLoad) log(`Connected. ${conversations.filter(isHandoff).length} handoff chats in the last 12 hours.`);
     firstLoad = false;
 
-    const list = [...unmatched.entries()].sort((a, b) => b[1] - a[1]);
+    chatUnmatched = unmatched; renderUnmatched();
+
+    badge.className = 'badge live';
+    badge.textContent = 'LIVE · ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  } catch (e) {
+    if (String(e.message) === 'auth') return;
+    badge.className = 'badge err'; badge.textContent = 'Couldn\'t load';
+    log(`Couldn't load data: ${String(e.message).replace(/</g, '&lt;')}`);
+  } finally { loading = false; }
+}
+let chatUnmatched = new Map(), ticketUnmatched = new Map();
+function renderUnmatched() {
+    const merged = new Map(chatUnmatched);
+    ticketUnmatched.forEach((c, n) => merged.set(n, (merged.get(n) || 0) + c));
+    const list = [...merged.entries()].sort((a, b) => b[1] - a[1]);
     document.getElementById('unmatchedCard').hidden = !list.length;
     const ul = document.getElementById('unmatchedList'); ul.textContent = '';
     list.slice(0, 30).forEach(([n, c]) => {
@@ -538,17 +562,43 @@ async function loadLive() {
       ul.appendChild(row);
     });
     document.getElementById('unmatchedHelp').textContent = canMapNames
-      ? 'These Chatwoot names replied to chats but are not linked to anyone yet. Pick who each one is; it is saved for everyone.'
-      : 'These Chatwoot names replied to chats but are not linked to anyone yet. Ask an admin or team lead to assign them.';
-
-    badge.className = 'badge live';
-    badge.textContent = 'LIVE · ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  } catch (e) {
-    if (String(e.message) === 'auth') return;
-    badge.className = 'badge err'; badge.textContent = 'Couldn\'t load';
-    log(`Couldn't load data: ${String(e.message).replace(/</g, '&lt;')}`);
-  } finally { loading = false; }
+      ? 'These names from Chatwoot chats or tickets are not linked to anyone yet. Pick who each one is; it is saved for everyone.'
+      : 'These names from Chatwoot chats or tickets are not linked to anyone yet. Ask an admin or team lead to assign them.';
 }
+// ---------- Tickets (para sa mga TL) ----------
+// Galing sa parehong Google Sheets ng Tickets page (ticket-data.js).
+//   Hawak ng TL  = may "Acknowledged By" na siya at hindi pa Done/Rejected
+//   Pending      = bagong ticket na wala pang nag-acknowledge
+//   Resolved today = "Resolved By" siya at na-resolve ngayong araw
+let ticketPending = null, ticketsLoading = false;
+async function loadTickets(force) {
+  if (!window.TicketData || ticketsLoading || !dirLoaded) return;
+  ticketsLoading = true;
+  try {
+    const all = await TicketData.fetchTickets(!!force);
+    const today = new Date(), unk = new Map(); let pend = 0;
+    people.forEach(p => { p.tHandling = []; p.tResolved = 0; });
+    all.forEach(t => {
+      const open = t.statusCls === 'pending' || t.statusCls === 'checking';
+      if (open && !t.acknowledgedBy) { pend++; return; }
+      if (open && t.acknowledgedBy) {
+        const p = matchPerson(t.acknowledgedBy);
+        if (p) p.tHandling.push(t); else unk.set(t.acknowledgedBy, (unk.get(t.acknowledgedBy) || 0) + 1);
+      } else if (t.resolvedBy && t.resolvedAt && TicketData.isSameLocalDay(t.resolvedAt, today)) {
+        const p = matchPerson(t.resolvedBy);
+        if (p) p.tResolved++; else unk.set(t.resolvedBy, (unk.get(t.resolvedBy) || 0) + 1);
+      }
+    });
+    people.forEach(p => p.tHandling.sort((a, b) => a.submitted - b.submitted));
+    if (ticketPending !== null && pend > ticketPending) log(`<b>${pend - ticketPending}</b> new ticket${pend - ticketPending > 1 ? 's' : ''} waiting for a TL`);
+    ticketPending = pend; ticketUnmatched = unk; renderUnmatched();
+    people.forEach(p => { if (p.role === 'TL') setStatus(p, (p.chats || p.tHandling.length) ? 'busy' : 'online'); });
+  } catch (e) { log(`Couldn't load tickets: ${esc(e.message || e)}`); }
+  finally { ticketsLoading = false; }
+}
+setTimeout(() => loadTickets(false), 1500);
+setInterval(() => loadTickets(true), 120000);
+
 async function saveAlias(alias, person) {
   if (!person) return;
   try {
@@ -556,7 +606,7 @@ async function saveAlias(alias, person) {
     if (!r.ok) throw new Error(r.status === 404 ? 'the backend needs updating' : r.status === 403 ? 'only admins and team leads can do this' : 'HTTP ' + r.status);
     officeAliases = officeAliases.filter(a => a.alias !== alias).concat([{ alias, person }]);
     buildNameIndex(); log(`Linked <b>${esc(alias)}</b> to <b>${esc(person)}</b>`);
-    loadLive();
+    loadLive(); loadTickets(false);
   } catch (e) { log(`Couldn't link ${esc(alias)}: ${esc(e.message)}`); }
 }
 async function unlinkAlias(alias) {
@@ -1008,7 +1058,7 @@ function draw(t) {
   if (s > 0.45) {
     const qs = toS(up(iso(OFFICE.x + 5.2, OFFICE.y), 11.5));
     ctx.font = `600 ${Math.max(8, 10 * s)}px "IBM Plex Mono", monospace`;
-    ctx.fillStyle = queue > 5 ? '#fbbf24' : '#38e1ff'; ctx.fillText(`QUEUE ${queue}`, qs.x, qs.y);
+    ctx.fillStyle = queue > 5 ? '#fbbf24' : '#38e1ff'; ctx.fillText(`QUEUE ${queue}` + (ticketPending != null ? ` · TIX ${ticketPending}` : ''), qs.x, qs.y);
   }
   // chat bubbles
   function drawBubble(b, cx, by) {
@@ -1033,7 +1083,8 @@ function draw(t) {
     const sel = p.id === selectedId, off = (p.view !== 'online' && p.view !== 'busy' && !isMover(p)) || (isMover(p) && !p.present && !p.me);
     const ph = p.photo && p.photo.complete && p.photo.naturalWidth ? p.photo : null;
     const label = p.me ? p.name + ' (you)' : p.name;
-    const extra = p.chats ? 18 : 0;
+    const tk = p.role === 'TL' && p.duty === 'on' && p.tHandling ? p.tHandling.length : 0;
+    const extra = (p.chats ? 18 : 0) + (tk ? 18 : 0);
     const w = ctx.measureText(label).width + 22 + extra + (ph ? 9 : 0);
     ctx.globalAlpha = off && !sel ? 0.6 : 1;
     ctx.fillStyle = sel ? '#e8eaf6' : 'rgba(11,12,21,0.86)'; roundRect(hp.x - w / 2, hp.y - 8, w, 16, 8); ctx.fill();
@@ -1051,6 +1102,12 @@ function draw(t) {
       ctx.fillStyle = '#fbbf24'; roundRect(bx, hp.y - 6, 13, 12, 4); ctx.fill();
       ctx.fillStyle = '#1a1300'; ctx.textAlign = 'center'; ctx.font = '600 10px "IBM Plex Mono", monospace';
       ctx.fillText(p.chats, bx + 6.5, hp.y + 0.5); ctx.font = '600 11px "IBM Plex Sans", system-ui, sans-serif';
+    }
+    if (tk) {
+      const bx = hp.x + w / 2 - 17 - (p.chats ? 18 : 0);
+      ctx.fillStyle = '#60a5fa'; roundRect(bx, hp.y - 6, 13, 12, 4); ctx.fill();
+      ctx.fillStyle = '#0b1a33'; ctx.textAlign = 'center'; ctx.font = '600 10px "IBM Plex Mono", monospace';
+      ctx.fillText(tk, bx + 6.5, hp.y + 0.5); ctx.font = '600 11px "IBM Plex Sans", system-ui, sans-serif';
     }
     ctx.globalAlpha = 1; ctx.textAlign = 'center';
     p._label = { x: hp.x - w / 2, y: hp.y - 8, w, h: 16 };
@@ -1131,7 +1188,7 @@ function render() {
     const r = rows[p.id];
     r.querySelector('.dot').className = 'dot ' + p.view;
     r.querySelector('em').textContent = p.role === 'Manager' ? (p.present ? 'Online · in the office' : 'Not on the page') : p.covering ? `Covering ${p.covering}` : (p.buffer ? 'Buffer · ' : p.kyc ? 'KYC · ' : '') + (p.shift == null ? 'No schedule yet' : STATUS_TXT[p.view]) + (p.coveredBy ? ` · ${p.coveredBy} covers` : '');
-    r.querySelector('.ct').textContent = p.duty !== 'on' ? (p.shift == null ? '—' : SHIFTS[p.shift].label.slice(0, 5)) : p.chats ? p.chats + ' chat' + (p.chats > 1 ? 's' : '') : '—';
+    r.querySelector('.ct').textContent = p.role === 'TL' && p.duty === 'on' && p.tHandling && p.tHandling.length ? p.tHandling.length + ' ticket' + (p.tHandling.length > 1 ? 's' : '') : p.duty !== 'on' ? (p.shift == null ? '—' : SHIFTS[p.shift].label.slice(0, 5)) : p.chats ? p.chats + ' chat' + (p.chats > 1 ? 's' : '') : '—';
     r.setAttribute('aria-current', p.id === selectedId);
   });
   $('sOn').textContent = c.online; $('sBusy').textContent = c.busy; $('sOff').textContent = c.offline;
@@ -1163,7 +1220,27 @@ function render() {
   $('dRole').textContent = p.role === 'Manager' ? `${p.title} · ${p.where}` : p.role === 'TL' ? 'Team lead · Main office' : (p.buffer ? 'Buffer agent (12h) · WFH' : p.kyc ? 'KYC agent · WFH' : 'Agent · Work from home') + (p.covering ? ` · covering ${p.covering}` : '');
   $('dDot').className = 'dot ' + p.view;
   $('dState').textContent = STATUS_TXT[p.view] + (p.off.length ? ` · Off Nov ${p.off.join('–')}` : '') + (p.duty === 'on' ? ` · ${mins(now() - p.since)}` : '') + (p.lastSeen ? ` · last reply ${mins(now() - p.lastSeen)} ago` : '');
-  $('dChats').textContent = p.chats; $('dDone').textContent = p.done; $('dShift').textContent = p.shift == null ? '—' : SHIFTS[p.shift].label.replace(/:00/g, '');
+  $('sTickets').textContent = ticketPending == null ? '–' : ticketPending;
+  const isTL = p.role === 'TL';
+  $('mL1').textContent = isTL ? 'Handling tickets' : 'Open chats';
+  $('mL2').textContent = isTL ? 'Resolved today' : 'Handoffs (12h)';
+  $('dChats').textContent = isTL ? (p.tHandling ? p.tHandling.length : '–') : p.chats;
+  $('dDone').textContent = isTL ? (p.tResolved ?? '–') : p.done;
+  const tl = $('dTickets'), tkKey = isTL && p.tHandling ? p.id + p.tHandling.map(t => t.id + t.statusCls).join() : '';
+  if (tl.dataset.key !== tkKey) {
+    tl.dataset.key = tkKey; tl.textContent = '';
+    (isTL && p.tHandling ? p.tHandling.slice(0, 6) : []).forEach(t => {
+      const li = document.createElement('li');
+      const a = document.createElement(t.sheetLink ? 'a' : 'code'); a.textContent = t.id;
+      if (t.sheetLink) { a.href = t.sheetLink; a.target = '_blank'; a.rel = 'noopener'; a.style.cssText = 'font-family:var(--mono);font-size:11px;color:#93c5fd'; }
+      const sp = document.createElement('span'); sp.textContent = `${t.brandLabel} · ${t.issue} · ${t.statusLabel}`;
+      const em = document.createElement('em'); em.textContent = TicketData.compactElapsed ? TicketData.compactElapsed(t.submitted) : '';
+      li.append(a, sp, em); tl.appendChild(li);
+    });
+    if (isTL && p.tHandling && p.tHandling.length > 6) { const li = document.createElement('li'); li.textContent = `+${p.tHandling.length - 6} more`; tl.appendChild(li); }
+    tl.hidden = !tl.children.length;
+  }
+  if (!isTL) { $('dChats').textContent = p.chats; $('dDone').textContent = p.done; } $('dShift').textContent = p.shift == null ? '—' : SHIFTS[p.shift].label.replace(/:00/g, '');
 }
 const shiftsEl = $('shifts'); let shiftsKey = '';
 function renderShifts(hr) {
