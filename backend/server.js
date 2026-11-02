@@ -59,6 +59,7 @@ app.use('/api/chat', require('./routes/chat-search')); // Chat-content search pa
 app.use('/api/divbilling', require('./routes/divbilling'));
 app.use('/api/mc-remarks', require('./routes/mc-remarks')); // Internal remarks ng Missed Chats — CSR reason + TL validation, hindi nakikita ng player (2026-10-25)
 app.use('/api/geo', require('./routes/geo')); // Concerns Map: IP → lungsod + mapa ng PH (2026-10-18)
+app.use('/api/office', require('./routes/office')); // Opisina: posisyon ng mga naglalakad sa mapa (2026-11-02)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
