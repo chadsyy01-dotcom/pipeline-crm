@@ -22,14 +22,46 @@ async function nameOf(req) {
   return n;
 }
 
-// GET /api/office/presence — lahat ng nasa page ngayon
-router.get('/presence', (req, res) => {
+// HULING POSISYON (2026-11-02): naka-save sa DB para manatili ang karakter
+// kung saan iniwan, kahit umalis o nag-refresh — at pareho ang nakikita ng lahat.
+const positions = new Map();           // userId -> { id, email, name, x, y, away, savedAt }
+const posReady = sequelize.query(`
+  CREATE TABLE IF NOT EXISTS "OfficePositions" (
+    "userId" INTEGER PRIMARY KEY,
+    "x" REAL NOT NULL, "y" REAL NOT NULL, "away" BOOLEAN NOT NULL DEFAULT FALSE,
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`)
+  .then(() => sequelize.query(`
+    SELECT p."userId" AS id, p."x", p."y", p."away", u."name", u."email"
+    FROM "OfficePositions" p JOIN "Users" u ON u."id" = p."userId"`, { type: QueryTypes.SELECT }))
+  .then(rows => rows.forEach(r => positions.set(r.id, { id: r.id, email: r.email, name: r.name, x: r.x, y: r.y, away: r.away })))
+  .catch(err => console.error('OfficePositions table error:', err.message));
+const saveTimers = new Map();          // isang DB write bawat ~2s bawat tao habang naglalakad
+function persist(id) {
+  if (saveTimers.has(id)) return;
+  saveTimers.set(id, setTimeout(async () => {
+    saveTimers.delete(id);
+    const p = positions.get(id); if (!p) return;
+    try {
+      await posReady;
+      await sequelize.query(`
+        INSERT INTO "OfficePositions" ("userId", "x", "y", "away", "updatedAt") VALUES (:id, :x, :y, :away, NOW())
+        ON CONFLICT ("userId") DO UPDATE SET "x" = EXCLUDED."x", "y" = EXCLUDED."y", "away" = EXCLUDED."away", "updatedAt" = NOW()`,
+        { replacements: { id, x: p.x, y: p.y, away: p.away } });
+    } catch (err) { console.error('Office position save error:', err.message); }
+  }, 2000));
+}
+
+// GET /api/office/presence — lahat ng may naka-save na posisyon; online = nasa page ngayon
+router.get('/presence', async (req, res) => {
+  await posReady;
   const now = Date.now();
-  const people = [];
-  for (const [id, p] of presence) {
-    if (now - p.at > TTL_MS) presence.delete(id);
-    else people.push(p);
-  }
+  for (const [id, p] of presence) if (now - p.at > TTL_MS) presence.delete(id);
+  const ids = new Set([...positions.keys(), ...presence.keys()]);
+  const people = [...ids].map(id => {
+    const live = presence.get(id), pos = positions.get(id) || {};
+    return { ...pos, ...(live || {}), online: !!live };
+  });
   res.json({ me: { id: req.user.id, email: req.user.email }, people });
 });
 
@@ -43,12 +75,15 @@ router.put('/presence', async (req, res) => {
       id: req.user.id,
       email: req.user.email || null,
       name: await nameOf(req),
-      x: num(req.body?.x, 0, 40),
-      y: num(req.body?.y, 0, 30),
+      x: num(req.body?.x, 0, 60),
+      y: num(req.body?.y, 0, 50),
       away: !!req.body?.away,
       at: Date.now(),
     };
     presence.set(req.user.id, entry);
+    const old = positions.get(req.user.id);
+    positions.set(req.user.id, { id: entry.id, email: entry.email, name: entry.name, x: entry.x, y: entry.y, away: entry.away });
+    if (!old || old.x !== entry.x || old.y !== entry.y || old.away !== entry.away) persist(req.user.id);
     res.json({ ok: true });
   } catch (err) {
     console.error('Office presence error:', err.message);
