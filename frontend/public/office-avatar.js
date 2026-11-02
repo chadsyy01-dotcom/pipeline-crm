@@ -12,6 +12,7 @@
 (function () {
   const OPT = {
     skin: ['#ffe3cc', '#f6cba5', '#e9b48a', '#d49b6c', '#b97b50', '#8e5a3b', '#6a3f28'],
+    body: ['neutral', 'male', 'female'],
     shape: ['round', 'oval', 'square'],
     eyes: ['round', 'big', 'almond', 'happy', 'sleepy'],
     eyeColor: ['#2b1d14', '#4a2f1d', '#6b4a2a', '#1f3a5f', '#2f5a2f', '#55595f'],
@@ -31,17 +32,18 @@
       '#facc15', '#f97316', '#dc2626', '#9f1239', '#db2777', '#f9a8d4', '#c084fc', '#7c3aed', '#f5f5f4', '#d6c7a1', '#8b5e3c'],
   };
   const LABEL = {
-    round: 'Bilog', oval: 'Oval', square: 'Kuwadrado', big: 'Malaki', almond: 'Almond', happy: 'Masaya', sleepy: 'Antok',
-    flat: 'Tuwid', arched: 'Arko', thick: 'Makapal', none: 'Wala', dot: 'Maliit', button: 'Button', line: 'Matangos',
-    smile: 'Ngiti', grin: 'Tawa', neutral: 'Seryoso', open: 'Bukas', smirk: 'Smirk',
-    short: 'Maikli', side: 'Side part', spiky: 'Spiky', buzz: 'Buzz cut', curly: 'Kulot', pixie: 'Pixie', bob: 'Bob',
-    long: 'Mahaba', ponytail: 'Ponytail', bun: 'Bun', bald: 'Kalbo', shades: 'Shades',
-    mustache: 'Bigote', goatee: 'Goatee', beard: 'Balbas', studs: 'Studs', hoops: 'Hoops',
+    round: 'Round', oval: 'Oval', square: 'Square', big: 'Big', almond: 'Almond', happy: 'Happy', sleepy: 'Sleepy',
+    flat: 'Straight', arched: 'Arched', thick: 'Thick', none: 'None', dot: 'Small', button: 'Button', line: 'Pointed',
+    smile: 'Smile', grin: 'Grin', neutral: 'Neutral', open: 'Open', smirk: 'Smirk',
+    short: 'Short', side: 'Side part', spiky: 'Spiky', buzz: 'Buzz cut', curly: 'Curly', pixie: 'Pixie', bob: 'Bob',
+    long: 'Long', ponytail: 'Ponytail', bun: 'Bun', bald: 'Bald', shades: 'Shades',
+    mustache: 'Mustache', goatee: 'Goatee', beard: 'Beard', studs: 'Studs', hoops: 'Hoops',
     tshirt: 'T-shirt', polo: 'Polo', longsleeve: 'Long sleeves', blouse: 'Blouse', blazer: 'Blazer', sweater: 'Sweater',
-    hoodie: 'Hoodie', dress: 'Dress', slacks: 'Slacks', jeans: 'Jeans', shorts: 'Shorts', skirt: 'Palda',
-    longskirt: 'Mahabang palda', shoes: 'Sapatos', sneakers: 'Sneakers', heels: 'Heels', sandals: 'Sandals',
-    tie: 'Necktie', bow: 'Bow tie',
+    hoodie: 'Hoodie', dress: 'Dress', slacks: 'Slacks', jeans: 'Jeans', shorts: 'Shorts', skirt: 'Skirt',
+    longskirt: 'Long skirt', shoes: 'Shoes', sneakers: 'Sneakers', heels: 'Heels', sandals: 'Sandals',
+    tie: 'Necktie', bow: 'Bow tie', male: 'Male', female: 'Female',
   };
+
   const HEX = /^#[0-9a-f]{6}$/i;
 
   // ---------- defaults / sanitize ----------
@@ -49,16 +51,16 @@
   function picker(seed) { let h = hash(seed); return arr => { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; return arr[h % arr.length]; }; }
   function defaults(seed, hints) {
     const p = picker(seed), hs = hints || {};
-    const office = { name: 'Office', top: p(['polo', 'blazer', 'blouse', 'longsleeve']), topColor: p(['#1e40af', '#0f3d5e', '#f5f5f4', '#334155', '#0d9488', '#9f1239']),
-      bottom: p(['slacks', 'slacks', 'skirt']), bottomColor: p(['#111827', '#334155', '#64748b']), shoes: 'shoes', shoesColor: '#111827',
+    const office = { name: 'Office', top: p(['polo', 'blazer', 'longsleeve']), topColor: p(['#1e40af', '#0f3d5e', '#f5f5f4', '#334155', '#0d9488', '#9f1239']),
+      bottom: 'slacks', bottomColor: p(['#111827', '#334155', '#64748b']), shoes: 'shoes', shoesColor: '#111827',
       tie: 'none', tieColor: '#dc2626' };
     const casual = { name: 'Casual', top: p(['tshirt', 'hoodie', 'sweater', 'tshirt']), topColor: p(OPT.cloth),
       bottom: p(['jeans', 'shorts', 'jeans']), bottomColor: p(['#1e40af', '#334155', '#d6c7a1']), shoes: 'sneakers', shoesColor: '#f5f5f4',
       tie: 'none', tieColor: '#dc2626' };
     return {
-      v: 1, skin: p(OPT.skin), shape: p(OPT.shape), eyes: p(['round', 'big', 'almond', 'happy']), eyeColor: p(OPT.eyeColor),
+      v: 1, body: 'neutral', skin: p(OPT.skin), shape: p(OPT.shape), eyes: p(['round', 'big', 'almond', 'happy']), eyeColor: p(OPT.eyeColor),
       brows: p(['flat', 'arched', 'thick']), nose: p(OPT.nose), mouth: p(['smile', 'grin', 'smile', 'smirk']), blush: false,
-      hair: p(OPT.hair.filter(h => h !== 'bald')), hairColor: p(OPT.hairColor.slice(0, 6)), glasses: 'none', facial: 'none', earrings: 'none',
+      hair: p(['short', 'side', 'curly', 'pixie', 'spiky']), hairColor: p(OPT.hairColor.slice(0, 6)), glasses: 'none', facial: 'none', earrings: 'none',
       headset: !!hs.headset, outfits: [office, casual], current: 0,
     };
   }
@@ -68,7 +70,7 @@
     const d = defaults(seed, hints);
     if (!cfg || typeof cfg !== 'object') return d;
     const c = {
-      v: 1, skin: color(cfg.skin, d.skin), shape: inList(cfg.shape, OPT.shape, d.shape), eyes: inList(cfg.eyes, OPT.eyes, d.eyes),
+      v: 1, body: inList(cfg.body, OPT.body, d.body), skin: color(cfg.skin, d.skin), shape: inList(cfg.shape, OPT.shape, d.shape), eyes: inList(cfg.eyes, OPT.eyes, d.eyes),
       eyeColor: color(cfg.eyeColor, d.eyeColor), brows: inList(cfg.brows, OPT.brows, d.brows), nose: inList(cfg.nose, OPT.nose, d.nose),
       mouth: inList(cfg.mouth, OPT.mouth, d.mouth), blush: !!cfg.blush, hair: inList(cfg.hair, OPT.hair, d.hair),
       hairColor: color(cfg.hairColor, d.hairColor), glasses: inList(cfg.glasses, OPT.glasses, d.glasses),
@@ -148,16 +150,17 @@
     // --- torso + arms
     const top = of.top, tc = of.topColor, tcD = shade(tc, -0.14);
     const longSleeve = ['longsleeve', 'blazer', 'sweater', 'hoodie'].includes(top);
+    const bw = cfg.body === 'male' ? 6 : cfg.body === 'female' ? 4.8 : 5.3, ax0 = bw + 1.3;
     const armSwing = o.walking ? walk * 1.4 : 0;
-    [[-6.6, armSwing], [6.6, -armSwing]].forEach(([ax, sw]) => {
+    [[-ax0, armSwing], [ax0, -armSwing]].forEach(([ax, sw]) => {
       path([[ax - 1.3, -21 + B], [ax + 1.3, -21 + B], [ax + 1.3 + sw * 0.6, -12.5 + B], [ax - 1.3 + sw * 0.6, -12.5 + B]], true); fill(longSleeve ? tcD : skin);
       if (!longSleeve && top !== 'dress') { path([[ax - 1.5, -21.2 + B], [ax + 1.5, -21.2 + B], [ax + 1.6, -17.2 + B], [ax - 1.6, -17.2 + B]], true); fill(tcD); }
       circ(ax + sw * 0.6, -12 + B, 1.5); fill(skin);
     });
     if (top === 'hoodie') { ell(0, -21.5 + B, 5.5, 2.6); fill(tcD); }
-    rr(-5.3, -22 + B, 10.6, 11.5, 3.2); fill(isDress ? tc : tc);
+    rr(-bw, -22 + B, bw * 2, 11.5, cfg.body === 'female' ? 3.8 : 3.2); fill(tc);
     if (!isDress && (of.bottom === 'slacks' || of.bottom === 'jeans' || of.bottom === 'shorts')) {
-      rr(-5.3, -12.4 + B, 10.6, 2.2, 1); fill(of.bottomColor);
+      rr(-bw, -12.4 + B, bw * 2, 2.2, 1); fill(of.bottomColor);
       path([[-5.2, -12.3 + B], [5.2, -12.3 + B]]); stroke(shade(of.bottomColor, -0.25), 0.6);
     }
     if (top === 'polo') { path([[-2.6, -22 + B], [0, -19.6 + B], [2.6, -22 + B], [1.2, -22 + B], [0, -21 + B], [-1.2, -22 + B]], true); fill(shade(tc, 0.18));
@@ -203,6 +206,7 @@
       circ(dx + 0.15, ey + 0.15, big ? 1.45 : alm ? 1.05 : 1.15); fill(cfg.eyeColor);
       circ(dx + 0.15, ey + 0.15, big ? 0.7 : 0.5); fill('#0b0b0b');
       circ(dx + 0.65, ey - 0.45, big ? 0.55 : 0.4); fill('#ffffff');
+      if (cfg.body === 'female') { const sx = dx < 0 ? -1 : 1; path([[dx + sx * 1.5, ey - 1.1], [dx + sx * 2.5, ey - 2]]); stroke('#1b1414', 0.4); }
     });
     const browC = shade(hairC, -0.05), by = ey - 3;
     if (cfg.brows === 'flat') { [-ex, ex].forEach(dx => { path([[dx - 1.5, by], [dx + 1.5, by]]); stroke(browC, 0.55); }); }
@@ -260,6 +264,25 @@
     if (cfg.headset) { rr(-9.6, HY - 1.8, 2.6, 4.4, 1.2); fill('#1b1e2e'); rr(7, HY - 1.8, 2.6, 4.4, 1.2); fill('#1b1e2e');
       path([[-8.3, HY + 2.4], [-6, HY + 6], [-3.2, HY + 6.2]]); stroke('#1b1e2e', 0.6); circ(-3, HY + 6.2, 0.7); fill('#1b1e2e'); }
     return { headY: Y(HY - 9) };
+  }
+
+  // ---------- quick looks ----------
+  function applyPreset(cfg, kind) {
+    cfg.body = kind;
+    if (kind === 'male') {
+      if (['long', 'bob', 'ponytail', 'bun'].includes(cfg.hair)) cfg.hair = 'short';
+      cfg.blush = false; cfg.earrings = 'none';
+      cfg.outfits.forEach(o => {
+        if (o.top === 'dress' || o.top === 'blouse') o.top = 'polo';
+        if (o.bottom === 'skirt' || o.bottom === 'longskirt') o.bottom = 'slacks';
+        if (o.shoes === 'heels') o.shoes = 'shoes';
+      });
+    } else {
+      if (['short', 'buzz', 'spiky', 'bald', 'side'].includes(cfg.hair)) cfg.hair = 'long';
+      if (cfg.facial !== 'none') cfg.facial = 'none';
+      if (cfg.earrings === 'none') cfg.earrings = 'studs';
+      cfg.outfits.forEach(o => { if (o.top === 'polo') o.top = 'blouse'; });
+    }
   }
 
   // ---------- wardrobe editor ----------
@@ -320,16 +343,16 @@
       <div class="wd-prev"><canvas width="220" height="280"></canvas><div style="text-align:center"><b></b><br><small></small></div></div>
       <div class="wd-main">
         <div class="wd-tabs" role="tablist">
-          <button data-tab="face" role="tab">Mukha</button><button data-tab="hair" role="tab">Buhok</button>
-          <button data-tab="clothes" role="tab">Damit</button><button data-tab="wardrobe" role="tab">Wardrobe</button>
+          <button data-tab="face" role="tab">Face</button><button data-tab="hair" role="tab">Hair</button>
+          <button data-tab="clothes" role="tab">Clothes</button><button data-tab="wardrobe" role="tab">Wardrobe</button>
           <button data-tab="extras" role="tab">Accessories</button>
         </div>
         <div class="wd-body"></div>
-        <div class="wd-foot"><span class="wd-msg"></span><button class="cancel">Kanselahin</button><button class="pri save">I-save</button></div>
+        <div class="wd-foot"><span class="wd-msg"></span><button class="cancel">Cancel</button><button class="pri save">Save</button></div>
       </div></div>`;
     document.body.appendChild(back);
     const cv = back.querySelector('.wd-prev canvas'), body = back.querySelector('.wd-body'), msg = back.querySelector('.wd-msg');
-    back.querySelector('.wd-prev b').textContent = who || 'Ikaw';
+    back.querySelector('.wd-prev b').textContent = who || 'You';
     const cur = () => cfg.outfits[cfg.current];
     const field = (title, get, set, list, swatch) => {
       const f = document.createElement('div'); f.className = 'wd-field';
@@ -338,7 +361,7 @@
       list.forEach(v => {
         const b = document.createElement('button'); b.type = 'button';
         if (swatch) { b.className = 'sw'; b.style.background = v; b.title = v; b.setAttribute('aria-label', title + ' ' + v); }
-        else b.textContent = typeof v === 'boolean' ? (v ? 'Meron' : 'Wala') : (LABEL[v] || v);
+        else b.textContent = typeof v === 'boolean' ? (v ? 'Yes' : 'No') : (LABEL[v] || v);
         b.setAttribute('aria-pressed', get() === v);
         b.onclick = () => { set(v); box.querySelectorAll('button').forEach((x, i) => x.setAttribute('aria-pressed', list[i] === get())); };
         box.appendChild(b);
@@ -351,32 +374,40 @@
       const S = k => v => { cfg[k] = v; }, G = k => () => cfg[k];
       const SO = k => v => { cur()[k] = v; }, GO = k => () => cur()[k];
       if (tab === 'face') {
-        field('Kulay ng balat', G('skin'), S('skin'), OPT.skin, true);
-        field('Hugis ng mukha', G('shape'), S('shape'), OPT.shape);
-        field('Mata', G('eyes'), S('eyes'), OPT.eyes);
-        field('Kulay ng mata', G('eyeColor'), S('eyeColor'), OPT.eyeColor, true);
-        field('Kilay', G('brows'), S('brows'), OPT.brows);
-        field('Ilong', G('nose'), S('nose'), OPT.nose);
-        field('Bibig', G('mouth'), S('mouth'), OPT.mouth);
+        const pre = document.createElement('div'); pre.className = 'wd-field';
+        pre.innerHTML = '<h4>Quick look</h4><div class="wd-opts"></div>';
+        [['Male look', 'male'], ['Female look', 'female']].forEach(([txt, k]) => {
+          const b = document.createElement('button'); b.type = 'button'; b.textContent = txt;
+          b.onclick = () => { applyPreset(cfg, k); renderTab(); }; pre.querySelector('.wd-opts').appendChild(b);
+        });
+        body.appendChild(pre);
+        field('Body', G('body'), S('body'), OPT.body);
+        field('Skin tone', G('skin'), S('skin'), OPT.skin, true);
+        field('Face shape', G('shape'), S('shape'), OPT.shape);
+        field('Eyes', G('eyes'), S('eyes'), OPT.eyes);
+        field('Eye color', G('eyeColor'), S('eyeColor'), OPT.eyeColor, true);
+        field('Eyebrows', G('brows'), S('brows'), OPT.brows);
+        field('Nose', G('nose'), S('nose'), OPT.nose);
+        field('Mouth', G('mouth'), S('mouth'), OPT.mouth);
         field('Blush', G('blush'), S('blush'), [false, true]);
-        field('Bigote / balbas', G('facial'), S('facial'), OPT.facial);
+        field('Facial hair', G('facial'), S('facial'), OPT.facial);
       } else if (tab === 'hair') {
-        field('Estilo ng buhok', G('hair'), S('hair'), OPT.hair);
-        field('Kulay ng buhok', G('hairColor'), S('hairColor'), OPT.hairColor, true);
+        field('Hairstyle', G('hair'), S('hair'), OPT.hair);
+        field('Hair color', G('hairColor'), S('hairColor'), OPT.hairColor, true);
       } else if (tab === 'clothes') {
         const note = document.createElement('p'); note.style.cssText = 'margin:0;color:#8b90b2;font-size:12.5px';
-        note.textContent = `Binabago mo ang outfit na "${cur().name}". Para sa ibang outfit, pumunta sa Wardrobe.`; body.appendChild(note);
-        field('Pang-itaas', GO('top'), SO('top'), OPT.top);
-        field('Kulay ng pang-itaas', GO('topColor'), SO('topColor'), OPT.cloth, true);
-        field('Pang-ibaba', GO('bottom'), SO('bottom'), OPT.bottom);
-        field('Kulay ng pang-ibaba', GO('bottomColor'), SO('bottomColor'), OPT.cloth, true);
-        field('Sapatos', GO('shoes'), SO('shoes'), OPT.shoes);
-        field('Kulay ng sapatos', GO('shoesColor'), SO('shoesColor'), OPT.cloth, true);
+        note.textContent = `You are editing the "${cur().name}" outfit. To change another outfit, open Wardrobe.`; body.appendChild(note);
+        field('Top', GO('top'), SO('top'), OPT.top);
+        field('Top color', GO('topColor'), SO('topColor'), OPT.cloth, true);
+        field('Bottom', GO('bottom'), SO('bottom'), OPT.bottom);
+        field('Bottom color', GO('bottomColor'), SO('bottomColor'), OPT.cloth, true);
+        field('Footwear', GO('shoes'), SO('shoes'), OPT.shoes);
+        field('Footwear color', GO('shoesColor'), SO('shoesColor'), OPT.cloth, true);
         field('Necktie', GO('tie'), SO('tie'), OPT.tie);
-        field('Kulay ng necktie', GO('tieColor'), SO('tieColor'), OPT.cloth, true);
+        field('Necktie color', GO('tieColor'), SO('tieColor'), OPT.cloth, true);
       } else if (tab === 'extras') {
-        field('Salamin', G('glasses'), S('glasses'), OPT.glasses);
-        field('Hikaw', G('earrings'), S('earrings'), OPT.earrings);
+        field('Glasses', G('glasses'), S('glasses'), OPT.glasses);
+        field('Earrings', G('earrings'), S('earrings'), OPT.earrings);
         field('Headset', G('headset'), S('headset'), [true, false]);
       } else {
         const grid = document.createElement('div'); grid.className = 'wd-outfits';
@@ -384,23 +415,23 @@
           const card = document.createElement('div'); card.className = 'wd-of' + (i === cfg.current ? ' on' : '');
           const pc = document.createElement('canvas'); card.appendChild(pc);
           portrait(pc, Object.assign({}, cfg, { current: i }), 72, 92);
-          const inp = document.createElement('input'); inp.value = of.name; inp.maxLength = 24; inp.setAttribute('aria-label', 'Pangalan ng outfit');
+          const inp = document.createElement('input'); inp.value = of.name; inp.maxLength = 24; inp.setAttribute('aria-label', 'Outfit name');
           inp.oninput = () => { of.name = inp.value || `Outfit ${i + 1}`; }; card.appendChild(inp);
           const r = document.createElement('div'); r.className = 'row2';
-          const wear = document.createElement('button'); wear.type = 'button'; wear.textContent = i === cfg.current ? 'Suot' : 'Isuot';
+          const wear = document.createElement('button'); wear.type = 'button'; wear.textContent = i === cfg.current ? 'Wearing' : 'Wear';
           wear.onclick = () => { cfg.current = i; renderTab(); };
-          const edit = document.createElement('button'); edit.type = 'button'; edit.textContent = 'I-edit';
+          const edit = document.createElement('button'); edit.type = 'button'; edit.textContent = 'Edit';
           edit.onclick = () => { cfg.current = i; tab = 'clothes'; renderTab(); };
           r.append(wear, edit);
           if (cfg.outfits.length > 1) {
-            const del = document.createElement('button'); del.type = 'button'; del.textContent = '✕'; del.setAttribute('aria-label', 'Burahin ang outfit');
+            const del = document.createElement('button'); del.type = 'button'; del.textContent = '✕'; del.setAttribute('aria-label', 'Delete outfit');
             del.onclick = () => { cfg.outfits.splice(i, 1); cfg.current = Math.min(cfg.current, cfg.outfits.length - 1); renderTab(); };
             r.append(del);
           }
           card.appendChild(r); grid.appendChild(card);
         });
         if (cfg.outfits.length < 8) {
-          const add = document.createElement('button'); add.type = 'button'; add.className = 'wd-add'; add.textContent = '+ Bagong outfit';
+          const add = document.createElement('button'); add.type = 'button'; add.className = 'wd-add'; add.textContent = '+ New outfit';
           add.onclick = () => { const copy = JSON.parse(JSON.stringify(cur())); copy.name = `Outfit ${cfg.outfits.length + 1}`; cfg.outfits.push(copy); cfg.current = cfg.outfits.length - 1; tab = 'clothes'; renderTab(); };
           grid.appendChild(add);
         }
@@ -414,10 +445,10 @@
     back.addEventListener('click', e => { if (e.target === back) close(); });
     back.querySelector('.cancel').onclick = close;
     back.querySelector('.save').onclick = async () => {
-      const btn = back.querySelector('.save'); btn.disabled = true; msg.textContent = 'Sine-save…';
-      try { await onSave(cfg); close(); } catch (e) { msg.textContent = 'Hindi na-save: ' + (e && e.message || 'error'); btn.disabled = false; }
+      const btn = back.querySelector('.save'); btn.disabled = true; msg.textContent = 'Saving…';
+      try { await onSave(cfg); close(); } catch (e) { msg.textContent = 'Could not save: ' + (e && e.message || 'error'); btn.disabled = false; }
     };
-    const tick = ms => { if (closed) return; portrait(cv, cfg, 220, 280, ms / 1000); back.querySelector('.wd-prev small').textContent = 'Suot: ' + cur().name; anim = requestAnimationFrame(tick); };
+    const tick = ms => { if (closed) return; portrait(cv, cfg, 220, 280, ms / 1000); back.querySelector('.wd-prev small').textContent = 'Wearing: ' + cur().name; anim = requestAnimationFrame(tick); };
     renderTab(); anim = requestAnimationFrame(tick);
     back.querySelector('.wd-tabs button').focus();
   }
