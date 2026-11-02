@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Opisina — CSR Dashboard</title>
+<title>Office — CSR Dashboard</title>
 <link rel="icon" href="logo.png">
 <script>
   /* OPISINA (Ahente HQ) — isometric na mapa ng team: TLs sa main office, WFH agents sa
@@ -131,7 +131,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
     <div class="brand">
       <a class="back" href="csr-dashboard.html">← Dashboard</a>
       <h1>Ahente <span>HQ</span></h1>
-      <span class="badge" id="liveBadge">Kumokonekta…</span>
+      <span class="badge" id="liveBadge">Connecting…</span>
       <span class="clock" id="clock"></span>
       <span class="chip" id="shiftChip">Shift</span>
     </div>
@@ -153,9 +153,9 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
           <button id="refreshBtn">Refresh</button>
         </div>
         <div class="seg" id="walkSeg" hidden>
-          <button id="backBtn">Bumalik sa desk</button>
+          <button id="backBtn">Back to desk</button>
           <button id="confBtn">Conference room</button>
-          <button id="wardBtn">Wardrobe ko</button>
+          <button id="wardBtn">My wardrobe</button>
         </div>
         <div class="seg" role="group" aria-label="Show shift">
           <button data-shift="now" aria-pressed="true">Now</button>
@@ -170,15 +170,15 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         </div>
       </div>
       <form class="say" id="sayForm" hidden>
-        <input id="sayInput" maxlength="160" autocomplete="off" placeholder="Magsabi ng kahit ano… (lalabas sa ulo mo)" aria-label="Mensahe">
-        <button type="submit">Ipadala</button>
+        <input id="sayInput" maxlength="160" autocomplete="off" placeholder="Say something… (shows above your head)" aria-label="Message">
+        <button type="submit">Send</button>
       </form>
       <div class="legend">
-        <span>I-click ang mapa o arrow keys / WASD para maglakad</span>
+        <span>Click the map or use arrow keys / WASD to walk</span>
         <span><i class="dot online"></i>Online</span>
-        <span><i class="dot busy"></i>Busy · may hawak na open chat</span>
-        <span><i class="dot offline"></i>Idle · naka-duty, walang reply sa huling 20 min</span>
-        <span><i class="dot offshift"></i>Wala sa shift</span>
+        <span><i class="dot busy"></i>Busy · handling open chats</span>
+        <span><i class="dot offline"></i>Idle · on duty, no reply in the last 20 min</span>
+        <span><i class="dot offshift"></i>Off shift</span>
         <span><i class="dot dayoff"></i>Day off</span>
       </div>
     </section>
@@ -187,7 +187,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
       <div class="card">
         <p class="label"><span>Selected</span></p>
         <div class="detail-head">
-          <div class="portrait"><canvas id="dPortrait" width="64" height="84" aria-label="Itsura ng karakter"></canvas><img id="dPhoto" alt="" hidden></div>
+          <div class="portrait"><canvas id="dPortrait" width="64" height="84" aria-label="Character look"></canvas><img id="dPhoto" alt="" hidden></div>
           <div><h2 id="dName">—</h2><p id="dRole"></p></div>
         </div>
         <span class="pill"><i class="dot" id="dDot"></i><span id="dState"></span></span>
@@ -198,7 +198,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         </div>
       </div>
       <div class="card">
-        <p class="label"><span>Manager at team leads</span><span id="tlCount">9</span></p>
+        <p class="label"><span>Managers & team leads</span><span id="tlCount">9</span></p>
         <div class="list" id="tlList"></div>
       </div>
       <div class="card">
@@ -210,8 +210,8 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         <div class="shifts" id="shifts"></div>
       </div>
       <div class="card" id="unmatchedCard" hidden>
-        <p class="label"><span>Chatwoot names na walang katugma</span></p>
-        <p class="unmatched">Nag-reply ang mga pangalang ito sa Chatwoot pero hindi tugma sa roster. Idagdag sa <code>cw</code> ng tamang tao sa ROSTER ng office.html:<br><span id="unmatchedList"></span></p>
+        <p class="label"><span>Unmatched Chatwoot names</span></p>
+        <p class="unmatched">These names replied in Chatwoot but don't match anyone in the roster. Add them to the right person's <code>cw</code> list in office.html:<br><span id="unmatchedList"></span></p>
       </div>
       <div class="card">
         <p class="label"><span>Activity</span></p>
@@ -239,8 +239,8 @@ const HOME_POS = [
   [25,27],[18,27],[11,27],[4,27], // bottom
   [2,18],[2,11],                  // left
 ];
-const CHAD_ROOM = { x: 37, y: 4, w: 6, h: 5, floor: '#2c2538', wall: '#1f1a2b', acc: '#f5c26b', label: 'OPISINA NI CHAD' };
-const FAYE_ROOM = { x: 38, y: 25, w: 6, h: 5, floor: '#2b2436', wall: '#1f1a28', acc: '#f0abfc', label: 'OPERATIONS MANAGER · FAYE' };
+const CHAD_ROOM = { x: 37, y: 4, w: 6, h: 5, floor: '#2c2538', wall: '#1f1a2b', acc: '#f5c26b', label: "CHAD'S OFFICE" };
+const FAYE_ROOM = { x: 38, y: 25, w: 6, h: 5, floor: '#2b2436', wall: '#1f1a28', acc: '#f0abfc', label: "OPERATIONS MANAGER · FAYE" };
 const CONF = { x: 37, y: 14, w: 8, h: 7, floor: '#1c2a33', wall: '#142028', acc: '#7dd3fc', label: 'CONFERENCE ROOM' };
 const GROUND = { x0: 0.6, y0: 0.6, x1: 47, y1: 33 };
 const HOME_COLORS = [
@@ -314,8 +314,8 @@ AGENTS.forEach((ag, i) => { const name = ag.short;
 });
 // Manager — sariling kwarto, walking distance mula sa main office
 [
-  { id: 'mgr', name: 'Chad', full: 'Chad Syy', title: 'Manager', where: 'Opisina ni Chad', room: CHAD_ROOM },
-  { id: 'head', name: 'Faye', full: 'Faye', title: 'Operations Manager', where: 'Opisina ni Faye', room: FAYE_ROOM },
+  { id: 'mgr', name: 'Chad', full: 'Chad Syy', title: 'Manager', where: "Chad's office", room: CHAD_ROOM },
+  { id: 'head', name: 'Faye', full: 'Faye', title: 'Operations Manager', where: "Faye's office", room: FAYE_ROOM },
 ].forEach((m, i) => {
   const desk = { x: m.room.x + 1.9, y: m.room.y + 0.8, w: 2.2, d: 0.8 };
   people.push({ ...m, shift: null, off: [], role: 'Manager', desk, seat: { x: desk.x + 1.1, y: desk.y + 1.45 },
@@ -450,14 +450,14 @@ async function loadLive() {
       const active = p.lastSeen && tnow - p.lastSeen < ACTIVE_MS;
       setStatus(p, p.chats ? 'busy' : (active || p.role === 'TL' || (p.role === 'Manager' && p.present)) ? 'online' : 'offline');
       if (!firstLoad && p.duty === 'on') {
-        if (p.chats > prevChats) log(`<b>${p.name}</b> may bagong chat <span>(${p.chats} open)</span>`);
-        else if (p.chats < prevChats) log(`<b>${p.name}</b> natapos ang ${prevChats - p.chats} chat`);
-        else if (prevStatus !== p.status && p.status === 'offline') log(`<b>${p.name}</b> walang reply sa huling 20 min`);
+        if (p.chats > prevChats) log(`<b>${p.name}</b> picked up a chat <span>(${p.chats} open)</span>`);
+        else if (p.chats < prevChats) log(`<b>${p.name}</b> closed ${prevChats - p.chats} chat${prevChats - p.chats > 1 ? 's' : ''}`);
+        else if (prevStatus !== p.status && p.status === 'offline') log(`<b>${p.name}</b> has not replied in 20 min`);
       }
     });
-    if (!firstLoad && q !== queue) log(`Queue: <b>${q}</b> naghihintay ng agent`);
+    if (!firstLoad && q !== queue) log(`Queue: <b>${q}</b> waiting for an agent`);
     queue = q;
-    if (firstLoad) log(`Konektado. ${conversations.length} conversations, ${messages.length} agent replies sa huling 12 oras.`);
+    if (firstLoad) log(`Connected. ${conversations.length} conversations, ${messages.length} agent replies in the last 12 hours.`);
     firstLoad = false;
 
     const list = [...unmatched.entries()].sort((a, b) => b[1] - a[1]);
@@ -469,8 +469,8 @@ async function loadLive() {
     badge.textContent = 'LIVE · ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   } catch (e) {
     if (String(e.message) === 'auth') return;
-    badge.className = 'badge err'; badge.textContent = 'Hindi ma-load';
-    log(`Error sa pagkuha ng data: ${String(e.message).replace(/</g, '&lt;')}`);
+    badge.className = 'badge err'; badge.textContent = 'Couldn\'t load';
+    log(`Couldn't load data: ${String(e.message).replace(/</g, '&lt;')}`);
   } finally { loading = false; }
 }
 loadLive(); setInterval(loadLive, POLL_MS);
@@ -491,7 +491,7 @@ function personFor(u) {
 function visitorFor(u) {
   let v = visitors.get(u.id);
   if (!v) {
-    v = { id: 'v' + u.id, name: String(u.name || 'Bisita').split(' ')[0], full: u.name || 'Bisita', role: 'Visitor', visitor: true,
+    v = { id: 'v' + u.id, name: String(u.name || 'Guest').split(' ')[0], full: u.name || 'Guest', role: 'Visitor', visitor: true,
       shirt: '#e2e8f0', skin: SKIN[(Number(u.id) || 0) % 6], hair: HAIR[(Number(u.id) || 0) % 6], view: 'online', phase: 0,
       seat: { ...ENTRY }, pos: { ...ENTRY }, away: true, target: { ...ENTRY }, walking: false,
       look: OfficeAvatar.defaults('user' + u.id) };
@@ -514,7 +514,7 @@ async function sendPresence(force) {
 }
 function presenceOff() {
   if (!presenceOn) return; presenceOn = false;
-  log('Hindi pa naka-update ang backend para sa paglalakad (kailangan ang /api/office).');
+  log('Walking is off: the backend has not been updated yet (/api/office is missing).');
 }
 async function pollPresence() {
   if (!presenceOn || document.hidden) return;
@@ -528,7 +528,7 @@ async function pollPresence() {
       if (!me.person) me.vis = visitorFor(me);
       const w = myWalker(); w.me = true;
       document.getElementById('walkSeg').hidden = false;
-      log(`Ikaw si <b>${w.name}</b>. I-click ang mapa para maglakad.`);
+      log(`You are <b>${w.name}</b>. Click the map to walk.`);
       document.getElementById('sayForm').hidden = false;
       loadAvatars();
       sendPresence(true);
@@ -578,9 +578,9 @@ document.getElementById('wardBtn').onclick = () => {
   const w = myWalker(); if (!w) return;
   OfficeAvatar.openEditor(w.look, async cfg => {
     const r = await fetch(API_BASE + '/office/avatar', { method: 'PUT', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ config: cfg }) });
-    if (!r.ok) throw new Error(r.status === 404 ? 'kailangang i-update ang backend' : 'HTTP ' + r.status);
+    if (!r.ok) throw new Error(r.status === 404 ? 'the backend needs updating' : 'HTTP ' + r.status);
     w.look = OfficeAvatar.sanitize(cfg, w.visitor ? 'user' + me.id : w.full, { headset: w.role === 'Agent' });
-    log(`Na-save ang wardrobe mo. Suot: <b>${esc(OfficeAvatar.outfit(w.look).name)}</b>`);
+    log(`Wardrobe saved. Wearing: <b>${esc(OfficeAvatar.outfit(w.look).name)}</b>`);
   }, w.full);
 };
 document.getElementById('sayForm').addEventListener('submit', async e => {
@@ -888,7 +888,7 @@ function draw(t) {
     const sel = p.id === selectedId, off = p.view !== 'online' && p.view !== 'busy' && !isMover(p);
     if ((p.view === 'offshift' || p.view === 'dayoff') && !sel && !isMover(p) && !p.present) { p._label = null; return; }
     const ph = p.photo && p.photo.complete && p.photo.naturalWidth ? p.photo : null;
-    const label = p.me ? p.name + ' (ikaw)' : p.name;
+    const label = p.me ? p.name + ' (you)' : p.name;
     const extra = p.chats ? 18 : 0;
     const w = ctx.measureText(label).width + 22 + extra + (ph ? 9 : 0);
     ctx.globalAlpha = off && !sel ? 0.6 : 1;
@@ -976,7 +976,7 @@ function buildList(el, list) {
 }
 buildList($('tlList'), people.filter(p => p.role === 'Manager').concat(people.filter(p => p.role === 'TL')));
 buildList($('agList'), people.filter(p => p.role === 'Agent'));
-const STATUS_TXT = { online: 'Online', busy: 'Busy', offline: 'Idle · walang reply 20m', offshift: 'Off shift', dayoff: 'Day off' };
+const STATUS_TXT = { online: 'Online', busy: 'Busy', offline: 'Idle · no reply 20m', offshift: 'Off shift', dayoff: 'Day off' };
 const mins = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; };
 function select(id) { selectedId = id; render(); }
 function render() {
@@ -986,7 +986,7 @@ function render() {
     c[p.view]++; if (p.duty === 'on') chats += p.chats;
     const r = rows[p.id];
     r.querySelector('.dot').className = 'dot ' + p.view;
-    r.querySelector('em').textContent = p.role === 'Manager' ? (p.present ? 'Online · nasa Opisina' : 'Wala sa page') : p.covering ? `Covering ${p.covering}` : (p.buffer ? 'Buffer · ' : p.kyc ? 'KYC · ' : '') + (p.shift == null ? 'No schedule yet' : STATUS_TXT[p.view]) + (p.coveredBy ? ` · ${p.coveredBy} covers` : '');
+    r.querySelector('em').textContent = p.role === 'Manager' ? (p.present ? 'Online · in the office' : 'Not on the page') : p.covering ? `Covering ${p.covering}` : (p.buffer ? 'Buffer · ' : p.kyc ? 'KYC · ' : '') + (p.shift == null ? 'No schedule yet' : STATUS_TXT[p.view]) + (p.coveredBy ? ` · ${p.coveredBy} covers` : '');
     r.querySelector('.ct').textContent = p.duty !== 'on' ? (p.shift == null ? '—' : SHIFTS[p.shift].label.slice(0, 5)) : p.chats ? p.chats + ' chat' + (p.chats > 1 ? 's' : '') : '—';
     r.setAttribute('aria-current', p.id === selectedId);
   });
@@ -1005,7 +1005,7 @@ function render() {
   $('dName').textContent = p.full || p.name;
   $('dRole').textContent = p.role === 'Manager' ? `${p.title} · ${p.where}` : p.role === 'TL' ? 'Team lead · Main office' : (p.buffer ? 'Buffer agent (12h) · WFH' : p.kyc ? 'KYC agent · WFH' : 'Agent · Work from home') + (p.covering ? ` · covering ${p.covering}` : '');
   $('dDot').className = 'dot ' + p.view;
-  $('dState').textContent = STATUS_TXT[p.view] + (p.off.length ? ` · Off Nov ${p.off.join('–')}` : '') + (p.duty === 'on' ? ` · ${mins(now() - p.since)}` : '') + (p.lastSeen ? ` · huling reply ${mins(now() - p.lastSeen)} ago` : '');
+  $('dState').textContent = STATUS_TXT[p.view] + (p.off.length ? ` · Off Nov ${p.off.join('–')}` : '') + (p.duty === 'on' ? ` · ${mins(now() - p.since)}` : '') + (p.lastSeen ? ` · last reply ${mins(now() - p.lastSeen)} ago` : '');
   $('dChats').textContent = p.chats; $('dDone').textContent = p.done; $('dShift').textContent = p.shift == null ? '—' : SHIFTS[p.shift].label.replace(/:00/g, '');
 }
 const shiftsEl = $('shifts'); let shiftsKey = '';
