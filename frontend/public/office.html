@@ -184,7 +184,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         <span><i class="dot online"></i>Online</span>
         <span><i class="dot busy"></i>Busy · handling open chats</span>
         <span><i class="dot offline"></i>Idle · on duty, no reply in the last 20 min</span>
-        <span><i class="dot offshift"></i>Off shift</span>
+        <span><i class="dot offshift"></i>Sleeping · off shift</span>
         <span><i class="dot dayoff"></i>Day off</span>
       </div>
     </section>
@@ -913,8 +913,44 @@ function drawOfficeProps(t) {
   });
 }
 function isMover(p) { return p.visitor || p.away || p.walking; }
+// TULOG (2026-11-02): ang hindi naka-duty at wala sa page ay natutulog —
+// agents sa kama nila, TLs nakayuko sa desk. Gigising kapag binuksan nila ang page.
+function drawZzz(x, y, t) {
+  ctx.save(); ctx.font = '700 7px "IBM Plex Mono", monospace'; ctx.textAlign = 'left';
+  for (let i = 0; i < 3; i++) {
+    const ph = (t * 0.45 + i / 3) % 1;
+    ctx.globalAlpha = (1 - ph) * 0.9; ctx.fillStyle = '#c7d2fe';
+    ctx.font = `700 ${6 + ph * 5}px "IBM Plex Mono", monospace`;
+    ctx.fillText('z', x + 3 + ph * 7, y - ph * 16);
+  }
+  ctx.restore();
+}
+function drawSleeping(p, t) {
+  const look = p.look, of = OfficeAvatar.outfit(look);
+  if (p.home) {                       // nakahiga sa kama (bed: x+0.3..1.7, y+2.4..3.7)
+    const h = p.home, top = 5.5;
+    const bl = [iso(h.x + 0.85, h.y + 2.45), iso(h.x + 1.7, h.y + 2.45), iso(h.x + 1.7, h.y + 3.7), iso(h.x + 0.85, h.y + 3.7)].map(q => up(q, top + 1.5));
+    poly(bl, of.topColor); poly(bl, null, 'rgba(0,0,0,0.25)', 0.8);
+    const hp = up(iso(h.x + 0.6, h.y + 3.05), 10);
+    ctx.fillStyle = look.hairColor; ctx.beginPath(); ctx.arc(hp.x - 0.5, hp.y - 0.8, 5.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = look.skin; ctx.beginPath(); ctx.arc(hp.x + 0.6, hp.y + 0.6, 4.4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#2b1d14'; ctx.lineWidth = 0.6;
+    [-1.4, 2].forEach(dx => { ctx.beginPath(); ctx.arc(hp.x + dx, hp.y + 0.6, 1, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke(); });
+    drawZzz(hp.x + 3, hp.y - 4, t + p.phase);
+    p._head = { x: hp.x, y: hp.y - 4 };
+  } else {                            // TL: nakaupo, tulog sa desk
+    const s = iso(p.pos.x, p.pos.y);
+    ctx.save(); ctx.globalAlpha = 0.75;
+    const r = OfficeAvatar.draw(ctx, look, s.x, s.y, { scale: 0.8, t: 0, sitting: true, sleep: true });
+    ctx.restore();
+    drawZzz(s.x + 4, r.headY + 8, t + p.phase);
+    p._head = { x: s.x, y: r.headY + 7 };
+  }
+}
 function drawPerson(p, t, selected, moverPass) {
   if (!moverPass && isMover(p)) { p._head = null; return; }
+  if (!moverPass && p.shift == null && p.role !== 'Manager' && !p.present) { p._head = null; return; }   // bakanteng desk (TL 7–9)
+  if (!moverPass && (p.view === 'offshift' || p.view === 'dayoff') && !p.present && p.role !== 'Manager') { drawSleeping(p, t); return; }
   const s = iso(p.pos.x, p.pos.y);
   p._head = { x: s.x, y: s.y - 22 };
   if (!moverPass && p.view !== 'online' && p.view !== 'busy' && p.view !== 'offline' && !p.present) return;
@@ -995,7 +1031,6 @@ function draw(t) {
     if (!p._head) return;
     const hp = toS({ x: p._head.x, y: p._head.y - 13 });
     const sel = p.id === selectedId, off = (p.view !== 'online' && p.view !== 'busy' && !isMover(p)) || (isMover(p) && !p.present && !p.me);
-    if ((p.view === 'offshift' || p.view === 'dayoff') && !sel && !isMover(p) && !p.present) { p._label = null; return; }
     const ph = p.photo && p.photo.complete && p.photo.naturalWidth ? p.photo : null;
     const label = p.me ? p.name + ' (you)' : p.name;
     const extra = p.chats ? 18 : 0;
