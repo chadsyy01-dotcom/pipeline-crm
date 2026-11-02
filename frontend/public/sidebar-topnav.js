@@ -97,7 +97,7 @@
     { label: 'Knowledge Base', href: 'kb.html', icon: 'book' },
     { label: 'Reports', href: 'reports.html', icon: 'bars' },
     // OPISINA (2026-11-02): mapa ng team — TLs sa office, WFH agents sa paligid, live mula Chatwoot
-    { label: 'Opisina', href: 'office.html', icon: 'home' },
+    { label: 'Office', href: 'office.html', icon: 'home' },
     { label: 'OpenAI', mainLabel: 'Billing', mainIcon: 'card', href: 'openai.html', icon: 'clock', kids: [
       { label: 'SMS Monitoring', href: 'sms-monitoring.html', icon: 'chat' },
       { label: 'Division Billing', href: 'division-billing.html', icon: 'bank' } ] },
@@ -195,7 +195,7 @@
       const a = document.createElement('a');
       a.href = 'office.html'; a.className = 'nav-item' + (here === 'office' ? ' active' : '');
       a.dataset.office = '1';
-      a.innerHTML = ICON.home + '<span>Opisina</span>';
+      a.innerHTML = ICON.home + '<span>Office</span>';
       rep.insertAdjacentElement('afterend', a);
     })();
     MENU.forEach(item => {
