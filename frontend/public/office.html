@@ -131,7 +131,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
     <div class="stats" aria-live="polite">
       <span class="chip"><i class="dot online"></i>Online <b id="sOn">0</b></span>
       <span class="chip"><i class="dot busy"></i>Busy <b id="sBusy">0</b></span>
-      <span class="chip"><i class="dot offline"></i>Offline <b id="sOff">0</b></span>
+      <span class="chip"><i class="dot offline"></i>Idle <b id="sOff">0</b></span>
       <span class="chip">Open chats <b id="sChats">0</b></span>
       <span class="chip">Unassigned <b id="sQueue">0</b></span>
       <span class="chip"><i class="dot offshift"></i>Off duty <b id="sOffDuty">0</b></span>
@@ -160,7 +160,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
       <div class="legend">
         <span><i class="dot online"></i>Online</span>
         <span><i class="dot busy"></i>Busy · may hawak na open chat</span>
-        <span><i class="dot offline"></i>Walang reply sa huling 20 min</span>
+        <span><i class="dot offline"></i>Idle · naka-duty, walang reply sa huling 20 min</span>
         <span><i class="dot offshift"></i>Wala sa shift</span>
         <span><i class="dot dayoff"></i>Day off</span>
       </div>
@@ -510,12 +510,12 @@ function drawOffice(t) {
   poly([up(a, 4), up(b, 4), up(b, 19), up(a, 19)], '#07121a', queue > 5 ? '#fbbf24' : '#38e1ff', 1.2);
 }
 function drawHome(p) {
-  const h = p.home, lit = p.view === 'online' || p.view === 'busy', c = rect4(h.x, h.y, HS, HS);
+  const h = p.home, lit = p.view === 'online' || p.view === 'busy' || p.view === 'offline', c = rect4(h.x, h.y, HS, HS);
   poly(c, h.floor); grid(h.x, h.y, HS, HS, 'rgba(255,255,255,0.04)');
   if (lit) {
     const cc = iso(h.x + HS / 2, h.y + HS / 2);
     const g = ctx.createRadialGradient(cc.x, cc.y, 4, cc.x, cc.y, 70);
-    g.addColorStop(0, 'rgba(255,214,140,0.28)'); g.addColorStop(1, 'rgba(255,214,140,0)');
+    g.addColorStop(0, p.view === 'offline' ? 'rgba(255,214,140,0.10)' : 'rgba(255,214,140,0.28)'); g.addColorStop(1, 'rgba(255,214,140,0)');
     poly(c, g);
   }
   ctx.save(); if (lit) { ctx.shadowColor = h.acc; ctx.shadowBlur = 8; }
@@ -561,8 +561,9 @@ function drawOfficeProps(t) {
 function drawPerson(p, t, selected) {
   const s = iso(p.seat.x, p.seat.y);
   p._head = { x: s.x, y: s.y - 22 };
-  if (p.view !== 'online' && p.view !== 'busy') return;
-  const busy = p.view === 'busy';
+  if (p.view !== 'online' && p.view !== 'busy' && p.view !== 'offline') return;
+  const busy = p.view === 'busy', idle = p.view === 'offline';
+  ctx.save(); if (idle) ctx.globalAlpha = 0.55;
   const bob = Math.sin(p.phase + t * (busy ? 9 : 3)) * (busy ? 0.8 : 0.4);
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(s.x, s.y, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
   if (selected) {
@@ -577,6 +578,7 @@ function drawPerson(p, t, selected) {
     ctx.strokeStyle = '#1b1e2e'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(s.x, top - 5, 6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
   }
   p._head = { x: s.x, y: top - 5 };
+  ctx.restore();
 }
 
 const COLORS = { online: '#4ade80', busy: '#fbbf24', offline: '#6b7090', offshift: '#3a3e58', dayoff: '#b48ce0' };
@@ -694,7 +696,7 @@ function buildList(el, list) {
 }
 buildList($('tlList'), people.filter(p => p.role === 'TL'));
 buildList($('agList'), people.filter(p => p.role === 'Agent'));
-const STATUS_TXT = { online: 'Online', busy: 'Busy', offline: 'Offline', offshift: 'Off shift', dayoff: 'Day off' };
+const STATUS_TXT = { online: 'Online', busy: 'Busy', offline: 'Idle · walang reply 20m', offshift: 'Off shift', dayoff: 'Day off' };
 const mins = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; };
 function select(id) { selectedId = id; render(); }
 function render() {
