@@ -124,6 +124,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
 .um-list{display:flex;flex-direction:column;gap:6px}
 .um-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .um-row select{flex:1;min-width:140px;background:var(--panel-2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font:inherit;font-size:12.5px}
+.brands{margin:10px 0 0;font-size:12.5px;color:var(--muted)}
 .aliases{margin-top:10px;font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .aliases button{background:var(--panel-2);border:1px solid var(--line);color:var(--fg);border-radius:999px;padding:2px 8px;font-family:var(--mono);font-size:11.5px}
 .unmatched code{font-family:var(--mono);font-size:12px;color:var(--fg);background:var(--panel-2);padding:1px 6px;border-radius:5px;display:inline-block;margin:2px 4px 2px 0}
@@ -196,12 +197,18 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
           <div><h2 id="dName">—</h2><p id="dRole"></p></div>
         </div>
         <span class="pill"><i class="dot" id="dDot"></i><span id="dState"></span></span>
+        <p class="brands" id="dBrands" hidden></p>
         <div class="aliases" id="dAliases" hidden></div>
         <div class="meta">
           <div><small>Open chats</small><b id="dChats">0</b></div>
           <div><small>Replied (12h)</small><b id="dDone">0</b></div>
           <div><small>Shift</small><b id="dShift">—</b></div>
         </div>
+      </div>
+      <div class="card" id="unmatchedCard" hidden>
+        <p class="label"><span>Unmatched Chatwoot names</span></p>
+        <p class="unmatched" id="unmatchedHelp"></p>
+        <div id="unmatchedList" class="um-list"></div>
       </div>
       <div class="card">
         <p class="label"><span>Managers & team leads</span><span id="tlCount">9</span></p>
@@ -214,11 +221,6 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
       <div class="card">
         <p class="label"><span>Schedule · Nov 1–15</span></p>
         <div class="shifts" id="shifts"></div>
-      </div>
-      <div class="card" id="unmatchedCard" hidden>
-        <p class="label"><span>Unmatched Chatwoot names</span></p>
-        <p class="unmatched" id="unmatchedHelp"></p>
-        <div id="unmatchedList" class="um-list"></div>
       </div>
       <div class="card">
         <p class="label"><span>Activity</span></p>
@@ -278,19 +280,35 @@ const TLS = [
 // Agents (WFH). 8h regular shifts, plus 12h buffers who cover absences.
 // cw: ['Pangalan sa Chatwoot'] — idagdag kapag iba ang display name nila sa Chatwoot.
 const AGENTS = [
-  { short: 'Milky', full: 'Milky Guerero', shift: 0, off: [1, 2] },
-  { short: 'Carmelette', full: 'Carmelette Ancheta', shift: 0, off: [14, 15] },
-  { short: 'Carl John', full: 'Carl John Mercene', shift: 1, off: [12, 13] },
-  { short: 'Lloyd', full: 'Lloyd Russel Morados', shift: 1, off: [10, 11] },
-  { short: 'Charina', full: 'Charina Becas', shift: 2, off: [14, 15] },
-  { short: 'Arlinda', full: 'Arlinda Marasigan', shift: 2, off: [5, 6] },
-  { short: 'Edrian', full: 'Edrian Salonga', shift: 3, off: [6, 7], buffer: true },
+  { short: 'Milky', full: 'Milky Guerero', shift: 0, off: [1, 2], team: 'bravo' },
+  { short: 'Carmelette', full: 'Carmelette Ancheta', shift: 0, off: [14, 15], team: 'delta' },
+  { short: 'Carl John', full: 'Carl John Mercene', shift: 1, off: [12, 13], team: 'bravo' },
+  { short: 'Lloyd', full: 'Lloyd Russel Morados', shift: 1, off: [10, 11], team: 'delta' },
+  { short: 'Charina', full: 'Charina Becas', shift: 2, off: [14, 15], team: 'bravo' },
+  { short: 'Arlinda', full: 'Arlinda Marasigan', shift: 2, off: [5, 6], team: 'delta' },
+  { short: 'Edrian', full: 'Edrian Salonga', shift: 3, off: [6, 7], team: 'echo' },
   { short: 'Nica', full: 'Nica Dimaandal', shift: 3, off: [3, 4], buffer: true },
-  { short: 'Arabela', full: 'Arabela Mabini', shift: 4, off: [7, 8], buffer: true },
+  { short: 'Arabela', full: 'Arabela Mabini', shift: 4, off: [7, 8], team: 'echo' },
   { short: 'Jonnel', full: 'Jonnel Binuya', shift: 4, off: [9, 10], buffer: true },
   { short: 'Shane', full: 'Shane Ching', shift: 0, off: [7, 8], kyc: true },
   { short: 'Jhaylan', full: 'Jhaylan Palacios', shift: 1, off: [9, 10], kyc: true },
 ];
+// BRANDS NA HAWAK (Nov 1–15 schedule; pareho sa CSR TEAMS ng Customers page).
+// Kapag hindi kilala ang Chatwoot name ng sumagot, ang may-hawak ng brand sa oras na iyon
+// ang binibilangan. Kapag day off ang may-hawak, ang naka-duty na buffer ang sumasalo.
+const TEAMS = {
+  bravo:   { label: 'BRAVO', names: 'Mobile Play Casino, Casinyeam, Manila Casino, SuperScatter PH, VMXPlay',
+             brands: ['mcp', 'mobilecasinoplay', 'casinyeam', 'manilacasino', 'superscatterph', 'vmxplay'] },
+  delta:   { label: 'DELTA', names: 'TMTCash, HypePlay PH, Manila Play, HypePlay BDT',
+             brands: ['tmtcash', 'hypleplayph', 'hypeplayph', 'manilaplayph', 'manilaplay', 'hypeplaybd', 'hypeplaybdt'] },
+  foxtrot: { label: 'FOXTROT', names: 'MGK, TMTPlay, Buenas Credit, LuckyStacks PH, Swabe Gaming, Extreme BBC 001', buffer: true,
+             brands: ['mgk', '88mgk', 'mastergoldkey', 'tmtplay', 'buenascredit', 'luckystacksph', 'swabegaming', 'swabe', 'extremebbc001', 'extremebbc'] },
+  echo:    { label: 'ECHO', names: 'Buenas Cash, Primo Gaming',
+             brands: ['buenasph', 'buenascash', 'primogaming'] },
+};
+const brandKey = b => String(b || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const TEAM_OF_BRAND = new Map();
+Object.entries(TEAMS).forEach(([k, t]) => t.brands.forEach(b => TEAM_OF_BRAND.set(brandKey(b), k)));
 const SKIN = ['#f1c27d','#e0ac69','#c68642','#a0673a','#ffdbac','#d9a066'];
 const HAIR = ['#1d1a1a','#3b2a20','#5a3a22','#121212','#7a4b2a','#2b2b3a'];
 const SHIRTS = ['#38e1ff','#7dd3fc','#a5b4fc','#5eead4','#93c5fd','#c4b5fd','#67e8f9','#99f6e4','#bfdbfe'];
@@ -314,7 +332,7 @@ AGENTS.forEach((ag, i) => { const name = ag.short;
   const c = HOME_COLORS[i % HOME_COLORS.length];
   const home = { x: hx, y: hy, floor: c[0], wall: c[1], acc: c[2] };
   const desk = { x: hx + 1.1, y: hy + 0.6, w: 1.8, d: 0.7 };
-  people.push({ id: 'ag' + i, name, full: ag.full, shift: ag.shift, off: ag.off, buffer: !!ag.buffer, kyc: !!ag.kyc, role: 'Agent', where: 'WFH', home, desk,
+  people.push({ id: 'ag' + i, name, full: ag.full, shift: ag.shift, off: ag.off, buffer: !!ag.buffer, kyc: !!ag.kyc, team: ag.team || (ag.buffer ? 'foxtrot' : null), role: 'Agent', where: 'WFH', home, desk,
     seat: { x: desk.x + 0.9, y: desk.y + 1.3 }, shirt: AG_SHIRTS[i], skin: SKIN[(i + 2) % 6], hair: HAIR[(i * 7 + 1) % 6],
     cw: ag.cw || [], status: 'offline', chats: 0, done: 0, lastSeen: null,
     since: now(), phase: Math.random() * 6 });
@@ -342,6 +360,20 @@ const P = Object.fromEntries(people.map(p => [p.id, p]));
 let previewHour = null; // null = follow the clock
 const inShift = (S, h) => (h - S.start + 24) % 24 < S.len;
 function shiftStartDay(S, d, h) { const x = new Date(d); x.setHours(h); if (h < S.start) x.setDate(x.getDate() - 1); return x; }
+function dutyAt(p, d) {               // 'on' | 'offshift' | 'dayoff' sa oras na d
+  if (p.shift == null) return 'offshift';
+  const S = SHIFTS[p.shift], h = d.getHours();
+  if (!inShift(S, h)) return 'offshift';
+  const sd = shiftStartDay(S, d, h);
+  return sd.getMonth() === 10 && p.off.includes(sd.getDate()) ? 'dayoff' : 'on';
+}
+function ownerAt(brand, d) {          // sino ang may hawak ng brand sa oras na d
+  const team = TEAM_OF_BRAND.get(brandKey(brand)); if (!team) return null;
+  const buffer = people.find(p => p.buffer && dutyAt(p, d) === 'on') || null;
+  if (TEAMS[team].buffer) return buffer;
+  const owner = people.find(p => p.team === team && !p.buffer && dutyAt(p, d) !== 'offshift');
+  return owner && dutyAt(owner, d) === 'on' ? owner : buffer;
+}
 function updateDuty() {
   const d = new Date(), h = previewHour ?? d.getHours();
   people.forEach(p => {
@@ -440,7 +472,9 @@ async function loadLive() {
     // huling human agent bawat conversation + bilang ng reply bawat tao
     const lastAgent = new Map(), replies = new Map(), seen = new Map(), unmatched = new Map();
     messages.forEach(m => {                                            // newest first
-      const k = m.brand + ':' + m.conversationId, p = matchPerson(m.agent), t = Date.parse(m.createdAt);
+      const k = m.brand + ':' + m.conversationId, t = Date.parse(m.createdAt);
+      // 1) naka-link na Chatwoot name; 2) kung hindi, ang may-hawak ng brand sa oras ng reply
+      const p = matchPerson(m.agent) || ownerAt(m.brand, new Date(t));
       if (!p) { unmatched.set(m.agent, (unmatched.get(m.agent) || 0) + 1); return; }
       if (!lastAgent.has(k)) lastAgent.set(k, p);
       replies.set(p, (replies.get(p) || 0) + 1);
@@ -1058,7 +1092,7 @@ function render() {
   $('sOn').textContent = c.online; $('sBusy').textContent = c.busy; $('sOff').textContent = c.offline;
   $('sChats').textContent = chats; $('sOffDuty').textContent = c.offshift + c.dayoff;
   const cur = SHIFTS.map((S, i) => i).filter(i => inShift(SHIFTS[i], hr));
-  $('shiftChip').textContent = (previewHour === null ? 'Now: ' : 'Preview: ') + cur.map(i => SHIFTS[i].label + (SHIFTS[i].buffer ? ' (buffer)' : '')).join(' + ');
+  $('shiftChip').textContent = (previewHour === null ? 'Now: ' : 'Preview: ') + cur.map(i => SHIFTS[i].label + (SHIFTS[i].len === 12 ? ' (12h)' : '')).join(' + ');
   renderShifts(hr); $('sQueue').textContent = queue;
   const tlOn = people.filter(p => p.role === 'TL' && p.duty === 'on').length;
   const agOn = people.filter(p => p.role === 'Agent' && p.duty === 'on').length;
@@ -1078,6 +1112,9 @@ function render() {
   OfficeAvatar.portrait($('dPortrait'), p.look, 64, 84, performance.now() / 1000);
   if (p.photoSrc) { $('dPhoto').src = p.photoSrc; $('dPhoto').hidden = false; } else $('dPhoto').hidden = true;
   $('dName').textContent = p.full || p.name;
+  const tm = p.team && TEAMS[p.team];
+  $('dBrands').textContent = tm ? `${tm.label}: ${tm.names}${p.buffer ? ' (buffer: also covers day-offs)' : ''}` : '';
+  $('dBrands').hidden = !tm;
   $('dRole').textContent = p.role === 'Manager' ? `${p.title} · ${p.where}` : p.role === 'TL' ? 'Team lead · Main office' : (p.buffer ? 'Buffer agent (12h) · WFH' : p.kyc ? 'KYC agent · WFH' : 'Agent · Work from home') + (p.covering ? ` · covering ${p.covering}` : '');
   $('dDot').className = 'dot ' + p.view;
   $('dState').textContent = STATUS_TXT[p.view] + (p.off.length ? ` · Off Nov ${p.off.join('–')}` : '') + (p.duty === 'on' ? ` · ${mins(now() - p.since)}` : '') + (p.lastSeen ? ` · last reply ${mins(now() - p.lastSeen)} ago` : '');
@@ -1090,7 +1127,7 @@ function renderShifts(hr) {
   shiftsEl.innerHTML = SHIFTS.map((S, i) => {
     const live = inShift(S, hr), sd = shiftStartDay(S, d, hr), day = sd.getMonth() === 10 ? sd.getDate() : null;
     const crew = people.filter(p => p.shift === i).sort((a, b) => (a.role === 'TL' ? 0 : 1) - (b.role === 'TL' ? 0 : 1));
-    return `<div class="shift${live ? ' now' : ''}"><h3>${S.label}${S.buffer ? ' · buffer 12h' : ''}${live ? '<span>ON DUTY</span>' : ''}</h3><ul>` +
+    return `<div class="shift${live ? ' now' : ''}"><h3>${S.label}${S.len === 12 ? ' · 12h' : ''}${live ? '<span>ON DUTY</span>' : ''}</h3><ul>` +
       crew.map(p => { const off = live && day && p.off.includes(day);
         return `<li class="${off ? 'off' : ''}"><b>${p.full}</b> · ${p.role === 'TL' ? 'TL' : p.kyc ? 'KYC' : 'agent'} · off ${p.off.join('–')}${off ? ' · day off today' : ''}</li>`; }).join('') + '</ul></div>';
   }).join('');
