@@ -120,7 +120,12 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
 .back{color:var(--accent);text-decoration:none;font-weight:600;font-size:13px}
 .badge.live{color:var(--online);border-color:color-mix(in srgb,var(--online) 60%,transparent);border-style:solid}
 .badge.err{color:#ff8a7a;border-color:#ff8a7a}
-.unmatched{font-size:12.5px;color:var(--muted);margin:0}
+.unmatched{font-size:12.5px;color:var(--muted);margin:0 0 8px}
+.um-list{display:flex;flex-direction:column;gap:6px}
+.um-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.um-row select{flex:1;min-width:140px;background:var(--panel-2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font:inherit;font-size:12.5px}
+.aliases{margin-top:10px;font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.aliases button{background:var(--panel-2);border:1px solid var(--line);color:var(--fg);border-radius:999px;padding:2px 8px;font-family:var(--mono);font-size:11.5px}
 .unmatched code{font-family:var(--mono);font-size:12px;color:var(--fg);background:var(--panel-2);padding:1px 6px;border-radius:5px;display:inline-block;margin:2px 4px 2px 0}
 </style>
 </head>
@@ -191,6 +196,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
           <div><h2 id="dName">—</h2><p id="dRole"></p></div>
         </div>
         <span class="pill"><i class="dot" id="dDot"></i><span id="dState"></span></span>
+        <div class="aliases" id="dAliases" hidden></div>
         <div class="meta">
           <div><small>Open chats</small><b id="dChats">0</b></div>
           <div><small>Replied (12h)</small><b id="dDone">0</b></div>
@@ -211,7 +217,8 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
       </div>
       <div class="card" id="unmatchedCard" hidden>
         <p class="label"><span>Unmatched Chatwoot names</span></p>
-        <p class="unmatched">These names replied in Chatwoot but don't match anyone in the roster. Add them to the right person's <code>cw</code> list in office.html:<br><span id="unmatchedList"></span></p>
+        <p class="unmatched" id="unmatchedHelp"></p>
+        <div id="unmatchedList" class="um-list"></div>
       </div>
       <div class="card">
         <p class="label"><span>Activity</span></p>
@@ -381,9 +388,13 @@ function setStatus(p, s) { if (p.status !== s) { p.status = s; p.since = now(); 
 const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 let nameIndex = new Map();
 const photoByName = new Map();
+let lastDirectory = [], officeAliases = [], canMapNames = false;
 function buildNameIndex(directory) {
+  if (directory) lastDirectory = directory; else directory = lastDirectory;
   nameIndex = new Map();
+  people.forEach(p => { p.aliasList = []; });
   const add = (k, p) => { k = norm(k); if (k && !nameIndex.has(k)) nameIndex.set(k, p); };
+  officeAliases.forEach(a => { const p = people.find(x => x.full === a.person); if (p) { add(a.alias, p); p.aliasList.push(a.alias); } });  // naka-map sa page
   people.forEach(p => { p.cw.forEach(n => add(n, p)); });            // explicit Chatwoot names win
   people.forEach(p => { add(p.full, p); add(p.name, p); });
   (directory || []).forEach(u => {                                    // CRM accounts: name + aliases
@@ -414,6 +425,8 @@ async function loadLive() {
   try {
     if (!dirLoaded) {
       const d = await getJSON('/auth/directory').catch(() => ({ users: [] }));
+      const al = await getJSON('/office/aliases').catch(() => ({ aliases: [], canEdit: false }));
+      officeAliases = al.aliases || []; canMapNames = !!al.canEdit;
       buildNameIndex(d.users); dirLoaded = true;
     }
     const to = new Date(), from = new Date(to.getTime() - WINDOW_MS);
@@ -434,8 +447,13 @@ async function loadLive() {
       if (!seen.has(p) || t > seen.get(p)) seen.set(p, t);
     });
     const openBy = new Map(); let q = 0;
+    const tnowC = Date.now();
     conversations.forEach(c => {
-      if (String(c.status).toLowerCase() !== 'open') return;
+      // ONGOING (pareho sa Customers page): hindi resolved/HH closed, at may galaw sa huling 10 min
+      const st = String(c.status || '').toLowerCase();
+      if (st === 'resolved' || c.handoffStage === 'closed') return;
+      const idleMin = c.lastActivityAt ? (tnowC - new Date(c.lastActivityAt).getTime()) / 60000 : Infinity;
+      if (idleMin >= 10) return;
       const p = lastAgent.get(c.brand + ':' + c.conversationId);
       if (p) openBy.set(p, (openBy.get(p) || 0) + 1);
       else if (c.handoffAt && !c.humanReplied) q++;
@@ -463,7 +481,21 @@ async function loadLive() {
     const list = [...unmatched.entries()].sort((a, b) => b[1] - a[1]);
     document.getElementById('unmatchedCard').hidden = !list.length;
     const ul = document.getElementById('unmatchedList'); ul.textContent = '';
-    list.slice(0, 30).forEach(([n, c]) => { const el = document.createElement('code'); el.textContent = `${n} (${c})`; ul.appendChild(el); });
+    list.slice(0, 30).forEach(([n, c]) => {
+      const row = document.createElement('div'); row.className = 'um-row';
+      const el = document.createElement('code'); el.textContent = `${n} (${c})`; row.appendChild(el);
+      if (canMapNames) {
+        const sel = document.createElement('select'); sel.setAttribute('aria-label', `Assign ${n} to a person`);
+        sel.innerHTML = '<option value="">Assign to…</option>';
+        people.filter(p => !/to fill in/i.test(p.full)).forEach(p => { const o = document.createElement('option'); o.value = p.full; o.textContent = `${p.full} (${p.role === 'Agent' ? 'agent' : p.role})`; sel.appendChild(o); });
+        sel.onchange = () => saveAlias(n, sel.value);
+        row.appendChild(sel);
+      }
+      ul.appendChild(row);
+    });
+    document.getElementById('unmatchedHelp').textContent = canMapNames
+      ? 'These Chatwoot names replied to chats but are not linked to anyone yet. Pick who each one is; it is saved for everyone.'
+      : 'These Chatwoot names replied to chats but are not linked to anyone yet. Ask an admin or team lead to assign them.';
 
     badge.className = 'badge live';
     badge.textContent = 'LIVE · ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -472,6 +504,24 @@ async function loadLive() {
     badge.className = 'badge err'; badge.textContent = 'Couldn\'t load';
     log(`Couldn't load data: ${String(e.message).replace(/</g, '&lt;')}`);
   } finally { loading = false; }
+}
+async function saveAlias(alias, person) {
+  if (!person) return;
+  try {
+    const r = await fetch(API_BASE + '/office/aliases', { method: 'PUT', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ alias, person }) });
+    if (!r.ok) throw new Error(r.status === 404 ? 'the backend needs updating' : r.status === 403 ? 'only admins and team leads can do this' : 'HTTP ' + r.status);
+    officeAliases = officeAliases.filter(a => a.alias !== alias).concat([{ alias, person }]);
+    buildNameIndex(); log(`Linked <b>${esc(alias)}</b> to <b>${esc(person)}</b>`);
+    loadLive();
+  } catch (e) { log(`Couldn't link ${esc(alias)}: ${esc(e.message)}`); }
+}
+async function unlinkAlias(alias) {
+  try {
+    const r = await fetch(API_BASE + '/office/aliases', { method: 'PUT', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ alias, person: null }) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    officeAliases = officeAliases.filter(a => a.alias !== alias); buildNameIndex();
+    log(`Unlinked <b>${esc(alias)}</b>`); loadLive();
+  } catch (e) { log(`Couldn't unlink ${esc(alias)}: ${esc(e.message)}`); }
 }
 loadLive(); setInterval(loadLive, POLL_MS);
 
@@ -1000,6 +1050,16 @@ function render() {
   $('tlCount').textContent = `${tlOn} on duty`; $('agCount').textContent = `${agOn} on duty`;
   $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const p = P[selectedId];
+  const al = $('dAliases'), alKey = p.id + '|' + (p.aliasList || []).join('|') + canMapNames;
+  if (al.dataset.key !== alKey) {
+    al.dataset.key = alKey; al.textContent = '';
+    if (p.aliasList && p.aliasList.length) {
+      al.append('Chatwoot names:');
+      p.aliasList.forEach(n => { const b = document.createElement('button'); b.type = 'button'; b.textContent = canMapNames ? n + ' ✕' : n;
+        if (canMapNames) { b.title = 'Unlink'; b.onclick = () => unlinkAlias(n); } else b.disabled = true; al.appendChild(b); });
+    }
+    al.hidden = !(p.aliasList && p.aliasList.length);
+  }
   OfficeAvatar.portrait($('dPortrait'), p.look, 64, 84, performance.now() / 1000);
   if (p.photoSrc) { $('dPhoto').src = p.photoSrc; $('dPhoto').hidden = false; } else $('dPhoto').hidden = true;
   $('dName').textContent = p.full || p.name;
