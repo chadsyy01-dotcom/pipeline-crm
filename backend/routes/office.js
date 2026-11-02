@@ -73,7 +73,7 @@ let sayCounter = 0;
 router.post('/say', async (req, res) => {
   try {
     const text = String(req.body?.text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
-    if (!text) return res.status(400).json({ error: 'Walang mensahe' });
+    if (!text) return res.status(400).json({ error: 'Message is empty' });
     const prev = presence.get(req.user.id) || { id: req.user.id, email: req.user.email || null, name: await nameOf(req), x: 0, y: 0, away: false };
     presence.set(req.user.id, { ...prev, say: text, sayAt: Date.now(), sayId: ++sayCounter, at: Date.now() });
     res.json({ ok: true, sayId: sayCounter });
@@ -101,9 +101,9 @@ router.get('/avatars', async (req, res) => {
 router.put('/avatar', async (req, res) => {
   try {
     const config = req.body?.config;
-    if (!config || typeof config !== 'object' || Array.isArray(config)) return res.status(400).json({ error: 'config (object) ang kailangan' });
+    if (!config || typeof config !== 'object' || Array.isArray(config)) return res.status(400).json({ error: 'config must be an object' });
     const json = JSON.stringify(config);
-    if (json.length > MAX_CONFIG_CHARS) return res.status(400).json({ error: 'Masyadong malaki ang wardrobe' });
+    if (json.length > MAX_CONFIG_CHARS) return res.status(400).json({ error: 'Wardrobe is too large' });
     await ready;
     await sequelize.query(`
       INSERT INTO "OfficeAvatars" ("userId", "config", "updatedAt") VALUES (:id, CAST(:json AS JSONB), NOW())
