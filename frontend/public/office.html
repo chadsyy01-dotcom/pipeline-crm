@@ -110,6 +110,13 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
   .stage{min-height:0;height:64vh;max-height:600px;position:relative;top:auto}
   .stats{margin-left:0}
 }
+.portrait{position:relative;width:64px;height:84px;flex:none;background:var(--panel-2);border-radius:12px}
+.portrait canvas{width:64px;height:84px;display:block}
+.portrait img{position:absolute;right:-6px;bottom:-6px;width:26px;height:26px;border-radius:50%;object-fit:cover;border:2px solid var(--panel)}
+.say{position:absolute;left:50%;transform:translateX(-50%);bottom:34px;display:flex;gap:6px;width:min(420px,calc(100% - 24px));background:rgba(19,21,36,.92);border:1px solid var(--line);border-radius:12px;padding:6px}
+.say input{flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--fg);padding:7px 10px;font:inherit;font-size:13px}
+.say input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.say button{background:var(--accent);color:#06222b;border:0;border-radius:8px;padding:7px 12px;font-weight:600;font-size:13px}
 .back{color:var(--accent);text-decoration:none;font-weight:600;font-size:13px}
 .badge.live{color:var(--online);border-color:color-mix(in srgb,var(--online) 60%,transparent);border-style:solid}
 .badge.err{color:#ff8a7a;border-color:#ff8a7a}
@@ -148,6 +155,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         <div class="seg" id="walkSeg" hidden>
           <button id="backBtn">Bumalik sa desk</button>
           <button id="confBtn">Conference room</button>
+          <button id="wardBtn">Wardrobe ko</button>
         </div>
         <div class="seg" role="group" aria-label="Show shift">
           <button data-shift="now" aria-pressed="true">Now</button>
@@ -161,6 +169,10 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
           <button id="zIn" aria-label="Zoom in">+</button>
         </div>
       </div>
+      <form class="say" id="sayForm" hidden>
+        <input id="sayInput" maxlength="160" autocomplete="off" placeholder="Magsabi ng kahit ano… (lalabas sa ulo mo)" aria-label="Mensahe">
+        <button type="submit">Ipadala</button>
+      </form>
       <div class="legend">
         <span>I-click ang mapa o arrow keys / WASD para maglakad</span>
         <span><i class="dot online"></i>Online</span>
@@ -175,7 +187,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
       <div class="card">
         <p class="label"><span>Selected</span></p>
         <div class="detail-head">
-          <div class="avatar" id="dAv">A</div>
+          <div class="portrait"><canvas id="dPortrait" width="64" height="84" aria-label="Itsura ng karakter"></canvas><img id="dPhoto" alt="" hidden></div>
           <div><h2 id="dName">—</h2><p id="dRole"></p></div>
         </div>
         <span class="pill"><i class="dot" id="dDot"></i><span id="dState"></span></span>
@@ -209,6 +221,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
   </main>
 </div>
 
+<script src="office-avatar.js?v=1"></script>
 <script>
 (() => {
 // ---------- Geometry ----------
@@ -227,6 +240,7 @@ const HOME_POS = [
   [2,18],[2,11],                  // left
 ];
 const CHAD_ROOM = { x: 37, y: 4, w: 6, h: 5, floor: '#2c2538', wall: '#1f1a2b', acc: '#f5c26b', label: 'OPISINA NI CHAD' };
+const FAYE_ROOM = { x: 38, y: 25, w: 6, h: 5, floor: '#2b2436', wall: '#1f1a28', acc: '#f0abfc', label: 'OPERATIONS MANAGER · FAYE' };
 const CONF = { x: 37, y: 14, w: 8, h: 7, floor: '#1c2a33', wall: '#142028', acc: '#7dd3fc', label: 'CONFERENCE ROOM' };
 const GROUND = { x0: 0.6, y0: 0.6, x1: 47, y1: 33 };
 const HOME_COLORS = [
@@ -299,17 +313,20 @@ AGENTS.forEach((ag, i) => { const name = ag.short;
     since: now(), phase: Math.random() * 6 });
 });
 // Manager — sariling kwarto, walking distance mula sa main office
-{
-  const desk = { x: CHAD_ROOM.x + 1.9, y: CHAD_ROOM.y + 0.8, w: 2.2, d: 0.8 };
-  people.push({ id: 'mgr', name: 'Chad', full: 'Chad Syy', shift: null, off: [], role: 'Manager', where: 'Opisina ni Chad', desk,
-    seat: { x: desk.x + 1.1, y: desk.y + 1.45 }, shirt: '#f5c26b', skin: SKIN[0], hair: HAIR[3],
-    cw: [], status: 'offline', chats: 0, done: 0, lastSeen: null, since: now(), phase: 1 });
-}
+[
+  { id: 'mgr', name: 'Chad', full: 'Chad Syy', title: 'Manager', where: 'Opisina ni Chad', room: CHAD_ROOM },
+  { id: 'head', name: 'Faye', full: 'Faye', title: 'Operations Manager', where: 'Opisina ni Faye', room: FAYE_ROOM },
+].forEach((m, i) => {
+  const desk = { x: m.room.x + 1.9, y: m.room.y + 0.8, w: 2.2, d: 0.8 };
+  people.push({ ...m, shift: null, off: [], role: 'Manager', desk, seat: { x: desk.x + 1.1, y: desk.y + 1.45 },
+    shirt: '#f5c26b', skin: SKIN[i], hair: HAIR[3], cw: [], status: 'offline', chats: 0, done: 0, lastSeen: null, since: now(), phase: 1 + i });
+});
 // Email ng CRM account ng bawat tao (opsyonal). Kapag walang email dito, itinutugma
 // sa pangalan/aliases ng account. Hal: EMAILS['Milky Guerero'] = 'milky@company.com';
 const EMAILS = {};
 people.forEach(p => {
   p.email = String(EMAILS[p.full] || '').toLowerCase();
+  p.look = OfficeAvatar.defaults(p.full, { headset: p.role === 'Agent' });
   p.pos = { x: p.seat.x, y: p.seat.y }; p.away = false; p.target = null; p.walking = false; p.present = false;
 });
 const P = Object.fromEntries(people.map(p => [p.id, p]));
@@ -363,13 +380,16 @@ const ACTIVE_MS = 20 * 60000, WINDOW_MS = 12 * 3600000, POLL_MS = 30000;
 function setStatus(p, s) { if (p.status !== s) { p.status = s; p.since = now(); } }
 const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 let nameIndex = new Map();
+const photoByName = new Map();
 function buildNameIndex(directory) {
   nameIndex = new Map();
   const add = (k, p) => { k = norm(k); if (k && !nameIndex.has(k)) nameIndex.set(k, p); };
   people.forEach(p => { p.cw.forEach(n => add(n, p)); });            // explicit Chatwoot names win
   people.forEach(p => { add(p.full, p); add(p.name, p); });
   (directory || []).forEach(u => {                                    // CRM accounts: name + aliases
+    if (u.avatar) photoByName.set(norm(u.name), u.avatar);
     const p = nameIndex.get(norm(u.name)); if (!p) return;
+    if (u.avatar) { p.photoSrc = u.avatar; p.photo = new Image(); p.photo.src = u.avatar; }
     String(u.aliases || '').split(/[,;\n]/).forEach(a => add(a, p));
   });
 }
@@ -473,7 +493,10 @@ function visitorFor(u) {
   if (!v) {
     v = { id: 'v' + u.id, name: String(u.name || 'Bisita').split(' ')[0], full: u.name || 'Bisita', role: 'Visitor', visitor: true,
       shirt: '#e2e8f0', skin: SKIN[(Number(u.id) || 0) % 6], hair: HAIR[(Number(u.id) || 0) % 6], view: 'online', phase: 0,
-      seat: { ...ENTRY }, pos: { ...ENTRY }, away: true, target: { ...ENTRY }, walking: false };
+      seat: { ...ENTRY }, pos: { ...ENTRY }, away: true, target: { ...ENTRY }, walking: false,
+      look: OfficeAvatar.defaults('user' + u.id) };
+    const src = photoByName.get(norm(u.name)); if (src) { v.photoSrc = src; v.photo = new Image(); v.photo.src = src; }
+    if (avatarCfg.has(u.id)) v.look = OfficeAvatar.sanitize(avatarCfg.get(u.id), 'user' + u.id);
     visitors.set(u.id, v);
   }
   return v;
@@ -506,6 +529,8 @@ async function pollPresence() {
       const w = myWalker(); w.me = true;
       document.getElementById('walkSeg').hidden = false;
       log(`Ikaw si <b>${w.name}</b>. I-click ang mapa para maglakad.`);
+      document.getElementById('sayForm').hidden = false;
+      loadAvatars();
       sendPresence(true);
     }
     const r = await fetch(API_BASE + '/office/presence', { headers: auth() });
@@ -521,11 +546,55 @@ async function pollPresence() {
       w.present = true;
       if (!p) seenV.add(u.id);
       if (!w.me) { w.away = u.away || !p; w.target = clampG(u.x, u.y); }
+      if (u.sayId && u.sayId !== w.sayId) {
+        const fresh = w.sayId !== undefined || Date.now() - (u.sayAt || 0) < 15000;
+        w.sayId = u.sayId;
+        if (fresh) { w.bubble = { text: u.say, until: performance.now() + 8000 }; log(`<b>${esc(w.name)}</b>: ${esc(u.say)}`); }
+      }
     });
     visitors.forEach((v, id) => { if (!seenV.has(id) && !(me && id === me.id)) visitors.delete(id); });
   } catch (e) {}
 }
 setInterval(pollPresence, 2000); pollPresence();
+setInterval(() => loadAvatars(), 60000);
+
+// ---------- Wardrobe (itsura ng karakter) ----------
+const esc = v => String(v).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const avatarCfg = new Map();             // userId -> config (galing sa server)
+async function loadAvatars() {
+  if (!presenceOn || !dirLoaded) return;
+  try {
+    const r = await fetch(API_BASE + '/office/avatars', { headers: auth() });
+    if (!r.ok) return;
+    const { avatars = [] } = await r.json();
+    avatars.forEach(a => {
+      avatarCfg.set(a.id, a.config);
+      const w = me && a.id === me.id ? myWalker() : (personFor(a) || visitors.get(a.id));
+      if (w) w.look = OfficeAvatar.sanitize(a.config, w.visitor ? 'user' + a.id : w.full, { headset: w.role === 'Agent' });
+    });
+  } catch (e) {}
+}
+document.getElementById('wardBtn').onclick = () => {
+  const w = myWalker(); if (!w) return;
+  OfficeAvatar.openEditor(w.look, async cfg => {
+    const r = await fetch(API_BASE + '/office/avatar', { method: 'PUT', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ config: cfg }) });
+    if (!r.ok) throw new Error(r.status === 404 ? 'kailangang i-update ang backend' : 'HTTP ' + r.status);
+    w.look = OfficeAvatar.sanitize(cfg, w.visitor ? 'user' + me.id : w.full, { headset: w.role === 'Agent' });
+    log(`Na-save ang wardrobe mo. Suot: <b>${esc(OfficeAvatar.outfit(w.look).name)}</b>`);
+  }, w.full);
+};
+document.getElementById('sayForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const inp = document.getElementById('sayInput'), text = inp.value.replace(/\s+/g, ' ').trim().slice(0, 160);
+  const w = myWalker(); if (!text || !w) return;
+  inp.value = '';
+  w.bubble = { text, until: performance.now() + 8000 };
+  log(`<b>${esc(w.name)}</b>: ${esc(text)}`);
+  try {
+    const r = await fetch(API_BASE + '/office/say', { method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+    if (r.ok) { const d = await r.json(); w.sayId = d.sayId; } else if (r.status === 404) presenceOff();
+  } catch (err) {}
+});
 setInterval(() => sendPresence(true), 60000);   // keep-alive para hindi mawala sa listahan
 
 const keys = new Set();
@@ -635,6 +704,7 @@ function drawGround() {
   ctx.strokeStyle = 'rgba(245,194,107,0.16)';
   line(CHAD_ROOM.x + CHAD_ROOM.w / 2, CHAD_ROOM.y + CHAD_ROOM.h / 2);
   line(CONF.x + CONF.w / 2, CONF.y + CONF.h / 2);
+  line(FAYE_ROOM.x + FAYE_ROOM.w / 2, FAYE_ROOM.y + FAYE_ROOM.h / 2);
   ctx.setLineDash([]);
 }
 function drawShell(R) {
@@ -664,6 +734,14 @@ function drawExtraRooms(t) {
   const pp = iso(CHAD_ROOM.x + 5.45, CHAD_ROOM.y + 4.45);
   ctx.fillStyle = '#3f9a5c'; ctx.beginPath(); ctx.arc(pp.x, pp.y - 15, 6.5, 0, Math.PI * 2); ctx.fill();
   const chad = P.mgr; drawDesk(chad, t); drawPerson(chad, t, chad.id === selectedId);
+  // Opisina ni Faye (Operations Manager): desk, cabinet, maliit na meeting table, halaman
+  drawShell(FAYE_ROOM);
+  box(FAYE_ROOM.x + 0.3, FAYE_ROOM.y + 0.3, 0.6, 1.8, 22, '#4b3b5c');
+  box(FAYE_ROOM.x + 0.8, FAYE_ROOM.y + 3.4, 1.4, 1.1, 6, '#6b5a7a');
+  box(FAYE_ROOM.x + 5.2, FAYE_ROOM.y + 4.2, 0.5, 0.5, 7, '#7a5a44');
+  const fp = iso(FAYE_ROOM.x + 5.45, FAYE_ROOM.y + 4.45);
+  ctx.fillStyle = '#3f9a5c'; ctx.beginPath(); ctx.arc(fp.x, fp.y - 15, 6.5, 0, Math.PI * 2); ctx.fill();
+  const faye = P.head; drawDesk(faye, t); drawPerson(faye, t, faye.id === selectedId);
 }
 function drawOffice(t) {
   const O = OFFICE, c = rect4(O.x, O.y, O.w, O.h);
@@ -731,28 +809,17 @@ function drawPerson(p, t, selected, moverPass) {
   if (!moverPass && isMover(p)) { p._head = null; return; }
   const s = iso(p.pos.x, p.pos.y);
   p._head = { x: s.x, y: s.y - 22 };
-  if (!moverPass && p.view !== 'online' && p.view !== 'busy' && p.view !== 'offline') return;
-  const busy = p.view === 'busy', idle = p.view === 'offline' && !moverPass;
-  if (moverPass && p.walking) { // mga paa habang naglalakad
-    const k = Math.sin(t * 12 + p.phase) * 2.5;
-    ctx.strokeStyle = '#1b1e2e'; ctx.lineWidth = 2.4; ctx.beginPath();
-    ctx.moveTo(s.x - 2, s.y - 6); ctx.lineTo(s.x - 2 + k, s.y - 1); ctx.moveTo(s.x + 2, s.y - 6); ctx.lineTo(s.x + 2 - k, s.y - 1); ctx.stroke();
-  }
+  if (!moverPass && p.view !== 'online' && p.view !== 'busy' && p.view !== 'offline' && !p.present) return;
+  const idle = p.view === 'offline' && !moverPass && !p.present;
   ctx.save(); if (idle) ctx.globalAlpha = 0.55;
-  const bob = Math.sin(p.phase + t * (busy ? 9 : 3)) * (busy ? 0.8 : 0.4);
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(s.x, s.y, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
   if (selected) {
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5);
-    ctx.beginPath(); ctx.ellipse(s.x, s.y, 12, 6, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5);
+    ctx.beginPath(); ctx.ellipse(s.x, s.y, 12, 6, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
   }
-  const top = s.y - (moverPass ? 20 : 17) - bob - (moverPass && p.walking ? Math.abs(Math.sin(t * 12 + p.phase)) * 1.5 : 0);
-  ctx.fillStyle = p.shirt; roundRect(s.x - 5.5, top, 11, 12, 4); ctx.fill();
-  ctx.fillStyle = p.skin; ctx.beginPath(); ctx.arc(s.x, top - 5, 5, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = p.hair; ctx.beginPath(); ctx.arc(s.x, top - 6.5, 5.2, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
-  if (p.role === 'Agent') { // headset
-    ctx.strokeStyle = '#1b1e2e'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(s.x, top - 5, 6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
-  }
-  p._head = { x: s.x, y: top - 5 };
+  const r = OfficeAvatar.draw(ctx, p.look, s.x, s.y, { scale: 0.8, t: t + p.phase, walking: moverPass && p.walking,
+    sitting: !moverPass, sleep: idle, seed: p.phase });
+  p._head = { x: s.x, y: r.headY + 7 };
   ctx.restore();
 }
 
@@ -788,7 +855,7 @@ function draw(t) {
   const ttl = 'MAIN OFFICE · TEAM LEADS', tw = ctx.measureText(ttl).width + 16;
   ctx.fillStyle = 'rgba(11,12,21,0.88)'; roundRect(ot.x - tw / 2, ot.y - 8, tw, 16, 8); ctx.fill();
   ctx.strokeStyle = OFFICE.acc; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = OFFICE.acc; ctx.fillText(ttl, ot.x, ot.y + 0.5);
-  [CHAD_ROOM, CONF].forEach(R => {
+  [CHAD_ROOM, CONF, FAYE_ROOM].forEach(R => {
     const rp = toS(up(iso(R.x, R.y), WH + 14)), rw = ctx.measureText(R.label).width + 16;
     ctx.fillStyle = 'rgba(11,12,21,0.88)'; roundRect(rp.x - rw / 2, rp.y - 8, rw, 16, 8); ctx.fill();
     ctx.strokeStyle = R.acc; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = R.acc; ctx.fillText(R.label, rp.x, rp.y + 0.5);
@@ -798,23 +865,43 @@ function draw(t) {
     ctx.font = `600 ${Math.max(8, 10 * s)}px "IBM Plex Mono", monospace`;
     ctx.fillStyle = queue > 5 ? '#fbbf24' : '#38e1ff'; ctx.fillText(`QUEUE ${queue}`, qs.x, qs.y);
   }
+  // chat bubbles
+  function drawBubble(b, cx, by) {
+    const left = b.until - performance.now(); if (left <= 0) return;
+    ctx.save(); ctx.globalAlpha = Math.min(1, left / 600);
+    ctx.font = '500 12px "IBM Plex Sans", system-ui, sans-serif'; ctx.textAlign = 'left';
+    const words = b.text.split(' '), lines = []; let cur = '';
+    words.forEach(wd => { const t2 = cur ? cur + ' ' + wd : wd; if (ctx.measureText(t2).width > 180 && cur) { lines.push(cur); cur = wd; } else cur = t2; });
+    if (cur) lines.push(cur); if (lines.length > 4) { lines.length = 4; lines[3] += '…'; }
+    const bw = Math.min(196, Math.max(...lines.map(l => ctx.measureText(l).width)) + 16), bh = lines.length * 15 + 10;
+    const bx = cx - bw / 2, top = by - bh - 6;
+    ctx.fillStyle = '#ffffff'; roundRect(bx, top, bw, bh, 9); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx - 5, top + bh); ctx.lineTo(cx, top + bh + 6); ctx.lineTo(cx + 5, top + bh); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#111827'; lines.forEach((l, k) => ctx.fillText(l, bx + 8, top + 12 + k * 15));
+    ctx.restore(); ctx.font = '600 11px "IBM Plex Sans", system-ui, sans-serif';
+  }
   // name tags
   ctx.font = '600 11px "IBM Plex Sans", system-ui, sans-serif';
   people.concat([...visitors.values()]).forEach(p => {
     if (!p._head) return;
     const hp = toS({ x: p._head.x, y: p._head.y - 13 });
     const sel = p.id === selectedId, off = p.view !== 'online' && p.view !== 'busy' && !isMover(p);
-    if ((p.view === 'offshift' || p.view === 'dayoff') && !sel && !isMover(p)) { p._label = null; return; }
+    if ((p.view === 'offshift' || p.view === 'dayoff') && !sel && !isMover(p) && !p.present) { p._label = null; return; }
+    const ph = p.photo && p.photo.complete && p.photo.naturalWidth ? p.photo : null;
     const label = p.me ? p.name + ' (ikaw)' : p.name;
     const extra = p.chats ? 18 : 0;
-    const w = ctx.measureText(label).width + 22 + extra;
+    const w = ctx.measureText(label).width + 22 + extra + (ph ? 9 : 0);
     ctx.globalAlpha = off && !sel ? 0.6 : 1;
     ctx.fillStyle = sel ? '#e8eaf6' : 'rgba(11,12,21,0.86)'; roundRect(hp.x - w / 2, hp.y - 8, w, 16, 8); ctx.fill();
     if (p.me && !sel) { ctx.strokeStyle = '#f5c26b'; ctx.lineWidth = 1.5; ctx.stroke(); }
     else if ((p.role === 'TL' || p.role === 'Manager') && !sel) { ctx.strokeStyle = 'rgba(56,225,255,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
-    ctx.fillStyle = COLORS[p.view]; ctx.beginPath(); ctx.arc(hp.x - w / 2 + 8, hp.y, 3, 0, Math.PI * 2); ctx.fill();
+    if (ph) {
+      ctx.save(); ctx.beginPath(); ctx.arc(hp.x - w / 2 + 9, hp.y, 7, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(ph, hp.x - w / 2 + 2, hp.y - 7, 14, 14); ctx.restore();
+      ctx.fillStyle = COLORS[p.view]; ctx.beginPath(); ctx.arc(hp.x - w / 2 + 14.5, hp.y + 5, 2.6, 0, Math.PI * 2); ctx.fill();
+    } else { ctx.fillStyle = COLORS[p.view]; ctx.beginPath(); ctx.arc(hp.x - w / 2 + 8, hp.y, 3, 0, Math.PI * 2); ctx.fill(); }
     ctx.textAlign = 'left'; ctx.fillStyle = sel ? '#0b0c15' : '#e8eaf6';
-    ctx.fillText(label, hp.x - w / 2 + 15, hp.y + 0.5);
+    ctx.fillText(label, hp.x - w / 2 + 15 + (ph ? 9 : 0), hp.y + 0.5);
     if (p.chats) {
       const bx = hp.x + w / 2 - 17;
       ctx.fillStyle = '#fbbf24'; roundRect(bx, hp.y - 6, 13, 12, 4); ctx.fill();
@@ -823,6 +910,7 @@ function draw(t) {
     }
     ctx.globalAlpha = 1; ctx.textAlign = 'center';
     p._label = { x: hp.x - w / 2, y: hp.y - 8, w, h: 16 };
+    if (p.bubble) drawBubble(p.bubble, hp.x, hp.y - 12);
   });
 }
 let lastMs = performance.now();
@@ -912,9 +1000,10 @@ function render() {
   $('tlCount').textContent = `${tlOn} on duty`; $('agCount').textContent = `${agOn} on duty`;
   $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const p = P[selectedId];
-  $('dAv').textContent = p.name[0]; $('dAv').style.background = p.shirt;
+  OfficeAvatar.portrait($('dPortrait'), p.look, 64, 84, performance.now() / 1000);
+  if (p.photoSrc) { $('dPhoto').src = p.photoSrc; $('dPhoto').hidden = false; } else $('dPhoto').hidden = true;
   $('dName').textContent = p.full || p.name;
-  $('dRole').textContent = p.role === 'Manager' ? 'Manager · Opisina ni Chad' : p.role === 'TL' ? 'Team lead · Main office' : (p.buffer ? 'Buffer agent (12h) · WFH' : p.kyc ? 'KYC agent · WFH' : 'Agent · Work from home') + (p.covering ? ` · covering ${p.covering}` : '');
+  $('dRole').textContent = p.role === 'Manager' ? `${p.title} · ${p.where}` : p.role === 'TL' ? 'Team lead · Main office' : (p.buffer ? 'Buffer agent (12h) · WFH' : p.kyc ? 'KYC agent · WFH' : 'Agent · Work from home') + (p.covering ? ` · covering ${p.covering}` : '');
   $('dDot').className = 'dot ' + p.view;
   $('dState').textContent = STATUS_TXT[p.view] + (p.off.length ? ` · Off Nov ${p.off.join('–')}` : '') + (p.duty === 'on' ? ` · ${mins(now() - p.since)}` : '') + (p.lastSeen ? ` · huling reply ${mins(now() - p.lastSeen)} ago` : '');
   $('dChats').textContent = p.chats; $('dDone').textContent = p.done; $('dShift').textContent = p.shift == null ? '—' : SHIFTS[p.shift].label.replace(/:00/g, '');
