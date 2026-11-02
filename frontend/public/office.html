@@ -581,7 +581,7 @@ async function pollPresence() {
       log(`You are <b>${w.name}</b>. Click the map to walk.`);
       document.getElementById('sayForm').hidden = false;
       loadAvatars();
-      sendPresence(true);
+      me.restore = true;                 // ibalik kung saan iniwan (galing sa server) bago magpadala
     }
     const r = await fetch(API_BASE + '/office/presence', { headers: auth() });
     if (r.status === 404) return presenceOff();
@@ -590,12 +590,24 @@ async function pollPresence() {
     people.forEach(p => { if (!p.me) p.present = false; });
     const seenV = new Set();
     list.forEach(u => {
-      if (me && u.id === me.id) { const w = myWalker(); if (w) w.present = true; return; }
+      if (me && u.id === me.id) {
+        const w = myWalker(); if (!w) return;
+        w.present = true;
+        if (me.restore) {                // nandito pa rin kung saan mo iniwan
+          me.restore = false;
+          if (u.away) { const at = clampG(u.x, u.y); w.away = true; w.pos = { ...at }; w.target = { ...at }; }
+        }
+        return;
+      }
       const p = dirLoaded ? personFor(u) : null;
+      if (!p && u.online === false) return;   // bisitang wala na sa page: huwag ipakita
       const w = p || visitorFor(u);
-      w.present = true;
+      w.present = u.online !== false;
       if (!p) seenV.add(u.id);
-      if (!w.me) { w.away = u.away || !p; w.target = clampG(u.x, u.y); }
+      if (!w.me) {
+        w.away = u.away || !p; w.target = clampG(u.x, u.y);
+        if (!w.placed) { w.placed = true; if (w.away) w.pos = { ...w.target }; }   // unang kita: nasa puwesto na agad
+      }
       if (u.sayId && u.sayId !== w.sayId) {
         const fresh = w.sayId !== undefined || Date.now() - (u.sayAt || 0) < 15000;
         w.sayId = u.sayId;
@@ -603,6 +615,8 @@ async function pollPresence() {
       }
     });
     visitors.forEach((v, id) => { if (!seenV.has(id) && !(me && id === me.id)) visitors.delete(id); });
+    if (me && me.restore === false && !me.announced) { me.announced = true; sendPresence(true); }
+    else if (me && me.restore) { me.restore = false; me.announced = true; sendPresence(true); }
   } catch (e) {}
 }
 setInterval(pollPresence, 2000); pollPresence();
@@ -861,14 +875,15 @@ function drawPerson(p, t, selected, moverPass) {
   p._head = { x: s.x, y: s.y - 22 };
   if (!moverPass && p.view !== 'online' && p.view !== 'busy' && p.view !== 'offline' && !p.present) return;
   const idle = p.view === 'offline' && !moverPass && !p.present;
-  ctx.save(); if (idle) ctx.globalAlpha = 0.55;
+  const leftHere = moverPass && !p.present && !p.me;   // umalis sa page pero dito iniwan
+  ctx.save(); if (idle) ctx.globalAlpha = 0.55; else if (leftHere) ctx.globalAlpha = 0.65;
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(s.x, s.y, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
   if (selected) {
     ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5);
     ctx.beginPath(); ctx.ellipse(s.x, s.y, 12, 6, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
   }
   const r = OfficeAvatar.draw(ctx, p.look, s.x, s.y, { scale: 0.8, t: t + p.phase, walking: moverPass && p.walking,
-    sitting: !moverPass, sleep: idle, seed: p.phase });
+    sitting: !moverPass, sleep: idle || leftHere, seed: p.phase });
   p._head = { x: s.x, y: r.headY + 7 };
   ctx.restore();
 }
@@ -935,7 +950,7 @@ function draw(t) {
   people.concat([...visitors.values()]).forEach(p => {
     if (!p._head) return;
     const hp = toS({ x: p._head.x, y: p._head.y - 13 });
-    const sel = p.id === selectedId, off = p.view !== 'online' && p.view !== 'busy' && !isMover(p);
+    const sel = p.id === selectedId, off = (p.view !== 'online' && p.view !== 'busy' && !isMover(p)) || (isMover(p) && !p.present && !p.me);
     if ((p.view === 'offshift' || p.view === 'dayoff') && !sel && !isMover(p) && !p.present) { p._label = null; return; }
     const ph = p.photo && p.photo.complete && p.photo.naturalWidth ? p.photo : null;
     const label = p.me ? p.name + ' (you)' : p.name;
