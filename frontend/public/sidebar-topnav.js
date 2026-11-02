@@ -77,6 +77,7 @@
     card: SV('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>'),
     chat: SV('<path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>'),
     bank: SV('<path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M9 21v-6h6v6"/>'),
+    home: SV('<path d="M3 10.5L12 4l9 6.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>'),
     flag: SV('<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>'),
     gear: SV('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.09-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>'),
   };
@@ -95,6 +96,8 @@
       { label: 'Social Media Monitoring', href: 'social-media-monitoring.html', icon: 'share' } ] },
     { label: 'Knowledge Base', href: 'kb.html', icon: 'book' },
     { label: 'Reports', href: 'reports.html', icon: 'bars' },
+    // OPISINA (2026-11-02): mapa ng team — TLs sa office, WFH agents sa paligid, live mula Chatwoot
+    { label: 'Opisina', href: 'office.html', icon: 'home' },
     { label: 'OpenAI', mainLabel: 'Billing', mainIcon: 'card', href: 'openai.html', icon: 'clock', kids: [
       { label: 'SMS Monitoring', href: 'sms-monitoring.html', icon: 'chat' },
       { label: 'Division Billing', href: 'division-billing.html', icon: 'bank' } ] },
@@ -183,6 +186,17 @@
         a.innerHTML = ICON[m.icon] + '<span>' + m.label + '</span>';
         after.insertAdjacentElement('afterend', a); after = a;
       });
+    })();
+    // OPISINA (2026-11-02): idagdag sa sidebar ng page, sa ibaba ng Reports
+    (function addOfficeToSidebar() {
+      if (sidebar.querySelector('a.nav-item[data-office]') || [...sidebar.querySelectorAll('a.nav-item')].some(a => pageKey(a.getAttribute('href')) === 'office')) return;
+      const rep = [...sidebar.querySelectorAll('a.nav-item')].find(a => pageKey(a.getAttribute('href')) === 'reports');
+      if (!rep) return;
+      const a = document.createElement('a');
+      a.href = 'office.html'; a.className = 'nav-item' + (here === 'office' ? ' active' : '');
+      a.dataset.office = '1';
+      a.innerHTML = ICON.home + '<span>Opisina</span>';
+      rep.insertAdjacentElement('afterend', a);
     })();
     MENU.forEach(item => {
       const kids = item.kids || [];
