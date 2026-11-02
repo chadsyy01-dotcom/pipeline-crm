@@ -145,6 +145,10 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         <div class="seg" role="group" aria-label="Refresh">
           <button id="refreshBtn">Refresh</button>
         </div>
+        <div class="seg" id="walkSeg" hidden>
+          <button id="backBtn">Bumalik sa desk</button>
+          <button id="confBtn">Conference room</button>
+        </div>
         <div class="seg" role="group" aria-label="Show shift">
           <button data-shift="now" aria-pressed="true">Now</button>
           <button data-shift="0" aria-pressed="false">08–16</button>
@@ -158,6 +162,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         </div>
       </div>
       <div class="legend">
+        <span>I-click ang mapa o arrow keys / WASD para maglakad</span>
         <span><i class="dot online"></i>Online</span>
         <span><i class="dot busy"></i>Busy · may hawak na open chat</span>
         <span><i class="dot offline"></i>Idle · naka-duty, walang reply sa huling 20 min</span>
@@ -181,7 +186,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
         </div>
       </div>
       <div class="card">
-        <p class="label"><span>Team leads · Main office</span><span id="tlCount">9</span></p>
+        <p class="label"><span>Manager at team leads</span><span id="tlCount">9</span></p>
         <div class="list" id="tlList"></div>
       </div>
       <div class="card">
@@ -212,14 +217,18 @@ const iso = (x, y) => ({ x: (x - y) * TW, y: (x + y) * TH });
 const up = (p, h) => ({ x: p.x, y: p.y - h });
 
 // Main office in the middle, 12 homes around it (clockwise from top-left)
-const OFFICE = { x: 9, y: 9, w: 10, h: 10, floor: '#18203a', wall: '#111830', acc: '#38e1ff' };
+// Malalaki ang pagitan para may lakaran sa pagitan ng mga kwarto.
+const OFFICE = { x: 12, y: 12, w: 10, h: 10, floor: '#18203a', wall: '#111830', acc: '#38e1ff' };
 const HS = 4; // home size in tiles
 const HOME_POS = [
-  [3,2],[9,2],[15,2],[21,2],      // top
-  [22,9],[22,15],                 // right
-  [21,22],[15,22],[9,22],[3,22],  // bottom
-  [2,15],[2,9],                   // left
+  [4,3],[11,3],[18,3],[25,3],     // top
+  [28,11],[28,18],                // right
+  [25,27],[18,27],[11,27],[4,27], // bottom
+  [2,18],[2,11],                  // left
 ];
+const CHAD_ROOM = { x: 37, y: 4, w: 6, h: 5, floor: '#2c2538', wall: '#1f1a2b', acc: '#f5c26b', label: 'OPISINA NI CHAD' };
+const CONF = { x: 37, y: 14, w: 8, h: 7, floor: '#1c2a33', wall: '#142028', acc: '#7dd3fc', label: 'CONFERENCE ROOM' };
+const GROUND = { x0: 0.6, y0: 0.6, x1: 47, y1: 33 };
 const HOME_COLORS = [
   ['#3a2f4f','#2b2240','#c4a7ff'],['#2c3f4a','#203039','#7fd3e6'],['#4a3a2a','#382b1f','#ffc983'],
   ['#2f4433','#223326','#9be3a6'],['#4a2f3a','#38222c','#ff9fc0'],['#33364d','#25283a','#a9b4ff'],
@@ -289,6 +298,20 @@ AGENTS.forEach((ag, i) => { const name = ag.short;
     cw: ag.cw || [], status: 'offline', chats: 0, done: 0, lastSeen: null,
     since: now(), phase: Math.random() * 6 });
 });
+// Manager — sariling kwarto, walking distance mula sa main office
+{
+  const desk = { x: CHAD_ROOM.x + 1.9, y: CHAD_ROOM.y + 0.8, w: 2.2, d: 0.8 };
+  people.push({ id: 'mgr', name: 'Chad', full: 'Chad Syy', shift: null, off: [], role: 'Manager', where: 'Opisina ni Chad', desk,
+    seat: { x: desk.x + 1.1, y: desk.y + 1.45 }, shirt: '#f5c26b', skin: SKIN[0], hair: HAIR[3],
+    cw: [], status: 'offline', chats: 0, done: 0, lastSeen: null, since: now(), phase: 1 });
+}
+// Email ng CRM account ng bawat tao (opsyonal). Kapag walang email dito, itinutugma
+// sa pangalan/aliases ng account. Hal: EMAILS['Milky Guerero'] = 'milky@company.com';
+const EMAILS = {};
+people.forEach(p => {
+  p.email = String(EMAILS[p.full] || '').toLowerCase();
+  p.pos = { x: p.seat.x, y: p.seat.y }; p.away = false; p.target = null; p.walking = false; p.present = false;
+});
 const P = Object.fromEntries(people.map(p => [p.id, p]));
 
 // ---------- Duty (shift + day off) ----------
@@ -298,7 +321,7 @@ function shiftStartDay(S, d, h) { const x = new Date(d); x.setHours(h); if (h < 
 function updateDuty() {
   const d = new Date(), h = previewHour ?? d.getHours();
   people.forEach(p => {
-    let duty = 'offshift';
+    let duty = p.role === 'Manager' ? 'on' : 'offshift';
     if (p.shift != null && inShift(SHIFTS[p.shift], h)) {
       const sd = shiftStartDay(SHIFTS[p.shift], d, h);
       duty = sd.getMonth() === 10 && p.off.includes(sd.getDate()) ? 'dayoff' : 'on';
@@ -405,7 +428,7 @@ async function loadLive() {
       p.done = replies.get(p) || 0;
       p.lastSeen = seen.get(p) || null;
       const active = p.lastSeen && tnow - p.lastSeen < ACTIVE_MS;
-      setStatus(p, p.chats ? 'busy' : (active || p.role === 'TL') ? 'online' : 'offline');
+      setStatus(p, p.chats ? 'busy' : (active || p.role === 'TL' || (p.role === 'Manager' && p.present)) ? 'online' : 'offline');
       if (!firstLoad && p.duty === 'on') {
         if (p.chats > prevChats) log(`<b>${p.name}</b> may bagong chat <span>(${p.chats} open)</span>`);
         else if (p.chats < prevChats) log(`<b>${p.name}</b> natapos ang ${prevChats - p.chats} chat`);
@@ -432,12 +455,125 @@ async function loadLive() {
 }
 loadLive(); setInterval(loadLive, POLL_MS);
 
+// ---------- Paglalakad (presence) ----------
+// Ang naka-login ay may sariling karakter (itinutugma sa email o pangalan ng account niya).
+// I-click ang mapa o gamitin ang arrow keys / WASD para maglakad. Ang posisyon ay ipinapadala
+// sa /api/office/presence para makita ng lahat; sariling account lang ang kayang galawin.
+let me = null, presenceOn = true, lastSent = 0;
+const visitors = new Map();                // userId -> walker na wala sa roster
+const WALK_SPEED = 3.2;                    // tiles bawat segundo
+const clampG = (x, y) => ({ x: Math.max(GROUND.x0 + 0.3, Math.min(GROUND.x1 - 0.3, x)), y: Math.max(GROUND.y0 + 0.3, Math.min(GROUND.y1 - 0.3, y)) });
+const ENTRY = { x: OFFICE.x + OFFICE.w / 2, y: OFFICE.y + OFFICE.h + 1 };
+function personFor(u) {
+  const e = String(u.email || '').toLowerCase();
+  return people.find(p => p.email && p.email === e) || matchPerson(u.name) || null;
+}
+function visitorFor(u) {
+  let v = visitors.get(u.id);
+  if (!v) {
+    v = { id: 'v' + u.id, name: String(u.name || 'Bisita').split(' ')[0], full: u.name || 'Bisita', role: 'Visitor', visitor: true,
+      shirt: '#e2e8f0', skin: SKIN[(Number(u.id) || 0) % 6], hair: HAIR[(Number(u.id) || 0) % 6], view: 'online', phase: 0,
+      seat: { ...ENTRY }, pos: { ...ENTRY }, away: true, target: { ...ENTRY }, walking: false };
+    visitors.set(u.id, v);
+  }
+  return v;
+}
+function myWalker() { return me && (me.person || me.vis); }
+async function sendPresence(force) {
+  const w = myWalker(); if (!w || !presenceOn) return;
+  const t = Date.now(); if (!force && t - lastSent < 600) return; lastSent = t;
+  const tgt = w.away ? (w.target || w.pos) : w.seat;
+  try {
+    const r = await fetch(API_BASE + '/office/presence', { method: 'PUT', headers: { ...auth(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ x: tgt.x, y: tgt.y, away: w.away }) });
+    if (r.status === 404) presenceOff();
+  } catch (e) {}
+}
+function presenceOff() {
+  if (!presenceOn) return; presenceOn = false;
+  log('Hindi pa naka-update ang backend para sa paglalakad (kailangan ang /api/office).');
+}
+async function pollPresence() {
+  if (!presenceOn || document.hidden) return;
+  try {
+    if (!me) {
+      const { user } = await getJSON('/auth/me');
+      me = { id: user.id, email: user.email, name: user.name };
+    }
+    if (dirLoaded && me.person === undefined || (dirLoaded && !me.person && !me.vis)) {
+      me.person = personFor(me) || null;
+      if (!me.person) me.vis = visitorFor(me);
+      const w = myWalker(); w.me = true;
+      document.getElementById('walkSeg').hidden = false;
+      log(`Ikaw si <b>${w.name}</b>. I-click ang mapa para maglakad.`);
+      sendPresence(true);
+    }
+    const r = await fetch(API_BASE + '/office/presence', { headers: auth() });
+    if (r.status === 404) return presenceOff();
+    if (!r.ok) return;
+    const { people: list = [] } = await r.json();
+    people.forEach(p => { if (!p.me) p.present = false; });
+    const seenV = new Set();
+    list.forEach(u => {
+      if (me && u.id === me.id) { const w = myWalker(); if (w) w.present = true; return; }
+      const p = dirLoaded ? personFor(u) : null;
+      const w = p || visitorFor(u);
+      w.present = true;
+      if (!p) seenV.add(u.id);
+      if (!w.me) { w.away = u.away || !p; w.target = clampG(u.x, u.y); }
+    });
+    visitors.forEach((v, id) => { if (!seenV.has(id) && !(me && id === me.id)) visitors.delete(id); });
+  } catch (e) {}
+}
+setInterval(pollPresence, 2000); pollPresence();
+setInterval(() => sendPresence(true), 60000);   // keep-alive para hindi mawala sa listahan
+
+const keys = new Set();
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase(), dirs = ['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d'];
+  if (!dirs.includes(k) || !myWalker()) return;
+  const a = document.activeElement; if (a && a !== document.body && a !== cv) return;
+  e.preventDefault(); keys.add(k);
+});
+window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+function walkTo(x, y) {
+  const w = myWalker(); if (!w) return;
+  w.away = true; w.target = clampG(x, y); sendPresence(true);
+}
+function updateWalkers(dt) {
+  const w = myWalker();
+  if (w && keys.size) {
+    // screen-up = (-1,-1) sa grid; screen-right = (+1,-1)
+    let dx = 0, dy = 0;
+    if (keys.has('arrowup') || keys.has('w')) { dx -= 1; dy -= 1; }
+    if (keys.has('arrowdown') || keys.has('s')) { dx += 1; dy += 1; }
+    if (keys.has('arrowleft') || keys.has('a')) { dx -= 1; dy += 1; }
+    if (keys.has('arrowright') || keys.has('d')) { dx += 1; dy -= 1; }
+    const n = Math.hypot(dx, dy) || 1;
+    w.away = true; w.target = clampG(w.pos.x + dx / n * 0.6, w.pos.y + dy / n * 0.6);
+    sendPresence(false);
+  }
+  const all = people.concat([...visitors.values()]);
+  all.forEach(p => {
+    const tgt = p.away && p.target ? p.target : p.seat;
+    const dx = tgt.x - p.pos.x, dy = tgt.y - p.pos.y, d = Math.hypot(dx, dy), step = WALK_SPEED * dt;
+    if (d <= step || d < 1e-6) { p.pos.x = tgt.x; p.pos.y = tgt.y; p.walking = false; }
+    else { p.pos.x += dx / d * step; p.pos.y += dy / d * step; p.walking = true; }
+  });
+}
+
+
 // ---------- Canvas ----------
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const stage = document.getElementById('stage');
 let W = 0, H = 0, dpr = 1;
 const view = { zoom: 1, panX: 0, panY: 0 };
-const WORLD = { cx: 0, cy: 265, w: 1160, h: 640 };
+const WORLD = (() => {
+  const c = [iso(GROUND.x0, GROUND.y0), iso(GROUND.x1, GROUND.y0), iso(GROUND.x1, GROUND.y1), iso(GROUND.x0, GROUND.y1)];
+  const xs = c.map(p => p.x), ys = c.map(p => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys) - 40, y1 = Math.max(...ys);
+  return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0 + 40, h: y1 - y0 + 20 };
+})();
 function resize() {
   const r = stage.getBoundingClientRect();
   dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -491,11 +627,43 @@ function windowOn(x0, y, x1, lit) {
 // Static drawables
 function drawGround() {
   // grounds + paths from each home to the office
-  poly(rect4(0.6, 0.6, 26.8, 26.8), '#11131f', '#1c1f33', 1.5);
+  poly(rect4(GROUND.x0, GROUND.y0, GROUND.x1 - GROUND.x0, GROUND.y1 - GROUND.y0), '#11131f', '#1c1f33', 1.5);
   ctx.strokeStyle = 'rgba(56,225,255,0.10)'; ctx.lineWidth = 6; ctx.setLineDash([2, 10]);
   const oc = iso(OFFICE.x + OFFICE.w / 2, OFFICE.y + OFFICE.h / 2);
-  HOME_POS.forEach(([hx, hy]) => { const h = iso(hx + HS / 2, hy + HS / 2); ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.lineTo(oc.x, oc.y); ctx.stroke(); });
+  const line = (x, y) => { const h = iso(x, y); ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.lineTo(oc.x, oc.y); ctx.stroke(); };
+  HOME_POS.forEach(([hx, hy]) => line(hx + HS / 2, hy + HS / 2));
+  ctx.strokeStyle = 'rgba(245,194,107,0.16)';
+  line(CHAD_ROOM.x + CHAD_ROOM.w / 2, CHAD_ROOM.y + CHAD_ROOM.h / 2);
+  line(CONF.x + CONF.w / 2, CONF.y + CONF.h / 2);
   ctx.setLineDash([]);
+}
+function drawShell(R) {
+  const c = rect4(R.x, R.y, R.w, R.h);
+  poly(c, R.floor); grid(R.x, R.y, R.w, R.h, 'rgba(255,255,255,0.045)');
+  ctx.save(); ctx.shadowColor = R.acc; ctx.shadowBlur = 10; poly(c, null, R.acc, 1.6); ctx.restore();
+  wall(R.x, R.y + R.h, R.x, R.y, R.wall, R.acc);
+  wall(R.x, R.y, R.x + R.w, R.y, R.wall, R.acc);
+  for (let i = 0.8; i < R.w - 1; i += 1.8) windowOn(R.x + i, R.y, R.x + i + 1.1, true);
+}
+function drawExtraRooms(t) {
+  // Conference room: mahabang mesa, mga upuan, screen sa pader
+  drawShell(CONF);
+  const sa = iso(CONF.x + 2.5, CONF.y), sb = iso(CONF.x + 5.5, CONF.y);
+  poly([up(sa, 4), up(sb, 4), up(sb, 19), up(sa, 19)], '#07121a', CONF.acc, 1.2);
+  for (let i = 0; i < 4; i++) {
+    const a = iso(CONF.x + 2.2 + i * 1.1, CONF.y + 2.1), b = iso(CONF.x + 2.2 + i * 1.1, CONF.y + 5.1);
+    ctx.fillStyle = '#2a3346'; [a, b].forEach(p => { ctx.beginPath(); ctx.ellipse(p.x, p.y - 4, 6, 3, 0, 0, Math.PI * 2); ctx.fill(); });
+  }
+  box(CONF.x + 1.6, CONF.y + 2.8, 5, 1.6, 8, '#4a5a70');
+  box(CONF.x + 7.1, CONF.y + 6.1, 0.5, 0.5, 7, '#7a5a44');
+  // Opisina ni Chad: desk, bookshelf, sofa, halaman
+  drawShell(CHAD_ROOM);
+  box(CHAD_ROOM.x + 0.3, CHAD_ROOM.y + 0.3, 0.6, 2.2, 26, '#5b4636');
+  box(CHAD_ROOM.x + 0.6, CHAD_ROOM.y + 3.6, 2.4, 0.9, 7, '#7c3f4f');
+  box(CHAD_ROOM.x + 5.2, CHAD_ROOM.y + 4.2, 0.5, 0.5, 7, '#7a5a44');
+  const pp = iso(CHAD_ROOM.x + 5.45, CHAD_ROOM.y + 4.45);
+  ctx.fillStyle = '#3f9a5c'; ctx.beginPath(); ctx.arc(pp.x, pp.y - 15, 6.5, 0, Math.PI * 2); ctx.fill();
+  const chad = P.mgr; drawDesk(chad, t); drawPerson(chad, t, chad.id === selectedId);
 }
 function drawOffice(t) {
   const O = OFFICE, c = rect4(O.x, O.y, O.w, O.h);
@@ -558,11 +726,18 @@ function drawOfficeProps(t) {
     const pp = iso(O.x + x, O.y + y); ctx.fillStyle = '#3f9a5c'; ctx.beginPath(); ctx.arc(pp.x, pp.y - 15, 6.5, 0, Math.PI * 2); ctx.fill();
   });
 }
-function drawPerson(p, t, selected) {
-  const s = iso(p.seat.x, p.seat.y);
+function isMover(p) { return p.visitor || p.away || p.walking; }
+function drawPerson(p, t, selected, moverPass) {
+  if (!moverPass && isMover(p)) { p._head = null; return; }
+  const s = iso(p.pos.x, p.pos.y);
   p._head = { x: s.x, y: s.y - 22 };
-  if (p.view !== 'online' && p.view !== 'busy' && p.view !== 'offline') return;
-  const busy = p.view === 'busy', idle = p.view === 'offline';
+  if (!moverPass && p.view !== 'online' && p.view !== 'busy' && p.view !== 'offline') return;
+  const busy = p.view === 'busy', idle = p.view === 'offline' && !moverPass;
+  if (moverPass && p.walking) { // mga paa habang naglalakad
+    const k = Math.sin(t * 12 + p.phase) * 2.5;
+    ctx.strokeStyle = '#1b1e2e'; ctx.lineWidth = 2.4; ctx.beginPath();
+    ctx.moveTo(s.x - 2, s.y - 6); ctx.lineTo(s.x - 2 + k, s.y - 1); ctx.moveTo(s.x + 2, s.y - 6); ctx.lineTo(s.x + 2 - k, s.y - 1); ctx.stroke();
+  }
   ctx.save(); if (idle) ctx.globalAlpha = 0.55;
   const bob = Math.sin(p.phase + t * (busy ? 9 : 3)) * (busy ? 0.8 : 0.4);
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(s.x, s.y, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
@@ -570,7 +745,7 @@ function drawPerson(p, t, selected) {
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5);
     ctx.beginPath(); ctx.ellipse(s.x, s.y, 12, 6, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
   }
-  const top = s.y - 17 - bob;
+  const top = s.y - (moverPass ? 20 : 17) - bob - (moverPass && p.walking ? Math.abs(Math.sin(t * 12 + p.phase)) * 1.5 : 0);
   ctx.fillStyle = p.shirt; roundRect(s.x - 5.5, top, 11, 12, 4); ctx.fill();
   ctx.fillStyle = p.skin; ctx.beginPath(); ctx.arc(s.x, top - 5, 5, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = p.hair; ctx.beginPath(); ctx.arc(s.x, top - 6.5, 5.2, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
@@ -588,6 +763,7 @@ function draw(t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
   drawGround();
+  drawExtraRooms(t);
   // Homes behind the office first, then office, then homes in front (painter's order by depth)
   const homes = people.filter(p => p.role === 'Agent');
   const officeDepth = OFFICE.x + OFFICE.y + OFFICE.w;
@@ -598,6 +774,9 @@ function draw(t) {
   tls.forEach(p => { drawDesk(p, t); drawPerson(p, t, p.id === selectedId); });
   drawOfficeProps(t);
   homes.filter(p => p.home.x + p.home.y + HS >= officeDepth).forEach(drawHomeFull);
+  // mga naglalakad (nasa ibabaw ng lahat, ayon sa lalim)
+  people.concat([...visitors.values()]).filter(isMover).sort((a, b) => (a.pos.x + a.pos.y) - (b.pos.x + b.pos.y))
+    .forEach(p => drawPerson(p, t, p.id === selectedId, true));
 
   // Screen-space labels
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -609,6 +788,11 @@ function draw(t) {
   const ttl = 'MAIN OFFICE · TEAM LEADS', tw = ctx.measureText(ttl).width + 16;
   ctx.fillStyle = 'rgba(11,12,21,0.88)'; roundRect(ot.x - tw / 2, ot.y - 8, tw, 16, 8); ctx.fill();
   ctx.strokeStyle = OFFICE.acc; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = OFFICE.acc; ctx.fillText(ttl, ot.x, ot.y + 0.5);
+  [CHAD_ROOM, CONF].forEach(R => {
+    const rp = toS(up(iso(R.x, R.y), WH + 14)), rw = ctx.measureText(R.label).width + 16;
+    ctx.fillStyle = 'rgba(11,12,21,0.88)'; roundRect(rp.x - rw / 2, rp.y - 8, rw, 16, 8); ctx.fill();
+    ctx.strokeStyle = R.acc; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = R.acc; ctx.fillText(R.label, rp.x, rp.y + 0.5);
+  });
   if (s > 0.45) {
     const qs = toS(up(iso(OFFICE.x + 5.2, OFFICE.y), 11.5));
     ctx.font = `600 ${Math.max(8, 10 * s)}px "IBM Plex Mono", monospace`;
@@ -616,17 +800,18 @@ function draw(t) {
   }
   // name tags
   ctx.font = '600 11px "IBM Plex Sans", system-ui, sans-serif';
-  people.forEach(p => {
+  people.concat([...visitors.values()]).forEach(p => {
     if (!p._head) return;
     const hp = toS({ x: p._head.x, y: p._head.y - 13 });
-    const sel = p.id === selectedId, off = p.view !== 'online' && p.view !== 'busy';
-    if (p.view === 'offshift' && !sel) { p._label = null; return; }
-    const label = p.role === 'Agent' ? p.name : p.name;
+    const sel = p.id === selectedId, off = p.view !== 'online' && p.view !== 'busy' && !isMover(p);
+    if ((p.view === 'offshift' || p.view === 'dayoff') && !sel && !isMover(p)) { p._label = null; return; }
+    const label = p.me ? p.name + ' (ikaw)' : p.name;
     const extra = p.chats ? 18 : 0;
     const w = ctx.measureText(label).width + 22 + extra;
     ctx.globalAlpha = off && !sel ? 0.6 : 1;
     ctx.fillStyle = sel ? '#e8eaf6' : 'rgba(11,12,21,0.86)'; roundRect(hp.x - w / 2, hp.y - 8, w, 16, 8); ctx.fill();
-    if (p.role === 'TL' && !sel) { ctx.strokeStyle = 'rgba(56,225,255,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
+    if (p.me && !sel) { ctx.strokeStyle = '#f5c26b'; ctx.lineWidth = 1.5; ctx.stroke(); }
+    else if ((p.role === 'TL' || p.role === 'Manager') && !sel) { ctx.strokeStyle = 'rgba(56,225,255,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
     ctx.fillStyle = COLORS[p.view]; ctx.beginPath(); ctx.arc(hp.x - w / 2 + 8, hp.y, 3, 0, Math.PI * 2); ctx.fill();
     ctx.textAlign = 'left'; ctx.fillStyle = sel ? '#0b0c15' : '#e8eaf6';
     ctx.fillText(label, hp.x - w / 2 + 15, hp.y + 0.5);
@@ -640,7 +825,8 @@ function draw(t) {
     p._label = { x: hp.x - w / 2, y: hp.y - 8, w, h: 16 };
   });
 }
-function frame(ms) { const t = ms / 1000; people.forEach(p => p.phase += 0.016); draw(t); requestAnimationFrame(frame); }
+let lastMs = performance.now();
+function frame(ms) { const t = ms / 1000, dt = Math.max(0, Math.min(0.05, (ms - lastMs) / 1000)); lastMs = ms; people.forEach(p => p.phase += 0.016); updateWalkers(dt); draw(t); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 
 // ---------- Input ----------
@@ -665,6 +851,10 @@ cv.addEventListener('pointerup', e => {
       if (d < Math.max(16, 18 * s) && d < bd) { bd = d; best = p; }
     });
     if (best) select(best.id);
+    else if (myWalker()) {               // i-click ang sahig para maglakad doon
+      const wx = (mx - ox) / s, wy = (my - oy) / s;
+      walkTo((wx / TW + wy / TH) / 2, (wy / TH - wx / TW) / 2);
+    }
   }
   down = null; cv.classList.remove('dragging');
 });
@@ -681,6 +871,8 @@ document.getElementById('zIn').onclick = () => zoomAt(1.3, W / 2, H / 2);
 document.getElementById('zOut').onclick = () => zoomAt(1 / 1.3, W / 2, H / 2);
 document.getElementById('zFit').onclick = () => { view.zoom = 1; view.panX = 0; view.panY = 0; };
 document.getElementById('refreshBtn').onclick = () => loadLive();
+document.getElementById('backBtn').onclick = () => { const w = myWalker(); if (!w) return; if (w.visitor) walkTo(ENTRY.x, ENTRY.y); else { w.away = false; sendPresence(true); } };
+document.getElementById('confBtn').onclick = () => walkTo(CONF.x + 1 + Math.random() * 6, CONF.y + 5.8 + Math.random() * 0.8);
 
 // ---------- Panel ----------
 const $ = id => document.getElementById(id);
@@ -694,7 +886,7 @@ function buildList(el, list) {
     el.appendChild(b); rows[p.id] = b;
   });
 }
-buildList($('tlList'), people.filter(p => p.role === 'TL'));
+buildList($('tlList'), people.filter(p => p.role === 'Manager').concat(people.filter(p => p.role === 'TL')));
 buildList($('agList'), people.filter(p => p.role === 'Agent'));
 const STATUS_TXT = { online: 'Online', busy: 'Busy', offline: 'Idle · walang reply 20m', offshift: 'Off shift', dayoff: 'Day off' };
 const mins = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; };
@@ -706,7 +898,7 @@ function render() {
     c[p.view]++; if (p.duty === 'on') chats += p.chats;
     const r = rows[p.id];
     r.querySelector('.dot').className = 'dot ' + p.view;
-    r.querySelector('em').textContent = p.covering ? `Covering ${p.covering}` : (p.buffer ? 'Buffer · ' : p.kyc ? 'KYC · ' : '') + (p.shift == null ? 'No schedule yet' : STATUS_TXT[p.view]) + (p.coveredBy ? ` · ${p.coveredBy} covers` : '');
+    r.querySelector('em').textContent = p.role === 'Manager' ? (p.present ? 'Online · nasa Opisina' : 'Wala sa page') : p.covering ? `Covering ${p.covering}` : (p.buffer ? 'Buffer · ' : p.kyc ? 'KYC · ' : '') + (p.shift == null ? 'No schedule yet' : STATUS_TXT[p.view]) + (p.coveredBy ? ` · ${p.coveredBy} covers` : '');
     r.querySelector('.ct').textContent = p.duty !== 'on' ? (p.shift == null ? '—' : SHIFTS[p.shift].label.slice(0, 5)) : p.chats ? p.chats + ' chat' + (p.chats > 1 ? 's' : '') : '—';
     r.setAttribute('aria-current', p.id === selectedId);
   });
@@ -722,7 +914,7 @@ function render() {
   const p = P[selectedId];
   $('dAv').textContent = p.name[0]; $('dAv').style.background = p.shirt;
   $('dName').textContent = p.full || p.name;
-  $('dRole').textContent = p.role === 'TL' ? 'Team lead · Main office' : (p.buffer ? 'Buffer agent (12h) · WFH' : p.kyc ? 'KYC agent · WFH' : 'Agent · Work from home') + (p.covering ? ` · covering ${p.covering}` : '');
+  $('dRole').textContent = p.role === 'Manager' ? 'Manager · Opisina ni Chad' : p.role === 'TL' ? 'Team lead · Main office' : (p.buffer ? 'Buffer agent (12h) · WFH' : p.kyc ? 'KYC agent · WFH' : 'Agent · Work from home') + (p.covering ? ` · covering ${p.covering}` : '');
   $('dDot').className = 'dot ' + p.view;
   $('dState').textContent = STATUS_TXT[p.view] + (p.off.length ? ` · Off Nov ${p.off.join('–')}` : '') + (p.duty === 'on' ? ` · ${mins(now() - p.since)}` : '') + (p.lastSeen ? ` · huling reply ${mins(now() - p.lastSeen)} ago` : '');
   $('dChats').textContent = p.chats; $('dDone').textContent = p.done; $('dShift').textContent = p.shift == null ? '—' : SHIFTS[p.shift].label.replace(/:00/g, '');
