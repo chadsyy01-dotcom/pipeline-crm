@@ -152,7 +152,7 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
       <span class="chip"><i class="dot offline"></i>Idle <b id="sOff">0</b></span>
       <span class="chip">Open chats <b id="sChats">0</b></span>
       <span class="chip">Unassigned <b id="sQueue">0</b></span>
-      <span class="chip" title="New tickets nobody has acknowledged yet"><i class="dot" style="background:#60a5fa"></i>Pending tickets <b id="sTickets">–</b></span>
+      <span class="chip" title="New tickets from the last 24 hours that nobody has acknowledged yet"><i class="dot" style="background:#60a5fa"></i>Pending tickets <b id="sTickets">–</b></span>
       <span class="chip"><i class="dot offshift"></i>Off duty <b id="sOffDuty">0</b></span>
     </div>
   </header>
@@ -211,6 +211,11 @@ aside{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
           <div><small>Shift</small><b id="dShift">—</b></div>
         </div>
         <ul class="tlist" id="dTickets" hidden></ul>
+      </div>
+      <div class="card" id="unclaimedCard" hidden>
+        <p class="label"><span style="color:#f87171">Unclaimed tickets</span><span id="unclaimedCount">0</span></p>
+        <p class="unmatched">New tickets from the last 24 hours that no team lead has acknowledged yet.</p>
+        <ul class="tlist" id="unclaimedList"></ul>
       </div>
       <div class="card" id="unmatchedCard" hidden>
         <p class="label"><span>Unmatched names</span></p>
@@ -570,17 +575,31 @@ function renderUnmatched() {
 //   Hawak ng TL  = may "Acknowledged By" na siya at hindi pa Done/Rejected
 //   Pending      = bagong ticket na wala pang nag-acknowledge
 //   Resolved today = "Resolved By" siya at na-resolve ngayong araw
-let ticketPending = null, ticketsLoading = false;
+let ticketPending = null, ticketsLoading = false, unclaimed = [];
+function renderUnclaimed() {
+  const card = document.getElementById('unclaimedCard'), ul = document.getElementById('unclaimedList');
+  card.hidden = !unclaimed.length; document.getElementById('unclaimedCount').textContent = unclaimed.length;
+  ul.textContent = '';
+  unclaimed.slice(0, 8).forEach(t => {
+    const li = document.createElement('li');
+    const a = document.createElement(t.sheetLink ? 'a' : 'code'); a.textContent = t.id;
+    if (t.sheetLink) { a.href = t.sheetLink; a.target = '_blank'; a.rel = 'noopener'; a.style.cssText = 'font-family:var(--mono);font-size:11px;color:#fca5a5'; }
+    const sp = document.createElement('span'); sp.textContent = `${t.brandLabel} · ${t.issue} · ${t.name}`;
+    const em = document.createElement('em'); em.textContent = TicketData.compactElapsed(t.submitted) + ' ago';
+    li.append(a, sp, em); ul.appendChild(li);
+  });
+  if (unclaimed.length > 8) { const li = document.createElement('li'); li.textContent = `+${unclaimed.length - 8} more on the Tickets page`; ul.appendChild(li); }
+}
 async function loadTickets(force) {
   if (!window.TicketData || ticketsLoading || !dirLoaded) return;
   ticketsLoading = true;
   try {
     const all = await TicketData.fetchTickets(!!force);
-    const today = new Date(), unk = new Map(); let pend = 0;
+    const today = new Date(), unk = new Map(), fresh = [], DAY = 24 * 3600000;
     people.forEach(p => { p.tHandling = []; p.tResolved = 0; });
     all.forEach(t => {
       const open = t.statusCls === 'pending' || t.statusCls === 'checking';
-      if (open && !t.acknowledgedBy) { pend++; return; }
+      if (open && !t.acknowledgedBy) { if (Date.now() - t.submitted < DAY) fresh.push(t); return; }
       if (open && t.acknowledgedBy) {
         const p = matchPerson(t.acknowledgedBy);
         if (p) p.tHandling.push(t); else unk.set(t.acknowledgedBy, (unk.get(t.acknowledgedBy) || 0) + 1);
@@ -590,8 +609,10 @@ async function loadTickets(force) {
       }
     });
     people.forEach(p => p.tHandling.sort((a, b) => a.submitted - b.submitted));
+    const pend = fresh.length;
     if (ticketPending !== null && pend > ticketPending) log(`<b>${pend - ticketPending}</b> new ticket${pend - ticketPending > 1 ? 's' : ''} waiting for a TL`);
     ticketPending = pend; ticketUnmatched = unk; renderUnmatched();
+    unclaimed = fresh.sort((a, b) => b.submitted - a.submitted); renderUnclaimed();
     people.forEach(p => { if (p.role === 'TL') setStatus(p, (p.chats || p.tHandling.length) ? 'busy' : 'online'); });
   } catch (e) { log(`Couldn't load tickets: ${esc(e.message || e)}`); }
   finally { ticketsLoading = false; }
@@ -1113,6 +1134,20 @@ function draw(t) {
     p._label = { x: hp.x - w / 2, y: hp.y - 8, w, h: 16 };
     if (p.bubble) drawBubble(p.bubble, hp.x, hp.y - 12);
   });
+  // UNCLAIMED TICKETS: pulang sign sa harap ng main office (iginuguhit sa ibabaw ng lahat)
+  if (unclaimed.length) {
+    const fc = toS(iso(OFFICE.x + OFFICE.w, OFFICE.y + OFFICE.h)), sp = { x: fc.x, y: fc.y + 20 };
+    const txt = `${unclaimed.length} NEW TICKET${unclaimed.length > 1 ? 'S' : ''} · UNCLAIMED`;
+    ctx.save(); ctx.font = '700 11px "IBM Plex Mono", monospace';
+    const tw2 = ctx.measureText(txt).width + 34, pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
+    ctx.shadowColor = 'rgba(239,68,68,' + (0.4 + 0.5 * pulse) + ')'; ctx.shadowBlur = 8 + 10 * pulse;
+    ctx.fillStyle = '#dc2626'; roundRect(sp.x - tw2 / 2, sp.y - 11, tw2, 22, 11); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#fff';
+    roundRect(sp.x - tw2 / 2 + 9, sp.y - 5, 14, 10, 2); ctx.fill();                      // maliit na ticket icon
+    ctx.fillStyle = '#dc2626'; ctx.fillRect(sp.x - tw2 / 2 + 15, sp.y - 4, 1.4, 8);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(txt, sp.x - tw2 / 2 + 28, sp.y + 0.5);
+    ctx.restore(); ctx.textAlign = 'center'; ctx.font = '600 11px "IBM Plex Sans", system-ui, sans-serif';
+  }
 }
 let lastMs = performance.now();
 function frame(ms) { const t = ms / 1000, dt = Math.max(0, Math.min(0.05, (ms - lastMs) / 1000)); lastMs = ms; people.forEach(p => p.phase += 0.016); updateWalkers(dt); draw(t); requestAnimationFrame(frame); }
