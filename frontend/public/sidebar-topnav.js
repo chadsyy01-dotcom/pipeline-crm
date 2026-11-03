@@ -261,5 +261,21 @@
     apply(getHidden());
     filterMenus(getRole());
   }
+  // PREFETCH (2026-11-03, Chad: "may delay kapag nag-click ng tab"): habang nakaturo pa lang ang mouse sa menu link,
+  // pina-prefetch na ang page para halos instant ang pagbukas pag na-click. Sidebar at top nav, parehong sakop.
+  const prefetched = new Set();
+  function prefetchLink(e) {
+    const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || !a.closest('.sidebar, .sb-topnav')) return;
+    let u; try { u = new URL(a.getAttribute('href'), location.href); } catch (_) { return; }
+    if (u.origin !== location.origin || !/\.html$|\/[^./]*$/.test(u.pathname)) return;
+    const key = u.pathname + u.search;
+    if (prefetched.has(key) || key === location.pathname + location.search) return;
+    prefetched.add(key);
+    const l = document.createElement('link'); l.rel = 'prefetch'; l.href = u.href; l.as = 'document';
+    document.head.appendChild(l);
+  }
+  document.addEventListener('mouseover', prefetchLink, { passive: true });
+  document.addEventListener('touchstart', prefetchLink, { passive: true });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
