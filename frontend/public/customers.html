@@ -1524,9 +1524,36 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   }
 
   let convInFlight = false, lastConvSig = '';
+  // ---- INSTANT OPEN (2026-11-03, Chad: "everytime mag click ng tab may delay") ----
+  // Bawat tab (BRAVO/DELTA/…) ay bagong page load na kailangang hintayin ang /chatwoot/conversations
+  // (libu-libong chats). Stale-while-revalidate: ang huling sagot ay naka-save sa IndexedDB (key = token+params,
+  // 15 min lang), ipinapakita agad pagbukas, tapos pinapalitan ng sariwang data kapag dumating na.
+  const CONV_CACHE_TTL = 15 * 60 * 1000;
+  const convIdb = () => new Promise(res => { try { const rq = indexedDB.open('csr_conv_cache', 1); rq.onupgradeneeded = () => rq.result.createObjectStore('kv'); rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); } catch (e) { res(null); } });
+  const convCacheKey = (token, q) => { let h = 5381; const t = String(token || ''); for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) >>> 0; return h.toString(36) + '|' + q; };
+  async function convCacheGet(key) { const db = await convIdb(); if (!db) return null; return new Promise(res => { try { const g = db.transaction('kv').objectStore('kv').get(key); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); } catch (e) { res(null); } }); }
+  async function convCachePut(key, val) { const db = await convIdb(); if (!db) return; try { const tx = db.transaction('kv', 'readwrite'); const st = tx.objectStore('kv'); st.clear(); st.put(val, key); } catch (e) { /* walang cache, ok lang */ } }
+  function convCacheWipe() { try { indexedDB.deleteDatabase('csr_conv_cache'); } catch (e) {} }
+  let convFresh = false;   // true kapag may sariwang sagot na mula sa server (huwag nang ipinta ang cache)
+
+  function paintConversations(raw, fromCache) {
+    lastConvSig = raw;
+    const data = JSON.parse(raw);
+    // WALANG LAMAN (2026-10-16, utos ni Chad): ang conversation na walang
+    // kahit isang mensahe ("No messages yet") ay hindi ipinapakita at hindi
+    // binibilang — kadalasan lumang event na ipinadala ulit ng Chatwoot.
+    allConversations = (data.conversations || []).filter(c => inTeam(c.brand) && hasContent(c));
+    renderBrandTabs();
+    renderAdminFilter();
+    renderConcernFilter();
+    applyFiltersAndRender();
+    renderArtFtrStats();
+    if (!fromCache) checkWaitingSound();   // huwag tumunog batay sa lumang cache
+  }
+
   async function loadConversations(auto) {
     const token = localStorage.getItem('pipeline_token');
-    if (!token) return;
+    if (!token) { convCacheWipe(); return; }
     // CSR sa team tab: tuloy pa rin ang refresh kahit nakatago ang tab para tumunog ang Waiting sound
     if (auto === true && (convInFlight || (document.hidden && !(TEAM && isCsrUser())) || searchMode)) return;
     if (auto === true && document.activeElement && document.activeElement.tagName === 'SELECT') return;
@@ -1546,11 +1573,26 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         params.set('from', range.from);
         params.set('to', range.to);
       }
-      const res = await fetch(`${API_BASE}/chatwoot/conversations?${params.toString()}`, {
+      const cKey = convCacheKey(token, params.toString());
+      const fetchP = fetch(`${API_BASE}/chatwoot/conversations?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (auto !== true && !allConversations.length) {
+        // ipinta agad ang huling cache habang hinihintay ang server
+        convCacheGet(cKey).then(c => {
+          if (convFresh || !c || !c.raw || Date.now() - c.t > CONV_CACHE_TTL || allConversations.length) return;
+          try {
+            paintConversations(c.raw, true);
+            const li = document.getElementById('liveIndicator');
+            if (li) { li.textContent = '● Cached · updating…'; li.style.color = 'var(--warning)'; }
+          } catch (e) { /* sira ang cache — hintayin ang server */ }
+        });
+      }
+      const res = await fetchP;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const raw = await res.text();
+      convFresh = true;
+      convCachePut(cKey, { t: Date.now(), raw });
       document.getElementById('liveIndicator').textContent = '● Live · ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       document.getElementById('liveIndicator').style.color = 'var(--success)';
       if (auto === true && raw === lastConvSig) {
@@ -1560,18 +1602,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
         checkWaitingSound();
         return;
       }
-      lastConvSig = raw;
-      const data = JSON.parse(raw);
-      // WALANG LAMAN (2026-10-16, utos ni Chad): ang conversation na walang
-      // kahit isang mensahe ("No messages yet") ay hindi ipinapakita at hindi
-      // binibilang — kadalasan lumang event na ipinadala ulit ng Chatwoot.
-      allConversations = (data.conversations || []).filter(c => inTeam(c.brand) && hasContent(c));
-      renderBrandTabs();
-      renderAdminFilter();
-      renderConcernFilter();
-      applyFiltersAndRender();
-      renderArtFtrStats();
-      checkWaitingSound();
+      paintConversations(raw, false);
     } catch (err) {
       console.error('Failed to load conversations:', err);
       document.getElementById('liveIndicator').textContent = '● Error loading';
