@@ -4721,12 +4721,12 @@ TicketData.fetchTickets()
     return picked;
   }
   // I-click ang brand sa slide 3 → lahat ng DSAT reason ng brand na iyon
-  function openBrandReasons(b) {
+  function openBrandReasons(b, theme) {   // theme (2026-11-03): kapag may piniling category, yun lang ang ipapakita
     const v = document.getElementById('satView'), c = document.getElementById('satCtrl');
     const fmtAt = d => d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-    const rows = b.listB.filter(r => r.rating <= 2).sort((x, y) => ({ high: 0, medium: 1, low: 2 }[x.severity] - { high: 0, medium: 1, low: 2 }[y.severity]) || y.at - x.at);
+    const rows = b.listB.filter(r => r.rating <= 2 && (!theme || themeOf(r) === theme)).sort((x, y) => ({ high: 0, medium: 1, low: 2 }[x.severity] - { high: 0, medium: 1, low: 2 }[y.severity]) || y.at - x.at);
     v.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">DSAT reasons · ${CS_B.label}</div>
-        <div class="cs-t">${esc(b.label)} <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· ${rows.length} DSAT of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(k => `<span style="color:${SEV_COLOR[k]}">${rows.filter(r => r.severity === k).length} ${SEV_TXT[k]}</span>`).join(' · ')}</span></div></div></div>
+        <div class="cs-t">${esc(b.label)}${theme ? ` <span style="color:${THEME_COLOR[theme] || 'inherit'}">· ${esc(theme)}</span>` : ''} <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· ${rows.length} DSAT of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(k => `<span style="color:${SEV_COLOR[k]}">${rows.filter(r => r.severity === k).length} ${SEV_TXT[k]}</span>`).join(' · ')}</span></div></div></div>
       <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.6cqw;padding-right:.4cqw">${rows.map(r => `
         <div class="cs-mv" style="padding:.9cqw 1.4cqw;gap:1.4cqw;align-items:flex-start">
           <div style="min-width:0;flex:1"><b style="font-size:1.3cqw;${r.feedback && r.feedback.trim() ? '' : 'color:var(--cs-soft);font-weight:600;font-style:italic'}">${r.feedback && r.feedback.trim() ? '“' + esc(r.feedback.trim()) + '”' : 'No reason given'}</b>
@@ -4760,11 +4760,11 @@ TicketData.fetchTickets()
             <div style="min-width:0"><div class="n" style="margin-bottom:.4cqw">${esc(b.label)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${pct(b.sB.ds, b.sB.n)} of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(s => `<span style="color:${SEV_COLOR[s]}">${b.listB.filter(r => r.severity === s).length} ${SEV_TXT[s]}</span>`).join(' ')}</span></div>
               <div class="bars"><div class="bb" data-w="${b.sB.ds}" style="background:${['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i]}"></div></div></div>
             <div class="c" style="font-family:var(--cs-display);font-size:1.8cqw">${csFmt(b.sB.ds)}</div></div>`).join('') || '<div class="cs-msg">No dissatisfied ratings this month.</div>'}</div>`,
-        () => `<div class="cs-k">Common feedback per brand · ${CS_B.label}</div><div class="cs-t">What each brand's DSATs say <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a brand to read every reason</span></div>
+        () => `<div class="cs-k">Common feedback per brand · ${CS_B.label}</div><div class="cs-t">What each brand's DSATs say <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a brand, or a category, to read the reasons</span></div>
           <div class="cs-cards" style="grid-template-columns:repeat(${Math.min(5, Math.max(1, topB.length))},1fr);grid-auto-rows:auto">${topB.map((b, i) => { const th = themesOf(b.listB.filter(r => r.rating <= 2)), max = th.length ? th[0].n : 1;
             return `<div class="cs-card" data-br="${i}" style="cursor:pointer;gap:.7cqw" title="See all DSAT reasons for ${esc(b.label)}">
               <div class="top"><span class="nm" title="${esc(b.label)}">${esc(b.label)}</span><span class="cs-chip down">${b.sB.ds} DSAT · ${pct(b.sB.ds, b.sB.n)}</span></div>
-              ${th.map(t => `<div style="min-width:0"><div style="display:flex;justify-content:space-between;gap:.6cqw;font-size:1.02cqw;font-weight:700;white-space:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;color:${THEME_COLOR[t.k] || 'var(--cs-ink)'}">${esc(t.k)}</span><span style="font-variant-numeric:tabular-nums">${t.n}</span></div>
+              ${th.map(t => `<div data-th="${esc(t.k)}" title="See ${esc(t.k)} reasons for ${esc(b.label)}" style="min-width:0;cursor:pointer"><div style="display:flex;justify-content:space-between;gap:.6cqw;font-size:1.02cqw;font-weight:700;white-space:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;color:${THEME_COLOR[t.k] || 'var(--cs-ink)'}">${esc(t.k)}</span><span style="font-variant-numeric:tabular-nums">${t.n}</span></div>
                 <div style="height:.45cqw;border-radius:.3cqw;background:rgba(255,255,255,.06);margin-top:.25cqw"><div style="height:100%;width:${Math.max(3, Math.round(t.n / max * 100))}%;border-radius:.3cqw;background:${THEME_COLOR[t.k] || '#9FB0C8'}"></div></div>
                 ${t.sample ? `<div style="font-size:.92cqw;color:var(--cs-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.15cqw">“${esc(t.sample)}”</div>` : ''}</div>`).join('')}
               ${th.length < 6 ? `<div style="font-size:.95cqw;color:var(--cs-soft);margin-top:auto">${th.length} theme${th.length === 1 ? '' : 's'} only</div>` : ''}</div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this month.</div>'}</div>`,
@@ -4813,7 +4813,7 @@ TicketData.fetchTickets()
   document.getElementById('satView').addEventListener('click', e => {
     if (!D) return;
     const br = e.target.closest('[data-br]');
-    if (br) { const b = D.brands.filter(x => x.sB.ds > 0)[Number(br.dataset.br)]; if (b) openBrandReasons(b); return; }
+    if (br) { const b = D.brands.filter(x => x.sB.ds > 0)[Number(br.dataset.br)]; const thEl = e.target.closest('[data-th]'); if (b) openBrandReasons(b, thEl ? thEl.dataset.th : null); return; }
     const el = e.target.closest('[data-pl]'); if (!el) return;
     const p = D.playersB[Number(el.dataset.pl)]; if (p) openPlayer(p);
   });
