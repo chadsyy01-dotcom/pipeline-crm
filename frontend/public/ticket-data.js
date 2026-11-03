@@ -254,28 +254,28 @@
     return Math.round(((current - previous) / previous) * 100);
   }
 
-  function parseSheetCsv(source, bust) {
+  // FAST PATH (2026-11-03, Chad: "sobrang tagal mag update ang ticket"): ang "Publish to web" CSV
+  // ay naka-cache ng Google nang hanggang ~5 min kaya kahit 10s ang refresh ng page, luma pa rin
+  // ang datos. Para sa force refresh (auto-refresh / Refresh button), sinusubukan muna ang live
+  // gviz export ng mismong sheet (walang 5-min publish cache). Kapag hindi ito gumana para sa
+  // isang sheet (hindi naka-share ang link, CORS, HTML login page, error), babalik sa published
+  // CSV at hindi na ulit susubukan ang gviz para sa sheet na iyon sa session na ito.
+  // Patayin: localStorage.setItem('csr_no_gviz', '1').
+  const GVIZ_BAD = new Set();
+  const gvizOff = () => { try { return localStorage.getItem('csr_no_gviz') === '1'; } catch (e) { return false; } };
+
+  function papaDownload(url, source, gid, rejectBadHtml) {
     return new Promise((resolve, reject) => {
-      if (typeof Papa === 'undefined') {
-        reject(new Error('PapaParse is required but was not found on the page.'));
-        return;
-      }
-      // Cache-bust LANG kapag force refresh (auto-refresh / Refresh button):
-      // ang unang page load ay dumadaan sa Google/browser cache para mabilis
-      // ang first paint — ang 10s auto-refresh naman agad ang magpapasariwa.
-      // BUST BUCKET (2026-10-11): dati Date.now() bawat 10s — pinipilit ang
-      // Google na i-regenerate ang malalaking sheets (5,000+ rows) tuwing
-      // refresh, kaya madalas mag-timeout at mawala ang buong brand. Ang
-      // published CSV ay nag-a-update lang naman kada ~5 min, kaya sapat ang
-      // 60s bucket: sariwa pa rin, pero magagamit ang cache sa pagitan.
-      const bustUrl = bust ? source.url + (source.url.includes('?') ? '&' : '?') + '_cb=' + Math.floor(Date.now() / 60000) : source.url;
-      const gidMatch = source.url.match(/[?&]gid=(\d+)/);
-      const gid = gidMatch ? gidMatch[1] : '0';
-      Papa.parse(bustUrl, {
+      Papa.parse(url, {
         download: true,
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
+          const fields = (results.meta && results.meta.fields) || [];
+          if (rejectBadHtml && (!fields.length || fields.some(f => /<|doctype|html/i.test(String(f || '').slice(0, 40))))) {
+            reject(new Error('gviz returned non-CSV'));
+            return;
+          }
           // Row 1 is the header, so the first data row is sheet row 2. This only
           // stays accurate if there are no blank rows *within* the data range —
           // skipEmptyLines would otherwise shift later rows out of sync.
@@ -285,6 +285,33 @@
         error: (err) => reject(err)
       });
     });
+  }
+
+  function parseSheetCsv(source, bust) {
+    if (typeof Papa === 'undefined') {
+      return Promise.reject(new Error('PapaParse is required but was not found on the page.'));
+    }
+    // Cache-bust LANG kapag force refresh (auto-refresh / Refresh button):
+    // ang unang page load ay dumadaan sa Google/browser cache para mabilis
+    // ang first paint — ang 10s auto-refresh naman agad ang magpapasariwa.
+    // BUST BUCKET (2026-10-11): dati Date.now() bawat 10s — pinipilit ang
+    // Google na i-regenerate ang malalaking sheets (5,000+ rows) tuwing
+    // refresh, kaya madalas mag-timeout at mawala ang buong brand. Ang
+    // published CSV ay nag-a-update lang naman kada ~5 min, kaya sapat ang
+    // 60s bucket: sariwa pa rin, pero magagamit ang cache sa pagitan.
+    const bustUrl = bust ? source.url + (source.url.includes('?') ? '&' : '?') + '_cb=' + Math.floor(Date.now() / 60000) : source.url;
+    const gidMatch = source.url.match(/[?&]gid=(\d+)/);
+    const gid = gidMatch ? gidMatch[1] : '0';
+    const published = () => papaDownload(bustUrl, source, gid, false);
+    if (bust && source.sheetId && !GVIZ_BAD.has(source.url) && !gvizOff()) {
+      const gv = `https://docs.google.com/spreadsheets/d/${source.sheetId}/gviz/tq?tqx=out:csv&headers=1&gid=${gid}&_cb=${Math.floor(Date.now() / 15000)}`;
+      return papaDownload(gv, source, gid, true).catch(err => {
+        GVIZ_BAD.add(source.url);
+        console.warn('[tickets] live gviz failed, using published CSV:', source.sheetId, gid, err && err.message);
+        return published();
+      });
+    }
+    return published();
   }
 
   // Kinokolekta ang LAHAT ng photo/Drive links mula sa KAHIT ANONG column
