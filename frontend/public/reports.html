@@ -3148,8 +3148,8 @@ document.addEventListener('click', (e) => {
 //   Nire-refresh kada 5 min; kumikislap ang card kapag nagbago ang bilang.
 // Para palitan ang periods: CS_A / CS_B sa ibaba.
 // ---------------------------------------------------------------------------
-const CS_A = { start: new Date(2026, 9, 1), end: new Date(2026, 9, 15), label: 'Oct 1–15' };
-const CS_B = { start: new Date(2026, 9, 16), end: new Date(2026, 9, 22), label: 'Oct 16–22' };
+const CS_A = { start: new Date(2026, 8, 1), end: new Date(2026, 8, 30), label: 'September' };   // (2026-11-03, Chad: "month of oct and comparison ng month sept") dati Oct 1–15
+const CS_B = { start: new Date(2026, 9, 1), end: new Date(2026, 9, 31), label: 'October' };   // dati Oct 16–22
 // Dagdag na HH/AI slide (2026-10-22, Chad: "dagdagan mo ng slide ng 10–15 Oct")
 const CS_M = { start: new Date(2026, 9, 10), end: new Date(2026, 9, 15), label: 'Oct 10–15' };
 const CS_COLORS = { buenasph: '#3B82F6', tmtcash: '#F97316', mcp: '#A855F7', manilaplayph: '#06B6D4', Tmtplay: '#EF4444',
@@ -3333,7 +3333,7 @@ function csOpenPeriod(per) {
   csState.mode = 'cards'; csState.per = per;
   const count = (per === 'a' ? D.list.filter(b => b.a > 0) : D.list).length;
   view.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">${per === 'a' ? `${CS_A.label} · by brand` : `${CS_B.label} · per day vs ${CS_A.label}`}</div>
-    <div class="cs-t">${per === 'a' ? `Chats in ${CS_A.label}` : 'Chats this week'}</div></div>
+    <div class="cs-t">${per === 'a' ? `Chats in ${CS_A.label}` : 'Chats this month'}</div></div>
     ${per === 'b' ? `<span class="cs-livedot"><i></i>LIVE <small>· updates every 5 min</small></span>` : ''}</div>
     <div class="cs-cards${count > 10 ? ' many' : ''}">${csCardsHtml(per)}</div>`;
   view.querySelectorAll('.cs-card').forEach((c, k) => csAnim(c, [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: k * 50 }));
@@ -4441,7 +4441,7 @@ TicketData.fetchTickets()
       const v = view(); S.mode = 'cards'; S.per = per;
       const html = cfg.cards(S.D, per), count = (html.match(/class="cs-card/g) || []).length;
       v.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">${per === 'a' ? `${CS_A.label} · by brand` : `${CS_B.label} · per day vs ${CS_A.label}`}</div>
-        <div class="cs-t">${per === 'a' ? `${cfg.noun} in ${CS_A.label}` : `${cfg.noun} this week`}</div></div>
+        <div class="cs-t">${per === 'a' ? `${cfg.noun} in ${CS_A.label}` : `${cfg.noun} this month`}</div></div>
         ${per === 'b' ? `<span class="cs-livedot"><i></i>LIVE <small>· updates every ${cfg.every || '30 sec'}</small></span>` : ''}</div>
         <div class="cs-cards${count > 10 ? ' many' : ''}">${html || '<div class="cs-msg">No tickets in this period.</div>'}</div>`;
       v.querySelectorAll('.cs-card').forEach((c, k) => csAnim(c, [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: k * 50 }));
@@ -4533,7 +4533,7 @@ TicketData.fetchTickets()
       const dayKey = d => d.toDateString();
       return [
         () => `<div class="cs-k">Ticket analytics · ${CS_B.label} vs ${CS_A.label}</div>
-          <div class="cs-t">${rB.players ? `${rB.players} repeat players this week` : `Tickets ${CS_B.label}`}</div>
+          <div class="cs-t">${rB.players ? `${rB.players} repeat players this month` : `Tickets ${CS_B.label}`}</div>
           <div class="cs-kpis">
             <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Filed · ${CS_A.label}</div><div class="v" data-n="${fA}">0</div><div class="s">${csFmt(aPD)} per day · ${F.daysA} days</div><div class="go">View by brand ›</div></button>
             <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Filed · ${CS_B.label}</div><div class="v" data-n="${fB}">0</div><div class="s">${csFmt(bPD)} per day · ${F.daysB} day${F.daysB === 1 ? '' : 's'}</div><div class="go">View by brand ›</div></button>
@@ -4729,7 +4729,7 @@ TicketData.fetchTickets()
       <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.6cqw;padding-right:.4cqw">${rows.map(r => `
         <div class="cs-mv" style="padding:.9cqw 1.4cqw;gap:1.4cqw;align-items:flex-start">
           <div style="min-width:0;flex:1"><b style="font-size:1.3cqw;${r.feedback && r.feedback.trim() ? '' : 'color:var(--cs-soft);font-weight:600;font-style:italic'}">${r.feedback && r.feedback.trim() ? '“' + esc(r.feedback.trim()) + '”' : 'No reason given'}</b>
-            <span>${esc(r.name || 'Unknown')} · ${fmtAt(r.at)} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} · <span style="color:${SEV_COLOR[r.severity]}">${SEV_TXT[r.severity]}</span> · <span style="color:${THEME_COLOR[themeOf(r)]}">${themeOf(r)}</span></span></div></div>`).join('') || '<div class="cs-msg">No DSAT this week.</div>'}</div>`;
+            <span>${esc(r.name || 'Unknown')} · ${fmtAt(r.at)} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} · <span style="color:${SEV_COLOR[r.severity]}">${SEV_TXT[r.severity]}</span> · <span style="color:${THEME_COLOR[themeOf(r)]}">${themeOf(r)}</span></span></div></div>`).join('') || '<div class="cs-msg">No DSAT this month.</div>'}</div>`;
     c.innerHTML = '<button class="cs-btn" type="button" id="satBrBack">← Back to brands</button>';
     document.getElementById('satBrBack').onclick = () => show.goto(2);
   }
@@ -4742,7 +4742,7 @@ TicketData.fetchTickets()
       const topB = D.brands.filter(b => b.sB.ds > 0).slice(0, 5), aMap = new Map(D.brands.map(b => [b.key, b.sA.ds]));
       return [
         () => `<div class="cs-k">Customer satisfaction · ${CS_B.label} vs ${CS_A.label}</div>
-          <div class="cs-t">${sB.n ? `${pct(sB.cs, sB.n)} satisfied this week` : `Ratings ${CS_B.label}`}</div>
+          <div class="cs-t">${sB.n ? `${pct(sB.cs, sB.n)} satisfied this month` : `Ratings ${CS_B.label}`}</div>
           <div class="cs-kpis">
             <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">Ratings · ${CS_A.label}</div><div class="v" data-n="${sA.n}">0</div><div class="s"><span style="color:#4ADE80">${sA.cs} CSAT</span> · ${sA.neu} rated 3★ · <span style="color:#F87171">${sA.ds} DSAT</span> · ${csFmt(F.daysA ? sA.n / F.daysA : 0)} per day</div><div class="go">View by brand ›</div></button>
             <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">Ratings · ${CS_B.label}</div><div class="v" data-n="${sB.n}">0</div><div class="s"><span style="color:#4ADE80">${sB.cs} CSAT</span> · ${sB.neu} rated 3★ · <span style="color:#F87171">${sB.ds} DSAT</span> · ${csFmt(F.daysB ? sB.n / F.daysB : 0)} per day</div><div class="go">View by brand ›</div></button>
@@ -4758,7 +4758,7 @@ TicketData.fetchTickets()
             <div class="n" style="color:${['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i]};font-family:var(--cs-display)">${i + 1}</div>
             <div style="min-width:0"><div class="n" style="margin-bottom:.4cqw">${esc(b.label)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${pct(b.sB.ds, b.sB.n)} of ${b.sB.n} ratings · ${['high', 'medium', 'low'].map(s => `<span style="color:${SEV_COLOR[s]}">${b.listB.filter(r => r.severity === s).length} ${SEV_TXT[s]}</span>`).join(' ')}</span></div>
               <div class="bars"><div class="bb" data-w="${b.sB.ds}" style="background:${['#EF4444', '#F59E0B', '#EAB308', '#3B82F6', '#8B5CF6'][i]}"></div></div></div>
-            <div class="c" style="font-family:var(--cs-display);font-size:1.8cqw">${csFmt(b.sB.ds)}</div></div>`).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
+            <div class="c" style="font-family:var(--cs-display);font-size:1.8cqw">${csFmt(b.sB.ds)}</div></div>`).join('') || '<div class="cs-msg">No dissatisfied ratings this month.</div>'}</div>`,
         () => `<div class="cs-k">Common feedback per brand · ${CS_B.label}</div><div class="cs-t">What each brand's DSATs say <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a brand to read every reason</span></div>
           <div class="cs-cards" style="grid-template-columns:repeat(${Math.min(5, Math.max(1, topB.length))},1fr);grid-auto-rows:auto">${topB.map((b, i) => { const th = themesOf(b.listB.filter(r => r.rating <= 2)), max = th.length ? th[0].n : 1;
             return `<div class="cs-card" data-br="${i}" style="cursor:pointer;gap:.7cqw" title="See all DSAT reasons for ${esc(b.label)}">
@@ -4766,10 +4766,10 @@ TicketData.fetchTickets()
               ${th.map(t => `<div style="min-width:0"><div style="display:flex;justify-content:space-between;gap:.6cqw;font-size:1.02cqw;font-weight:700;white-space:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;color:${THEME_COLOR[t.k] || 'var(--cs-ink)'}">${esc(t.k)}</span><span style="font-variant-numeric:tabular-nums">${t.n}</span></div>
                 <div style="height:.45cqw;border-radius:.3cqw;background:rgba(255,255,255,.06);margin-top:.25cqw"><div style="height:100%;width:${Math.max(3, Math.round(t.n / max * 100))}%;border-radius:.3cqw;background:${THEME_COLOR[t.k] || '#9FB0C8'}"></div></div>
                 ${t.sample ? `<div style="font-size:.92cqw;color:var(--cs-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.15cqw">“${esc(t.sample)}”</div>` : ''}</div>`).join('')}
-              ${th.length < 6 ? `<div style="font-size:.95cqw;color:var(--cs-soft);margin-top:auto">${th.length} theme${th.length === 1 ? '' : 's'} only</div>` : ''}</div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
+              ${th.length < 6 ? `<div style="font-size:.95cqw;color:var(--cs-soft);margin-top:auto">${th.length} theme${th.length === 1 ? '' : 's'} only</div>` : ''}</div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this month.</div>'}</div>`,
         () => `<div class="cs-k">Top players who gave DSATs · ${CS_B.label}</div><div class="cs-t">Who was unhappy <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· click a player to see their reasons</span></div>
           <div class="cs-movers">${D.playersB.slice(0, 6).map((p, i) => { const last = p.ds[0], reason = (last.feedback || '').trim();
-            return `<div class="cs-mv" data-pl="${i}" style="cursor:pointer" title="See this player's DSAT reasons"><div style="min-width:0"><b>${esc(p.name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(chatBrandLabel(p.brand))}</span></b><span>${p.all.length} rating${p.all.length === 1 ? '' : 's'} in total · ${p.ds.length} DSAT${p.all.length - p.ds.length ? ` · ${p.all.length - p.ds.length} rated 3–5★` : ''} · latest: <span style="color:${SEV_COLOR[last.severity]}">${SEV_TXT[last.severity]}</span>${reason ? ` “${esc(reason.length > 50 ? reason.slice(0, 50) + '…' : reason)}”` : ''}</span></div><div class="pct" style="color:var(--cs-down)">${p.ds.length}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> DSAT</span></div></div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this week.</div>'}</div>`,
+            return `<div class="cs-mv" data-pl="${i}" style="cursor:pointer" title="See this player's DSAT reasons"><div style="min-width:0"><b>${esc(p.name)} <span style="color:var(--cs-soft);font-weight:600;font-size:1.1cqw">· ${esc(chatBrandLabel(p.brand))}</span></b><span>${p.all.length} rating${p.all.length === 1 ? '' : 's'} in total · ${p.ds.length} DSAT${p.all.length - p.ds.length ? ` · ${p.all.length - p.ds.length} rated 3–5★` : ''} · latest: <span style="color:${SEV_COLOR[last.severity]}">${SEV_TXT[last.severity]}</span>${reason ? ` “${esc(reason.length > 50 ? reason.slice(0, 50) + '…' : reason)}”` : ''}</span></div><div class="pct" style="color:var(--cs-down)">${p.ds.length}<span style="font-size:1.1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> DSAT</span></div></div>`; }).join('') || '<div class="cs-msg">No dissatisfied ratings this month.</div>'}</div>`,
         // (2026-10-22, Chad: "lahat ng redundant slide alisin") tinanggal: 'Satisfied vs dissatisfied per brand' (DSAT % nasa slide 2 at brand cards na)
       ];
     },
