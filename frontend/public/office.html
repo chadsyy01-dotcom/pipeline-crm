@@ -429,7 +429,7 @@ function log(html) {
 //   online  = nag-reply sa huling 20 minuto (o TL na naka-shift)
 //   offline = naka-shift pero walang reply sa huling 20 minuto
 // Queue = open conversations na naipasa na sa tao (handoff) pero wala pang human reply.
-const ACTIVE_MS = 20 * 60000, WINDOW_MS = 12 * 3600000, POLL_MS = 30000;
+const ACTIVE_MS = 20 * 60000, WINDOW_MS = 12 * 3600000, POLL_MS = 15000;   // chats: bawat 15 segundo
 function setStatus(p, s) { if (p.status !== s) { p.status = s; p.since = now(); } }
 const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 let nameIndex = new Map();
@@ -453,20 +453,59 @@ function buildNameIndex(directory) {
 function matchPerson(sender) {
   const k = norm(sender); if (!k) return null;
   if (nameIndex.has(k)) return nameIndex.get(k);
-  const first = k.split(' ')[0];                                      // "Milky G." → Milky
-  const hits = people.filter(p => norm(p.name) === first || norm(p.full).split(' ')[0] === first);
+  // Pareho ang mga salita kahit iba ang ayos: "Ramos, Rowell" = "Rowell Ramos"
+  const sorted = k.split(' ').sort().join(' ');
+  const byWords = people.filter(p => !/to fill in/i.test(p.full) && norm(p.full).split(' ').sort().join(' ') === sorted);
+  if (byWords.length === 1) return byWords[0];
+  // Isang salita lang ang tugma sa pangalan: "Milky G." / "Ramos, Rowell P." → kapag iisa lang ang tao
+  const words = new Set(k.split(' '));
+  const hits = people.filter(p => !/to fill in/i.test(p.full) && (words.has(norm(p.name).split(' ')[0]) || words.has(norm(p.full).split(' ')[0])));
+  if (hits.length === 1) return hits[0];
+  // Apelyido + pangalan kahit may middle name/initial: "Ramos, Rowell P." → Rowell Ramos
+  const both = people.filter(p => { const t = norm(p.full).split(' '); return t.length > 1 && words.has(t[0]) && words.has(t[t.length - 1]); });
+  if (both.length === 1) return both[0];
+  return matchHandle(sender);
+}
+// USERNAME NG ACCOUNT (hal. "csredriann", "csrarabela", "pexternon", "CSR_JONEEL"):
+// tanggalin ang csr/tl/admin/numero, tapos hanapin ang pangalan o apelyido sa loob.
+function lev(a, b) {
+  const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[m][n];
+}
+function matchHandle(sender) {
+  let h = String(sender || '').toLowerCase().replace(/[^a-z]/g, '');
+  h = h.replace(/^(csr|tl|admin|agent|iam)+/, '').replace(/(csr|tl)$/, '');
+  if (h.length < 4) return null;
+  const real = people.filter(p => !/to fill in/i.test(p.full));
+  const tokens = p => norm(p.full).split(' ').filter(w => w.length >= 4);
+  // 1) may buong pangalan/apelyido sa loob ng username
+  let hits = real.filter(p => tokens(p).some(w => h.includes(w)));
+  if (hits.length === 1) return hits[0];
+  // 2) halos pareho (1–2 letra ang mali, hal. "joneel" ≈ "jonnel", "edriann" ≈ "edrian")
+  hits = real.filter(p => tokens(p).some(w => w.length >= 5 && lev(h, w) <= 2));
   return hits.length === 1 ? hits[0] : null;
 }
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem('pipeline_token')}` });
-async function getJSON(path) {
-  const r = await fetch(API_BASE + path, { headers: auth() });
+async function getJSON(path, ms) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms || 20000);
+  let r;
+  try { r = await fetch(API_BASE + path, { headers: auth(), signal: ctl.signal }); }
+  catch (e) { throw new Error(e.name === 'AbortError' ? `${path.split('?')[0]} took too long` : 'network error'); }
+  finally { clearTimeout(timer); }
   if (r.status === 401) { localStorage.removeItem('pipeline_token'); location.href = LOGIN_PATH; throw new Error('auth'); }
   if (!r.ok) throw new Error(`${path.split('?')[0]} → HTTP ${r.status}`);
   return r.json();
 }
-let dirLoaded = false, firstLoad = true, loading = false;
-async function loadLive() {
-  if (loading) return; loading = true;
+let dirLoaded = false, firstLoad = true, loading = false, livePromise = null;
+function loadLive() {                  // iisang request lang sa isang pagkakataon; ang Refresh ay naghihintay dito
+  if (!livePromise) livePromise = loadLiveNow().finally(() => { livePromise = null; });
+  return livePromise;
+}
+async function loadLiveNow() {
+  loading = true;
   const badge = document.getElementById('liveBadge');
   try {
     if (!dirLoaded) {
@@ -591,8 +630,9 @@ function renderUnclaimed() {
   if (unclaimed.length > 8) { const li = document.createElement('li'); li.textContent = `+${unclaimed.length - 8} more on the Tickets page`; ul.appendChild(li); }
 }
 async function loadTickets(force) {
-  if (!window.TicketData || ticketsLoading || !dirLoaded) return;
-  ticketsLoading = true;
+  if (!window.TicketData || !dirLoaded) return;
+  if (ticketsLoading) return ticketsLoading;
+  let done; ticketsLoading = new Promise(r => { done = r; });
   try {
     const all = await TicketData.fetchTickets(!!force);
     const today = new Date(), unk = new Map(), fresh = [], DAY = 24 * 3600000;
@@ -615,10 +655,10 @@ async function loadTickets(force) {
     unclaimed = fresh.sort((a, b) => b.submitted - a.submitted); renderUnclaimed();
     people.forEach(p => { if (p.role === 'TL') setStatus(p, (p.chats || p.tHandling.length) ? 'busy' : 'online'); });
   } catch (e) { log(`Couldn't load tickets: ${esc(e.message || e)}`); }
-  finally { ticketsLoading = false; }
+  finally { const d = done; ticketsLoading = false; d(); }
 }
 setTimeout(() => loadTickets(false), 1500);
-setInterval(() => loadTickets(true), 120000);
+setInterval(() => loadTickets(true), 60000);        // tickets: bawat minuto (pareho sa Tickets page)
 
 async function saveAlias(alias, person) {
   if (!person) return;
@@ -1194,7 +1234,12 @@ cv.addEventListener('wheel', e => {
 document.getElementById('zIn').onclick = () => zoomAt(1.3, W / 2, H / 2);
 document.getElementById('zOut').onclick = () => zoomAt(1 / 1.3, W / 2, H / 2);
 document.getElementById('zFit').onclick = () => { view.zoom = 1; view.panX = 0; view.panY = 0; };
-document.getElementById('refreshBtn').onclick = () => loadLive();
+document.getElementById('refreshBtn').onclick = async () => {
+  const b = document.getElementById('refreshBtn'); if (b.disabled) return;
+  b.disabled = true; b.textContent = 'Refreshing…';
+  try { await Promise.all([loadLive(), loadTickets(true), loadAvatars(), pollPresence()]); }
+  finally { b.disabled = false; b.textContent = 'Refresh'; }
+};
 document.getElementById('backBtn').onclick = () => { const w = myWalker(); if (!w) return; if (w.visitor) walkTo(ENTRY.x, ENTRY.y); else { w.away = false; sendPresence(true); } };
 document.getElementById('confBtn').onclick = () => walkTo(CONF.x + 1 + Math.random() * 6, CONF.y + 5.8 + Math.random() * 0.8);
 
