@@ -1400,8 +1400,9 @@ function buildPeriods(preset) {
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   let bStart, bEnd, aStart, aEnd;
   if (preset === 'oct1h2026') {   // PINNED Oct 1–15, 2026 (A = Sep 1–15, kinukuwenta pero hindi ipinapakita)
-    bStart = new Date(2026, 9, 1); bEnd = new Date(2026, 9, 15);
-    aStart = new Date(2026, 8, 1); aEnd = new Date(2026, 8, 15);
+    // (2026-11-03, Chad: "month of oct, comparison sept") dati Oct 1–15 vs Sep 1–15
+    bStart = new Date(2026, 9, 1); bEnd = new Date(2026, 9, 31);
+    aStart = new Date(2026, 8, 1); aEnd = new Date(2026, 8, 30);
   }
   else if (preset === 'sep2026') {   // OLD: September 2026 (comparison: August 2026)
     bStart = new Date(2026, 8, 1); bEnd = new Date(2026, 8, 30);
