@@ -1131,6 +1131,8 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     swabegaming: 'Swabe Gaming',
     SwabeGaming: 'Swabe Gaming',   // aktuwal na webhook slug
     primogaming: 'Primo Gaming',   // Chatwoot: support.primogaming1.vip (2026-10-24)
+    VMX: 'VMXPlay',   // Chatwoot, webhook slug VMX — team BRAVO (2026-11-04)
+    vmx: 'VMXPlay',
     // ---- LiveChat.com brands (resolved from originating domain) ----
     casinyeam: 'Casinyeam',
     manilacasino: 'Manila Casino',
@@ -1155,7 +1157,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   // mga brand ng team na iyon (lahat ng counts, stats, CSAT at listahan).
   // Swabe Gaming: wala pang alam na slug — tinutugma rin ayon sa pangalan.
   const CSR_TEAMS = {
-    bravo:   { label: 'BRAVO',   show: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph'], brands: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph'] },
+    bravo:   { label: 'BRAVO',   show: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph', 'VMX'], brands: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph', 'VMX', 'vmx'] },   // VMX added 2026-11-04
     delta:   { label: 'DELTA',   show: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD'], brands: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD', 'manilaplay', 'hypeplayph', 'hypeplaybd'] },
     foxtrot: { label: 'FOXTROT', show: ['Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH', 'SwabeGaming'], brands: ['MGK', 'Tmtplay', 'BuenasCredit', 'LuckystacksPH', 'mastergoldkey', 'luckystacksph', 'tmtplay', 'swabegaming', 'SwabeGaming', 'swabe'], match: /swabe/i },
     echo:    { label: 'ECHO',    show: ['buenasph', 'primogaming'], brands: ['buenasph', 'primogaming'] },   // primogaming (Chad, 2026-10-24)
