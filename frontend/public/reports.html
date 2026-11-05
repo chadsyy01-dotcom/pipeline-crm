@@ -653,6 +653,7 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
 .cs-cards.many{grid-template-columns:repeat(6,1fr);} .cs-cards.many .cs-card .v{font-size:2.1cqw;}
 .cs-msg{margin:auto;text-align:center;color:var(--cs-soft);font-size:1.6cqw;max-width:70%;}
 .cs-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.cs-wrap.bar-top{flex-direction:column-reverse;}   /* 2026-11-05 (Chad): Back to summary nasa TAAS kapag nasa by-brand view */
 .cs-btn{font:inherit;font-weight:700;font-size:13px;color:#0F1E3D;background:#fff;border:1px solid #D5DCE6;border-radius:99px;padding:7px 14px;cursor:pointer;}
 .cs-btn:hover{border-color:#0F1E3D;} .cs-btn:focus-visible{outline:2px solid #3B82F6;outline-offset:2px;}
 .cs-now{font-size:12.5px;color:#64748B;}
@@ -3347,6 +3348,7 @@ function csShowSlide(i) {
   const view = document.getElementById('csView');
   const S = csSlides();
   csState.mode = 'slides'; csState.per = null;
+  document.getElementById('csWrap').classList.remove('bar-top');
   csState.slide = Math.max(0, Math.min(S.length - 1, i));
   view.innerHTML = S[csState.slide]();
   view.querySelectorAll('.cs-k, .cs-t, .cs-kpi, .cs-pair, .cs-mv, .row, .cs-legend').forEach((el, k) => csAnim(el, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: k * 70 }));
@@ -3389,6 +3391,7 @@ function csCardsHtml(per) {
 function csOpenPeriod(per) {
   const view = document.getElementById('csView'), D = csState.data;
   csState.mode = 'cards'; csState.per = per;
+  document.getElementById('csWrap').classList.add('bar-top');
   const count = (per === 'a' ? D.list.filter(b => b.a > 0) : D.list).length;
   view.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">${per === 'a' ? `${CS_A.label} · by brand` : `${CS_B.label} · per day vs ${CS_A.label}`}</div>
     <div class="cs-t">${per === 'a' ? `Chats in ${CS_A.label}` : 'Chats this month'}</div></div>
@@ -4482,6 +4485,7 @@ TicketData.fetchTickets()
     function showSlide(i) {
       const v = view(), SL = cfg.slides(S.D);
       S.mode = 'slides'; S.per = null; S.slide = Math.max(0, Math.min(SL.length - 1, i));
+      ctrl().closest('.cs-wrap').classList.remove('bar-top');
       v.innerHTML = SL[S.slide]();
       v.querySelectorAll('.cs-k, .cs-t, .cs-kpi, .cs-pair, .cs-mv, .row, .cs-legend').forEach((el, k) => csAnim(el, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: k * 70 }));
       v.querySelectorAll('.cs-kpi .v[data-n]').forEach(el => csCountUp(el, Number(el.dataset.n)));
@@ -4497,6 +4501,7 @@ TicketData.fetchTickets()
     }
     function openPeriod(per) {
       const v = view(); S.mode = 'cards'; S.per = per;
+      ctrl().closest('.cs-wrap').classList.add('bar-top');
       const html = cfg.cards(S.D, per), count = (html.match(/class="cs-card/g) || []).length;
       v.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">${per === 'a' ? `${CS_A.label} · by brand` : `${CS_B.label} · per day vs ${CS_A.label}`}</div>
         <div class="cs-t">${per === 'a' ? `${cfg.noun} in ${CS_A.label}` : `${cfg.noun} this month`}</div></div>
