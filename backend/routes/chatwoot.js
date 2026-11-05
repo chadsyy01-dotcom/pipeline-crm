@@ -1503,6 +1503,69 @@ router.get('/handoff-daily', requireAuth, shortCache(30000), async (req, res) =>
   }
 });
 
+// GET /api/chatwoot/handoff-breakdown?from=...&to=...
+// (2026-11-05, Chad: "yung break down ng HH — daily, hourly, at distributed per CSR")
+// Parehong HH definition ng /handoff-split (kaya pareho ang total), pero hinihiwalay:
+//   daily  = araw (Asia/Manila) ng UNANG customer message ng conversation sa window
+//   hourly = oras (0–23, Asia/Manila) ng unang customer message na iyon
+//   csr    = ang UNANG human agent na sumagot sa window (hindi bot persona);
+//            hourly[] niya = oras ng unang sagot niya (para makita ang duty window)
+//   noHuman = HH dahil nag-transfer ang bot pero walang human na sumagot
+// LiveChat brands hindi kasama (laging HH doon, hindi Chatwoot handoff).
+router.get('/handoff-breakdown', requireAuth, shortCache(60000), async (req, res) => {
+  try {
+    const from = req.query.from, to = req.query.to;
+    if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
+    const repl = { from, to };
+    const [custRows, humanRows, botHoRows] = await Promise.all([
+      sequelize.query(`
+        SELECT "brand", "conversationId", MIN("createdAt") AS t FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND "senderType" = 'contact' AND "isPrivate" = false
+          AND "conversationId" IS NOT NULL AND "createdAt" BETWEEN :from AND :to
+        GROUP BY "brand", "conversationId"
+      `, { replacements: repl, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT "brand", "conversationId", "senderName", MIN("createdAt") AS t FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND "senderType" = 'user' AND "isPrivate" = false
+          AND "senderName" IS NOT NULL AND "conversationId" IS NOT NULL
+          AND "createdAt" BETWEEN :from AND :to
+        GROUP BY "brand", "conversationId", "senderName"
+      `, { replacements: repl, type: QueryTypes.SELECT }),
+      sequelize.query(`
+        SELECT DISTINCT "brand", "conversationId" FROM "ChatwootEvents"
+        WHERE event = 'message_created' AND "senderType" = 'user' AND "isPrivate" = false
+          AND "conversationId" IS NOT NULL AND "createdAt" BETWEEN :from AND :to
+          AND "content" ~* :re
+      `, { replacements: { ...repl, re: HANDOFF_MSG_RE.source }, type: QueryTypes.SELECT }),
+    ]);
+    const key = (b, c) => b + '|' + c;
+    const PH = 8 * 3600 * 1000;   // Asia/Manila = UTC+8 (walang DST)
+    const phParts = t => { const d = new Date(new Date(t).getTime() + PH); return { day: d.toISOString().slice(0, 10), hour: d.getUTCHours() }; };
+    const firstHuman = new Map();   // brand|conv → { name, t }
+    humanRows.forEach(r => {
+      if (isBotSender(r.brand, r.senderName)) return;
+      const k = key(r.brand, r.conversationId), cur = firstHuman.get(k);
+      if (!cur || new Date(r.t) < new Date(cur.t)) firstHuman.set(k, { name: r.senderName, t: r.t });
+    });
+    const botHo = new Set(botHoRows.map(r => key(r.brand, r.conversationId)));
+    const byBrand = {};
+    custRows.forEach(r => {
+      if (LIVECHAT_BRAND_SET.has(r.brand)) return;
+      const k = key(r.brand, r.conversationId), fh = firstHuman.get(k);
+      if (!fh && !botHo.has(k)) return;   // AI only — hindi HH
+      const b = byBrand[r.brand] ??= { hh: 0, daily: {}, hourly: new Array(24).fill(0), csr: {}, noHuman: 0 };
+      const p = phParts(r.t);
+      b.hh++; b.daily[p.day] = (b.daily[p.day] || 0) + 1; b.hourly[p.hour]++;
+      if (fh) { const c = b.csr[fh.name] ??= { n: 0, hourly: new Array(24).fill(0) }; c.n++; c.hourly[phParts(fh.t).hour]++; }
+      else b.noHuman++;
+    });
+    res.json({ from, to, byBrand });
+  } catch (err) {
+    console.error('Chatwoot handoff-breakdown error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/chatwoot/messages-received?from=...&to=...
 // Incoming customer messages per brand for the window (added 2026-09-21).
 // Powers the Reports page's Chats Comparison, whose historical months come
