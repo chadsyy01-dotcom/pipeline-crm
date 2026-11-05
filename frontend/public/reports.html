@@ -3241,10 +3241,11 @@ async function csLoad() {
     const allDays = [];
     for (let d = startOfDay(CS_A.start); d <= bEnd; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) allDays.push(d);
     const inB = d => d >= startOfDay(CS_B.start);
-    const [rows, hhA, hhB, hhM] = await Promise.all([
+    // FIX (2026-11-05): dati [rows, hhA, hhB, hhM] pero ang ika-3 na tawag ay Oct 10–15 (CS_M) — kaya ang "October" HH/AI ay Oct 10–15 pala.
+    // Tinanggal ang CS_M na tawag (hindi na ginagamit, mabigat); hhB = buong Oct 1–31.
+    const [rows, hhA, hhB] = await Promise.all([
       loadChatSheetRows(),
       apiGet(`/chatwoot/handoff-split?from=${encodeURIComponent(startOfDay(CS_A.start).toISOString())}&to=${encodeURIComponent(aEnd.toISOString())}`).catch(() => null),
-      apiGet(`/chatwoot/handoff-split?from=${encodeURIComponent(startOfDay(CS_M.start).toISOString())}&to=${encodeURIComponent(endOfDay(CS_M.end).toISOString())}`).catch(() => null),
       now < CS_B.start ? null : apiGet(`/chatwoot/handoff-split?from=${encodeURIComponent(startOfDay(CS_B.start).toISOString())}&to=${encodeURIComponent((now < bEnd ? now : bEnd).toISOString())}`).catch(() => null),
     ]);
     const blocks = parseSheetDaily(rows);
@@ -3299,7 +3300,7 @@ async function csLoad() {
     const cwOnly = h => { if (!h || !h.byBrand) return { total: null, byBrand: {} }; const by = {}; const t = { conversations: 0, hh: 0, ai: 0 };
       Object.entries(h.byBrand).forEach(([k, v]) => { if (LC.has(String(k).toLowerCase())) return; by[k] = v; t.conversations += v.conversations; t.hh += v.hh; t.ai += v.ai; });
       return { total: t.conversations ? t : null, byBrand: by }; };
-    const cwA = cwOnly(hhA), cwB = cwOnly(hhB), cwM = cwOnly(hhM);
+    const cwA = cwOnly(hhA), cwB = cwOnly(hhB), cwM = { total: null, byBrand: {} };
     csState.data = { list, TA, TB, daysA, daysB, allDays, filled, inB, hhA: cwA.total, hhB: cwB.total, hhBrands: cwB.byBrand, hhABrands: cwA.byBrand, hhM: cwM.total, hhMBrands: cwM.byBrand,
       lastB: lastIdx(inB) >= 0 ? allDays[lastIdx(inB)] : null };
     csState.updatedAt = new Date();
