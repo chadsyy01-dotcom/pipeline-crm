@@ -673,7 +673,7 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
 .hbd-c{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0;cursor:default;min-height:0;} .hbd-c .bw{flex:1;min-height:0;width:100%;display:flex;align-items:flex-end;}
 .hbd-c i{display:block;width:100%;background:var(--cs-b);border-radius:.25cqw .25cqw 0 0;transition:height .9s cubic-bezier(.2,.8,.2,1);min-height:1px;flex:none;}
 .hbd-bars.h .hbd-c i{background:#F59E0B;} .hbd-c i.pk{background:var(--cs-gold);box-shadow:0 0 1.2cqw rgba(255,200,87,.5);}
-.hbd-c:hover i{filter:brightness(1.3);}
+.hbd-c:hover i{filter:brightness(1.3);} .hbd-c i{position:relative;} .hbd-c i u{position:absolute;left:50%;top:-1.35cqw;transform:translateX(-50%);text-decoration:none;font-size:.85cqw;font-weight:800;color:var(--cs-ink);white-space:nowrap;} .hbd-bars.d .hbd-c i u{display:none;} .hbd-bars.h .bw{padding-top:1.4cqw;}
 .hbd-c b{font-size:.85cqw;color:var(--cs-soft);font-weight:700;margin-top:.35cqw;height:1.1cqw;line-height:1.1cqw;white-space:nowrap;}
 .hbd-csr{gap:.2cqw;overflow:hidden;}
 .hbd-r{display:grid;grid-template-columns:12cqw 1fr 8.5cqw;align-items:center;gap:1cqw;padding:.55cqw 0;border-top:.1cqw solid rgba(255,255,255,.05);}
@@ -3537,23 +3537,25 @@ async function csOpenHH() {
   const live = days.filter(x => !x.future), dMax = Math.max(...live.map(x => x.n), 1), peakD = live.slice().sort((a, b) => b.n - a.n)[0];
   const hMax = Math.max(...hourly, 1), peakH = hourly.indexOf(Math.max(...hourly));
   const hl = h => `${h % 12 || 12}${h < 12 ? 'AM' : 'PM'}`, hr = h => `${hl(h)}–${hl((h + 1) % 24)}`;
-  const csrList = Object.entries(csr).sort((a, b) => b[1].n - a[1].n), top = csrList.slice(0, 8), rest = csrList.slice(8), restN = rest.reduce((q, [, c]) => q + c.n, 0);
+  // (2026-11-05, Chad: "gawin itong brands, wag yung agent") — per BRAND na (ang "Admin Hope/Heart…" ay persona ng brand, hindi tao)
+  const brList = Object.entries(D.byBrand).filter(([, b2]) => b2.hh > 0).sort((x, y) => y[1].hh - x[1].hh), top = brList.slice(0, 9), rest = brList.slice(9), restN = rest.reduce((q, [, b2]) => q + b2.hh, 0);
   const avg = live.length ? total / live.length : 0;
   const dayBars = days.map(x => `<div class="hbd-c" data-tip="${x.d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${x.future ? 'no data yet' : csFmt(x.n) + ' HH'}"><div class="bw"><i style="height:${x.future ? 0 : (x.n / dMax * 100).toFixed(1)}%" class="${peakD && x.k === peakD.k && x.n ? 'pk' : ''}"></i></div><b>${x.d.getDate()}</b></div>`).join('');
-  const hrBars = hourly.map((n, h) => `<div class="hbd-c" data-tip="${hr(h)} · ${csFmt(n)} HH"><div class="bw"><i style="height:${(n / hMax * 100).toFixed(1)}%" class="${h === peakH && n ? 'pk' : ''}"></i></div><b>${h % 3 === 0 ? hl(h).replace('AM', 'a').replace('PM', 'p') : ''}</b></div>`).join('');
-  const csrRows = top.map(([nm, c]) => { const m = Math.max(...c.hourly, 1);
-    return `<div class="hbd-r"><div class="n" title="${escapeHtml(nm)}">${escapeHtml(nm)}</div><div class="strip">${c.hourly.map((v, h) => `<span style="opacity:${v ? (.25 + .75 * v / m).toFixed(2) : .08}" data-tip="${escapeHtml(nm)} · ${hr(h)} · ${csFmt(v)} chats answered first"></span>`).join('')}</div><div class="c">${csFmt(c.n)}<small> · ${total ? (c.n / total * 100).toFixed(1) : 0}%</small></div></div>`; }).join('');
+  // (2026-11-05, Chad: "bakit ang laki ng hourly kung ang daily ay 189 lang") hourly = AVERAGE PER DAY (total ng oras ÷ araw) para magkapareho ng scale sa daily; ang kabuuan ng 24 oras = average HH kada araw
+  const nD = Math.max(1, live.length), hAvg = hourly.map(n => n / nD), hAMax = Math.max(...hAvg, 0.0001);
+  const hrBars = hAvg.map((a, h) => `<div class="hbd-c" data-tip="${hr(h)} · avg ${a.toFixed(1)} HH a day · ${csFmt(hourly[h])} in the whole month"><div class="bw"><i style="height:${(a / hAMax * 100).toFixed(1)}%" class="${h === peakH && hourly[h] ? 'pk' : ''}"><u>${a >= 9.5 ? Math.round(a) : a.toFixed(1)}</u></i></div><b>${h % 3 === 0 ? hl(h).replace('AM', 'a').replace('PM', 'p') : ''}</b></div>`).join('');
+  const csrRows = top.map(([slug, c]) => { const m = Math.max(...c.hourly, 1), nm = chatBrandLabel(slug);
+    return `<div class="hbd-r"><div class="n" title="${escapeHtml(nm)}">${escapeHtml(nm)}</div><div class="strip">${c.hourly.map((v, h) => `<span style="opacity:${v ? (.25 + .75 * v / m).toFixed(2) : .08}" data-tip="${escapeHtml(nm)} · ${hr(h)} · ${csFmt(v)} HH in the month"></span>`).join('')}</div><div class="c">${csFmt(c.hh)}<small> · ${total ? (c.hh / total * 100).toFixed(1) : 0}%</small></div></div>`; }).join('');
   view.innerHTML = `<div class="cs-k">Handed to human (HH) · ${CS_B.label} · Chatwoot brands only</div>
     <div class="cs-t">${csFmt(total)} HH <span class="hbd-sub">· ${csFmt(avg)} a day on average · peak ${peakH != null && hourly[peakH] ? hr(peakH) : '—'}${peakD && peakD.n ? ` · busiest day ${peakD.d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} (${csFmt(peakD.n)})` : ''}</span></div>
     <div class="hbd-grid">
       <div class="hbd-col">
         <div class="hbd-p"><div class="hbd-h">Daily HH <small>chats handed to a human, by day the customer wrote</small></div><div class="hbd-bars d">${dayBars}</div></div>
-        <div class="hbd-p"><div class="hbd-h">Hourly HH <small>by hour of day (Manila time), whole month</small></div><div class="hbd-bars h">${hrBars}</div></div>
+        <div class="hbd-p"><div class="hbd-h">Hourly HH <small>average per day, by hour (Manila time) · the 24 bars add up to the daily average (${csFmt(avg)})</small></div><div class="hbd-bars h">${hrBars}</div></div>
       </div>
-      <div class="hbd-p hbd-csr"><div class="hbd-h">Per CSR <small>who answered first · strip = hours of the day they work (12AM → 11PM)</small></div>
-        ${csrRows || '<div class="cs-msg">No human replies found.</div>'}
+      <div class="hbd-p hbd-csr"><div class="hbd-h">Per brand <small>HH per brand · strip = busiest hours of the day (12AM → 11PM)</small></div>
+        ${csrRows || '<div class="cs-msg">No HH found.</div>'}
         ${rest.length ? `<div class="hbd-r"><div class="n">+${rest.length} others</div><div class="strip"></div><div class="c">${csFmt(restN)}<small> · ${total ? (restN / total * 100).toFixed(1) : 0}%</small></div></div>` : ''}
-        ${noHuman ? `<div class="hbd-r dim" data-tip="Handed over by the bot but no human replied"><div class="n">Bot transfer only</div><div class="strip"></div><div class="c">${csFmt(noHuman)}<small> · ${total ? (noHuman / total * 100).toFixed(1) : 0}%</small></div></div>` : ''}
       </div>
     </div>`;
   view.querySelectorAll('.cs-k, .cs-t, .hbd-p').forEach((el, k) => csAnim(el, [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: k * 80 }));
