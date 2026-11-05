@@ -3470,7 +3470,7 @@ function csOpenPeriod(per) {
   const count = (per === 'a' ? D.list.filter(b => b.a > 0) : D.list).length;
   view.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">${per === 'a' ? `${CS_A.label} · by brand` : `${CS_B.label} · per day vs ${CS_A.label}`}</div>
     <div class="cs-t">${per === 'a' ? `Chats in ${CS_A.label}` : 'Chats this month'}</div></div>
-    ${per === 'b' ? `<span class="cs-livedot"><i></i>LIVE <small>· updates every 5 min</small></span>` : ''}</div>
+    </div>
     <div class="cs-cards${count > 10 ? ' many' : ''}">${csCardsHtml(per)}</div>`;
   view.querySelectorAll('.cs-card').forEach((c, k) => csAnim(c, [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: k * 50 }));
   view.querySelectorAll('.cs-card .v[data-n]').forEach(el => csCountUp(el, Number(el.dataset.n), 1400));
@@ -4614,7 +4614,7 @@ TicketData.fetchTickets()
       const html = cfg.cards(S.D, per), count = (html.match(/class="cs-card/g) || []).length;
       v.innerHTML = `<div class="cs-livehead"><div><div class="cs-k">${per === 'a' ? `${CS_A.label} · by brand` : `${CS_B.label} · per day vs ${CS_A.label}`}</div>
         <div class="cs-t">${per === 'a' ? `${cfg.noun} in ${CS_A.label}` : `${cfg.noun} this month`}</div></div>
-        ${per === 'b' ? `<span class="cs-livedot"><i></i>LIVE <small>· updates every ${cfg.every || '30 sec'}</small></span>` : ''}</div>
+        </div>
         <div class="cs-cards${count > 10 ? ' many' : ''}">${html || '<div class="cs-msg">No tickets in this period.</div>'}</div>`;
       v.querySelectorAll('.cs-card').forEach((c, k) => csAnim(c, [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: k * 50 }));
       v.querySelectorAll('.cs-card .v[data-n]').forEach(el => csCountUp(el, Number(el.dataset.n), 1400));
