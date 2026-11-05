@@ -633,6 +633,11 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
 .cs-split{display:flex;flex-direction:column;gap:2cqw;flex:1;justify-content:center;}
 .cs-split .row{display:grid;grid-template-columns:14cqw 1fr;gap:1.6cqw;align-items:center;} .cs-split .row b{font-size:1.5cqw;}
 .cs-split .row small{display:block;font-size:1.05cqw;color:var(--cs-soft);font-weight:600;margin-top:.3cqw;}
+.cs-hh-legend{display:flex;align-items:center;gap:1cqw;margin:.6cqw 0 1.2cqw;} .cs-hh-legend small{font-size:1.15cqw;color:var(--cs-soft);font-weight:600;}
+.cs-hhcmp .n b,.cs-hhcmp .n{line-height:1.15;} .cs-hhcmp .n small{display:block;font-size:1.05cqw;color:var(--cs-soft);font-weight:600;margin-top:.25cqw;}
+.cs-hhcmp .ba{background:#60A5FA;height:1.1cqw;} .cs-hhcmp .bb{background:var(--cs-gold);height:1.1cqw;}
+.cs-hhcmp .c{font-weight:800;font-size:1.35cqw;white-space:nowrap;} .cs-hhcmp .c .sep{color:#93C5FD;} .cs-hhcmp .c .oct{color:var(--cs-gold);} .cs-hhcmp .c i{color:var(--cs-soft);font-style:normal;}
+.cs-hhcmp .c em{display:block;font-style:normal;font-size:1.05cqw;color:var(--cs-soft);font-weight:700;margin-top:.15cqw;}
 .cs-stack{display:flex;height:4cqw;border-radius:1cqw;overflow:hidden;background:rgba(255,255,255,.05);}
 .cs-stack div{width:0;transition:width 1.1s cubic-bezier(.2,.8,.2,1);display:flex;align-items:center;padding-left:1cqw;font-weight:800;font-size:1.3cqw;white-space:nowrap;overflow:hidden;}
 .cs-stack .hh{background:#F59E0B;color:#2B1700;} .cs-stack .ai{background:#6366F1;}
@@ -3341,6 +3346,24 @@ function csSlides() {
       return `<div class="cs-k">Handed to human vs AI only · ${P.label} · Chatwoot brands only</div><div class="cs-t">How many were passed to an agent, per brand</div>
       <div class="cs-split" style="gap:1.1cqw">${rows.map(([lb, h], i) => { const r = h && h.conversations ? h.hh / h.conversations : null; return `<div class="row" style="grid-template-columns:22cqw 1fr"><b style="${i ? 'font-size:1.25cqw' : ''}">${escapeHtml(lb)}<small style="white-space:nowrap">${h ? csFmt(h.conversations) + ' chats · ' + csFmt(h.hh) + ' HH · ' + csFmt(h.ai) + ' AI' : 'no live data'}</small></b>
         <div class="cs-stack" style="${i ? 'height:3cqw' : ''}">${r == null ? '' : `<div class="hh" data-w="${r}">HH ${csPct(r)}</div><div class="ai" data-w="${1 - r}">AI only ${csPct(1 - r)}</div>`}</div></div>`; }).join('')}</div>`; }),
+    // (2026-11-05, Chad: "meron ba tayong same data for Sept para makumpare ang HH ng Sept at Oct — yes")
+    // HH% kada brand: September vs October (porsyento ang paghahambing, hindi ang bilang ng chat)
+    () => {
+      const rate = h => h && h.conversations ? h.hh / h.conversations : null;
+      const byA = D.hhABrands || {}, byB = D.hhBrands || {};
+      const brandRows = Object.entries(byB).filter(([, h]) => h.conversations >= 5).sort((x, y) => y[1].conversations - x[1].conversations).slice(0, 8)
+        .map(([slug, h]) => [chatBrandLabel(slug), byA[slug] && byA[slug].conversations >= 5 ? byA[slug] : null, h]);
+      const rows = [['All brands', D.hhA, D.hhB]].concat(brandRows);
+      const legend = `<span class="cs-mo a" style="position:static;display:inline-block">${CS_A.label.slice(0, 3).toUpperCase()}</span> <span class="cs-mo b" style="position:static;display:inline-block;margin-left:.6cqw">${CS_B.label.slice(0, 3).toUpperCase()}</span>`;
+      return `<div class="cs-k">Handed to human · ${CS_A.label} vs ${CS_B.label} · Chatwoot brands only</div><div class="cs-t">Share of chats passed to an agent</div>
+        <div class="cs-hh-legend">${legend}<small>% of chats handed to a human (HH) · compare the %, not the chat counts</small></div>
+        <div class="cs-pairs cs-hhcmp" style="gap:1cqw">${rows.map(([lb, a, b], i) => { const ra = rate(a), rb = rate(b);
+          const d = ra != null && rb != null ? (rb - ra) * 100 : null;
+          const dTxt = d == null ? '—' : `${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)} pts`;
+          return `<div class="cs-pair" style="grid-template-columns:20cqw 1fr 21cqw"><div class="n" style="${i ? 'font-size:1.25cqw' : ''}">${escapeHtml(lb)}<small>${a ? csFmt(a.conversations) : '—'} → ${b ? csFmt(b.conversations) : '—'} chats</small></div>
+          <div class="bars">${ra == null ? '' : `<div class="ba" data-w="${(ra * 100).toFixed(2)}"></div>`}${rb == null ? '' : `<div class="bb" data-w="${(rb * 100).toFixed(2)}"></div>`}</div>
+          <div class="c"><span class="sep">${ra == null ? '—' : csPct(ra, 1)}</span> <i>→</i> <span class="oct">${rb == null ? '—' : csPct(rb, 1)}</span><em>${dTxt}</em></div></div>`; }).join('')}</div>`;
+    },
   ];
 }
 
