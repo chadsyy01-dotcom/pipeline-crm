@@ -802,6 +802,9 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>
             <span>Concerns Map</span>
           </a>
+          <!-- FROZEN SNAPSHOT (2026-11-05): button = live mode lang; badge = kapag may reports-snapshot.json -->
+          <span id="snapBadge" style="display:none;font-size:12px;font-weight:700;color:#93C5FD;align-self:center;padding:0 8px"></span>
+          <button class="btn" id="btnSnap" type="button" style="display:none" title="I-download ang final na numbers (HH/AI, CSAT, Open AI) para i-upload bilang reports-snapshot.json"><span>Save snapshot</span></button>
           <!-- DAILY HANDOFFS (2026-10-24, Chad): HH kada brand kada araw -->
           <a class="btn primary" href="handoff-daily.html" style="text-decoration:none">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
@@ -1533,11 +1536,59 @@ function hourBlockLabel(h) {
   return `${hourLabel(h)}–${hourLabel(end)}`;
 }
 
+// ===== FROZEN SNAPSHOT (2026-11-05, Chad: "stop ang live data sa reports — consolidated na ang Sept at Oct") =====
+// Kapag may `reports-snapshot.json` sa tabi ng page, ang lahat ng live na sagot (HH/AI split, CSAT, Open AI,
+// messages-received …) ay binabasa mula roon — WALANG tawag sa backend para sa mga iyon. Kapag wala pa ang file,
+// live pa rin ang page at nire-record nito ang mga sagot; may "Save snapshot" button na nagda-download ng file.
+// /auth/* ay laging live. Kapag wala sa snapshot ang isang path, babalik ito sa live (hal. drill-down ng isang chat).
+const SNAP_FILE = 'reports-snapshot.json';
+let SNAP = null;
+const SNAP_REC = {};
+const snapReady = (async () => {
+  try {
+    const r = await fetch(SNAP_FILE, { cache: 'no-cache' });
+    if (r.ok) { const j = await r.json(); if (j && j.responses && typeof j.responses === 'object') SNAP = j; }
+  } catch (e) { /* walang snapshot — live mode */ }
+  try { snapInitUi(); } catch (e) {}
+})();
+const snapHas = key => !!(SNAP && Object.prototype.hasOwnProperty.call(SNAP.responses, key));
+function snapInitUi() {
+  const btn = document.getElementById('btnSnap'), badge = document.getElementById('snapBadge');
+  if (SNAP) {
+    if (badge) { const d = SNAP.savedAt ? new Date(SNAP.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; badge.textContent = '❄ Frozen snapshot' + (d ? ' · ' + d : ''); badge.style.display = ''; }
+    return;
+  }
+  if (!btn) return;
+  btn.style.display = '';
+  const upd = () => { btn.querySelector('span').textContent = 'Save snapshot (' + Object.keys(SNAP_REC).length + ')'; };
+  upd(); setInterval(upd, 3000);
+  btn.addEventListener('click', () => {
+    const n = Object.keys(SNAP_REC).length;
+    if (!n) { alert('Wala pang na-record. Hintayin munang mag-load ang mga tab (Chats, Customer Satisfaction, Open AI), tapos ulitin.'); return; }
+    const blob = new Blob([JSON.stringify({ version: 1, savedAt: new Date().toISOString(), responses: SNAP_REC })], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = SNAP_FILE; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  });
+}
+// fetch na may snapshot (Open AI / USD rate) — nagbabalik ng Response-like object
+async function snapFetch(key, url, opts) {
+  await snapReady;
+  if (snapHas(key)) { const data = SNAP.responses[key]; return { ok: true, status: 200, json: async () => data }; }
+  const r = await fetch(url, opts);
+  if (r && r.ok) r.clone().json().then(j => { SNAP_REC[key] = j; }).catch(() => {});
+  return r;
+}
+
 async function apiGet(path) {
+  await snapReady;
+  const live = !/^\/auth\//.test(path);
+  if (live && snapHas(path)) return SNAP.responses[path];
   const token = localStorage.getItem('pipeline_token');
   const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const data = await res.json();
+  if (live) SNAP_REC[path] = data;
+  return data;
 }
 
 function flag(id, msgs) {
@@ -2456,7 +2507,8 @@ async function loadSatisfaction() {
   // Ratings live in the chat event store, which deletes anything older than
   // the retention window. A month past it would come back empty and read as
   // "no complaints" — worse than saying nothing — so say why instead.
-  if (!MONTH_B.inChatRetention) {
+  await snapReady;
+  if (!MONTH_B.inChatRetention && !SNAP) {   // frozen snapshot = walang retention limit
     csData = null;
     flag('csFlag', `Ratings for ${MONTH_B.label} are no longer available — chat data is only kept for ${CHAT_RETENTION_DAYS} days. Pick a range inside the last ${CHAT_RETENTION_DAYS} days.`);
     ['csCsatCount', 'csDsatCount', 'csAvg'].forEach(id => { document.getElementById(id).textContent = '—'; });
@@ -3819,9 +3871,9 @@ TicketData.fetchTickets()
       const today = new Date(), mEnd = today.getMonth() === 9 && today.getFullYear() === 2026 ? today.toISOString().slice(0, 10) : '2026-10-31';
       const pathM = `/openai-billing/summary?range=custom&start=2026-10-01&end=${mEnd}&account=all&compare=false`;
       const [sumRes, rateRes, monRes] = await Promise.all([
-        fetch(`${RB_API}${path}`, { headers: authHeaders() }),
-        fetch('https://open.er-api.com/v6/latest/USD').catch(() => null),
-        fetch(`${RB_API}${pathM}`, { headers: authHeaders() }).catch(() => null),
+        snapFetch('oa:' + path, `${RB_API}${path}`, { headers: authHeaders() }),
+        snapFetch('rate:usd', 'https://open.er-api.com/v6/latest/USD').catch(() => null),
+        snapFetch('oa:' + pathM, `${RB_API}${pathM}`, { headers: authHeaders() }).catch(() => null),
       ]);
       if (sumRes.status === 429) { septOpenAi.loading = true; setTimeout(() => loadPeriodOpenAi().then(() => { if (!rbEditing) rbRender(); }), 65000); return; }
       if (!sumRes.ok) throw new Error('openai-billing HTTP ' + sumRes.status);
