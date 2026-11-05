@@ -6,7 +6,7 @@ const { sequelize, DealStage } = require('./models');
 const zlib = require('zlib');
 
 const app = express();
-app.use(cors());
+app.use(cors({ maxAge: 7200 }));
 
 // GZIP (2026-10-20): pinapaliit ang JSON/text na ipinapadala sa browser (~70–80% mas maliit),
 // para bumaba ang egress cost sa Railway. Built-in zlib lang — walang bagong npm package.
