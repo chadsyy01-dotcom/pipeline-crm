@@ -4106,7 +4106,7 @@ TicketData.fetchTickets()
     oaLast = { rows, total, rate };
     const view = document.getElementById('oaView'), ctrl = document.getElementById('oaCtrl');
     const P = '<span style="font-family:Inter,sans-serif;font-weight:800">₱</span>'; const fmtP = v => P + Math.round(v).toLocaleString('en-US'), fmtU = v => '$' + (v / rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const days = Math.min(7, Math.max(1, Math.floor((Math.min(Date.now(), new Date(2026, 9, 22, 23, 59, 59).getTime()) - new Date(2026, 9, 16).getTime()) / 86400000) + 1));
+    const days = Math.max(1, Math.round((new Date(OA_END + 'T00:00:00') - new Date(OA_START + 'T00:00:00')) / 86400000) + 1);   // Sep 1–Oct 31 = 61 days (2026-11-05 fix: dati naka-7 days)
     const live = rows.filter(r => r.php > 0), top = live[0], max = top ? top.php : 1;
     const COLORS = ['#3B82F6', '#F97316', '#A855F7', '#06B6D4', '#EF4444', '#14B8A6', '#EC4899', '#EAB308', '#84CC16', '#F43F5E', '#60A5FA', '#34D399', '#FBBF24', '#C084FC'];
     const SL = [
@@ -4126,16 +4126,18 @@ TicketData.fetchTickets()
           <div class="cs-kpi" style="border-left:.4cqw solid #22D3EE;padding:1.3cqw 2cqw"><div class="cs-k">October so far (₱)</div><div class="v" data-n="${Math.round(mt)}" data-pre="₱" style="font-size:3.6cqw">0</div><div class="s">Oct 1–${md} · realtime · ${fmtU(mt)}</div></div>
           <div class="cs-kpi" style="padding:1.3cqw 2cqw"><div class="cs-k">October per day</div><div class="v" data-n="${Math.round(mt / md)}" data-pre="₱" style="font-size:3.6cqw">0</div><div class="s">average over ${md} days</div></div>
           <div class="cs-kpi" style="padding:1.3cqw 2cqw"><div class="cs-k">Projected October</div><div class="v" data-n="${Math.round(mt / md * 31)}" data-pre="₱" style="font-size:3.6cqw">0</div><div class="s">if the same pace continues · top: ${mtop ? esc(mtop[0]) : '—'}</div></div></div>`; })() : ''}`,
-      () => `<div class="cs-k">Open AI spend by division · ${OA_LABEL}</div><div class="cs-t">Who spends the most</div>
-        <div class="cs-pairs" style="gap:.7cqw">${live.map((r, i) => `<div class="cs-pair" style="grid-template-columns:16cqw 1fr 16cqw"><div class="n" title="${esc(r.name)}"><i style="display:inline-block;width:.8cqw;height:.8cqw;border-radius:50%;background:${COLORS[i % COLORS.length]};margin-right:.6cqw;vertical-align:-.05cqw"></i>${esc(r.name)}</div>
-          <div class="bars"><div class="bb" data-w="${r.php}" style="height:1.3cqw;background:${COLORS[i % COLORS.length]}"></div></div>
-          <div class="c" style="font-family:var(--cs-display);font-size:1.5cqw">${fmtP(r.php)}<span style="font-size:1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> · ${(r.php / total * 100).toFixed(1)}% · ${fmtU(r.php)}</span></div></div>`).join('') || '<div class="cs-msg">No Open AI spend in this period yet.</div>'}</div>
-        ${septOpenAi.unmatched.length ? `<div style="font-size:1cqw;color:var(--cs-soft)">Accounts with no matching division: ${esc(septOpenAi.unmatched.join(', '))}</div>` : ''}`,
-      ...(septOpenAi.monByDiv ? [() => { const ml = [...septOpenAi.monByDiv.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]), mt = ml.reduce((a, [, v]) => a + v, 0), mmax = ml.length ? ml[0][1] : 1, md = new Date(septOpenAi.monEnd + 'T00:00:00').getDate();
-        return `<div class="cs-k">Open AI spend by division · October so far (Oct 1–${md})</div><div class="cs-t">${fmtP(mt)} this month <span style="font-size:1.2cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600">· realtime · ${fmtU(mt)}</span></div>
-        <div class="cs-pairs" style="gap:.7cqw">${ml.map(([n, v], i) => `<div class="cs-pair" style="grid-template-columns:16cqw 1fr 16cqw"><div class="n" title="${esc(n)}"><i style="display:inline-block;width:.8cqw;height:.8cqw;border-radius:50%;background:${COLORS[i % COLORS.length]};margin-right:.6cqw;vertical-align:-.05cqw"></i>${esc(n)}</div>
-          <div class="bars"><div class="bb" data-w="${v}" style="height:1.3cqw;background:${COLORS[i % COLORS.length]}"></div></div>
-          <div class="c" style="font-family:var(--cs-display);font-size:1.5cqw">${fmtP(v)}<span style="font-size:1cqw;color:var(--cs-soft);font-family:Inter,sans-serif;font-weight:600"> · ${(v / mt * 100).toFixed(1)}% · ${fmtU(v)}</span></div></div>`).join('')}</div>`; }] : []),
+      () => { // (2026-11-05, Chad: "isang slide lng yung sept and oct, comparison") Sept = Sep–Oct total − October
+        if (!septOpenAi.monByDiv) return `<div class="cs-k">Open AI spend by division · Sept vs Oct 2026</div><div class="cs-t">September vs October</div><div class="cs-msg">Comparison is not available right now.</div>`;
+        const oOf = n => { let o = 0; for (const [k, v] of septOpenAi.monByDiv) if (norm(k) === norm(n)) o += v; return o; };
+        const cl = rows.map(r => { const o = oOf(r.name); return { name: r.name, s: Math.max(0, r.php - o), o }; }).filter(r => r.s > 0.5 || r.o > 0.5).sort((x, y) => (y.s + y.o) - (x.s + x.o));
+        const sT = cl.reduce((q, r) => q + r.s, 0), oT = cl.reduce((q, r) => q + r.o, 0), cmax = Math.max(...cl.map(r => Math.max(r.s, r.o)), 1);
+        const dlt = d => `<span style="color:${d > 0 ? '#F87171' : d < 0 ? '#34D399' : 'var(--cs-soft)'}">${d > 0 ? '▲ +' : d < 0 ? '▼ −' : ''}${fmtP(Math.abs(d))}</span>`;
+        return `<div class="cs-k">Open AI spend by division · September vs October 2026</div>
+        <div class="cs-t">Sept ${fmtP(sT)} <span style="font-size:1.6cqw;color:var(--cs-soft)">vs</span> Oct ${fmtP(oT)} <span style="font-size:1.3cqw;font-family:Inter,sans-serif;font-weight:700">${dlt(oT - sT)}</span></div>
+        <div style="display:flex;gap:2cqw;font-size:1.1cqw;color:var(--cs-soft);font-weight:700"><span><i style="display:inline-block;width:1cqw;height:.7cqw;border-radius:.2cqw;background:var(--cs-a);margin-right:.5cqw"></i>September</span><span><i style="display:inline-block;width:1cqw;height:.7cqw;border-radius:.2cqw;background:var(--cs-b);margin-right:.5cqw"></i>October</span></div>
+        <div class="cs-pairs" style="gap:.6cqw">${cl.map(r => `<div class="cs-pair" style="grid-template-columns:15cqw 1fr 22cqw"><div class="n" title="${esc(r.name)}">${esc(r.name)}</div>
+          <div class="bars"><div class="ba" data-w="${r.s}" data-tip="${esc(r.name)} · September: ${fmtP(r.s).replace(/<[^>]+>/g, '')} (${fmtU(r.s)})"></div><div class="bb" data-w="${r.o}" data-tip="${esc(r.name)} · October: ${fmtP(r.o).replace(/<[^>]+>/g, '')} (${fmtU(r.o)})"></div></div>
+          <div class="c" style="font-family:var(--cs-display);font-size:1.15cqw;white-space:nowrap;line-height:1.35"><span style="color:var(--cs-a)">${fmtP(r.s)}</span> → <span style="color:var(--cs-b)">${fmtP(r.o)}</span><br><span style="font-family:Inter,sans-serif;font-size:1cqw;font-weight:700">${dlt(r.o - r.s)}</span></div></div>`).join('') || '<div class="cs-msg">No Open AI spend.</div>'}</div>`; },
     ];
     oaSlide = Math.max(0, Math.min(SL.length - 1, oaSlide));
     view.innerHTML = SL[oaSlide]();
