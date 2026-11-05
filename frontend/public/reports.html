@@ -658,6 +658,8 @@ button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);back
 .cs-cards.many{grid-template-columns:repeat(6,1fr);} .cs-cards.many .cs-card .v{font-size:2.1cqw;}
 .cs-msg{margin:auto;text-align:center;color:var(--cs-soft);font-size:1.6cqw;max-width:70%;}
 .cs-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.cs-tip{position:fixed;z-index:2147483647;pointer-events:none;background:#0B1424;border:1px solid #35537A;color:#F4F7FB;padding:9px 13px;border-radius:10px;font:600 13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;white-space:pre-line;box-shadow:0 8px 28px rgba(0,0,0,.45);max-width:320px;}
+[data-tip]{cursor:default;}
 .cs-wrap.bar-top{flex-direction:column-reverse;}   /* 2026-11-05 (Chad): Back to summary nasa TAAS kapag nasa by-brand view */
 .cs-btn{font:inherit;font-weight:700;font-size:13px;color:#0F1E3D;background:#fff;border:1px solid #D5DCE6;border-radius:99px;padding:7px 14px;cursor:pointer;}
 .cs-btn:hover{border-color:#0F1E3D;} .cs-btn:focus-visible{outline:2px solid #3B82F6;outline-offset:2px;}
@@ -1584,6 +1586,28 @@ async function snapFetch(key, url, opts) {
   if (r && r.ok) r.clone().json().then(j => { SNAP_REC[key] = j; }).catch(() => {});
   return r;
 }
+
+// ===== HOVER TOOLTIP (2026-11-05, Chad: "i-hover ko ang mouse, lalabas kung ilang ang total handoff count") =====
+// Kahit anong element na may data-tip="..." ay magpapakita ng tooltip na sumusunod sa mouse (gumagana rin sa fullscreen/presentation).
+(function () {
+  const tip = document.createElement('div'); tip.className = 'cs-tip'; tip.style.display = 'none';
+  const host = () => document.fullscreenElement || document.body;
+  document.addEventListener('mouseover', e => {
+    const t = e.target.closest && e.target.closest('[data-tip]');
+    if (!t) { tip.style.display = 'none'; return; }
+    tip.textContent = t.getAttribute('data-tip');
+    if (tip.parentNode !== host()) host().appendChild(tip);
+    tip.style.display = 'block';
+  });
+  document.addEventListener('mousemove', e => {
+    if (tip.style.display === 'none') return;
+    const pad = 16; let x = e.clientX + pad, y = e.clientY + pad; const r = tip.getBoundingClientRect();
+    if (x + r.width > innerWidth - 8) x = e.clientX - r.width - pad;
+    if (y + r.height > innerHeight - 8) y = e.clientY - r.height - pad;
+    tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
+  });
+  document.addEventListener('mouseout', e => { const to = e.relatedTarget; if (!to || !to.closest || !to.closest('[data-tip]')) tip.style.display = 'none'; });
+})();
 
 async function apiGet(path) {
   await snapReady;
@@ -3346,11 +3370,12 @@ function csSlides() {
       const rows = [['All brands', tot]].concat(Object.entries(by || {}).filter(([, h]) => h.conversations >= 5).sort((x, y) => y[1].conversations - x[1].conversations).slice(0, 7).map(([slug, h]) => [chatBrandLabel(slug), h]));
       return `<div class="cs-k">Handed to human vs AI only · ${P.label} · Chatwoot brands only</div><div class="cs-t">How many were passed to an agent, per brand</div>
       <div class="cs-split" style="gap:1.1cqw">${rows.map(([lb, h], i) => { const r = h && h.conversations ? h.hh / h.conversations : null; return `<div class="row" style="grid-template-columns:22cqw 1fr"><b style="${i ? 'font-size:1.25cqw' : ''}">${escapeHtml(lb)}<small style="white-space:nowrap">${h ? csFmt(h.conversations) + ' chats · ' + csFmt(h.hh) + ' HH · ' + csFmt(h.ai) + ' AI' : 'no live data'}</small></b>
-        <div class="cs-stack" style="${i ? 'height:3cqw' : ''}">${r == null ? '' : `<div class="hh" data-w="${r}">HH ${csPct(r)}</div><div class="ai" data-w="${1 - r}">AI only ${csPct(1 - r)}</div>`}</div></div>`; }).join('')}</div>`; }),
+        <div class="cs-stack" style="${i ? 'height:3cqw' : ''}">${r == null ? '' : `<div class="hh" data-w="${r}" data-tip="${escapeHtml(`${P.label} · ${lb}\n${csFmt(h.hh)} handed to human (HH) of ${csFmt(h.conversations)} chats = ${csPct(r, 1)}`)}">HH ${csPct(r)}</div><div class="ai" data-w="${1 - r}" data-tip="${escapeHtml(`${P.label} · ${lb}\n${csFmt(h.ai)} AI only of ${csFmt(h.conversations)} chats = ${csPct(1 - r, 1)}`)}">AI only ${csPct(1 - r)}</div>`}</div></div>`; }).join('')}</div>`; }),
     // (2026-11-05, Chad: "meron ba tayong same data for Sept para makumpare ang HH ng Sept at Oct — yes")
     // HH% kada brand: September vs October (porsyento ang paghahambing, hindi ang bilang ng chat)
     () => {
       const rate = h => h && h.conversations ? h.hh / h.conversations : null;
+      const tipHH = (period, lb, h) => !h || !h.conversations ? `${period} · ${lb}\nNo data` : `${period} · ${lb}\n${csFmt(h.hh)} handed to human (HH) of ${csFmt(h.conversations)} chats = ${csPct(h.hh / h.conversations, 1)}\n${csFmt(h.ai)} AI only`;
       const byA = D.hhABrands || {}, byB = D.hhBrands || {};
       const brandRows = Object.entries(byB).filter(([, h]) => h.conversations >= 5).sort((x, y) => y[1].conversations - x[1].conversations).slice(0, 8)
         .map(([slug, h]) => [chatBrandLabel(slug), byA[slug] && byA[slug].conversations >= 5 ? byA[slug] : null, h]);
@@ -3362,8 +3387,8 @@ function csSlides() {
           const d = ra != null && rb != null ? (rb - ra) * 100 : null;
           const dTxt = d == null ? '—' : `${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)} pts`;
           return `<div class="cs-pair" style="grid-template-columns:20cqw 1fr 21cqw"><div class="n" style="${i ? 'font-size:1.25cqw' : ''}">${escapeHtml(lb)}<small>${a ? csFmt(a.conversations) : '—'} → ${b ? csFmt(b.conversations) : '—'} chats</small></div>
-          <div class="bars">${ra == null ? '' : `<div class="ba" data-w="${(ra * 100).toFixed(2)}"></div>`}${rb == null ? '' : `<div class="bb" data-w="${(rb * 100).toFixed(2)}"></div>`}</div>
-          <div class="c"><span class="sep">${ra == null ? '—' : csPct(ra, 1)}</span> <i>→</i> <span class="oct">${rb == null ? '—' : csPct(rb, 1)}</span><em>${dTxt}</em></div></div>`; }).join('')}</div>`;
+          <div class="bars">${ra == null ? '' : `<div class="ba" data-w="${(ra * 100).toFixed(2)}" data-tip="${escapeHtml(tipHH(CS_A.label, lb, a))}"></div>`}${rb == null ? '' : `<div class="bb" data-w="${(rb * 100).toFixed(2)}" data-tip="${escapeHtml(tipHH(CS_B.label, lb, b))}"></div>`}</div>
+          <div class="c" data-tip="${escapeHtml(tipHH(CS_A.label, lb, a) + '\n\n' + tipHH(CS_B.label, lb, b) + (d == null ? '' : '\n\nChange: ' + dTxt.replace(/^[▲▼] /, d >= 0 ? '+' : '−')))}"><span class="sep">${ra == null ? '—' : csPct(ra, 1)}</span> <i>→</i> <span class="oct">${rb == null ? '—' : csPct(rb, 1)}</span><em>${dTxt}</em></div></div>`; }).join('')}</div>`;
     },
   ];
 }
