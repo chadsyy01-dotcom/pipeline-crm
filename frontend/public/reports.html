@@ -4110,21 +4110,11 @@ TicketData.fetchTickets()
     const live = rows.filter(r => r.php > 0), top = live[0], max = top ? top.php : 1;
     const COLORS = ['#3B82F6', '#F97316', '#A855F7', '#06B6D4', '#EF4444', '#14B8A6', '#EC4899', '#EAB308', '#84CC16', '#F43F5E', '#60A5FA', '#34D399', '#FBBF24', '#C084FC'];
     const SL = [
-      () => `<div class="cs-k">Open AI billing · ${OA_LABEL}</div><div class="cs-t">${fmtP(total)} spent on Open AI</div>
-        <div class="cs-kpis">
-          <div class="cs-kpi"><div class="cs-k">Total (₱)</div><div class="v" data-n="${Math.round(total)}" data-pre="₱">0</div><div class="s">${OA_LABEL} · ${live.length} division${live.length === 1 ? '' : 's'} with spend</div></div>
-          <div class="cs-kpi"><div class="cs-k">Total (USD)</div><div class="v" style="font-size:3.6cqw">${fmtU(total)}</div><div class="s">live from OpenAI usage · all accounts</div></div>
-          <div class="cs-kpi"><div class="cs-k">Per day</div><div class="v" data-n="${Math.round(total / days)}" data-pre="₱">0</div><div class="s">average over ${days} day${days === 1 ? '' : 's'}</div></div>
-        </div>
-        <div class="cs-kpis cs-kpis2">
-          <div class="cs-kpi" style="border-left:.4cqw solid var(--cs-gold)"><div class="cs-k">Highest division</div><div class="v" style="font-size:2.6cqw;line-height:1.15">${top ? esc(top.name) : '—'}</div><div class="s">${top ? `${fmtP(top.php)} · ${Math.round(top.php / total * 100)}% of total` : 'No spend yet'}</div></div>
-          <div class="cs-kpi"><div class="cs-k">Top 3 share</div><div class="v">${live.length ? Math.round(live.slice(0, 3).reduce((a, r) => a + r.php, 0) / total * 100) + '%' : '—'}</div><div class="s">${live.slice(0, 3).map(r => esc(r.name)).join(' · ') || '—'}</div></div>
-          <div class="cs-kpi"><div class="cs-k">Exchange rate</div><div class="v" style="font-size:3.2cqw">${P}${rate.toFixed(2)}</div><div class="s">per USD · live (open.er-api.com)</div></div>
-        </div>
+      () => `<div class="cs-k">Open AI billing · ${OA_LABEL}</div><div class="cs-t">Total spent on Open AI</div>
         ${septOpenAi.monByDiv ? (() => { const ot = [...septOpenAi.monByDiv.values()].reduce((a, v) => a + v, 0), st = Math.max(0, total - ot);   // (2026-11-05, Chad: "ang ilagay lng dito, total spent ng sept and oct, separate card")
-          return `<div class="cs-kpis cs-kpis2" style="margin-top:1cqw;grid-template-columns:1fr 1fr">
-          <div class="cs-kpi" style="border-left:.4cqw solid var(--cs-a);padding:1.3cqw 2cqw"><div class="cs-k">September total spent</div><div class="v" data-n="${Math.round(st)}" data-pre="₱" style="font-size:3.6cqw">0</div><div class="s">Sep 1–30 · ${fmtU(st)} · ${fmtP(st / 30)} per day</div></div>
-          <div class="cs-kpi" style="border-left:.4cqw solid var(--cs-b);padding:1.3cqw 2cqw"><div class="cs-k">October total spent</div><div class="v" data-n="${Math.round(ot)}" data-pre="₱" style="font-size:3.6cqw">0</div><div class="s">Oct 1–31 · ${fmtU(ot)} · ${fmtP(ot / 31)} per day</div></div></div>`; })() : ''}`,
+          return `<div class="cs-kpis cs-kpis2" style="margin-top:2cqw;grid-template-columns:1fr 1fr">
+          <div class="cs-kpi" style="border-left:.4cqw solid var(--cs-a);padding:2.4cqw 2.6cqw"><div class="cs-k">September total spent</div><div class="v" data-n="${Math.round(st)}" data-pre="₱" style="font-size:6cqw">0</div><div class="s">Sep 1–30 · ${fmtU(st)} · ${fmtP(st / 30)} per day</div></div>
+          <div class="cs-kpi" style="border-left:.4cqw solid var(--cs-b);padding:2.4cqw 2.6cqw"><div class="cs-k">October total spent</div><div class="v" data-n="${Math.round(ot)}" data-pre="₱" style="font-size:6cqw">0</div><div class="s">Oct 1–31 · ${fmtU(ot)} · ${fmtP(ot / 31)} per day</div></div></div>`; })() : `<div class="cs-msg">September / October totals are not available right now.</div>`}`,
     ];
     oaSlide = Math.max(0, Math.min(SL.length - 1, oaSlide));
     view.innerHTML = SL[oaSlide]();
