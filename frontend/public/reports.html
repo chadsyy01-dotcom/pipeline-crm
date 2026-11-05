@@ -606,6 +606,11 @@ body.presenting .panel-head h3{font-size:14px;}
 .cs-kpi.hh{border-left:.4cqw solid #F59E0B;} .cs-kpi.ai{border-left:.4cqw solid #6366F1;}
 button.cs-kpi{cursor:pointer;transition:border-color .25s,transform .25s,background .25s;}
 button.cs-kpi:hover,button.cs-kpi:focus-visible{border-color:var(--cs-gold);background:rgba(255,200,87,.06);transform:translateY(-.2cqw);outline:none;}
+.cs-kpi{position:relative;}
+.cs-kpi .cs-k{padding-right:6cqw;}
+.cs-mo{position:absolute;top:1.4cqw;right:1.6cqw;font-weight:800;font-size:1.05cqw;letter-spacing:.16em;padding:.35cqw .9cqw;border-radius:99cqw;line-height:1;}
+.cs-mo.a{background:rgba(96,165,250,.16);color:#93C5FD;border:.1cqw solid rgba(96,165,250,.55);}
+.cs-mo.b{background:rgba(255,200,87,.16);color:var(--cs-gold);border:.1cqw solid rgba(255,200,87,.55);}
 .cs-kpi .go{margin-top:1cqw;font-weight:800;font-size:1.1cqw;color:var(--cs-gold);letter-spacing:.04em;}
 .cs-kpi .v{font-family:var(--cs-display);font-weight:800;font-size:4.6cqw;line-height:1;margin-top:.8cqw;font-variant-numeric:tabular-nums;}
 .cs-kpi .s{font-size:1.25cqw;color:var(--cs-soft);margin-top:.7cqw;}
@@ -3255,7 +3260,8 @@ function csSlides() {
   const hA = D.hhA, hB = D.hhB;
   const hhRate = h => h && h.conversations ? h.hh / h.conversations : null;
   const rA = hhRate(hA), rB = hhRate(hB);
-  const hhCard = (cls, title, n, rate, prevRate, conv) => `<div class="cs-kpi ${cls}"><div class="cs-k">${title}</div><div class="v" data-n="${n || 0}">0</div>
+  const moChip = (P, c) => `<span class="cs-mo ${c}">${String(P.label).slice(0, 3).toUpperCase()}</span>`;   // (2026-11-05, Chad: "lagyan ng indication kung san ang oct at sept")
+  const hhCard = (cls, title, n, rate, prevRate, conv) => `<div class="cs-kpi ${cls}">${moChip(CS_B, 'b')}<div class="cs-k">${title}</div><div class="v" data-n="${n || 0}">0</div>
     <div class="s">${rate == null ? 'No live data yet' : `${CS_B.label} · ${csPct(rate)} of ${csFmt(conv)} chats`}</div></div>`;
   const pairs = D.list.filter(b => b.aPD > 0 || b.bPD > 0).slice(0, 7);
   const movers = D.list.filter(b => b.chg != null && b.aPD >= 1 && b.bPD > 0).sort((x, y) => y.chg - x.chg);
@@ -3264,13 +3270,13 @@ function csSlides() {
     () => `<div class="cs-k">Chats · ${CS_B.label} vs ${CS_A.label}</div>
       <div class="cs-t">Chats ${CS_B.label}</div>
       <div class="cs-kpis">
-        <button class="cs-kpi" type="button" data-open="a"><div class="cs-k">${CS_A.label}</div><div class="v" data-n="${TA}">0</div><div class="s">${csFmt(TAPD)} per day · ${daysA} days</div><div class="go">View by brand ›</div></button>
-        <button class="cs-kpi" type="button" data-open="b"><div class="cs-k">${CS_B.label}</div><div class="v" data-n="${TB}">0</div><div class="s">${csFmt(TBPD)} per day · ${daysB} day${daysB === 1 ? '' : 's'}${D.lastB ? ` · up to ${D.lastB.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div><div class="go">View by brand ›</div></button>
-        <div class="cs-kpi"><div class="cs-k">Top brand</div><div class="v" style="font-size:2.6cqw;line-height:1.15">${D.list[0] ? escapeHtml(D.list[0].label) : '—'}</div>
+        <button class="cs-kpi" type="button" data-open="a">${moChip(CS_A, 'a')}<div class="cs-k">${CS_A.label}</div><div class="v" data-n="${TA}">0</div><div class="s">${csFmt(TAPD)} per day · ${daysA} days</div><div class="go">View by brand ›</div></button>
+        <button class="cs-kpi" type="button" data-open="b">${moChip(CS_B, 'b')}<div class="cs-k">${CS_B.label}</div><div class="v" data-n="${TB}">0</div><div class="s">${csFmt(TBPD)} per day · ${daysB} day${daysB === 1 ? '' : 's'}${D.lastB ? ` · up to ${D.lastB.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div><div class="go">View by brand ›</div></button>
+        <div class="cs-kpi">${moChip(CS_B, 'b')}<div class="cs-k">Top brand</div><div class="v" style="font-size:2.6cqw;line-height:1.15">${D.list[0] ? escapeHtml(D.list[0].label) : '—'}</div>
           <div class="s">${D.list[0] && TB ? `${CS_B.label} · ${csFmt(D.list[0].b)} chats · ${csPct(D.list[0].b / TB)} of all brands` : 'No figures yet'}</div></div>
       </div>
       <div class="cs-kpis cs-kpis2">
-        <div class="cs-kpi"><div class="cs-k">Messages a day</div><div class="v" data-n="${Math.round(TBPD)}">0</div><div class="s">${CS_B.label} · average over ${daysB} day${daysB === 1 ? '' : 's'}</div></div>
+        <div class="cs-kpi">${moChip(CS_B, 'b')}<div class="cs-k">Messages a day</div><div class="v" data-n="${Math.round(TBPD)}">0</div><div class="s">${CS_B.label} · average over ${daysB} day${daysB === 1 ? '' : 's'}</div></div>
         ${hhCard('hh', 'Handed to human (HH) · Chatwoot', hB && hB.hh, rB, rA, hB && hB.conversations)}
         ${hhCard('ai', 'AI only — no handoff · Chatwoot', hB && hB.ai, rB == null ? null : 1 - rB, rA == null ? null : 1 - rA, hB && hB.conversations)}
       </div>`,
