@@ -65,6 +65,14 @@
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGXs7oqTlTb8f6N8DWW9dPyXwfva_pXguecxoh0kG55r8jQ03zaCcZSVfCtoBBSYGWA2IlbPkfijpX/pub?gid=5&single=true&output=csv", brandOverride: { code: 'VMX', label: 'VMXPlay' }, sheetId: "1Ri40vLjpDjyGwWLPDp4SAgQ3sr_wGw2YZEAMrFMfD-k", name: "VMXPlay — tab 5" },
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGXs7oqTlTb8f6N8DWW9dPyXwfva_pXguecxoh0kG55r8jQ03zaCcZSVfCtoBBSYGWA2IlbPkfijpX/pub?gid=8&single=true&output=csv", brandOverride: { code: 'VMX', label: 'VMXPlay' }, sheetId: "1Ri40vLjpDjyGwWLPDp4SAgQ3sr_wGw2YZEAMrFMfD-k", name: "VMXPlay — tab 8" },
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGXs7oqTlTb8f6N8DWW9dPyXwfva_pXguecxoh0kG55r8jQ03zaCcZSVfCtoBBSYGWA2IlbPkfijpX/pub?gid=9&single=true&output=csv", brandOverride: { code: 'VMX', label: 'VMXPlay' }, sheetId: "1Ri40vLjpDjyGwWLPDp4SAgQ3sr_wGw2YZEAMrFMfD-k", name: "VMXPlay — tab 9" },
+    // BUENAS PLAY (2026-11-06, Chad): 6 tabs (gid 0-4, 6; gid 5 hindi isinama — wala sa listahan ni Chad).
+    // brandOverride para iisa ang "Buenas Play" tab anuman ang Ticket ID prefix. Standard WebForm schema.
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpQu8v-NYQEF5K8z8tJa1sCPc4_UmC72-3UuGSIO_MmL_9-I0HaQs6tVqeW7rV3AmxEIDsqsvlO3Z/pub?gid=0&single=true&output=csv", brandOverride: { code: 'BPL', label: 'Buenas Play' }, sheetId: "1enY8bLs46GBFLvyf8c207SkxLu4gSrTsXeo7tf-J5l0", name: "Buenas Play — tab 0" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpQu8v-NYQEF5K8z8tJa1sCPc4_UmC72-3UuGSIO_MmL_9-I0HaQs6tVqeW7rV3AmxEIDsqsvlO3Z/pub?gid=1&single=true&output=csv", brandOverride: { code: 'BPL', label: 'Buenas Play' }, sheetId: "1enY8bLs46GBFLvyf8c207SkxLu4gSrTsXeo7tf-J5l0", name: "Buenas Play — tab 1" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpQu8v-NYQEF5K8z8tJa1sCPc4_UmC72-3UuGSIO_MmL_9-I0HaQs6tVqeW7rV3AmxEIDsqsvlO3Z/pub?gid=2&single=true&output=csv", brandOverride: { code: 'BPL', label: 'Buenas Play' }, sheetId: "1enY8bLs46GBFLvyf8c207SkxLu4gSrTsXeo7tf-J5l0", name: "Buenas Play — tab 2" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpQu8v-NYQEF5K8z8tJa1sCPc4_UmC72-3UuGSIO_MmL_9-I0HaQs6tVqeW7rV3AmxEIDsqsvlO3Z/pub?gid=3&single=true&output=csv", brandOverride: { code: 'BPL', label: 'Buenas Play' }, sheetId: "1enY8bLs46GBFLvyf8c207SkxLu4gSrTsXeo7tf-J5l0", name: "Buenas Play — tab 3" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpQu8v-NYQEF5K8z8tJa1sCPc4_UmC72-3UuGSIO_MmL_9-I0HaQs6tVqeW7rV3AmxEIDsqsvlO3Z/pub?gid=4&single=true&output=csv", brandOverride: { code: 'BPL', label: 'Buenas Play' }, sheetId: "1enY8bLs46GBFLvyf8c207SkxLu4gSrTsXeo7tf-J5l0", name: "Buenas Play — tab 4" },
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpQu8v-NYQEF5K8z8tJa1sCPc4_UmC72-3UuGSIO_MmL_9-I0HaQs6tVqeW7rV3AmxEIDsqsvlO3Z/pub?gid=6&single=true&output=csv", brandOverride: { code: 'BPL', label: 'Buenas Play' }, sheetId: "1enY8bLs46GBFLvyf8c207SkxLu4gSrTsXeo7tf-J5l0", name: "Buenas Play — tab 6" },
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpnmq17Q7n0uLYDgH2WvE2SZFNkvqPgQKnTLY0LT8gqJPlxQQZUmyL1JSlHF9xPGYfvBDLpCpK2Cjp/pub?gid=648660778&single=true&output=csv", kind: 'division', sheetId: "1YB5OBsZ3aqY5Hs5CZeNEU0yO36GcQI74pJYJvjADOww", name: "SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITO" }, // SuperScatter PH / Manila Casino / Casinyeam — REQUEST MONITORING tab (brand comes from the Division column per row, see DIVISION_BRAND_MAP; any other Division value is filtered out)
     // BAGONG TICKET SHEETS (2026-10-01): sariling WebForm ticket sheets na ng
     // Manila Casino at SuperScatter PH (standard Ticket ID schema). Ang MC
@@ -111,7 +119,8 @@
     MNC: 'Manila Casino',
     MC: 'Manila Casino',   // "MC-" Ticket ID prefix = Manila Casino din (Chad 2026-10-19); MCP ang Mobile Casino Play
     PGM: 'Primo Gaming', PG: 'Primo Gaming',   // Primo Gaming (2026-10-24)
-    VMX: 'VMXPlay'   // VMXPlay (2026-11-04)
+    VMX: 'VMXPlay',   // VMXPlay (2026-11-04)
+    BPL: 'Buenas Play'   // Buenas Play (2026-11-06)
   };
 
   function brandFromTicketId(ticketId) {
