@@ -1133,6 +1133,8 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     primogaming: 'Primo Gaming',   // Chatwoot: support.primogaming1.vip (2026-10-24)
     VMX: 'VMXPlay',   // Chatwoot, webhook slug VMX — team BRAVO (2026-11-04)
     vmx: 'VMXPlay',
+    BuenasPlay: 'Buenas Play',   // Chatwoot — team ECHO (2026-11-06)
+    buenasplay: 'Buenas Play',
     // ---- LiveChat.com brands (resolved from originating domain) ----
     casinyeam: 'Casinyeam',
     manilacasino: 'Manila Casino',
@@ -1160,7 +1162,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     bravo:   { label: 'BRAVO',   show: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph', 'VMX'], brands: ['mcp', 'casinyeam', 'manilacasino', 'superscatterph', 'VMX', 'vmx'] },   // VMX added 2026-11-04
     delta:   { label: 'DELTA',   show: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD'], brands: ['tmtcash', 'HypleplayPH', 'manilaplayph', 'HypeplayBD', 'manilaplay', 'hypeplayph', 'hypeplaybd'] },
     foxtrot: { label: 'FOXTROT', show: ['Tmtplay', 'MGK', 'BuenasCredit', 'LuckystacksPH', 'SwabeGaming'], brands: ['MGK', 'Tmtplay', 'BuenasCredit', 'LuckystacksPH', 'mastergoldkey', 'luckystacksph', 'tmtplay', 'swabegaming', 'SwabeGaming', 'swabe'], match: /swabe/i },
-    echo:    { label: 'ECHO',    show: ['buenasph', 'primogaming'], brands: ['buenasph', 'primogaming'] },   // primogaming (Chad, 2026-10-24)
+    echo:    { label: 'ECHO',    show: ['buenasph', 'primogaming', 'BuenasPlay'], brands: ['buenasph', 'primogaming', 'BuenasPlay', 'buenasplay'], match: /buenas[\s_-]?play/i },   // primogaming (Chad, 2026-10-24); BuenasPlay (Chad, 2026-11-06) — match = kahit anong casing ng slug
   };
   const TEAM_KEY = (new URLSearchParams(location.search).get('team') || '').toLowerCase();
   const TEAM = CSR_TEAMS[TEAM_KEY] || null;
@@ -3356,7 +3358,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
       const missTag = !mi ? ''
         : mi.req ? `<br><span class="req-tag" title="Humingi ng real agent pero hindi pa naipasa ng AI — hindi bilang sa Missed Chats">HUMINGI NG AGENT · ${mi.waiting ? 'hindi pa naipasa ni AI' : `nasagot after ${mi.mins}`} · hindi bilang sa MC</span>`
         : `<br><span class="miss-tag">${mi.late ? `MISSED 3MIN · nasagot after ${mi.mins}` : 'WALANG SAGOT'}</span>`;
-      const SUPERADMIN_NAMES = new Set(['Love', 'Admin Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin', 'Primo Admin', 'VMX Admin']);
+      const SUPERADMIN_NAMES = new Set(['Love', 'Admin Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin', 'Primo Admin', 'Sab Admin', 'VMX Admin']);
       // 2026-10-15: SUPERADMIN = real agent na (tag lang, hindi bot)
       const botTag = (m.senderType === 'user' && SUPERADMIN_NAMES.has(m.senderName))
         ? ` <span class="bot-tag" title="Superadmin — bilang na real agent">SUPERADMIN</span>`
@@ -3414,7 +3416,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
   ]);
   // SUPERADMIN = REAL AGENT (2026-10-15, utos ni Chad): ang mga superadmin
   // login (Love, Buenas88 Admin, OM - AOM, …) ay tao na — HINDI bot.
-  const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin', 'Primo Admin', 'VMX Admin'];
+  const SUPERADMIN_NAMES_ALL = ['Love', 'OM - AOM', 'Buenas88 Admin', 'Lucky Stacks Admin', 'Hype Play PH Admin', 'Manila Play Admin', 'Casinyeam Admin', 'Mobile Casino Play Admin', 'TMTPlay Admin', 'Admin Bogchi', 'Bogchi', 'Swabe Admin', 'Primo Admin', 'Sab Admin', 'VMX Admin'];
   SUPERADMIN_NAMES_ALL.forEach(n => AI_BOT_NAMES_CLIENT.delete(n));
 
   // Brand-scoped bot personas — sync sa chatwoot.js. 'Admin Hanna' ay BOT
@@ -3428,6 +3430,7 @@ body.role-csr #exportBtn, body.is-csr #exportBtn{display:none !important;}
     swabegaming: new Set(['Admin Bea', 'Agent Bea', 'Bea']),
     primogaming: new Set(['Pixie', 'Admin Pixie', 'Agent Pixie']),   // Primo Gaming AI (bot@primo.local), 2026-10-24
     vmx: new Set(['Angeli Khang', 'Admin Angeli Khang', 'Agent Angeli Khang']),   // VMX AI (bot@cashgame.local), 2026-11-04
+  buenasplay: new Set(['Sab', 'Admin Sab', 'Agent Sab']),   // Buenas Play AI (sab.bot@buenasplay.live), 2026-11-06
   };
   function isBotClient(brand, senderName) {
     if (!senderName) return false;
